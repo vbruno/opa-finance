@@ -4,11 +4,11 @@
   "description": "",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "NODE_ENV=development node src/server.js",
+    "start": "NODE_ENV=production tsx src/server.ts",
+    "dev": "NODE_ENV=development tsx src/server.ts",
+    "build": "tsc",
     "db:generate": "drizzle-kit generate:pg",
-    "db:migrate": "drizzle-kit migrate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:migrate": "drizzle-kit migrate"
   },
   "keywords": [],
   "author": "",
