@@ -1,16 +1,32 @@
-import { db } from "../../core/plugins/drizzle";
-import { users } from "../../db/schema";
+import { eq } from "drizzle-orm";
+import { FastifyReply, FastifyRequest } from "fastify";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import { db } from "../../core/plugins/drizzle";
+import { users } from "../../db/schema";
 
-export async function registerUser(req, reply) {
-  const body = z
-    .object({
-      name: z.string(),
-      email: z.string().email(),
-      password: z.string().min(6),
-    })
-    .parse(req.body);
+const registerBodySchema = z.object({
+  name: z.string(),
+  email: z.email(),
+  password: z.string().min(6),
+});
+type RegisterBody = z.infer<typeof registerBodySchema>;
+
+export async function registerUser(
+  req: FastifyRequest<{ Body: RegisterBody }>,
+  reply: FastifyReply,
+) {
+  const body = registerBodySchema.parse(req.body);
+
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, body.email))
+    .limit(1);
+
+  if (existingUser) {
+    return reply.code(409).send({ message: "E-mail já cadastrado." });
+  }
 
   const passwordHash = await bcrypt.hash(body.password, 10);
 

@@ -1,10 +1,10 @@
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
+import { env } from "../config/env";
 
 const pool = new Pool({
-  // connectionString: process.env.DATABASE_URL,
-  connectionString: "postgresql://api_finance_api:vEhxoc-bexxu7-donhut@localhost:5432/opa_finance",
+  connectionString: env.DATABASE_URL,
 });
 
 export const db = drizzle(pool);
