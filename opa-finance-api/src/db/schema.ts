@@ -11,17 +11,9 @@ import {
 } from "drizzle-orm/pg-core";
 
 // Enums
-export const accountType = pgEnum("account_type", [
-  "checking",
-  "savings",
-  "wallet",
-  "other",
-]);
+export const accountType = pgEnum("account_type", ["checking", "savings", "wallet", "other"]);
 export const categoryType = pgEnum("category_type", ["income", "expense"]);
-export const transactionType = pgEnum("transaction_type", [
-  "income",
-  "expense",
-]);
+export const transactionType = pgEnum("transaction_type", ["income", "expense"]);
 
 // Users
 export const users = pgTable("users", {

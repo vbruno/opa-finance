@@ -1,6 +1,6 @@
-import { Pool } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { env } from "../config/env";
 
 const pool = new Pool({

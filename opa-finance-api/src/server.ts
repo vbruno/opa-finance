@@ -1,7 +1,7 @@
-import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import { config } from "dotenv";
+import Fastify from "fastify";
 import { env } from "./core/config/env";
 
 config();

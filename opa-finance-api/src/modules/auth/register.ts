@@ -1,6 +1,6 @@
+import bcrypt from "bcrypt";
 import { eq } from "drizzle-orm";
 import { FastifyReply, FastifyRequest } from "fastify";
-import bcrypt from "bcrypt";
 import { z } from "zod";
 import { db } from "../../core/plugins/drizzle";
 import { users } from "../../db/schema";
