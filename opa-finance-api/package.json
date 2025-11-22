@@ -8,6 +8,7 @@
     "build": "tsc",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "seed": "tsx src/db/seed.ts",
     "lint": "eslint . --ext .ts --config eslint.config.ts",
     "lint:fix": "eslint . --ext .ts --fix --config eslint.config.ts",
     "format": "prettier --write ."
