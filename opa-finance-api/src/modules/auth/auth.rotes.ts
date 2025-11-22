@@ -1,33 +1,81 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from "./auth.schemas";
+import { FastifyInstance } from "fastify";
+import { registerSchema, loginSchema } from "./auth.schemas";
 import { AuthService } from "./auth.service";
 
 export async function authRoutes(app: FastifyInstance) {
-  const service = new AuthService();
+  const service = new AuthService(app);
 
-  app.post(
-    "/auth/register",
-    async (req: FastifyRequest<{ Body: RegisterInput }>, reply: FastifyReply) => {
-      const data = registerSchema.parse(req.body);
+  // Registro
+  app.post("/auth/register", async (req, reply) => {
+    const data = registerSchema.parse(req.body);
 
-      const user = await service.register(data);
+    const user = await service.register(data);
 
-      return reply.status(201).send({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt,
-      });
-    },
-  );
+    const accessToken = service.generateAccessToken(user.id);
+    const refreshToken = service.generateRefreshToken(user.id);
 
-  app.post("/auth/login", async (req: FastifyRequest<{ Body: LoginInput }>) => {
+    // set cookie do refresh token
+    reply.setCookie("refreshToken", refreshToken, {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return reply.status(201).send({ accessToken });
+  });
+
+  // Login
+  app.post("/auth/login", async (req, reply) => {
     const data = loginSchema.parse(req.body);
 
     const user = await service.login(data);
 
-    const token = app.jwt.sign({ sub: user.id });
+    const accessToken = service.generateAccessToken(user.id);
+    const refreshToken = service.generateRefreshToken(user.id);
 
-    return { token };
+    reply.setCookie("refreshToken", refreshToken, {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return { accessToken };
+  });
+
+  // Refresh Token
+  app.post("/auth/refresh", async (req, reply) => {
+    try {
+      const payload = await req.jwtVerify({ onlyCookie: true });
+
+      const accessToken = service.generateAccessToken(payload.sub);
+      const refreshToken = service.generateRefreshToken(payload.sub);
+
+      reply.setCookie("refreshToken", refreshToken, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return { accessToken };
+    } catch {
+      return reply.status(401).send({ message: "Invalid refresh token" });
+    }
+  });
+
+  // /me
+  app.get("/auth/me", { preHandler: [app.authenticate] }, async (req) => {
+    return { userId: req.user.sub };
+  });
+
+  // Logout
+  app.post("/auth/logout", async (_, reply) => {
+    reply.clearCookie("refreshToken");
+    return { message: "Logged out" };
   });
 }

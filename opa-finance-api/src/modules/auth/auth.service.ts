@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { FastifyInstance } from "fastify/types/instance";
 import { db } from "../../core/plugins/drizzle";
 import { hashPassword } from "../../core/utils/hash";
 import { comparePassword } from "../../core/utils/hash";
@@ -7,11 +8,13 @@ import type { RegisterInput } from "./auth.schemas";
 import type { LoginInput } from "./auth.schemas";
 
 export class AuthService {
+  constructor(private app: FastifyInstance) {}
+
   async register(data: RegisterInput) {
     // verificar se email já existe
-    const existing = await db.select().from(users).where(eq(users.email, data.email)).limit(1);
+    const exists = await db.select().from(users).where(eq(users.email, data.email)).limit(1);
 
-    if (existing.length > 0) {
+    if (exists.length > 0) {
       throw new Error("E-mail já cadastrado.");
     }
 
@@ -43,5 +46,13 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  generateAccessToken(userId: string) {
+    return this.app.jwt.sign({ sub: userId }, { expiresIn: "15m" });
+  }
+
+  generateRefreshToken(userId: string) {
+    return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d" });
   }
 }
