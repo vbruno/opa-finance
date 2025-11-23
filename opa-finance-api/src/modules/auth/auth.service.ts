@@ -6,6 +6,7 @@ import { comparePassword } from "../../core/utils/hash.utils";
 import { users } from "../../db/schema";
 import type { RegisterInput } from "./auth.schemas";
 import type { LoginInput } from "./auth.schemas";
+import { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
 
 export class AuthService {
   constructor(private app: FastifyInstance) {}
@@ -56,5 +57,48 @@ export class AuthService {
 
   generateRefreshToken(userId: string) {
     return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d" });
+  }
+
+  async changePassword(userId: string, data: ChangePasswordInput) {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+
+    if (!user) throw new Error("Usuário não encontrado");
+
+    const valid = await comparePassword(data.currentPassword, user.passwordHash);
+    if (!valid) throw new Error("Senha atual incorreta.");
+
+    const newHash = await hashPassword(data.newPassword);
+
+    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
+
+    return { message: "Senha alterada com sucesso." };
+  }
+
+  async forgotPassword(email: string) {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+
+    if (!user) throw new Error("Usuário não encontrado.");
+
+    const token = this.app.jwt.sign({ sub: user.id, type: "reset" }, { expiresIn: "15m" });
+
+    return { resetToken: token, email: user.email };
+  }
+
+  async resetPassword(data: ResetPasswordInput) {
+    const payload = this.app.jwt.verify(data.token) as any;
+
+    if (payload.type !== "reset") {
+      throw new Error("Token inválido.");
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, payload.sub));
+
+    if (!user) throw new Error("Usuário não encontrado.");
+
+    const newHash = await hashPassword(data.newPassword);
+
+    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, payload.sub));
+
+    return { message: "Senha redefinida com sucesso." };
   }
 }

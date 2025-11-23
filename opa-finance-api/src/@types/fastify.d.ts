@@ -43,7 +43,7 @@ declare module "fastify" {
 
 declare module "@fastify/jwt" {
   interface FastifyJWT {
-    payload: { sub: string }; // payload que você envia no sign()
-    user: { sub: string }; // payload já validado
+    payload: { sub: string; type?: string }; // payload que você envia no sign()
+    user: { sub: string; type?: string }; // payload já validado
   }
 }

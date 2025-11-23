@@ -2,6 +2,11 @@ import { FastifyInstance } from "fastify";
 import { getPasswordStrength } from "../../core/utils/passwords.utils";
 import { registerSchema, loginSchema } from "./auth.schemas";
 import { AuthService } from "./auth.service";
+import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "./password.schemas";
 
 export async function authRoutes(app: FastifyInstance) {
   const service = new AuthService(app);
@@ -80,8 +85,40 @@ export async function authRoutes(app: FastifyInstance) {
     return { message: "Logged out" };
   });
 
+  // Check Password Strength
   app.post("/auth/check-password-strength", async (req) => {
     const { password } = req.body as { password: string };
     return { strength: getPasswordStrength(password) };
+  });
+
+  // Change Password
+  app.post("/auth/change-password", { preHandler: [app.authenticate] }, async (req, reply) => {
+    const data = changePasswordSchema.parse(req.body);
+    const userId = req.user.sub;
+
+    const result = await service.changePassword(userId, data);
+
+    return reply.send(result);
+  });
+
+  // Forgot Password
+  app.post("/auth/forgot-password", async (req, reply) => {
+    const data = forgotPasswordSchema.parse(req.body);
+
+    const result = await service.forgotPassword(data.email);
+
+    return reply.send({
+      message: "Se o email existir, enviaremos um link de redefinição.",
+      resetToken: result.resetToken, // para debug, remova em produção
+    });
+  });
+
+  // Reset Password
+  app.post("/auth/reset-password", async (req, reply) => {
+    const data = resetPasswordSchema.parse(req.body);
+
+    const result = await service.resetPassword(data);
+
+    return reply.send(result);
   });
 }
