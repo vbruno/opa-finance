@@ -11,20 +11,21 @@ export class AuthService {
   constructor(private app: FastifyInstance) {}
 
   async register(data: RegisterInput) {
+    const { confirmPassword, ...userData } = data;
     // verificar se email já existe
-    const exists = await db.select().from(users).where(eq(users.email, data.email)).limit(1);
+    const exists = await db.select().from(users).where(eq(users.email, userData.email)).limit(1);
 
     if (exists.length > 0) {
       throw new Error("E-mail já cadastrado.");
     }
 
-    const passwordHash = await hashPassword(data.password);
+    const passwordHash = await hashPassword(userData.password);
 
     const [user] = await db
       .insert(users)
       .values({
-        name: data.name,
-        email: data.email,
+        name: userData.name,
+        email: userData.email,
         passwordHash,
       })
       .returning();
