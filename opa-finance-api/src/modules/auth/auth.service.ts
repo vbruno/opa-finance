@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "../../core/plugins/drizzle";
-import { hashPassword } from "../../core/utils/hash";
-import { comparePassword } from "../../core/utils/hash";
+import { hashPassword } from "../../core/utils/hash.utils";
+import { comparePassword } from "../../core/utils/hash.utils";
 import { users } from "../../db/schema";
 import type { RegisterInput } from "./auth.schemas";
 import type { LoginInput } from "./auth.schemas";
@@ -11,6 +11,7 @@ export class AuthService {
   constructor(private app: FastifyInstance) {}
 
   async register(data: RegisterInput) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { confirmPassword, ...userData } = data;
     // verificar se email já existe
     const exists = await db.select().from(users).where(eq(users.email, userData.email)).limit(1);

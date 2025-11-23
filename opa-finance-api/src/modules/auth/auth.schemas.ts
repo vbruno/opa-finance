@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { strongPasswordSchema } from "./password.schemas";
 
 // 📌 Schema de Registro com comparação de senha
 export const registerSchema = z
@@ -8,11 +9,8 @@ export const registerSchema = z
       .min(3, "O nome deve ter pelo menos 3 caracteres.")
       .max(255, "O nome é muito longo."),
     email: z.email("Formato de e-mail inválido.").max(255, "O e-mail é muito longo."),
-    password: z
-      .string()
-      .min(6, "A senha deve ter pelo menos 6 caracteres.")
-      .max(255, "A senha é muito longa."),
-    confirmPassword: z.string().min(6, "A confirmação deve ter pelo menos 6 caracteres."),
+    password: strongPasswordSchema,
+    confirmPassword: z.string().min(8, "A confirmação deve ter pelo menos 8 caracteres."),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não conferem.",

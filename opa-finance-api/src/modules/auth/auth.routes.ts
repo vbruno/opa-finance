@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { getPasswordStrength } from "../../core/utils/passwords.utils";
 import { registerSchema, loginSchema } from "./auth.schemas";
 import { AuthService } from "./auth.service";
 
@@ -77,5 +78,10 @@ export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/logout", async (_, reply) => {
     reply.clearCookie("refreshToken");
     return { message: "Logged out" };
+  });
+
+  app.post("/auth/check-password-strength", async (req) => {
+    const { password } = req.body as { password: string };
+    return { strength: getPasswordStrength(password) };
   });
 }
