@@ -49,7 +49,7 @@ export async function authRoutes(app: FastifyInstance) {
   // Refresh Token
   app.post("/auth/refresh", async (req, reply) => {
     try {
-      const payload = await req.jwtVerify({ onlyCookie: true });
+      const payload = await req.jwtVerify<{ sub: string }>({ onlyCookie: true });
 
       const accessToken = service.generateAccessToken(payload.sub);
       const refreshToken = service.generateRefreshToken(payload.sub);
