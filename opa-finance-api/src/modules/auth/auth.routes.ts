@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { getPasswordStrength } from "../../core/utils/passwords.utils";
 import { registerSchema, loginSchema } from "./auth.schemas";
 import { AuthService } from "./auth.service";
@@ -9,47 +9,54 @@ import {
 } from "./password.schemas";
 
 export async function authRoutes(app: FastifyInstance) {
-  const service = new AuthService(app);
+  const service = new AuthService(app, app.db);
 
   // Registro
   app.post("/auth/register", async (req, reply) => {
-    const data = registerSchema.parse(req.body);
+    try {
+      const data = registerSchema.parse(req.body);
 
-    const user = await service.register(data);
+      const user = await service.register(data);
 
-    const accessToken = service.generateAccessToken(user.id);
-    const refreshToken = service.generateRefreshToken(user.id);
+      const accessToken = service.generateAccessToken(user.id);
+      const refreshToken = service.generateRefreshToken(user.id);
 
-    // set cookie do refresh token
-    reply.setCookie("refreshToken", refreshToken, {
-      path: "/",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      reply.setCookie("refreshToken", refreshToken, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
+      });
 
-    return reply.status(201).send({ accessToken });
+      return reply.status(201).send({ accessToken });
+    } catch (err: any) {
+      return reply.status(400).send({ message: err.message });
+    }
   });
 
   // Login
   app.post("/auth/login", async (req, reply) => {
-    const data = loginSchema.parse(req.body);
+    try {
+      const data = loginSchema.parse(req.body);
 
-    const user = await service.login(data);
+      const user = await service.login(data);
 
-    const accessToken = service.generateAccessToken(user.id);
-    const refreshToken = service.generateRefreshToken(user.id);
+      const accessToken = service.generateAccessToken(user.id);
+      const refreshToken = service.generateRefreshToken(user.id);
 
-    reply.setCookie("refreshToken", refreshToken, {
-      path: "/",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      reply.setCookie("refreshToken", refreshToken, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
+      });
 
-    return { accessToken };
+      return { accessToken };
+    } catch (err: any) {
+      return reply.status(400).send({ message: err.message });
+    }
   });
 
   // Refresh Token
@@ -93,32 +100,46 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Change Password
   app.post("/auth/change-password", { preHandler: [app.authenticate] }, async (req, reply) => {
-    const data = changePasswordSchema.parse(req.body);
-    const userId = req.user.sub;
+    try {
+      const data = changePasswordSchema.parse(req.body);
+      const userId = req.user.sub;
 
-    const result = await service.changePassword(userId, data);
+      const result = await service.changePassword(userId, data);
 
-    return reply.send(result);
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ message: err.message });
+    }
   });
 
   // Forgot Password
   app.post("/auth/forgot-password", async (req, reply) => {
-    const data = forgotPasswordSchema.parse(req.body);
+    try {
+      const data = forgotPasswordSchema.parse(req.body);
 
-    const result = await service.forgotPassword(data.email);
+      const result = await service.forgotPassword(data.email);
 
-    return reply.send({
-      message: "Se o email existir, enviaremos um link de redefinição.",
-      resetToken: result.resetToken, // para debug, remova em produção
-    });
+      return reply.send({
+        message: "Se o email existir, enviaremos um link de redefinição.",
+        resetToken: result.resetToken,
+      });
+    } catch (_err) {
+      return reply.send({
+        message: "Se o email existir, enviaremos um link de redefinição.",
+      });
+    }
   });
 
   // Reset Password
   app.post("/auth/reset-password", async (req, reply) => {
-    const data = resetPasswordSchema.parse(req.body);
+    try {
+      const data = resetPasswordSchema.parse(req.body);
 
-    const result = await service.resetPassword(data);
+      const result = await service.resetPassword(data);
 
-    return reply.send(result);
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ message: err.message });
+    }
   });
 }

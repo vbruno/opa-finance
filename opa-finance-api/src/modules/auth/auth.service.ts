@@ -1,21 +1,24 @@
 import { eq } from "drizzle-orm";
-import { FastifyInstance } from "fastify/types/instance";
-import { db } from "../../core/plugins/drizzle";
-import { hashPassword } from "../../core/utils/hash.utils";
-import { comparePassword } from "../../core/utils/hash.utils";
+import type { FastifyInstance } from "fastify";
+import { hashPassword, comparePassword } from "../../core/utils/hash.utils";
 import { users } from "../../db/schema";
-import type { RegisterInput } from "./auth.schemas";
-import type { LoginInput } from "./auth.schemas";
-import { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
+import type { RegisterInput, LoginInput } from "./auth.schemas";
+import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
 
 export class AuthService {
-  constructor(private app: FastifyInstance) {}
+  constructor(
+    private app: FastifyInstance,
+    private db: any, // Postgres DB (prod/test)
+  ) {}
 
   async register(data: RegisterInput) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { confirmPassword, ...userData } = data;
-    // verificar se email já existe
-    const exists = await db.select().from(users).where(eq(users.email, userData.email)).limit(1);
+
+    const exists = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, userData.email))
+      .limit(1);
 
     if (exists.length > 0) {
       throw new Error("E-mail já cadastrado.");
@@ -23,7 +26,7 @@ export class AuthService {
 
     const passwordHash = await hashPassword(userData.password);
 
-    const [user] = await db
+    const [user] = await this.db
       .insert(users)
       .values({
         name: userData.name,
@@ -36,17 +39,13 @@ export class AuthService {
   }
 
   async login(data: LoginInput) {
-    const [user] = await db.select().from(users).where(eq(users.email, data.email)).limit(1);
+    const [user] = await this.db.select().from(users).where(eq(users.email, data.email)).limit(1);
 
-    if (!user) {
-      throw new Error("Credenciais inválidas.");
-    }
+    if (!user) throw new Error("Credenciais inválidas.");
 
     const valid = await comparePassword(data.password, user.passwordHash);
 
-    if (!valid) {
-      throw new Error("Credenciais inválidas.");
-    }
+    if (!valid) throw new Error("Credenciais inválidas.");
 
     return user;
   }
@@ -60,22 +59,22 @@ export class AuthService {
   }
 
   async changePassword(userId: string, data: ChangePasswordInput) {
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId));
 
-    if (!user) throw new Error("Usuário não encontrado");
+    if (!user) throw new Error("Usuário não encontrado.");
 
     const valid = await comparePassword(data.currentPassword, user.passwordHash);
     if (!valid) throw new Error("Senha atual incorreta.");
 
     const newHash = await hashPassword(data.newPassword);
 
-    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
+    await this.db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
 
     return { message: "Senha alterada com sucesso." };
   }
 
   async forgotPassword(email: string) {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await this.db.select().from(users).where(eq(users.email, email));
 
     if (!user) throw new Error("Usuário não encontrado.");
 
@@ -91,13 +90,13 @@ export class AuthService {
       throw new Error("Token inválido.");
     }
 
-    const [user] = await db.select().from(users).where(eq(users.id, payload.sub));
+    const [user] = await this.db.select().from(users).where(eq(users.id, payload.sub));
 
     if (!user) throw new Error("Usuário não encontrado.");
 
     const newHash = await hashPassword(data.newPassword);
 
-    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, payload.sub));
+    await this.db.update(users).set({ passwordHash: newHash }).where(eq(users.id, payload.sub));
 
     return { message: "Senha redefinida com sucesso." };
   }

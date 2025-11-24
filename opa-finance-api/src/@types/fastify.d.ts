@@ -1,14 +1,23 @@
 import "fastify";
 import "@fastify/jwt";
+
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import * as schema from "../db/schema";
+
 declare module "fastify" {
   interface FastifyRequest {
     user: {
       sub: string;
+      type?: string;
     };
   }
 
   interface FastifyInstance {
+    // Método de autenticação JWT
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+
+    // Banco de dados (Postgres em produção, SQLite em testes)
+    db: BetterSQLite3Database<typeof schema> | any;
   }
 
   interface FastifyReply {
@@ -27,6 +36,7 @@ declare module "fastify" {
         overwrite?: boolean;
       },
     ): this;
+
     clearCookie(
       name: string,
       options?: {
@@ -43,7 +53,16 @@ declare module "fastify" {
 
 declare module "@fastify/jwt" {
   interface FastifyJWT {
-    payload: { sub: string; type?: string }; // payload que você envia no sign()
-    user: { sub: string; type?: string }; // payload já validado
+    // Payload gerado no sign()
+    payload: {
+      sub: string;
+      type?: string; // permite "reset", "access", etc
+    };
+
+    // O que aparece em req.user após verify()
+    user: {
+      sub: string;
+      type?: string;
+    };
   }
 }
