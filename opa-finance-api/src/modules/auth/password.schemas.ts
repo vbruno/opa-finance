@@ -39,7 +39,6 @@ export type StrongPassword = z.infer<typeof strongPasswordSchema>;
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, { message: "A senha atual é obrigatória." }),
-
     newPassword: strongPasswordSchema,
 
     confirmNewPassword: z
