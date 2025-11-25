@@ -21,8 +21,19 @@ beforeAll(async () => {
   app.register(cookie, {
     secret: env.JWT_SECRET,
   });
-
   app.register(jwtPlugin);
+  app.addContentTypeParser("application/json", { parseAs: "buffer" }, function (req, body, done) {
+    try {
+      // body pode ser string, Buffer ou undefined
+      const str = body ? body.toString() : "{}";
+      const json = JSON.parse(str);
+      done(null, json);
+    } catch (err) {
+      done(err as Error);
+    }
+  });
+
+  // Registro das rotas
   app.register(authRoutes);
 
   await app.ready();

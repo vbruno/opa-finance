@@ -5,6 +5,7 @@ import { AuthService } from "./auth.service";
 import {
   changePasswordSchema,
   forgotPasswordSchema,
+  passwordStrengthSchema,
   resetPasswordSchema,
 } from "./password.schemas";
 
@@ -93,9 +94,14 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Check Password Strength
-  app.post("/auth/check-password-strength", async (req) => {
-    const { password } = req.body as { password: string };
-    return { strength: getPasswordStrength(password) };
+  app.post("/auth/check-password-strength", async (req, reply) => {
+    try {
+      const { password } = passwordStrengthSchema.parse(req.body);
+      const strength = getPasswordStrength(password);
+      return reply.send({ strength });
+    } catch (err: any) {
+      return reply.status(400).send({ message: err.message });
+    }
   });
 
   // Change Password
@@ -123,7 +129,7 @@ export async function authRoutes(app: FastifyInstance) {
         message: "Se o email existir, enviaremos um link de redefinição.",
         resetToken: result.resetToken,
       });
-    } catch (_err) {
+    } catch {
       return reply.send({
         message: "Se o email existir, enviaremos um link de redefinição.",
       });

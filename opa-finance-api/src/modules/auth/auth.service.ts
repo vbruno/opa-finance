@@ -12,6 +12,7 @@ export class AuthService {
   ) {}
 
   async register(data: RegisterInput) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { confirmPassword, ...userData } = data;
 
     const exists = await this.db

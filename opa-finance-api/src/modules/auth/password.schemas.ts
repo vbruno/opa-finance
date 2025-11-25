@@ -75,3 +75,9 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+export const passwordStrengthSchema = z.object({
+  password: z.string().min(1, "A senha é obrigatória."),
+});
+
+export type PasswordStrengthInput = z.infer<typeof passwordStrengthSchema>;
