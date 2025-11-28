@@ -1,15 +1,17 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import * as schema from "../../db/schema";
 
-export async function createTestDB() {
+export type DB = NodePgDatabase<typeof schema>;
+
+export async function createTestDB(): Promise<DB> {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL_TEST,
   });
 
-  const db = drizzle(pool, { schema });
+  const db: DB = drizzle(pool, { schema });
 
   // limpa todas as tabelas sem precisar de permissões de schema
   for (const table of Object.values(schema)) {

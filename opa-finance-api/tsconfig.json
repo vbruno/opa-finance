@@ -16,7 +16,14 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "moduleResolution": "node16"
+    "moduleResolution": "node16",
+
+    "ignoreDeprecations": "6.0",
+
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
   },
   "include": ["src", "src/@types", "test"],
   "exclude": ["node_modules", "dist"]

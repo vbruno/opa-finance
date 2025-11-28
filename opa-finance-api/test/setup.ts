@@ -3,15 +3,15 @@ import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
-import { createTestDB } from "../src/core/plugins/drizzle-test";
+import { createTestDB, DB } from "../src/core/plugins/drizzle-test";
 import jwtPlugin from "../src/core/plugins/jwt";
 import { authRoutes } from "../src/modules/auth/auth.routes";
 
-export async function buildTestApp() {
+export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> {
   const app: FastifyInstance = Fastify();
 
   // Banco de teste (Postgres em memória ou isolado)
-  const db = await createTestDB();
+  const db: DB = await createTestDB();
 
   // 🔥 Injeta o banco de teste na instância, igual no server real
   app.decorate("db", db);

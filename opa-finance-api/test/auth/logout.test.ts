@@ -1,13 +1,12 @@
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { hashPassword } from "../../src/core/utils/hash.utils";
 import { users } from "../../src/db/schema";
-import * as schema from "../../src/db/schema";
 import { buildTestApp } from "../setup";
+import { DB } from "@/core/plugins/drizzle-test";
 
 let app: FastifyInstance;
-let db: NodePgDatabase<typeof schema>;
+let db: DB;
 
 describe.sequential("Rota /auth/logout", () => {
   beforeEach(async () => {
