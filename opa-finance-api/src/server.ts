@@ -6,6 +6,7 @@ import { env } from "./core/config/env";
 import { db } from "./core/plugins/drizzle"; // <-- SE VOCÊ USA DB NO SERVER REAL
 import jwtPlugin from "./core/plugins/jwt";
 import { authRoutes } from "./modules/auth/auth.routes";
+import { userRoutes } from "./modules/users/user.routes";
 
 config();
 
@@ -39,6 +40,7 @@ async function start() {
 
   // Rotas
   app.register(authRoutes);
+  app.register(userRoutes);
 
   // Rota teste
   app.get("/", () => {

@@ -31,23 +31,33 @@ export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 
 // 📌 PUT /users/:id — atualizar
 export const updateUserParamsSchema = z.object({
-  id: z.uuid(),
+  id: z
+    .string()
+    .regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/),
 });
+
+export type UpdateUserParams = z.infer<typeof updateUserParamsSchema>;
 
 export const updateUserBodySchema = z
   .object({
     name: z.string().min(3).max(255).optional(),
     email: z.email().max(255).optional(),
   })
-  .refine((body) => Object.keys(body).length > 0, {
-    message: "Pelo menos um campo deve ser atualizado.",
-  });
+  .refine(
+    (body) => {
+      return body.name !== undefined || body.email !== undefined;
+    },
+    {
+      message: "Pelo menos um campo deve ser atualizado.",
+    },
+  );
 
 export type UpdateUserBody = z.infer<typeof updateUserBodySchema>;
-export type UpdateUserParams = z.infer<typeof updateUserParamsSchema>;
 
 // 📌 DELETE /users/:id
 export const deleteUserParamsSchema = z.object({
-  id: z.uuid(),
+  id: z
+    .string()
+    .regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/),
 });
 export type DeleteUserParams = z.infer<typeof deleteUserParamsSchema>;

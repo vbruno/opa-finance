@@ -8,7 +8,7 @@ import { buildTestApp } from "../setup";
 let app: FastifyInstance;
 let db: DB;
 
-describe("GET /users/:id", () => {
+describe.sequential("GET /users/:id", () => {
   beforeEach(async () => {
     const built = await buildTestApp();
     app = built.app;

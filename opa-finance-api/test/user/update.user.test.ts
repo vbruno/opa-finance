@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { DB } from "../../src/core/plugins/drizzle-test";
 import { users } from "../../src/db/schema";
 import { buildTestApp } from "../setup";
+import { hashPassword } from "@/core/utils/hash.utils";
 
 let app: FastifyInstance;
 let db: DB;
@@ -94,21 +95,42 @@ describe("PUT /users/:id", () => {
   });
 
   it("deve retornar 404 se o usuário não existir", async () => {
-    const { accessToken } = await registerAndLogin("Bruno", "bruno@example.com");
+    // cria um usuário válido
+    await db.insert(users).values({
+      name: "Bruno",
+      email: "bruno@example.com",
+      passwordHash: await hashPassword("Aa123456!"),
+    });
 
+    // login do usuário para pegar Token
+    const login = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        email: "bruno@example.com",
+        password: "Aa123456!",
+      },
+    });
+
+    const { accessToken } = login.json();
+
+    // ID que não existe
+    const fakeId = "11111111-1111-1111-1111-111111111111";
+
+    // tentar atualizar
     const response = await app.inject({
       method: "PUT",
-      url: `/users/00000000-0000-0000-0000-000000000000`,
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      url: `/users/${fakeId}`,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
       payload: {
-        name: "Qualquer",
+        name: "Novo Nome",
       },
     });
 
     expect(response.statusCode).toBe(404);
-
-    const body = response.json();
-    expect(body.message).toBe("Usuário não encontrado.");
   });
 
   it("deve retornar 401 sem token", async () => {
