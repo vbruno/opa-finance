@@ -1,11 +1,26 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { FastifyInstance } from "fastify";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { hashPassword } from "../../src/core/utils/hash.utils";
 import { users } from "../../src/db/schema";
-import { app, db } from "../setup";
+import * as schema from "../../src/db/schema";
+import { buildTestApp } from "../setup";
 
-describe("Rota /auth/logout", () => {
+let app: FastifyInstance;
+let db: NodePgDatabase<typeof schema>;
+
+describe.sequential("Rota /auth/logout", () => {
   beforeEach(async () => {
+    const built = await buildTestApp();
+    app = built.app;
+    db = built.db;
+
+    // limpa tabela
     await db.delete(users);
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it("deve limpar o refreshToken e retornar mensagem de sucesso", async () => {
@@ -16,7 +31,7 @@ describe("Rota /auth/logout", () => {
       passwordHash: await hashPassword("Aa123456!"),
     });
 
-    // login para gerar refreshToken
+    // login gera refresh token
     const loginResponse = await app.inject({
       method: "POST",
       url: "/auth/login",
@@ -27,42 +42,34 @@ describe("Rota /auth/logout", () => {
       },
     });
 
-    const refreshCookie = loginResponse.cookies.find((c) => c.name === "refreshToken");
-    if (!refreshCookie) throw new Error("Refresh token cookie nao encontrado no loginResponse");
-    expect(refreshCookie).toBeDefined();
+    const cookie = loginResponse.cookies.find((c) => c.name === "refreshToken");
+    expect(cookie).toBeDefined();
 
     // logout
     const response = await app.inject({
       method: "POST",
       url: "/auth/logout",
       cookies: {
-        refreshToken: refreshCookie.value,
+        refreshToken: cookie!.value,
       },
     });
 
     expect(response.statusCode).toBe(200);
+    expect(response.json().message).toBe("Logout realizado com sucesso.");
 
-    const body = response.json();
-    expect(body.message).toBe("Logged out");
-
-    // cookie deve ser removido
     const cleared = response.cookies.find((c) => c.name === "refreshToken");
-    if (!cleared) throw new Error("Cookie de refreshToken nao encontrado na resposta de logout");
-
     expect(cleared).toBeDefined();
-    expect(cleared.value).toBe("");
-    expect(cleared.expires).toEqual(expect.any(Date));
+    expect(cleared!.value).toBe("");
+    expect(typeof cleared!.expires).toBe("object");
   });
 
-  it("deve funcionar mesmo sem cookie de refresh (logout idempotente)", async () => {
+  it("deve funcionar mesmo sem cookie de refresh", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/logout",
     });
 
     expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-    expect(body.message).toBe("Logged out");
+    expect(response.json().message).toBe("Logout realizado com sucesso.");
   });
 });

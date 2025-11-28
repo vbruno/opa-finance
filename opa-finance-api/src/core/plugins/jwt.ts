@@ -1,9 +1,10 @@
 import jwt from "@fastify/jwt";
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { env } from "../config/env";
 
-export default fp(async function (app: FastifyInstance) {
+export default fp(async function jwtPlugin(app: FastifyInstance) {
+  // 🔥 Registrar SOMENTE o JWT (NÃO registrar cookie aqui)
   app.register(jwt, {
     secret: env.JWT_SECRET,
     cookie: {
@@ -15,7 +16,7 @@ export default fp(async function (app: FastifyInstance) {
     },
   });
 
-  // Decorator padrão para pegar o usuário autenticado
+  // 🔥 Decorator authenticate
   app.decorate("authenticate", async function (req: FastifyRequest, reply: FastifyReply) {
     try {
       await req.jwtVerify();

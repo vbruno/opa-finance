@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { getPasswordStrength } from "../../core/utils/passwords.utils";
+import { users } from "../../db/schema";
 import { registerSchema, loginSchema } from "./auth.schemas";
 import { AuthService } from "./auth.service";
 import {
@@ -83,14 +85,35 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // /me
-  app.get("/auth/me", { preHandler: [app.authenticate] }, async (req) => {
-    return { userId: req.user.sub };
+  app.get("/auth/me", { preHandler: [app.authenticate] }, async (req, reply) => {
+    try {
+      const userId = req.user.sub;
+
+      const [user] = await app.db.select().from(users).where(eq(users.id, userId));
+
+      if (!user) {
+        return reply.status(404).send({ message: "Usuário não encontrado." });
+      }
+
+      // remove passwordHash do retorno
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { passwordHash, ...publicUser } = user;
+
+      return reply.send(publicUser);
+    } catch {
+      return reply.status(401).send({ message: "Token inválido." });
+    }
   });
 
   // Logout
-  app.post("/auth/logout", async (_, reply) => {
-    reply.clearCookie("refreshToken");
-    return { message: "Logged out" };
+  app.post("/auth/logout", async (req, reply) => {
+    reply.clearCookie("refreshToken", {
+      path: "/",
+    });
+
+    return reply.status(200).send({
+      message: "Logout realizado com sucesso.",
+    });
   });
 
   // Check Password Strength

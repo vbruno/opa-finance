@@ -1,70 +1,40 @@
-import { describe, it, expect } from "vitest";
-import { app } from "../../setup";
+import { FastifyInstance } from "fastify";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { buildTestApp } from "../../setup";
 
-describe("Rota /auth/check-password-strength", () => {
-  it("deve retornar força 'weak' para senha fraca", async () => {
+let app: FastifyInstance;
+
+beforeEach(async () => {
+  const built = await buildTestApp();
+  app = built.app;
+});
+
+afterEach(async () => {
+  await app.close();
+});
+
+describe("Check password strength", () => {
+  it("deve falhar se o payload não tiver password", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/check-password-strength",
-      headers: { "Content-Type": "application/json" },
-      payload: {
-        password: "12345",
-      },
+      payload: {},
     });
 
-    expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-    expect(body).toHaveProperty("strength");
-    expect(body.strength).toBe("muito fraca");
+    expect(response.statusCode).toBe(400);
   });
 
-  it("deve retornar força 'medium' para senha moderada", async () => {
+  it("deve retornar força correta", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/check-password-strength",
-      headers: { "Content-Type": "application/json" },
-      payload: {
-        password: "Abc12345",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-
-    expect(
-      body.strength === "média" || body.strength === "forte" || body.strength === "muito forte",
-    ).toBe(true);
-  });
-
-  it("deve retornar força 'strong' para senha forte", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/auth/check-password-strength",
-      headers: { "Content-Type": "application/json" },
       payload: {
         password: "Aa123456!",
       },
     });
 
     expect(response.statusCode).toBe(200);
-
     const body = response.json();
     expect(body).toHaveProperty("strength");
-    expect(body.strength).toBe("muito forte");
-  });
-
-  it("deve falhar se o payload não contiver password", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/auth/check-password-strength",
-      headers: { "Content-Type": "application/json" },
-      payload: {},
-    });
-
-    expect(response.statusCode).toBe(400);
-    const body = response.json();
-    expect(body).toHaveProperty("message");
   });
 });

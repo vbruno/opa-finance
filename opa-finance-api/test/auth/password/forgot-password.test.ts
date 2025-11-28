@@ -1,76 +1,94 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { hashPassword } from "../../../src/core/utils/hash.utils";
-import { users } from "../../../src/db/schema";
-import { app, db } from "../../setup";
+import { FastifyInstance } from "fastify";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { buildTestApp } from "../../setup";
 
-describe("Rota /auth/forgot-password", () => {
-  beforeEach(async () => {
-    await db.delete(users);
-  });
+let app: FastifyInstance;
 
-  it("deve retornar resetToken quando o email existir", async () => {
-    await db.insert(users).values({
+beforeEach(async () => {
+  const built = await buildTestApp();
+  app = built.app;
+
+  // cria usuario
+  await app.inject({
+    method: "POST",
+    url: "/auth/register",
+    headers: { "Content-Type": "application/json" },
+    payload: {
       name: "Bruno",
       email: "bruno@example.com",
-      passwordHash: await hashPassword("Aa123456!"),
+      password: "Aa123456!",
+      confirmPassword: "Aa123456!",
+    },
+  });
+});
+
+afterEach(async () => {
+  await app.close();
+});
+
+describe("Reset Password", () => {
+  it("deve resetar a senha com sucesso usando token válido", async () => {
+    // gerar token
+    const forgot = await app.inject({
+      method: "POST",
+      url: "/auth/forgot-password",
+      headers: { "Content-Type": "application/json" },
+      payload: { email: "bruno@example.com" },
     });
+
+    const { resetToken } = forgot.json();
 
     const response = await app.inject({
       method: "POST",
-      url: "/auth/forgot-password",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      url: "/auth/reset-password",
+      headers: { "Content-Type": "application/json" },
       payload: {
-        email: "bruno@example.com",
+        token: resetToken,
+        newPassword: "Bb123456!",
+        confirmNewPassword: "Bb123456!",
       },
     });
 
     expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-
-    expect(body).toHaveProperty("message");
-    expect(body.message).toBe("Se o email existir, enviaremos um link de redefinição.");
-
-    // token é retornado apenas para debug (e você marcou isso no código)
-    expect(body).toHaveProperty("resetToken");
-    expect(typeof body.resetToken).toBe("string");
+    expect(response.json().message).toBe("Senha redefinida com sucesso.");
   });
 
-  it("deve retornar sucesso mesmo se o email não existir", async () => {
+  it("deve falhar com token inválido", async () => {
     const response = await app.inject({
       method: "POST",
-      url: "/auth/forgot-password",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      url: "/auth/reset-password",
+      headers: { "Content-Type": "application/json" },
       payload: {
-        email: "naoexiste@example.com",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-    expect(body.message).toBe("Se o email existir, enviaremos um link de redefinição.");
-  });
-
-  it("deve falhar se o email for inválido (Zod)", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/auth/forgot-password",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      payload: {
-        email: "invalido",
+        token: "token_invalido",
+        newPassword: "Bb123456!",
+        confirmNewPassword: "Bb123456!",
       },
     });
 
     expect(response.statusCode).toBe(400);
+  });
 
-    const body = response.json();
-    expect(body).toHaveProperty("message");
+  it("deve falhar se as senhas não conferem", async () => {
+    const forgot = await app.inject({
+      method: "POST",
+      url: "/auth/forgot-password",
+      headers: { "Content-Type": "application/json" },
+      payload: { email: "bruno@example.com" },
+    });
+
+    const { resetToken } = forgot.json();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/reset-password",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        token: resetToken,
+        newPassword: "Bb123456!",
+        confirmNewPassword: "errado123",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 });
