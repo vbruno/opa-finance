@@ -1,11 +1,13 @@
+// account.service.ts
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
+import type { CreateAccountInput, UpdateAccountInput } from "./account.schemas";
 import { accounts, transactions } from "@/db/schema";
 
 export class AccountService {
   constructor(private app: FastifyInstance) {}
 
-  async create(userId: string, data: any) {
+  async create(userId: string, data: CreateAccountInput) {
     const [account] = await this.app.db
       .insert(accounts)
       .values({ ...data, userId })
@@ -27,7 +29,7 @@ export class AccountService {
     return account;
   }
 
-  async update(id: string, userId: string, data: any) {
+  async update(id: string, userId: string, data: UpdateAccountInput) {
     await this.getOne(id, userId);
 
     const [updated] = await this.app.db
@@ -42,13 +44,9 @@ export class AccountService {
   async delete(id: string, userId: string) {
     await this.getOne(id, userId);
 
-    // regra: não deletar se houver transações
-    const hasTransactions = await this.app.db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.accountId, id));
+    const tx = await this.app.db.select().from(transactions).where(eq(transactions.accountId, id));
 
-    if (hasTransactions.length > 0) {
+    if (tx.length > 0) {
       throw new Error("Conta possui transações e não pode ser removida.");
     }
 
