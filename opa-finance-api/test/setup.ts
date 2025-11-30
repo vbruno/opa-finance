@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 
 import { createTestDB, DB } from "../src/core/plugins/drizzle-test";
 import jwtPlugin from "../src/core/plugins/jwt";
+import { accountRoutes } from "@/modules/accounts/account.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
 import { userRoutes } from "@/modules/users/user.routes";
 
@@ -39,6 +40,7 @@ export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> 
   // Rotas
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(accountRoutes);
 
   // Inicializa Fastify
   await app.ready();

@@ -3,8 +3,9 @@ import cors from "@fastify/cors";
 import { config } from "dotenv";
 import Fastify from "fastify";
 import { env } from "./core/config/env";
-import { db } from "./core/plugins/drizzle"; // <-- SE VOCÊ USA DB NO SERVER REAL
+import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
+import { accountRoutes } from "./modules/accounts/account.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { userRoutes } from "./modules/users/user.routes";
 
@@ -41,6 +42,7 @@ async function start() {
   // Rotas
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(accountRoutes);
 
   // Rota teste
   app.get("/", () => {
