@@ -6,13 +6,13 @@ import { users, accounts, categories, transactions } from "./schema";
 async function seed() {
   console.log("🌱 Iniciando seed do banco...");
 
-  // Limpar tabelas (ordem respeitando FK)
+  // ---------- LIMPAR TABELAS NA ORDEM CERTA ----------
   await db.execute(sql`DELETE FROM transactions`);
   await db.execute(sql`DELETE FROM categories`);
   await db.execute(sql`DELETE FROM accounts`);
   await db.execute(sql`DELETE FROM users`);
 
-  // Criar usuário inicial
+  // ---------- CRIAR USUÁRIO INICIAL ----------
   const passwordHash = await hash("123456", 10);
 
   const [user] = await db
@@ -26,28 +26,44 @@ async function seed() {
 
   console.log("✔ Usuário criado:", user.email);
 
-  // Criar contas padrão
-  const [wallet] = await db
+  // ---------- CONTAS (compátivel com seus novos enums) ----------
+  // enums: ["cash","checking_account","savings_account","credit_card","investment"]
+
+  const [cashAccount] = await db
     .insert(accounts)
     .values({
       userId: user.id,
-      name: "Carteira",
-      type: "wallet",
+      name: "Dinheiro",
+      type: "cash",
+      initialBalance: "150.00",
     })
     .returning();
 
-  const [bank] = await db
+  const [checkingAccount] = await db
     .insert(accounts)
     .values({
       userId: user.id,
       name: "Conta Corrente",
-      type: "checking",
+      type: "checking_account",
+      initialBalance: "2500.00",
+    })
+    .returning();
+
+  const [creditCard] = await db
+    .insert(accounts)
+    .values({
+      userId: user.id,
+      name: "Cartão de Crédito",
+      type: "credit_card",
+      initialBalance: "0",
     })
     .returning();
 
   console.log("✔ Contas criadas");
 
-  // Criar categorias padrão
+  // ---------- CATEGORIAS (sem color/icon, conforme seu schema atual) ----------
+  // enums: ["income","expense"]
+
   const [salary] = await db
     .insert(categories)
     .values({
@@ -77,11 +93,13 @@ async function seed() {
 
   console.log("✔ Categorias criadas");
 
-  // Criar transações iniciais
+  // ---------- TRANSAÇÕES (compatível com seu schema) ----------
+  // Campos obrigatórios: userId, accountId, categoryId, type, amount, date
+
   await db.insert(transactions).values([
     {
       userId: user.id,
-      accountId: bank.id,
+      accountId: checkingAccount.id,
       categoryId: salary.id,
       type: "income",
       amount: "4500.00",
@@ -90,27 +108,27 @@ async function seed() {
     },
     {
       userId: user.id,
-      accountId: wallet.id,
+      accountId: cashAccount.id,
       categoryId: food.id,
       type: "expense",
-      amount: "50.00",
+      amount: "42.50",
       date: "2025-01-06",
       description: "Lanche",
     },
     {
       userId: user.id,
-      accountId: wallet.id,
+      accountId: cashAccount.id,
       categoryId: transport.id,
       type: "expense",
-      amount: "30.00",
+      amount: "12.00",
       date: "2025-01-06",
       description: "Ônibus",
     },
   ]);
 
-  console.log("✔ Transações iniciais criadas");
+  console.log("✔ Transações criadas");
 
-  console.log("🌱 Seed finalizado com sucesso!");
+  console.log("🌱 Seed finalizado!");
   process.exit(0);
 }
 
