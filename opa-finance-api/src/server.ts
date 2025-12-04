@@ -7,6 +7,7 @@ import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
 import { accountRoutes } from "./modules/accounts/account.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
+import { categoryRoutes } from "./modules/categories/category.routes";
 import { userRoutes } from "./modules/users/user.routes";
 
 config();
@@ -43,6 +44,7 @@ async function start() {
   app.register(authRoutes);
   app.register(userRoutes);
   app.register(accountRoutes);
+  app.register(categoryRoutes);
 
   // Rota teste
   app.get("/", () => {

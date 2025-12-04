@@ -1,16 +1,21 @@
+// src/db/seed.ts
 import { hash } from "bcrypt";
 import { sql } from "drizzle-orm";
 import { db } from "../core/plugins/drizzle";
-import { users, accounts, categories, transactions } from "./schema";
+
+import { users, accounts, categories, subcategories, transactions } from "./schema";
 
 async function seed() {
   console.log("🌱 Iniciando seed do banco...");
 
   // ---------- LIMPAR TABELAS NA ORDEM CERTA ----------
   await db.execute(sql`DELETE FROM transactions`);
+  await db.execute(sql`DELETE FROM subcategories`);
   await db.execute(sql`DELETE FROM categories`);
   await db.execute(sql`DELETE FROM accounts`);
   await db.execute(sql`DELETE FROM users`);
+
+  console.log("✔ Tabelas limpas");
 
   // ---------- CRIAR USUÁRIO INICIAL ----------
   const passwordHash = await hash("123456", 10);
@@ -26,30 +31,28 @@ async function seed() {
 
   console.log("✔ Usuário criado:", user.email);
 
-  // ---------- CONTAS (compátivel com seus novos enums) ----------
-  // enums: ["cash","checking_account","savings_account","credit_card","investment"]
-
-  const [cashAccount] = await db
+  // ---------- CONTAS ----------
+  const [cashAcc] = await db
     .insert(accounts)
     .values({
       userId: user.id,
       name: "Dinheiro",
       type: "cash",
-      initialBalance: "150.00",
+      initialBalance: "150",
     })
     .returning();
 
-  const [checkingAccount] = await db
+  const [checkingAcc] = await db
     .insert(accounts)
     .values({
       userId: user.id,
       name: "Conta Corrente",
       type: "checking_account",
-      initialBalance: "2500.00",
+      initialBalance: "2500",
     })
     .returning();
 
-  const [creditCard] = await db
+  const [creditCardAcc] = await db
     .insert(accounts)
     .values({
       userId: user.id,
@@ -61,9 +64,7 @@ async function seed() {
 
   console.log("✔ Contas criadas");
 
-  // ---------- CATEGORIAS (sem color/icon, conforme seu schema atual) ----------
-  // enums: ["income","expense"]
-
+  // ---------- CATEGORIAS ----------
   const [salary] = await db
     .insert(categories)
     .values({
@@ -93,14 +94,46 @@ async function seed() {
 
   console.log("✔ Categorias criadas");
 
-  // ---------- TRANSAÇÕES (compatível com seu schema) ----------
-  // Campos obrigatórios: userId, accountId, categoryId, type, amount, date
+  // ---------- SUBCATEGORIAS (EXEMPLOS) ----------
+  const [foodMarket] = await db
+    .insert(subcategories)
+    .values({
+      userId: user.id,
+      categoryId: food.id,
+      name: "Supermercado",
+      type: food.type, // herda automaticamente
+    })
+    .returning();
 
+  const [foodRestaurant] = await db
+    .insert(subcategories)
+    .values({
+      userId: user.id,
+      categoryId: food.id,
+      name: "Restaurantes",
+      type: food.type,
+    })
+    .returning();
+
+  const [transportBus] = await db
+    .insert(subcategories)
+    .values({
+      userId: user.id,
+      categoryId: transport.id,
+      name: "Ônibus",
+      type: transport.type,
+    })
+    .returning();
+
+  console.log("✔ Subcategorias criadas");
+
+  // ---------- TRANSAÇÕES ----------
   await db.insert(transactions).values([
     {
       userId: user.id,
-      accountId: checkingAccount.id,
+      accountId: checkingAcc.id,
       categoryId: salary.id,
+      subcategoryId: null, // receitas não possuem subcategorias
       type: "income",
       amount: "4500.00",
       date: "2025-01-05",
@@ -108,17 +141,29 @@ async function seed() {
     },
     {
       userId: user.id,
-      accountId: cashAccount.id,
+      accountId: cashAcc.id,
       categoryId: food.id,
+      subcategoryId: foodMarket.id,
       type: "expense",
-      amount: "42.50",
+      amount: "120.00",
       date: "2025-01-06",
-      description: "Lanche",
+      description: "Compras no mercado",
     },
     {
       userId: user.id,
-      accountId: cashAccount.id,
+      accountId: cashAcc.id,
+      categoryId: food.id,
+      subcategoryId: foodRestaurant.id,
+      type: "expense",
+      amount: "45.00",
+      date: "2025-01-06",
+      description: "Almoço fora",
+    },
+    {
+      userId: user.id,
+      accountId: cashAcc.id,
       categoryId: transport.id,
+      subcategoryId: transportBus.id,
       type: "expense",
       amount: "12.00",
       date: "2025-01-06",
@@ -128,7 +173,7 @@ async function seed() {
 
   console.log("✔ Transações criadas");
 
-  console.log("🌱 Seed finalizado!");
+  console.log("🌱 Seed finalizado com sucesso!");
   process.exit(0);
 }
 
