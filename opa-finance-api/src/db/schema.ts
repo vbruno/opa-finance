@@ -10,7 +10,8 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 
-// Enums
+/* ----------------------------- ENUM DEFINITIONS ----------------------------- */
+
 export const accountTypeEnum = pgEnum("account_type", [
   "cash",
   "checking_account",
@@ -18,10 +19,13 @@ export const accountTypeEnum = pgEnum("account_type", [
   "credit_card",
   "investment",
 ]);
+
 export const categoryType = pgEnum("category_type", ["income", "expense"]);
+
 export const transactionType = pgEnum("transaction_type", ["income", "expense"]);
 
-// Users
+/* ---------------------------------- USERS ---------------------------------- */
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -30,7 +34,8 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Accounts
+/* --------------------------------- ACCOUNTS -------------------------------- */
+
 export const accounts = pgTable("accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
 
@@ -51,32 +56,75 @@ export const accounts = pgTable("accounts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Categories
+/* -------------------------------- CATEGORIES -------------------------------- */
+
 export const categories = pgTable("categories", {
   id: uuid("id").defaultRandom().primaryKey(),
+
   userId: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
   name: varchar("name", { length: 255 }).notNull(),
+
   type: categoryType("type").notNull(),
+
+  color: text("color"),
+
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Transactions
+/* ------------------------------ SUBCATEGORIES ------------------------------- */
+
+export const subcategories = pgTable("subcategories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => categories.id, { onDelete: "cascade" }),
+
+  name: text("name").notNull(),
+
+  color: text("color"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/* -------------------------------- TRANSACTIONS ------------------------------- */
+
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey(),
+
   userId: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
   accountId: uuid("account_id")
-    .references(() => accounts.id)
-    .notNull(),
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+
   categoryId: uuid("category_id")
-    .references(() => categories.id)
-    .notNull(),
+    .notNull()
+    .references(() => categories.id, { onDelete: "cascade" }),
+
+  // 🔥 Subcategoria agora é opcional (set null se deletada)
+  subcategoryId: uuid("subcategory_id").references(() => subcategories.id, {
+    onDelete: "set null",
+  }),
+
   type: transactionType("type").notNull(),
+
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+
   date: date("date").notNull(),
+
   description: text("description"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
