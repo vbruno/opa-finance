@@ -79,7 +79,6 @@ describe.sequential("GET /users/:id", () => {
     app = built.app;
     db = built.db;
 
-    // registra e loga um usuário
     await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -104,7 +103,6 @@ describe.sequential("GET /users/:id", () => {
 
     const { accessToken } = login.json();
 
-    // id inexistente
     const response = await app.inject({
       method: "GET",
       url: "/users/00000000-0000-0000-0000-000000000000",
@@ -114,7 +112,7 @@ describe.sequential("GET /users/:id", () => {
     expect(response.statusCode).toBe(404);
 
     const body = response.json();
-    expect(body.message).toBe("Usuário não encontrado.");
+    expect(body.detail).toBe("Usuário não encontrado.");
   });
 
   it("deve retornar 401 sem token", async () => {

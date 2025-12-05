@@ -82,7 +82,7 @@ describe("DELETE /users/:id", () => {
     expect(response.statusCode).toBe(403);
 
     const body = response.json();
-    expect(body.message).toBe("Você não pode remover este usuário.");
+    expect(body.detail).toBe("Você não pode remover este usuário.");
   });
 
   it("deve retornar 404 se o usuário não existir", async () => {
@@ -97,7 +97,7 @@ describe("DELETE /users/:id", () => {
     expect(response.statusCode).toBe(404);
 
     const body = response.json();
-    expect(body.message).toBe("Usuário não encontrado.");
+    expect(body.detail).toBe("Usuário não encontrado.");
   });
 
   it("deve retornar 401 sem token", async () => {

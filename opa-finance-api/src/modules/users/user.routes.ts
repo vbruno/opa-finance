@@ -33,11 +33,13 @@ export async function userRoutes(app: FastifyInstance) {
     return await service.update(params, body, req.user.sub);
   });
 
-  // DELETE
-  app.delete("/users/:id", { preHandler: [app.authenticate] }, async (req) => {
+  // DELETE /users/:id
+  app.delete("/users/:id", { preHandler: [app.authenticate] }, async (req, reply) => {
     const params = deleteUserParamsSchema.parse(req.params);
 
-    // Aqui também: autorização deve ser feita no service
-    return await service.delete(params, req.user.sub);
+    // passar corretamente ao service
+    const result = await service.delete(params, req.user.sub);
+
+    return reply.status(200).send(result);
   });
 }
