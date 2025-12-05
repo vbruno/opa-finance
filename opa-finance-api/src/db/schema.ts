@@ -96,7 +96,7 @@ export const subcategories = pgTable("subcategories", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-/* -------------------------------- TRANSACTIONS ------------------------------- */
+/* -------------------------------- TRANSACTIONS ------------------------------ */
 
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -113,7 +113,6 @@ export const transactions = pgTable("transactions", {
     .notNull()
     .references(() => categories.id, { onDelete: "cascade" }),
 
-  // 🔥 Subcategoria agora é opcional (set null se deletada)
   subcategoryId: uuid("subcategory_id").references(() => subcategories.id, {
     onDelete: "set null",
   }),

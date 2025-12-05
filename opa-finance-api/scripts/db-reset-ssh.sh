@@ -22,14 +22,12 @@ if [ ! -f "$SSH_KEY_PATH" ]; then
   exit 1
 fi
 
-# ---------- FUNÇÃO DE CONFIRMAÇÃO (primeira letra 's' / 'S') ----------
 confirmar_letra() {
   local input="$1"
   local first_char="$(echo "$input" | cut -c1 | tr '[:upper:]' '[:lower:]')"
   [ "$first_char" = "s" ]
 }
 
-# ---------- FUNÇÃO DE TESTE DE CONEXÃO SSH ----------
 testar_conexao() {
   echo "🔗 Testando conexão SSH..."
   ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$SSH_HOST" "echo 'Conexão OK'" || {
@@ -38,7 +36,6 @@ testar_conexao() {
   }
 }
 
-# ---------- FUNÇÃO DE VALIDAR SE O CONTAINER EXISTE ----------
 validar_container() {
   echo "🔍 Verificando container '$SSH_CONTAINER_NAME'..."
   ssh -i "$SSH_KEY_PATH" "$SSH_HOST" "
@@ -49,7 +46,7 @@ validar_container() {
   }
 }
 
-# ---------- FUNÇÃO DE RESET DE DB ----------
+# ---------- FUNÇÃO DE RESET DE DB + FIX DRIZZLE ----------
 reset_db() {
   local DB_NAME="$1"
 
@@ -61,14 +58,44 @@ reset_db() {
   docker exec $SSH_CONTAINER_NAME \
     psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER SCHEMA public OWNER TO $SSH_POSTGRES_USER;"
 
-  # Dropar e recriar o schema
+  # Dropar e recriar o schema PUBLIC
   docker exec $SSH_CONTAINER_NAME \
     psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "DROP SCHEMA IF EXISTS public CASCADE;"
+
   docker exec $SSH_CONTAINER_NAME \
     psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "CREATE SCHEMA public;"
-  EOF
 
-  echo "✔️ Banco $DB_NAME resetado!"
+  # =====================================================
+  #                 FIX DO SCHEMA DRIZZLE  
+  # =====================================================
+
+  # Criar schema drizzle se não existir
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "CREATE SCHEMA IF NOT EXISTS drizzle;"
+
+  # Transferir propriedade
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER SCHEMA drizzle OWNER TO $SSH_POSTGRES_USER;"
+
+  # Permissões principais
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "GRANT USAGE, CREATE ON SCHEMA drizzle TO $SSH_POSTGRES_USER;"
+
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA drizzle TO $SSH_POSTGRES_USER;"
+
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA drizzle TO $SSH_POSTGRES_USER;"
+
+  # Default privileges
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA drizzle GRANT ALL PRIVILEGES ON TABLES TO $SSH_POSTGRES_USER;"
+
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA drizzle GRANT ALL PRIVILEGES ON SEQUENCES TO $SSH_POSTGRES_USER;"
+EOF
+
+  echo "✔️ Banco $DB_NAME resetado e FIX drizzle aplicado!"
 }
 
 # -------------------------
@@ -90,23 +117,11 @@ echo ""
 read -p "Escolha uma opção (1/2/3/4): " OPCAO
 
 case "$OPCAO" in
-  1)
-    TARGET_LIST="$SSH_POSTGRES_DB"
-    ;;
-  2)
-    TARGET_LIST="$SSH_POSTGRES_TEST_DB"
-    ;;
-  3)
-    TARGET_LIST="$SSH_POSTGRES_DB $SSH_POSTGRES_TEST_DB"
-    ;;
-  4)
-    echo "❌ Operação cancelada."
-    exit 0
-    ;;
-  *)
-    echo "❌ Opção inválida."
-    exit 1
-    ;;
+  1) TARGET_LIST="$SSH_POSTGRES_DB" ;;
+  2) TARGET_LIST="$SSH_POSTGRES_TEST_DB" ;;
+  3) TARGET_LIST="$SSH_POSTGRES_DB $SSH_POSTGRES_TEST_DB" ;;
+  4) echo "❌ Operação cancelada."; exit 0 ;;
+  *) echo "❌ Opção inválida."; exit 1 ;;
 esac
 
 echo ""
@@ -115,18 +130,15 @@ echo "    Os bancos a serem afetados são:"
 echo "    ➜ $TARGET_LIST"
 echo ""
 
-# ---------- CONFIRMAÇÃO 1 ----------
 read -p "Digite SIM para continuar (qualquer valor começando com S): " CONFIRM1
 if ! confirmar_letra "$CONFIRM1"; then
   echo "❌ Operação cancelada."
   exit 1
 fi
 
-# ---------- CONFIRMAÇÃO 2 - SOMENTE SE ENVOLVER PROD ----------
-
 if [[ "$TARGET_LIST" == *"$SSH_POSTGRES_DB"* ]]; then
   echo ""
-  echo "⚠️ CONFIRMAÇÃO FINAL — DigitE o NOME EXATO do banco de produção:"
+  echo "⚠️ CONFIRMAÇÃO FINAL — Digite o nome EXATO do banco de produção:"
   echo "    ➜ $SSH_POSTGRES_DB"
   read -p "> " CONFIRM2
 
@@ -136,7 +148,6 @@ if [[ "$TARGET_LIST" == *"$SSH_POSTGRES_DB"* ]]; then
   fi
 fi
 
-# ---------- EXECUTAR AÇÕES ----------
 testar_conexao
 validar_container
 

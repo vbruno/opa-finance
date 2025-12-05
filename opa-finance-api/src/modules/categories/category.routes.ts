@@ -47,25 +47,47 @@ export async function categoryRoutes(app: FastifyInstance) {
 
   app.put("/categories/:id", { preHandler: [app.authenticate] }, async (req, reply) => {
     try {
+      // validação Zod -> erro = 400
       const params = categoryParamsSchema.parse(req.params);
       const body = updateCategorySchema.parse(req.body);
+
+      // regra de negócio
       const result = await categoryService.update(params.id, req.user.sub, body);
+
       return reply.send(result);
     } catch (err: any) {
-      const status = err.message.includes("não encontrada") ? 404 : 403;
-      return reply.status(status).send({ message: err.message });
+      // erros de validação Zod = 400
+      if (err?.issues) {
+        return reply.status(400).send({ message: err.message });
+      }
+
+      if (err.message.includes("não encontrada"))
+        return reply.status(404).send({ message: err.message });
+
+      if (err.message.includes("Acesso negado"))
+        return reply.status(403).send({ message: err.message });
+
+      return reply.status(400).send({ message: err.message });
     }
   });
 
   app.delete("/categories/:id", { preHandler: [app.authenticate] }, async (req, reply) => {
     try {
       const params = categoryParamsSchema.parse(req.params);
+
       const result = await categoryService.delete(params.id, req.user.sub);
       return reply.send(result);
     } catch (err: any) {
       let status = 400;
-      if (err.message.includes("não encontrada")) status = 404;
-      else if (err.message.includes("subcategorias")) status = 409;
+
+      if (err.message.includes("não encontrada")) {
+        status = 404;
+      } else if (err.message.includes("Acesso negado")) {
+        status = 403;
+      } else if (err.message.includes("subcategorias")) {
+        status = 409;
+      }
+
       return reply.status(status).send({ message: err.message });
     }
   });
@@ -78,6 +100,17 @@ export async function categoryRoutes(app: FastifyInstance) {
       const result = await subcategoryService.create(req.user.sub, body);
       return reply.status(201).send(result);
     } catch (err: any) {
+      // Zod → 400
+      if (err?.issues) {
+        return reply.status(400).send({ message: err.message });
+      }
+
+      if (err.message.includes("não encontrada"))
+        return reply.status(404).send({ message: err.message });
+
+      if (err.message.includes("Acesso negado"))
+        return reply.status(403).send({ message: err.message });
+
       return reply.status(400).send({ message: err.message });
     }
   });
@@ -91,8 +124,15 @@ export async function categoryRoutes(app: FastifyInstance) {
         const result = await subcategoryService.list(params.id, req.user.sub);
         return reply.send(result);
       } catch (err: any) {
-        const status = err.message.includes("não encontrada") ? 404 : 403;
-        return reply.status(status).send({ message: err.message });
+        if (err?.issues) return reply.status(400).send({ message: err.message });
+
+        if (err.message.includes("não encontrada"))
+          return reply.status(404).send({ message: err.message });
+
+        if (err.message.includes("Acesso negado"))
+          return reply.status(403).send({ message: err.message });
+
+        return reply.status(400).send({ message: err.message });
       }
     },
   );
@@ -103,8 +143,15 @@ export async function categoryRoutes(app: FastifyInstance) {
       const result = await subcategoryService.getOne(params.id, req.user.sub);
       return reply.send(result);
     } catch (err: any) {
-      const status = err.message.includes("não encontrada") ? 404 : 403;
-      return reply.status(status).send({ message: err.message });
+      if (err?.issues) return reply.status(400).send({ message: err.message });
+
+      if (err.message.includes("não encontrada"))
+        return reply.status(404).send({ message: err.message });
+
+      if (err.message.includes("Acesso negado"))
+        return reply.status(403).send({ message: err.message });
+
+      return reply.status(400).send({ message: err.message });
     }
   });
 
@@ -115,8 +162,15 @@ export async function categoryRoutes(app: FastifyInstance) {
       const result = await subcategoryService.update(params.id, req.user.sub, body);
       return reply.send(result);
     } catch (err: any) {
-      const status = err.message.includes("não encontrada") ? 404 : 403;
-      return reply.status(status).send({ message: err.message });
+      if (err?.issues) return reply.status(400).send({ message: err.message });
+
+      if (err.message.includes("não encontrada"))
+        return reply.status(404).send({ message: err.message });
+
+      if (err.message.includes("Acesso negado"))
+        return reply.status(403).send({ message: err.message });
+
+      return reply.status(400).send({ message: err.message });
     }
   });
 
@@ -126,8 +180,15 @@ export async function categoryRoutes(app: FastifyInstance) {
       const result = await subcategoryService.delete(params.id, req.user.sub);
       return reply.send(result);
     } catch (err: any) {
-      const status = err.message.includes("não encontrada") ? 404 : 403;
-      return reply.status(status).send({ message: err.message });
+      if (err?.issues) return reply.status(400).send({ message: err.message });
+
+      if (err.message.includes("não encontrada"))
+        return reply.status(404).send({ message: err.message });
+
+      if (err.message.includes("Acesso negado"))
+        return reply.status(403).send({ message: err.message });
+
+      return reply.status(400).send({ message: err.message });
     }
   });
 }

@@ -18,9 +18,10 @@ export class SubcategoryService {
     const [sub] = await this.app.db
       .insert(subcategories)
       .values({
-        ...data,
+        categoryId: data.categoryId,
+        name: data.name,
+        color: data.color ?? null,
         userId,
-        type: category.type, // herda tipo
       })
       .returning();
 
@@ -50,7 +51,11 @@ export class SubcategoryService {
 
     const [updated] = await this.app.db
       .update(subcategories)
-      .set(data)
+      .set({
+        name: data.name,
+        color: data.color ?? null,
+        updatedAt: new Date(),
+      })
       .where(eq(subcategories.id, id))
       .returning();
 
