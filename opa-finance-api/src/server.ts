@@ -3,8 +3,10 @@ import cors from "@fastify/cors";
 import { config } from "dotenv";
 import Fastify from "fastify";
 import { env } from "./core/config/env";
+import { registerErrorHandler } from "./core/middlewares/handle-route-error";
 import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
+
 import { accountRoutes } from "./modules/accounts/account.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
@@ -13,23 +15,25 @@ import { userRoutes } from "./modules/users/user.routes";
 config();
 
 async function start() {
-  const app = Fastify();
+  const app = Fastify({
+    logger: false,
+  });
 
   // CORS
   app.register(cors, { origin: true });
 
-  // 🔥 Cookie precisa vir ANTES do JWT plugin
+  // Cookies
   app.register(cookie, {
     secret: env.JWT_SECRET,
   });
 
-  // 🔥 Injeta o banco real usando Drizzle
+  // Banco real (Drizzle)
   app.decorate("db", db);
 
-  // JWT (usa cookies já instalados)
+  // JWT Plugin
   app.register(jwtPlugin);
 
-  // Parser JSON idêntico ao usado nos testes
+  // JSON parser igual aos testes
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
     try {
       const str = body ? body.toString() : "{}";
@@ -46,7 +50,10 @@ async function start() {
   app.register(accountRoutes);
   app.register(categoryRoutes);
 
-  // Rota teste
+  // **⚠️ Último passo: registrar o handler global de erros**
+  registerErrorHandler(app);
+
+  // Rota simples
   app.get("/", () => {
     return { message: "API funcionando!" };
   });

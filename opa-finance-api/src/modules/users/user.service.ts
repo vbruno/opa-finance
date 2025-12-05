@@ -1,3 +1,4 @@
+// src/modules/users/user.service.ts
 import { eq, ilike, and } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type {
@@ -7,6 +8,7 @@ import type {
   DeleteUserParams,
   GetUserParams,
 } from "./user.schemas";
+import { ForbiddenProblem, NotFoundProblem } from "@/core/errors/problems";
 import { users } from "@/db/schema";
 
 export class UserService {
@@ -14,16 +16,16 @@ export class UserService {
 
   // 📌 Buscar 1 usuário por ID
   async getOne(params: GetUserParams) {
-    const [user] = await this.app.db.select().from(users).where(eq(users.id, params.id));
+    const [user]: (typeof users.$inferSelect)[] = await this.app.db
+      .select()
+      .from(users)
+      .where(eq(users.id, params.id));
 
     if (!user) {
-      throw new Error("Usuário não encontrado.");
+      throw new NotFoundProblem("Usuário não encontrado.");
     }
 
-    // Remover passwordHash
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { passwordHash, ...publicUser } = user;
-
+    const { passwordHash: _passwordHash, ...publicUser } = user;
     return publicUser;
   }
 
@@ -50,8 +52,7 @@ export class UserService {
       .limit(limit)
       .offset(offset);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const sanitized = rows.map(({ passwordHash, ...publicUser }) => publicUser);
+    const sanitized = rows.map(({ passwordHash: _passwordHash, ...user }) => user);
 
     return {
       data: sanitized,
@@ -61,31 +62,40 @@ export class UserService {
   }
 
   // 📌 Atualizar usuário
-  async update(params: UpdateUserParams, body: UpdateUserBody) {
+  async update(params: UpdateUserParams, body: UpdateUserBody, authUserId: string) {
+    // 1. Verifica existência
     const [exists] = await this.app.db.select().from(users).where(eq(users.id, params.id));
 
     if (!exists) {
-      throw new Error("Usuário não encontrado.");
+      throw new NotFoundProblem("Usuário não encontrado.");
     }
 
+    // 2. Verifica autorização
+    if (exists.id !== authUserId) {
+      throw new ForbiddenProblem("Você não pode atualizar este usuário.");
+    }
+
+    // 3. Atualiza
     const [updated] = await this.app.db
       .update(users)
       .set(body)
       .where(eq(users.id, params.id))
       .returning();
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...publicUser } = updated;
-
     return publicUser;
   }
 
   // 📌 Remover usuário
-  async delete(params: DeleteUserParams) {
+  async delete(params: DeleteUserParams, authUserId: string) {
     const [exists] = await this.app.db.select().from(users).where(eq(users.id, params.id));
 
     if (!exists) {
-      throw new Error("Usuário não encontrado.");
+      throw new NotFoundProblem("Usuário não encontrado.");
+    }
+
+    if (exists.id !== authUserId) {
+      throw new ForbiddenProblem("Você não pode remover este usuário.");
     }
 
     await this.app.db.delete(users).where(eq(users.id, params.id));

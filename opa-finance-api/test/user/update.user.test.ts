@@ -91,7 +91,7 @@ describe("PUT /users/:id", () => {
     expect(response.statusCode).toBe(403);
 
     const body = response.json();
-    expect(body.message).toBe("Você não pode atualizar este usuário.");
+    expect(body.detail).toBe("Você não pode atualizar este usuário.");
   });
 
   it("deve retornar 404 se o usuário não existir", async () => {
