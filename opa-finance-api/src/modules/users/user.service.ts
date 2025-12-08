@@ -1,6 +1,7 @@
 // src/modules/users/user.service.ts
 import { eq, ilike, and } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+
 import type {
   ListUsersQuery,
   UpdateUserBody,
@@ -8,28 +9,29 @@ import type {
   DeleteUserParams,
   GetUserParams,
 } from "./user.schemas";
+
 import { ForbiddenProblem, NotFoundProblem } from "@/core/errors/problems";
 import { users } from "@/db/schema";
+
+type UserRow = typeof users.$inferSelect;
 
 export class UserService {
   constructor(private app: FastifyInstance) {}
 
-  // 📌 Buscar 1 usuário por ID
+  /* ---------------------------------- GET ONE --------------------------------- */
   async getOne(params: GetUserParams) {
-    const [user]: (typeof users.$inferSelect)[] = await this.app.db
-      .select()
-      .from(users)
-      .where(eq(users.id, params.id));
+    const result = await this.app.db.select().from(users).where(eq(users.id, params.id));
+    const [user] = result as UserRow[];
 
     if (!user) {
-      throw new NotFoundProblem("Usuário não encontrado.");
+      throw new NotFoundProblem("Usuário não encontrado.", `/users/${params.id}`);
     }
 
     const { passwordHash: _passwordHash, ...publicUser } = user;
     return publicUser;
   }
 
-  // 📌 Listar usuários com paginação + filtros
+  /* ---------------------------------- LIST ----------------------------------- */
   async list(query: ListUsersQuery) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
@@ -37,65 +39,59 @@ export class UserService {
 
     const filters = [];
 
-    if (query.name) {
-      filters.push(ilike(users.name, `%${query.name}%`));
-    }
+    if (query.name) filters.push(ilike(users.name, `%${query.name}%`));
+    if (query.email) filters.push(ilike(users.email, `%${query.email}%`));
 
-    if (query.email) {
-      filters.push(ilike(users.email, `%${query.email}%`));
-    }
-
-    const rows: (typeof users.$inferSelect)[] = await this.app.db
+    const result = await this.app.db
       .select()
       .from(users)
-      .where(filters.length ? and(...filters) : undefined)
+      .where(filters.length > 0 ? and(...filters) : undefined)
       .limit(limit)
       .offset(offset);
 
-    const sanitized = rows.map(({ passwordHash: _passwordHash, ...user }) => user);
+    const rows = result as UserRow[];
 
-    return {
-      data: sanitized,
-      page,
-      limit,
-    };
+    const sanitized = rows.map(({ passwordHash: _passwordHash, ...u }) => u);
+
+    return { data: sanitized, page, limit };
   }
 
-  // 📌 Atualizar usuário
+  /* ---------------------------------- UPDATE ---------------------------------- */
   async update(params: UpdateUserParams, body: UpdateUserBody, authUserId: string) {
-    // 1. Verifica existência
-    const [exists] = await this.app.db.select().from(users).where(eq(users.id, params.id));
+    const existingResult = await this.app.db.select().from(users).where(eq(users.id, params.id));
+    const [exists] = existingResult as UserRow[];
 
     if (!exists) {
-      throw new NotFoundProblem("Usuário não encontrado.");
+      throw new NotFoundProblem("Usuário não encontrado.", `/users/${params.id}`);
     }
 
-    // 2. Verifica autorização
     if (exists.id !== authUserId) {
-      throw new ForbiddenProblem("Você não pode atualizar este usuário.");
+      throw new ForbiddenProblem("Você não pode atualizar este usuário.", `/users/${params.id}`);
     }
 
-    // 3. Atualiza
-    const [updated] = await this.app.db
+    const updatedResult = await this.app.db
       .update(users)
       .set(body)
       .where(eq(users.id, params.id))
       .returning();
 
-    const { passwordHash, ...publicUser } = updated;
+    const [updated] = updatedResult as UserRow[];
+
+    const { passwordHash: _passwordHash, ...publicUser } = updated;
     return publicUser;
   }
 
-  // 📌 Remover usuário
+  /* ---------------------------------- DELETE ---------------------------------- */
   async delete(params: DeleteUserParams, authUserId: string) {
-    const [exists] = await this.app.db.select().from(users).where(eq(users.id, params.id));
+    const existingResult = await this.app.db.select().from(users).where(eq(users.id, params.id));
+    const [exists] = existingResult as UserRow[];
 
     if (!exists) {
-      throw new NotFoundProblem("Usuário não encontrado.");
+      throw new NotFoundProblem("Usuário não encontrado.", `/users/${params.id}`);
     }
 
     if (exists.id !== authUserId) {
-      throw new ForbiddenProblem("Você não pode remover este usuário.");
+      throw new ForbiddenProblem("Você não pode remover este usuário.", `/users/${params.id}`);
     }
 
     await this.app.db.delete(users).where(eq(users.id, params.id));

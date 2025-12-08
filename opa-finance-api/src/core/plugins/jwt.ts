@@ -1,10 +1,11 @@
+// src/core/plugins/jwt.ts
 import jwt from "@fastify/jwt";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { env } from "../config/env";
+import { UnauthorizedProblem } from "@/core/errors/problems";
 
 export default fp(async function jwtPlugin(app: FastifyInstance) {
-  // 🔥 Registrar SOMENTE o JWT (NÃO registrar cookie aqui)
   app.register(jwt, {
     secret: env.JWT_SECRET,
     cookie: {
@@ -16,12 +17,12 @@ export default fp(async function jwtPlugin(app: FastifyInstance) {
     },
   });
 
-  // 🔥 Decorator authenticate
-  app.decorate("authenticate", async function (req: FastifyRequest, reply: FastifyReply) {
+  app.decorate("authenticate", async function (req: FastifyRequest, _reply: FastifyReply) {
     try {
       await req.jwtVerify();
     } catch {
-      return reply.status(401).send({ message: "Unauthorized" });
+      // 🔥 LANÇA um problema RFC7807, NÃO responde manualmente
+      throw new UnauthorizedProblem("Token ausente ou inválido.", req.url);
     }
   });
 });

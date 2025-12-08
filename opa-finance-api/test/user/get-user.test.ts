@@ -1,7 +1,9 @@
+// test/user/get-user.test.ts
+
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { DB } from "../../src/core/plugins/drizzle-test";
+import type { DB } from "../../src/core/plugins/drizzle";
 import { users } from "../../src/db/schema";
 import { buildTestApp } from "../setup";
 
@@ -14,7 +16,6 @@ describe.sequential("GET /users/:id", () => {
     app = built.app;
     db = built.db;
 
-    // limpar tabela
     await db.delete(users);
   });
 
@@ -38,11 +39,11 @@ describe.sequential("GET /users/:id", () => {
 
     expect(register.statusCode).toBe(201);
 
-    // pega o ID do usuário no banco
+    // pega usuário do banco
     const [user] = await db.select().from(users).where(eq(users.email, "bruno@example.com"));
     expect(user).toBeDefined();
 
-    // login para pegar accessToken
+    // login
     const login = await app.inject({
       method: "POST",
       url: "/auth/login",
@@ -54,14 +55,15 @@ describe.sequential("GET /users/:id", () => {
     });
 
     expect(login.statusCode).toBe(200);
-
     const { accessToken } = login.json();
 
-    // chama rota /users/:id
+    // GET /users/:id
     const response = await app.inject({
       method: "GET",
       url: `/users/${user.id}`,
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     expect(response.statusCode).toBe(200);
@@ -75,10 +77,7 @@ describe.sequential("GET /users/:id", () => {
   });
 
   it("deve retornar 404 se o usuário não existir", async () => {
-    const built = await buildTestApp();
-    app = built.app;
-    db = built.db;
-
+    // cria qualquer usuário apenas para fazer login
     await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -106,7 +105,9 @@ describe.sequential("GET /users/:id", () => {
     const response = await app.inject({
       method: "GET",
       url: "/users/00000000-0000-0000-0000-000000000000",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     expect(response.statusCode).toBe(404);

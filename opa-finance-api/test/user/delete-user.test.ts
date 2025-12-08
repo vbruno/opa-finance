@@ -1,7 +1,8 @@
+// test/user/delete-user.test.ts
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { DB } from "../../src/core/plugins/drizzle-test";
+import type { DB } from "../../src/core/plugins/drizzle";
 import { users } from "../../src/db/schema";
 import { buildTestApp } from "../setup";
 
@@ -64,7 +65,6 @@ describe("DELETE /users/:id", () => {
     const body = response.json();
     expect(body.message).toBe("Usuário removido com sucesso.");
 
-    // usuário deve ter sumido
     const exists = await db.select().from(users).where(eq(users.id, user.id));
     expect(exists.length).toBe(0);
   });
@@ -83,6 +83,8 @@ describe("DELETE /users/:id", () => {
 
     const body = response.json();
     expect(body.detail).toBe("Você não pode remover este usuário.");
+    expect(body.title).toBe("Forbidden");
+    expect(body.status).toBe(403);
   });
 
   it("deve retornar 404 se o usuário não existir", async () => {
@@ -98,6 +100,8 @@ describe("DELETE /users/:id", () => {
 
     const body = response.json();
     expect(body.detail).toBe("Usuário não encontrado.");
+    expect(body.title).toBe("Not Found");
+    expect(body.status).toBe(404);
   });
 
   it("deve retornar 401 sem token", async () => {
@@ -107,5 +111,9 @@ describe("DELETE /users/:id", () => {
     });
 
     expect(response.statusCode).toBe(401);
+
+    const body = response.json();
+    expect(body.title).toBe("Unauthorized");
+    expect(body.status).toBe(401);
   });
 });

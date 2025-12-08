@@ -1,6 +1,7 @@
+// test/user/list-users.test.ts
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { DB } from "../../src/core/plugins/drizzle-test";
+import type { DB } from "../../src/core/plugins/drizzle"; // ✔ correto
 import { users } from "../../src/db/schema";
 import { buildTestApp } from "../setup";
 
@@ -13,7 +14,6 @@ describe("GET /users", () => {
     app = built.app;
     db = built.db;
 
-    // limpa tabela
     await db.delete(users);
   });
 
@@ -22,7 +22,7 @@ describe("GET /users", () => {
   });
 
   async function createAndLogin(name: string, email: string) {
-    // registro
+    // registra
     await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -36,7 +36,7 @@ describe("GET /users", () => {
     });
 
     // login
-    const login = await app.inject({
+    const loginResponse = await app.inject({
       method: "POST",
       url: "/auth/login",
       headers: { "Content-Type": "application/json" },
@@ -46,7 +46,10 @@ describe("GET /users", () => {
       },
     });
 
-    const { accessToken } = login.json();
+    expect(loginResponse.statusCode).toBe(200);
+
+    const { accessToken } = loginResponse.json();
+
     return accessToken;
   }
 
@@ -69,9 +72,7 @@ describe("GET /users", () => {
     const response = await app.inject({
       method: "GET",
       url: "/users",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     expect(response.statusCode).toBe(200);
@@ -82,16 +83,15 @@ describe("GET /users", () => {
     expect(Array.isArray(body.data)).toBe(true);
     expect(body.data.length).toBe(2);
 
-    // não deve conter passwordHash
-    body.data.forEach((u: any) => {
+    // passwordHash não pode aparecer
+    for (const u of body.data) {
       expect(u).not.toHaveProperty("passwordHash");
-    });
+    }
   });
 
   it("deve aplicar filtro por nome", async () => {
     const accessToken = await createAndLogin("Bruno", "bruno@example.com");
 
-    // cria mais um usuário
     await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -107,9 +107,7 @@ describe("GET /users", () => {
     const response = await app.inject({
       method: "GET",
       url: "/users?name=Fer",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     expect(response.statusCode).toBe(200);
@@ -138,9 +136,7 @@ describe("GET /users", () => {
     const response = await app.inject({
       method: "GET",
       url: "/users?email=carlos",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     expect(response.statusCode).toBe(200);

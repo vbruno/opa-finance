@@ -20,14 +20,23 @@ export function registerErrorHandler(app: FastifyInstance) {
     const msg = err.message ?? "";
 
     /* -------------------------------------------------------------
-     * 1. RFC7807 custom errors (HttpProblem)
+     * JWT ERRORS → Unauthorized (FST_JWT_*)
+     * ----------------------------------------------------------- */
+    if ((err as any).code && String((err as any).code).startsWith("FST_JWT_")) {
+      return reply
+        .status(401)
+        .send(new UnauthorizedProblem("Token ausente ou inválido.", req.url).toJSON());
+    }
+
+    /* -------------------------------------------------------------
+     * RFC7807 custom errors (HttpProblem)
      * ----------------------------------------------------------- */
     if (err instanceof HttpProblem) {
       return reply.status(err.status).send(err.toJSON());
     }
 
     /* -------------------------------------------------------------
-     * 2. ZOD validation error (body, params, etc.)
+     * Zod errors → 400
      * ----------------------------------------------------------- */
     if (err instanceof ZodError) {
       const detail = err.issues.map((i) => i.message).join("; ");
@@ -35,7 +44,7 @@ export function registerErrorHandler(app: FastifyInstance) {
     }
 
     /* -------------------------------------------------------------
-     * 3. Legacy-style string matching (compatibility)
+     * Legacy messages
      * ----------------------------------------------------------- */
     if (msg.includes("não encontrado") || msg.includes("não encontrada")) {
       return reply.status(404).send(new NotFoundProblem(msg, req.url).toJSON());
@@ -50,7 +59,7 @@ export function registerErrorHandler(app: FastifyInstance) {
     }
 
     /* -------------------------------------------------------------
-     * 4. DEFAULT → INTERNAL ERROR (500)
+     * Default → 500
      * ----------------------------------------------------------- */
     return reply.status(500).send(new InternalProblem(msg || "Erro interno", req.url).toJSON());
   });
