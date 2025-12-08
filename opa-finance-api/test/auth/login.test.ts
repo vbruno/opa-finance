@@ -55,6 +55,6 @@ describe.sequential("Login", () => {
       },
     });
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(401);
   });
 });

@@ -9,47 +9,49 @@ import {
   ValidationProblem,
   ConflictProblem,
   InternalProblem,
+  UnauthorizedProblem,
 } from "../errors/problems";
 
 export function registerErrorHandler(app: FastifyInstance) {
   app.setErrorHandler((error: unknown, req, reply) => {
     console.error("❌ ERROR:", error);
 
-    // Garantir que sempre lidamos com Error
     const err = error instanceof Error ? error : new Error("Unknown error");
+    const msg = err.message ?? "";
 
-    /* ----------------------------------------------------------------------
-     * 1. ZOD ERROR → 400 RFC7807
-     * -------------------------------------------------------------------- */
-    if (err instanceof ZodError) {
-      const detail = err.issues.map((i) => i.message).join("; ");
-      return reply.status(400).send(new ValidationProblem(detail, req.url));
-    }
-
-    /* ----------------------------------------------------------------------
-     * 2. HttpProblem explícito → já no formato RFC7807
-     * -------------------------------------------------------------------- */
+    /* -------------------------------------------------------------
+     * 1. RFC7807 custom errors (HttpProblem)
+     * ----------------------------------------------------------- */
     if (err instanceof HttpProblem) {
       return reply.status(err.status).send(err.toJSON());
     }
 
-    /* ----------------------------------------------------------------------
-     * 3. Compatibilidade com serviços antigos (mensagens legadas)
-     * -------------------------------------------------------------------- */
-    const msg = err.message;
+    /* -------------------------------------------------------------
+     * 2. ZOD validation error (body, params, etc.)
+     * ----------------------------------------------------------- */
+    if (err instanceof ZodError) {
+      const detail = err.issues.map((i) => i.message).join("; ");
+      return reply.status(400).send(new ValidationProblem(detail, req.url).toJSON());
+    }
 
-    if (msg.includes("não encontrada"))
-      return reply.status(404).send(new NotFoundProblem(msg, req.url));
+    /* -------------------------------------------------------------
+     * 3. Legacy-style string matching (compatibility)
+     * ----------------------------------------------------------- */
+    if (msg.includes("não encontrado") || msg.includes("não encontrada")) {
+      return reply.status(404).send(new NotFoundProblem(msg, req.url).toJSON());
+    }
 
-    if (msg.includes("Acesso negado"))
-      return reply.status(403).send(new ForbiddenProblem(msg, req.url));
+    if (msg.includes("Acesso negado")) {
+      return reply.status(403).send(new ForbiddenProblem(msg, req.url).toJSON());
+    }
 
-    if (msg.includes("subcategorias") || msg.includes("transações"))
-      return reply.status(409).send(new ConflictProblem(msg, req.url));
+    if (msg.includes("conflito") || msg.includes("já cadastrado")) {
+      return reply.status(409).send(new ConflictProblem(msg, req.url).toJSON());
+    }
 
-    /* ----------------------------------------------------------------------
-     * 4. INTERNAL ERROR → RFC7807
-     * -------------------------------------------------------------------- */
-    return reply.status(500).send(new InternalProblem(err.message || "Erro interno", req.url));
+    /* -------------------------------------------------------------
+     * 4. DEFAULT → INTERNAL ERROR (500)
+     * ----------------------------------------------------------- */
+    return reply.status(500).send(new InternalProblem(msg || "Erro interno", req.url).toJSON());
   });
 }

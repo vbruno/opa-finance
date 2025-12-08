@@ -1,6 +1,9 @@
-import { ProblemDetails } from "./problem-details";
+// src/core/errors/http-problem.ts
 
-export class HttpProblem extends ProblemDetails {
+/**
+ * RFC 7807 - Problem Details as an Error object
+ */
+export class HttpProblem extends Error {
   readonly type: string;
   readonly title: string;
   readonly status: number;
@@ -14,39 +17,36 @@ export class HttpProblem extends ProblemDetails {
     detail?: string;
     instance?: string;
   }) {
-    super({
-      type: params.type ?? "about:blank",
-      title: params.title,
-      status: params.status,
-      detail: params.detail,
-      instance: params.instance,
-    });
+    super(params.detail ?? params.title);
 
-    // Corrige prototype (necessário no TS)
+    // Ajuste obrigatório para herança correta em TS/JS
     Object.setPrototypeOf(this, new.target.prototype);
 
-    this.type = params.type ?? "about:blank"; // RFC 7807 default
+    // Nome da classe (útil para debugging)
+    this.name = new.target.name;
+
+    this.type = params.type ?? "about:blank";
     this.title = params.title;
     this.status = params.status;
     this.detail = params.detail;
     this.instance = params.instance;
 
-    // Mantém stack trace limpa
+    // Mantém erro limpo em Node / Fastify
     if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, HttpProblem);
+      Error.captureStackTrace(this, new.target);
     }
   }
 
+  /**
+   * Serialização no padrão RFC7807
+   */
   toJSON() {
-    const json: Record<string, unknown> = {
+    return {
       type: this.type,
       title: this.title,
       status: this.status,
+      ...(this.detail ? { detail: this.detail } : {}),
+      ...(this.instance ? { instance: this.instance } : {}),
     };
-
-    if (this.detail !== undefined) json.detail = this.detail;
-    if (this.instance !== undefined) json.instance = this.instance;
-
-    return json;
   }
 }

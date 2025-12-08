@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+/* -------------------------------------------------------------------------- */
+/*                          STRONG PASSWORD RULES                             */
+/* -------------------------------------------------------------------------- */
+
 export const strongPasswordSchema = z
   .string()
   .min(8, "A senha deve ter pelo menos 8 caracteres.")
@@ -36,9 +40,14 @@ export const strongPasswordSchema = z
 
 export type StrongPassword = z.infer<typeof strongPasswordSchema>;
 
+/* -------------------------------------------------------------------------- */
+/*                          CHANGE PASSWORD SCHEMA                            */
+/* -------------------------------------------------------------------------- */
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, { message: "A senha atual é obrigatória." }),
+
     newPassword: strongPasswordSchema,
 
     confirmNewPassword: z
@@ -49,7 +58,12 @@ export const changePasswordSchema = z
     message: "A confirmação da nova senha não confere.",
     path: ["confirmNewPassword"],
   });
+
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                         TEMPORARY PASSWORD                                 */
+/* -------------------------------------------------------------------------- */
 
 export const temporaryPasswordSchema = z
   .string()
@@ -57,17 +71,21 @@ export const temporaryPasswordSchema = z
   .max(6, "A senha temporária deve ter exatamente 6 caracteres.")
   .regex(/^[0-9]+$/, "Senha temporária deve conter apenas números.");
 
-// Rota /auth/forgot-password
 export const forgotPasswordSchema = z.object({
   email: z.email("E-mail inválido."),
 });
 
-// Rota /auth/reset-password
+/* -------------------------------------------------------------------------- */
+/*                           RESET PASSWORD                                   */
+/* -------------------------------------------------------------------------- */
+
 export const resetPasswordSchema = z
   .object({
     token: z.string(),
+
     newPassword: strongPasswordSchema,
-    confirmNewPassword: z.string(),
+
+    confirmNewPassword: z.string().min(1, "A confirmação da nova senha é obrigatória."),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     message: "As senhas não conferem.",
@@ -75,6 +93,10 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                  CHECK PASSWORD STRENGTH INPUT                              */
+/* -------------------------------------------------------------------------- */
 
 export const passwordStrengthSchema = z.object({
   password: z.string().min(1, "A senha é obrigatória."),

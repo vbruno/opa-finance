@@ -1,21 +1,13 @@
-export class ProblemDetails {
+// src/core/errors/problem-details.ts
+
+/**
+ * Interface RFC 7807 para padronizar o shape de erros.
+ * Não deve ser uma classe, pois quem deve ser Error é HttpProblem.
+ */
+export interface ProblemDetails {
   type?: string;
-  title?: string;
-  status?: number;
+  title: string;
+  status: number;
   detail?: string;
   instance?: string;
-
-  constructor(params: {
-    type?: string;
-    title?: string;
-    status?: number;
-    detail?: string;
-    instance?: string;
-  }) {
-    this.type = params.type;
-    this.title = params.title;
-    this.status = params.status;
-    this.detail = params.detail;
-    this.instance = params.instance;
-  }
 }

@@ -1,19 +1,32 @@
+// src/modules/auth/auth.service.ts
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { hashPassword, comparePassword } from "../../core/utils/hash.utils";
 import { users } from "../../db/schema";
+
 import type { RegisterInput, LoginInput } from "./auth.schemas";
 import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
+
+import {
+  ConflictProblem,
+  UnauthorizedProblem,
+  NotFoundProblem,
+  ValidationProblem,
+} from "@/core/errors/problems";
+
+import type { DB } from "@/core/plugins/drizzle";
 
 export class AuthService {
   constructor(
     private app: FastifyInstance,
-    private db: any, // Postgres DB (prod/test)
+    private db: DB,
   ) {}
 
+  /* -------------------------------------------------------------------------- */
+  /*                                 REGISTER                                   */
+  /* -------------------------------------------------------------------------- */
   async register(data: RegisterInput) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { confirmPassword, ...userData } = data;
+    const { confirmPassword: _ignored, ...userData } = data;
 
     const exists = await this.db
       .select()
@@ -22,7 +35,7 @@ export class AuthService {
       .limit(1);
 
     if (exists.length > 0) {
-      throw new Error("E-mail já cadastrado.");
+      throw new ConflictProblem("E-mail já cadastrado.", "/auth/register");
     }
 
     const passwordHash = await hashPassword(userData.password);
@@ -39,18 +52,28 @@ export class AuthService {
     return user;
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   LOGIN                                    */
+  /* -------------------------------------------------------------------------- */
   async login(data: LoginInput) {
     const [user] = await this.db.select().from(users).where(eq(users.email, data.email)).limit(1);
 
-    if (!user) throw new Error("Credenciais inválidas.");
+    if (!user) {
+      throw new UnauthorizedProblem("Credenciais inválidas.", "/auth/login");
+    }
 
     const valid = await comparePassword(data.password, user.passwordHash);
 
-    if (!valid) throw new Error("Credenciais inválidas.");
+    if (!valid) {
+      throw new UnauthorizedProblem("Credenciais inválidas.", "/auth/login");
+    }
 
     return user;
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                         TOKEN GENERATION                                   */
+  /* -------------------------------------------------------------------------- */
   generateAccessToken(userId: string) {
     return this.app.jwt.sign({ sub: userId }, { expiresIn: "15m" });
   }
@@ -59,13 +82,21 @@ export class AuthService {
     return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d" });
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                             CHANGE PASSWORD                                */
+  /* -------------------------------------------------------------------------- */
   async changePassword(userId: string, data: ChangePasswordInput) {
     const [user] = await this.db.select().from(users).where(eq(users.id, userId));
 
-    if (!user) throw new Error("Usuário não encontrado.");
+    if (!user) {
+      throw new NotFoundProblem("Usuário não encontrado.", "/auth/change-password");
+    }
 
     const valid = await comparePassword(data.currentPassword, user.passwordHash);
-    if (!valid) throw new Error("Senha atual incorreta.");
+
+    if (!valid) {
+      throw new ValidationProblem("Senha atual incorreta.", "/auth/change-password");
+    }
 
     const newHash = await hashPassword(data.newPassword);
 
@@ -74,30 +105,53 @@ export class AuthService {
     return { message: "Senha alterada com sucesso." };
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                             FORGOT PASSWORD                                */
+  /* -------------------------------------------------------------------------- */
   async forgotPassword(email: string) {
-    const [user] = await this.db.select().from(users).where(eq(users.email, email));
+    const [user] = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
 
-    if (!user) throw new Error("Usuário não encontrado.");
+    if (!user) {
+      throw new NotFoundProblem("Usuário não encontrado.", "/auth/forgot-password");
+    }
 
     const token = this.app.jwt.sign({ sub: user.id, type: "reset" }, { expiresIn: "15m" });
 
     return { resetToken: token, email: user.email };
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                              RESET PASSWORD                                */
+  /* -------------------------------------------------------------------------- */
   async resetPassword(data: ResetPasswordInput) {
-    const payload = this.app.jwt.verify(data.token) as any;
+    let payload: unknown;
 
-    if (payload.type !== "reset") {
-      throw new Error("Token inválido.");
+    try {
+      payload = this.app.jwt.verify(data.token);
+    } catch {
+      throw new ValidationProblem("Token inválido ou expirado.", "/auth/reset-password");
     }
 
-    const [user] = await this.db.select().from(users).where(eq(users.id, payload.sub));
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      !("type" in payload) ||
+      (payload as any).type !== "reset"
+    ) {
+      throw new ValidationProblem("Token inválido.", "/auth/reset-password");
+    }
 
-    if (!user) throw new Error("Usuário não encontrado.");
+    const userId = (payload as any).sub;
+
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+
+    if (!user) {
+      throw new NotFoundProblem("Usuário não encontrado.", "/auth/reset-password");
+    }
 
     const newHash = await hashPassword(data.newPassword);
 
-    await this.db.update(users).set({ passwordHash: newHash }).where(eq(users.id, payload.sub));
+    await this.db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
 
     return { message: "Senha redefinida com sucesso." };
   }
