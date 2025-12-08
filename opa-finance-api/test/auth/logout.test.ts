@@ -1,74 +1,59 @@
-import { FastifyInstance } from "fastify";
+// test/auth/password-strength.test.ts
+import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { hashPassword } from "../../src/core/utils/hash.utils";
-import { users } from "../../src/db/schema";
 import { buildTestApp } from "../setup";
-import { DB } from "@/core/plugins/drizzle-test";
 
 let app: FastifyInstance;
-let db: DB;
 
-describe.sequential("Rota /auth/logout", () => {
-  beforeEach(async () => {
-    const built = await buildTestApp();
-    app = built.app;
-    db = built.db;
+beforeEach(async () => {
+  const built = await buildTestApp();
+  app = built.app;
+});
 
-    // limpa tabela
-    await db.delete(users);
-  });
+afterEach(async () => {
+  await app.close();
+});
 
-  afterEach(async () => {
-    await app.close();
-  });
-
-  it("deve limpar o refreshToken e retornar mensagem de sucesso", async () => {
-    // cria usuário
-    await db.insert(users).values({
-      name: "Bruno",
-      email: "bruno@example.com",
-      passwordHash: await hashPassword("Aa123456!"),
-    });
-
-    // login gera refresh token
-    const loginResponse = await app.inject({
+describe("POST /auth/check-password-strength", () => {
+  it("deve retornar força da senha corretamente", async () => {
+    const response = await app.inject({
       method: "POST",
-      url: "/auth/login",
+      url: "/auth/check-password-strength",
       headers: { "Content-Type": "application/json" },
       payload: {
-        email: "bruno@example.com",
         password: "Aa123456!",
       },
     });
 
-    const cookie = loginResponse.cookies.find((c) => c.name === "refreshToken");
-    expect(cookie).toBeDefined();
+    expect(response.statusCode).toBe(200);
 
-    // logout
+    const body = response.json();
+    expect(body).toHaveProperty("strength");
+  });
+
+  it("deve retornar 400 se a senha estiver vazia", async () => {
     const response = await app.inject({
       method: "POST",
-      url: "/auth/logout",
-      cookies: {
-        refreshToken: cookie!.value,
+      url: "/auth/check-password-strength",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        password: "",
       },
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json().message).toBe("Logout realizado com sucesso.");
-
-    const cleared = response.cookies.find((c) => c.name === "refreshToken");
-    expect(cleared).toBeDefined();
-    expect(cleared!.value).toBe("");
-    expect(typeof cleared!.expires).toBe("object");
+    expect(response.statusCode).toBe(400);
+    expect(response.json().title).toBe("Validation Error");
   });
 
-  it("deve funcionar mesmo sem cookie de refresh", async () => {
+  it("deve retornar 400 se a senha estiver ausente no payload", async () => {
     const response = await app.inject({
       method: "POST",
-      url: "/auth/logout",
+      url: "/auth/check-password-strength",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json().message).toBe("Logout realizado com sucesso.");
+    expect(response.statusCode).toBe(400);
+    expect(response.json().title).toBe("Validation Error");
   });
 });

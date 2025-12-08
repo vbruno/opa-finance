@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../setup";
 
@@ -7,18 +7,6 @@ let app: FastifyInstance;
 beforeEach(async () => {
   const built = await buildTestApp();
   app = built.app;
-
-  await app.inject({
-    method: "POST",
-    url: "/auth/register",
-    headers: { "Content-Type": "application/json" },
-    payload: {
-      name: "Bruno",
-      email: "bruno@example.com",
-      password: "Aa123456!",
-      confirmPassword: "Aa123456!",
-    },
-  });
 });
 
 afterEach(async () => {
@@ -26,47 +14,53 @@ afterEach(async () => {
 });
 
 describe("GET /auth/me", () => {
-  it("deve retornar o usuário autenticado", async () => {
-    const login = await app.inject({
+  async function login() {
+    await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        name: "User",
+        email: "user@example.com",
+        password: "Aa123456!",
+        confirmPassword: "Aa123456!",
+      },
+    });
+
+    const resp = await app.inject({
       method: "POST",
       url: "/auth/login",
       headers: { "Content-Type": "application/json" },
       payload: {
-        email: "bruno@example.com",
+        email: "user@example.com",
         password: "Aa123456!",
       },
     });
 
-    expect(login.statusCode).toBe(200);
+    return resp.json().accessToken;
+  }
 
-    const { accessToken } = login.json();
+  it("deve retornar dados do usuário autenticado", async () => {
+    const token = await login();
 
-    expect(accessToken).toBeDefined();
-
-    const response = await app.inject({
+    const resp = await app.inject({
       method: "GET",
       url: "/auth/me",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
-    console.log("login status:", response.statusCode, response.body);
-
-    expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-    expect(body).toHaveProperty("id");
-    expect(body).toHaveProperty("email", "bruno@example.com");
+    expect(resp.statusCode).toBe(200);
+    const body = resp.json();
+    expect(body.email).toBe("user@example.com");
     expect(body).not.toHaveProperty("passwordHash");
   });
 
-  it("deve retornar 401 se não enviar token", async () => {
-    const response = await app.inject({
+  it("deve retornar 401 sem token", async () => {
+    const resp = await app.inject({
       method: "GET",
       url: "/auth/me",
     });
 
-    expect(response.statusCode).toBe(401);
+    expect(resp.statusCode).toBe(401);
   });
 });

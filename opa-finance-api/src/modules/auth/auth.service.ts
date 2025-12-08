@@ -111,8 +111,12 @@ export class AuthService {
   async forgotPassword(email: string) {
     const [user] = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
 
+    // ❗ Se o usuário não existir, retorna como se existisse
     if (!user) {
-      throw new NotFoundProblem("Usuário não encontrado.", "/auth/forgot-password");
+      return {
+        resetToken: undefined,
+        email,
+      };
     }
 
     const token = this.app.jwt.sign({ sub: user.id, type: "reset" }, { expiresIn: "15m" });

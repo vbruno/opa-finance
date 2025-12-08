@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../../setup";
 
@@ -7,45 +7,49 @@ let app: FastifyInstance;
 beforeEach(async () => {
   const built = await buildTestApp();
   app = built.app;
-
-  // cria usuario
-  await app.inject({
-    method: "POST",
-    url: "/auth/register",
-    headers: { "Content-Type": "application/json" },
-    payload: {
-      name: "Bruno",
-      email: "bruno@example.com",
-      password: "Aa123456!",
-      confirmPassword: "Aa123456!",
-    },
-  });
 });
 
 afterEach(async () => {
   await app.close();
 });
 
-describe("Reset Password", () => {
-  it("deve resetar a senha com sucesso usando token válido", async () => {
-    // gerar token
-    const forgot = await app.inject({
+describe("POST /auth/reset-password", () => {
+  async function generateResetToken() {
+    // Registrar usuário
+    await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        name: "User",
+        email: "user@example.com",
+        password: "Aa123456!",
+        confirmPassword: "Aa123456!",
+      },
+    });
+
+    // Solicitar reset
+    const resp = await app.inject({
       method: "POST",
       url: "/auth/forgot-password",
       headers: { "Content-Type": "application/json" },
-      payload: { email: "bruno@example.com" },
+      payload: { email: "user@example.com" },
     });
 
-    const { resetToken } = forgot.json();
+    return resp.json().resetToken;
+  }
+
+  it("deve redefinir a senha com sucesso", async () => {
+    const token = await generateResetToken();
 
     const response = await app.inject({
       method: "POST",
       url: "/auth/reset-password",
       headers: { "Content-Type": "application/json" },
       payload: {
-        token: resetToken,
-        newPassword: "Bb123456!",
-        confirmNewPassword: "Bb123456!",
+        token,
+        newPassword: "NewPassword1!",
+        confirmNewPassword: "NewPassword1!",
       },
     });
 
@@ -59,33 +63,27 @@ describe("Reset Password", () => {
       url: "/auth/reset-password",
       headers: { "Content-Type": "application/json" },
       payload: {
-        token: "token_invalido",
-        newPassword: "Bb123456!",
-        confirmNewPassword: "Bb123456!",
+        token: "token-invalido",
+        newPassword: "NewPassword1!",
+        confirmNewPassword: "NewPassword1!",
       },
     });
 
     expect(response.statusCode).toBe(400);
+    expect(response.json().title).toBe("Validation Error");
   });
 
-  it("deve falhar se as senhas não conferem", async () => {
-    const forgot = await app.inject({
-      method: "POST",
-      url: "/auth/forgot-password",
-      headers: { "Content-Type": "application/json" },
-      payload: { email: "bruno@example.com" },
-    });
-
-    const { resetToken } = forgot.json();
+  it("deve falhar com senhas diferentes", async () => {
+    const token = await generateResetToken();
 
     const response = await app.inject({
       method: "POST",
       url: "/auth/reset-password",
       headers: { "Content-Type": "application/json" },
       payload: {
-        token: resetToken,
-        newPassword: "Bb123456!",
-        confirmNewPassword: "errado123",
+        token,
+        newPassword: "NewPassword1!",
+        confirmNewPassword: "OutraSenha!",
       },
     });
 

@@ -18,9 +18,7 @@ describe("Registro de usuário", () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/register",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       payload: {
         name: "Bruno",
         email: "bruno@example.com",
@@ -30,13 +28,10 @@ describe("Registro de usuário", () => {
     });
 
     expect(response.statusCode).toBe(201);
-
-    const body = response.json();
-    expect(body).toHaveProperty("accessToken");
+    expect(response.json()).toHaveProperty("accessToken");
   });
 
   it("deve falhar ao tentar registrar email duplicado", async () => {
-    // primeiro registro
     await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -49,7 +44,6 @@ describe("Registro de usuário", () => {
       },
     });
 
-    // segundo registro com email duplicado
     const response = await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -62,6 +56,10 @@ describe("Registro de usuário", () => {
       },
     });
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(409);
+
+    const body = response.json();
+    expect(body.title).toBe("Conflict");
+    expect(body.detail).toBe("E-mail já cadastrado.");
   });
 });

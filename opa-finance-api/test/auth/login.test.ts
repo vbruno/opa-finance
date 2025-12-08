@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../setup";
 
@@ -7,51 +7,69 @@ let app: FastifyInstance;
 beforeEach(async () => {
   const built = await buildTestApp();
   app = built.app;
-
-  // cria usuário
-  await app.inject({
-    method: "POST",
-    url: "/auth/register",
-    headers: { "Content-Type": "application/json" },
-    payload: {
-      name: "Bruno",
-      email: "bruno@example.com",
-      password: "Aa123456!",
-      confirmPassword: "Aa123456!",
-    },
-  });
 });
 
 afterEach(async () => {
   await app.close();
 });
 
-describe.sequential("Login", () => {
+describe("Login", () => {
+  async function register() {
+    await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        name: "User",
+        email: "user@example.com",
+        password: "Aa123456!",
+        confirmPassword: "Aa123456!",
+      },
+    });
+  }
+
   it("deve logar com sucesso", async () => {
+    await register();
+
     const response = await app.inject({
       method: "POST",
       url: "/auth/login",
       headers: { "Content-Type": "application/json" },
       payload: {
-        email: "bruno@example.com",
+        email: "user@example.com",
         password: "Aa123456!",
       },
     });
 
     expect(response.statusCode).toBe(200);
-
-    const body = response.json();
-    expect(body).toHaveProperty("accessToken");
+    expect(response.json()).toHaveProperty("accessToken");
   });
 
-  it("deve falhar com senha incorreta", async () => {
+  it("deve retornar 401 para senha incorreta", async () => {
+    await register();
+
     const response = await app.inject({
       method: "POST",
       url: "/auth/login",
       headers: { "Content-Type": "application/json" },
       payload: {
-        email: "bruno@example.com",
-        password: "errada123",
+        email: "user@example.com",
+        password: "senhaErrada",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().title).toBe("Unauthorized");
+  });
+
+  it("deve retornar 401 para email inexistente", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        email: "naoexiste@example.com",
+        password: "Aa123456!",
       },
     });
 

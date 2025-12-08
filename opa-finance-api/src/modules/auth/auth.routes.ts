@@ -21,7 +21,7 @@ export async function authRoutes(app: FastifyInstance) {
   const service = new AuthService(app, app.db);
 
   /* -------------------------------------------------------------------------- */
-  /*                                 REGISTER                                   */
+  /*                                   REGISTER                                 */
   /* -------------------------------------------------------------------------- */
   app.post("/auth/register", async (req, reply) => {
     const data = registerSchema.parse(req.body);
@@ -43,7 +43,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   /* -------------------------------------------------------------------------- */
-  /*                                   LOGIN                                    */
+  /*                                     LOGIN                                  */
   /* -------------------------------------------------------------------------- */
   app.post("/auth/login", async (req, reply) => {
     const data = loginSchema.parse(req.body);
@@ -64,7 +64,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   /* -------------------------------------------------------------------------- */
-  /*                              REFRESH TOKEN                                 */
+  /*                               REFRESH TOKEN                                */
   /* -------------------------------------------------------------------------- */
   app.post("/auth/refresh", async (req, reply) => {
     let payload: { sub: string };
@@ -101,7 +101,7 @@ export async function authRoutes(app: FastifyInstance) {
       throw new NotFoundProblem("Usuário não encontrado", req.url);
     }
 
-    const { passwordHash: _ph, ...publicUser } = user;
+    const { passwordHash: _ignored, ...publicUser } = user;
     return publicUser;
   });
 
@@ -122,13 +122,12 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   /* -------------------------------------------------------------------------- */
-  /*                         CHANGE PASSWORD (IMPORTANTE)                       */
+  /*                             CHANGE PASSWORD                                */
   /* -------------------------------------------------------------------------- */
   app.post("/auth/change-password", { preHandler: [app.authenticate] }, async (req) => {
-    // ⚠ Aqui estava o problema: faltava retornar o result corretamente
     const data = changePasswordSchema.parse(req.body);
-    const result = await service.changePassword(req.user.sub, data);
-    return result;
+
+    return await service.changePassword(req.user.sub, data);
   });
 
   /* -------------------------------------------------------------------------- */

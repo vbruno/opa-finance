@@ -1,4 +1,5 @@
-import { FastifyInstance } from "fastify";
+// test/auth/password-strength.test.ts
+import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../../setup";
 
@@ -13,28 +14,46 @@ afterEach(async () => {
   await app.close();
 });
 
-describe("Check password strength", () => {
-  it("deve falhar se o payload não tiver password", async () => {
+describe("POST /auth/check-password-strength", () => {
+  it("deve retornar força da senha corretamente", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/check-password-strength",
-      payload: {},
-    });
-
-    expect(response.statusCode).toBe(400);
-  });
-
-  it("deve retornar força correta", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/auth/check-password-strength",
+      headers: { "Content-Type": "application/json" },
       payload: {
         password: "Aa123456!",
       },
     });
 
     expect(response.statusCode).toBe(200);
+
     const body = response.json();
     expect(body).toHaveProperty("strength");
+  });
+
+  it("deve retornar 400 se a senha estiver vazia", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/check-password-strength",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        password: "",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().title).toBe("Validation Error");
+  });
+
+  it("deve retornar 400 se a senha estiver ausente no payload", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/check-password-strength",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().title).toBe("Validation Error");
   });
 });
