@@ -6,7 +6,11 @@ import { categories, subcategories } from "@/db/schema";
 export class SubcategoryService {
   constructor(private app: FastifyInstance) {}
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   CREATE                                    */
+  /* -------------------------------------------------------------------------- */
   async create(userId: string, data: any) {
+    // Buscar categoria
     const [category] = await this.app.db
       .select()
       .from(categories)
@@ -15,12 +19,15 @@ export class SubcategoryService {
     if (!category) throw new Error("Categoria não encontrada.");
     if (category.userId !== userId) throw new Error("Acesso negado.");
 
+    // Herança da cor da categoria
+    const inheritedColor = data.color ?? category.color ?? null;
+
     const [sub] = await this.app.db
       .insert(subcategories)
       .values({
         categoryId: data.categoryId,
         name: data.name,
-        color: data.color ?? null,
+        color: inheritedColor,
         userId,
       })
       .returning();
@@ -28,6 +35,9 @@ export class SubcategoryService {
     return sub;
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                     LIST                                    */
+  /* -------------------------------------------------------------------------- */
   async list(categoryId: string, userId: string) {
     const [cat] = await this.app.db.select().from(categories).where(eq(categories.id, categoryId));
 
@@ -37,6 +47,9 @@ export class SubcategoryService {
     return this.app.db.select().from(subcategories).where(eq(subcategories.categoryId, categoryId));
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                    GET ONE                                  */
+  /* -------------------------------------------------------------------------- */
   async getOne(id: string, userId: string) {
     const [sub] = await this.app.db.select().from(subcategories).where(eq(subcategories.id, id));
 
@@ -46,14 +59,24 @@ export class SubcategoryService {
     return sub;
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   UPDATE                                    */
+  /* -------------------------------------------------------------------------- */
   async update(id: string, userId: string, data: any) {
-    await this.getOne(id, userId);
+    const existingSub = await this.getOne(id, userId);
+
+    let newColor = existingSub.color;
+
+    // Caso envie nova cor → usa
+    if (data.color !== undefined) {
+      newColor = data.color;
+    }
 
     const [updated] = await this.app.db
       .update(subcategories)
       .set({
-        name: data.name,
-        color: data.color ?? null,
+        name: data.name ?? existingSub.name,
+        color: newColor,
         updatedAt: new Date(),
       })
       .where(eq(subcategories.id, id))
@@ -62,6 +85,9 @@ export class SubcategoryService {
     return updated;
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   DELETE                                    */
+  /* -------------------------------------------------------------------------- */
   async delete(id: string, userId: string) {
     await this.getOne(id, userId);
 

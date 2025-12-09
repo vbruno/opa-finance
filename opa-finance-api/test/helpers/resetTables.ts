@@ -1,4 +1,4 @@
-import { DB } from "@/core/plugins/drizzle-test";
+import { DB } from "@/core/plugins/drizzle";
 import { transactions, accounts, users, categories } from "@/db/schema";
 
 export async function resetTables(db: DB) {
