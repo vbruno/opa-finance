@@ -21,7 +21,6 @@ export default fp(async function jwtPlugin(app: FastifyInstance) {
     try {
       await req.jwtVerify();
     } catch {
-      // 🔥 LANÇA um problema RFC7807, NÃO responde manualmente
       throw new UnauthorizedProblem("Token ausente ou inválido.", req.url);
     }
   });
