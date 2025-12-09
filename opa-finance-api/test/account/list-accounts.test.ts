@@ -1,3 +1,4 @@
+// test/account/list-accounts.test.ts
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../setup";
@@ -43,7 +44,6 @@ describe("GET /accounts", () => {
   it("deve listar apenas contas do usuário autenticado", async () => {
     const token = await registerAndLogin();
 
-    // cria conta 1
     await app.inject({
       method: "POST",
       url: "/accounts",
@@ -51,7 +51,6 @@ describe("GET /accounts", () => {
       payload: { name: "Conta 1", type: "cash" },
     });
 
-    // cria conta 2
     await app.inject({
       method: "POST",
       url: "/accounts",
@@ -66,7 +65,10 @@ describe("GET /accounts", () => {
     });
 
     expect(response.statusCode).toBe(200);
+
     const body = response.json();
+
+    expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBe(2);
   });
 
@@ -74,7 +76,6 @@ describe("GET /accounts", () => {
     const tokenA = await registerAndLogin("userA@test.com");
     const tokenB = await registerAndLogin("userB@test.com");
 
-    // usuario A cria 1 conta
     await app.inject({
       method: "POST",
       url: "/accounts",
@@ -82,7 +83,6 @@ describe("GET /accounts", () => {
       payload: { name: "Conta A", type: "cash" },
     });
 
-    // usuario B lista
     const response = await app.inject({
       method: "GET",
       url: "/accounts",
@@ -90,6 +90,21 @@ describe("GET /accounts", () => {
     });
 
     const body = response.json();
+
+    expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBe(0);
+  });
+
+  it("deve retornar 401 sem token", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/accounts",
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    const body = response.json();
+    expect(body.title).toBe("Unauthorized");
+    expect(body.status).toBe(401);
   });
 });

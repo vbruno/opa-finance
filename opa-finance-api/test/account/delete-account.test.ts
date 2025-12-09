@@ -1,3 +1,4 @@
+// test/account/delete-account.test.ts
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -8,7 +9,7 @@ import { transactions, users, categories } from "@/db/schema";
 let app: FastifyInstance;
 let db: any;
 
-// função helper de login
+// helper para registrar + logar
 async function registerAndLogin() {
   await app.inject({
     method: "POST",
@@ -70,6 +71,7 @@ describe("DELETE /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(200);
+    expect(response.json().message).toBe("Conta removida com sucesso.");
   });
 
   it("não deve permitir remover conta com transações", async () => {
@@ -84,7 +86,7 @@ describe("DELETE /accounts/:id", () => {
 
     const account = created.json();
 
-    // categoria válida
+    // categoria necessária
     const [category] = await db
       .insert(categories)
       .values({
@@ -94,7 +96,7 @@ describe("DELETE /accounts/:id", () => {
       })
       .returning();
 
-    // transação válida
+    // cria transação vinculada à conta
     await db.insert(transactions).values({
       userId,
       accountId: account.id,
@@ -110,8 +112,12 @@ describe("DELETE /accounts/:id", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    const body = response.json();
+
     expect(response.statusCode).toBe(409);
-    expect(response.json().message).toContain("transações");
+    expect(body.title).toBe("Conflict");
+    expect(body.status).toBe(409);
+    expect(body.detail).toContain("transações");
   });
 
   it("deve retornar 404 para conta inexistente", async () => {
@@ -124,5 +130,10 @@ describe("DELETE /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(404);
+
+    const body = response.json();
+    expect(body.title).toBe("Not Found");
+    expect(body.status).toBe(404);
+    expect(body.detail).toBe("Conta não encontrada.");
   });
 });

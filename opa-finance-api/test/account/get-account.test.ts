@@ -1,3 +1,4 @@
+// test/account/get-account.test.ts
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { resetTables } from "../helpers/resetTables";
@@ -36,7 +37,6 @@ describe("GET /accounts/:id", () => {
     const built = await buildTestApp();
     app = built.app;
 
-    // 🧹 limpar tabelas
     await resetTables(built.db);
   });
 
@@ -63,7 +63,9 @@ describe("GET /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().id).toBe(account.id);
+
+    const body = response.json();
+    expect(body.id).toBe(account.id);
   });
 
   it("deve retornar 404 para conta inexistente", async () => {
@@ -76,13 +78,17 @@ describe("GET /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(404);
+
+    const body = response.json();
+    expect(body.title).toBe("Not Found");
+    expect(body.status).toBe(404);
+    expect(body.detail).toBe("Conta não encontrada.");
   });
 
   it("deve retornar 403 se tentar acessar conta de outro usuário", async () => {
     const tokenA = await registerAndLogin("User A", "a@test.com");
     const tokenB = await registerAndLogin("User B", "b@test.com");
 
-    // Conta criada pelo usuário A
     const created = await app.inject({
       method: "POST",
       url: "/accounts",
@@ -92,7 +98,6 @@ describe("GET /accounts/:id", () => {
 
     const account = created.json();
 
-    // Tentar acessar com token do usuário B
     const response = await app.inject({
       method: "GET",
       url: `/accounts/${account.id}`,
@@ -100,5 +105,8 @@ describe("GET /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(403);
+
+    const body = response.json();
+    expect(body.detail).toBe("Você não tem acesso a esta conta.");
   });
 });

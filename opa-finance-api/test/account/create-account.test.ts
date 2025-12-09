@@ -1,3 +1,4 @@
+// test/account/create-account.test.ts
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../setup";
@@ -58,11 +59,13 @@ describe("POST /accounts", () => {
     });
 
     expect(response.statusCode).toBe(201);
-    const body = response.json();
 
+    const body = response.json();
     expect(body.name).toBe("Carteira");
     expect(body.type).toBe("cash");
-    expect(body.initialBalance).toBe("100");
+
+    // agora o valor volta como number — ajuste do teste
+    expect(body.initialBalance).toBe(100);
   });
 
   it("deve falhar ao enviar dados inválidos", async () => {
@@ -78,6 +81,11 @@ describe("POST /accounts", () => {
     });
 
     expect(response.statusCode).toBe(400);
+
+    const body = response.json();
+    expect(body.title).toBe("Validation Error");
+    expect(body.status).toBe(400);
+    expect(body.detail).toContain("Nome é obrigatório");
   });
 
   it("deve retornar 401 se não enviar token", async () => {
@@ -91,5 +99,9 @@ describe("POST /accounts", () => {
     });
 
     expect(response.statusCode).toBe(401);
+
+    const body = response.json();
+    expect(body.title).toBe("Unauthorized");
+    expect(body.status).toBe(401);
   });
 });

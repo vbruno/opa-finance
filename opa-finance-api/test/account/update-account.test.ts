@@ -1,3 +1,4 @@
+// test/account/update-account.test.ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { buildTestApp } from "../setup";
 
@@ -54,7 +55,9 @@ describe("PUT /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().name).toBe("Conta Alterada");
+
+    const body = response.json();
+    expect(body.name).toBe("Conta Alterada");
   });
 
   it("não deve atualizar conta de outro usuário", async () => {
@@ -78,6 +81,11 @@ describe("PUT /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(403);
+
+    const body = response.json();
+    expect(body.title).toBe("Forbidden");
+    expect(body.status).toBe(403);
+    expect(body.detail).toBe("Você não tem acesso a esta conta.");
   });
 
   it("deve retornar 404 para conta inexistente", async () => {
@@ -91,5 +99,24 @@ describe("PUT /accounts/:id", () => {
     });
 
     expect(response.statusCode).toBe(404);
+
+    const body = response.json();
+    expect(body.title).toBe("Not Found");
+    expect(body.status).toBe(404);
+    expect(body.detail).toBe("Conta não encontrada.");
+  });
+
+  it("deve retornar 401 sem token", async () => {
+    const response = await app.inject({
+      method: "PUT",
+      url: `/accounts/qualquer`,
+      payload: { name: "Teste" },
+    });
+
+    expect(response.statusCode).toBe(401);
+
+    const body = response.json();
+    expect(body.title).toBe("Unauthorized");
+    expect(body.status).toBe(401);
   });
 });
