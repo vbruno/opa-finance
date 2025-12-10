@@ -10,6 +10,7 @@ import jwtPlugin from "./core/plugins/jwt";
 import { accountRoutes } from "./modules/accounts/account.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
+import { transactionRoutes } from "./modules/transactions/transaction.routes";
 import { userRoutes } from "./modules/users/user.routes";
 
 config();
@@ -49,6 +50,7 @@ async function start() {
   app.register(userRoutes);
   app.register(accountRoutes);
   app.register(categoryRoutes);
+  app.register(transactionRoutes);
 
   // **⚠️ Último passo: registrar o handler global de erros**
   registerErrorHandler(app);
