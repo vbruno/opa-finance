@@ -349,4 +349,38 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
     expect(res.json().data.length).toBe(1);
     expect(res.json().data[0].subcategoryId).toBe(subcategory.id);
   });
+
+  it("deve retornar o total correto de registros", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    for (let i = 1; i <= 12; i++) {
+      await app.inject({
+        method: "POST",
+        url: "/transactions",
+        headers: { Authorization: `Bearer ${token}` },
+        payload: {
+          accountId: account.id,
+          categoryId: incomeCat.id,
+          type: "income",
+          amount: i * 10,
+          date: `2025-01-${String(i).padStart(2, "0")}`,
+        },
+      });
+    }
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/transactions?page=2&limit=5",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const body = res.json();
+
+    expect(body.page).toBe(2);
+    expect(body.limit).toBe(5);
+    expect(body.data.length).toBe(5);
+    expect(body.total).toBe(12); // 👈 AQUI O VALOR IMPORTANTE
+  });
 });

@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
 import { TransactionType } from "./transaction.enums";
@@ -137,6 +137,11 @@ export class TransactionService {
     if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
     if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
 
+    const [{ count }] = await this.app.db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(and(...filters));
+
     const rows = await this.app.db
       .select()
       .from(transactions)
@@ -150,7 +155,12 @@ export class TransactionService {
       amount: Number(tx.amount),
     }));
 
-    return { data, page, limit };
+    return {
+      data,
+      page,
+      limit,
+      total: Number(count),
+    };
   }
 
   /* -------------------------------------------------------------------------- */
