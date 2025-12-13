@@ -60,23 +60,17 @@ export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;
 /* -------------------------------------------------------------------------- */
 /*                             LIST TRANSACTIONS (QUERY)                      */
 /* -------------------------------------------------------------------------- */
-
 export const listTransactionsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
+  page: z.coerce.number().int().min(1).default(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(10).optional(),
 
-  startDate: z
-    .string()
-    .refine((v) => !isNaN(Date.parse(v)), { message: "Data inicial inválida." })
-    .optional(),
-  endDate: z
-    .string()
-    .refine((v) => !isNaN(Date.parse(v)), { message: "Data final inválida." })
-    .optional(),
+  startDate: z.string().date({ message: "Data inicial inválida." }).optional(),
+  endDate: z.string().date({ message: "Data final inválida." }).optional(),
 
-  accountId: z.string().uuid().optional(),
-  categoryId: z.string().uuid().optional(),
-  type: z.enum(transactionTypes).optional(),
+  accountId: z.uuid({ message: "ID da conta inválido." }).optional(),
+  categoryId: z.uuid({ message: "ID da categoria inválido." }).optional(),
+  subcategoryId: z.uuid({ message: "ID da subcategoria inválido." }).optional(), // ✅ NOVO
+  type: z.enum(transactionTypes, { message: "Tipo de transação inválido." }).optional(),
 });
 
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;

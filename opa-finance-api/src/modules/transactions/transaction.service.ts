@@ -134,6 +134,7 @@ export class TransactionService {
     if (query.endDate) filters.push(lte(transactions.date, query.endDate));
     if (query.accountId) filters.push(eq(transactions.accountId, query.accountId));
     if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
+    if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
     if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
 
     const rows = await this.app.db

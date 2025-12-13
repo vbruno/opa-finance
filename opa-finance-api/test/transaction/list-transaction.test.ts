@@ -294,4 +294,59 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
 
     expect(res.statusCode).toBe(401);
   });
+
+  it("deve filtrar por subcategoryId", async () => {
+    const { token, account, expenseCat } = await seedBasicData();
+
+    const subcategory = (
+      await app.inject({
+        method: "POST",
+        url: "/subcategories",
+        headers: { Authorization: `Bearer ${token}` },
+        payload: {
+          name: "Supermercado",
+          categoryId: expenseCat.id,
+        },
+      })
+    ).json();
+
+    // tx COM subcategoria
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        subcategoryId: subcategory.id,
+        type: "expense",
+        amount: 100,
+        date: "2025-01-01",
+      },
+    });
+
+    // tx SEM subcategoria
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        type: "expense",
+        amount: 200,
+        date: "2025-01-02",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions?subcategoryId=${subcategory.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.length).toBe(1);
+    expect(res.json().data[0].subcategoryId).toBe(subcategory.id);
+  });
 });
