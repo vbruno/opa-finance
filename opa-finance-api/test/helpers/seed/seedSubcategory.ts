@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 
 type SeedSubcategoryOverrides = {
-  categoryId: string; // obrigatório
+  categoryId: string;
   name?: string;
   color?: string | null;
 };
@@ -13,9 +13,9 @@ export async function seedSubcategory(
   overrides: SeedSubcategoryOverrides,
 ) {
   const payload = {
+    categoryId: overrides.categoryId, // obrigatório → nunca sobrescrever
     name: overrides.name ?? "Subcategoria Padrão",
-    color: overrides.color ?? null,
-    ...overrides,
+    color: overrides.color ?? null, // padroniza null
   };
 
   const res = await app.inject({

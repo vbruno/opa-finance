@@ -14,8 +14,10 @@ export const createAccountSchema = z.object({
   }),
 
   initialBalance: z.coerce.number().default(0),
-  color: z.string().optional(),
-  icon: z.string().optional(),
+
+  // Aceita string OU null
+  color: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
 });
 
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
@@ -35,8 +37,9 @@ export const updateAccountSchema = z
       .min(0, { message: "Saldo inicial não pode ser negativo." })
       .optional(),
 
-    color: z.string().optional(),
-    icon: z.string().optional(),
+    // Mesma correção aqui:
+    color: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Pelo menos um campo deve ser atualizado.",

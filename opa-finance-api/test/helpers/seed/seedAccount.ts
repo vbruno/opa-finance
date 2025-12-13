@@ -21,7 +21,6 @@ export async function seedAccount(
     initialBalance: overrides.initialBalance ?? 0,
     color: overrides.color ?? null,
     icon: overrides.icon ?? null,
-    ...overrides,
   };
 
   const res = await app.inject({

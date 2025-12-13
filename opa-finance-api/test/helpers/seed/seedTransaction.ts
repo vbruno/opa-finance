@@ -10,7 +10,7 @@ type SeedTransactionOverrides = {
   amount?: number;
   date?: string;
   description?: string;
-  notes?: string;
+  notes?: string | null;
 };
 
 export async function seedTransaction(
@@ -19,12 +19,17 @@ export async function seedTransaction(
   overrides: SeedTransactionOverrides,
 ) {
   const payload = {
+    accountId: overrides.accountId, // obrigatório
+    categoryId: overrides.categoryId, // obrigatório
+    subcategoryId: overrides.subcategoryId ?? null,
+
     type: overrides.type ?? "expense",
     amount: overrides.amount ?? 100,
     date: overrides.date ?? "2025-01-01",
     description: overrides.description ?? "Transação default",
+
+    // Garante string ou null, nunca undefined
     notes: overrides.notes ?? null,
-    ...overrides,
   };
 
   const res = await app.inject({

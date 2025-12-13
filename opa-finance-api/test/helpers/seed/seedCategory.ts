@@ -14,8 +14,7 @@ export async function seedCategory(
 ) {
   const payload = {
     name: overrides.name ?? "Categoria Padrão",
-    type: overrides.type ?? "expense",
-    ...overrides,
+    type: overrides.type ?? "expense", // default garantido
   };
 
   const res = await app.inject({

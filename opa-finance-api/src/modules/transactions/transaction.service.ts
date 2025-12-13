@@ -1,8 +1,13 @@
 // src/modules/transactions/transaction.service.ts
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
-import type { CreateTransactionInput, UpdateTransactionInput } from "./transaction.schemas";
+import { TransactionType } from "./transaction.enums";
+import type {
+  CreateTransactionInput,
+  UpdateTransactionInput,
+  ListTransactionsQuery,
+} from "./transaction.schemas";
 import {
   NotFoundProblem,
   ForbiddenProblem,
@@ -11,7 +16,6 @@ import {
 } from "@/core/errors/problems";
 
 import { accounts, categories, subcategories, transactions } from "@/db/schema";
-
 export class TransactionService {
   constructor(private app: FastifyInstance) {}
 
@@ -119,16 +123,33 @@ export class TransactionService {
   /*                                LIST                                         */
   /* -------------------------------------------------------------------------- */
 
-  async list(userId: string) {
+  async list(userId: string, query: ListTransactionsQuery) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const offset = (page - 1) * limit;
+
+    const filters = [eq(transactions.userId, userId)];
+
+    if (query.startDate) filters.push(gte(transactions.date, query.startDate));
+    if (query.endDate) filters.push(lte(transactions.date, query.endDate));
+    if (query.accountId) filters.push(eq(transactions.accountId, query.accountId));
+    if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
+    if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
+
     const rows = await this.app.db
       .select()
       .from(transactions)
-      .where(eq(transactions.userId, userId));
+      .where(and(...filters))
+      .orderBy(transactions.date) // <-- ESSENCIAL
+      .limit(limit)
+      .offset(offset);
 
-    return rows.map((tx: typeof transactions.$inferSelect) => ({
+    const data = rows.map((tx: typeof transactions.$inferSelect) => ({
       ...tx,
       amount: Number(tx.amount),
     }));
+
+    return { data, page, limit };
   }
 
   /* -------------------------------------------------------------------------- */
@@ -174,9 +195,18 @@ export class TransactionService {
       );
     }
 
-    // --- NOVA VALIDAÇÃO CORRETA ---
     const finalType = data.type ?? tx.type;
-    const finalCategoryType = newCategory?.type ?? tx.type;
+
+    // tipo da categoria deve ser obtido da categoria final
+    let finalCategoryType = tx.type;
+
+    if (newCategory) {
+      finalCategoryType = newCategory.type;
+    } else {
+      // pega categoria original da transação
+      const oldCategory = await this.validateCategory(userId, tx.categoryId);
+      finalCategoryType = oldCategory.type;
+    }
 
     this.validateTypeMatchesCategory(finalType, finalCategoryType);
 
