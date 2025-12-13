@@ -6,6 +6,7 @@ import {
   updateTransactionSchema,
   transactionParamsSchema,
   listTransactionsQuerySchema,
+  summaryTransactionsQuerySchema,
 } from "./transaction.schemas";
 
 import { TransactionService } from "./transaction.service";
@@ -43,5 +44,11 @@ export async function transactionRoutes(app: FastifyInstance) {
   app.delete("/transactions/:id", { preHandler: [app.authenticate] }, async (req) => {
     const { id } = transactionParamsSchema.parse(req.params);
     return await service.delete(id, req.user.sub);
+  });
+
+  /* SUMMARY */
+  app.get("/transactions/summary", { preHandler: [app.authenticate] }, async (req) => {
+    const query = summaryTransactionsQuerySchema.parse(req.query);
+    return await service.summary(req.user.sub, query);
   });
 }

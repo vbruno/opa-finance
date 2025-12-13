@@ -60,18 +60,23 @@ export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;
 /* -------------------------------------------------------------------------- */
 /*                             LIST TRANSACTIONS (QUERY)                      */
 /* -------------------------------------------------------------------------- */
-export const listTransactionsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(10).optional(),
+export const listTransactionsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
 
-  startDate: z.string().date({ message: "Data inicial inválida." }).optional(),
-  endDate: z.string().date({ message: "Data final inválida." }).optional(),
+    startDate: z.string().date().optional(),
+    endDate: z.string().date().optional(),
 
-  accountId: z.uuid({ message: "ID da conta inválido." }).optional(),
-  categoryId: z.uuid({ message: "ID da categoria inválido." }).optional(),
-  subcategoryId: z.uuid({ message: "ID da subcategoria inválido." }).optional(), // ✅ NOVO
-  type: z.enum(transactionTypes, { message: "Tipo de transação inválido." }).optional(),
-});
+    accountId: z.uuid().optional(),
+    categoryId: z.uuid().optional(),
+    subcategoryId: z.uuid().optional(),
+    type: z.enum(transactionTypes).optional(),
+  })
+  .refine((data) => !data.startDate || !data.endDate || data.startDate <= data.endDate, {
+    message: "Data inicial não pode ser maior que a data final",
+    path: ["startDate"],
+  });
 
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;
 
@@ -84,3 +89,29 @@ export const transactionParamsSchema = z.object({
 });
 
 export type TransactionParams = z.infer<typeof transactionParamsSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                         TRANSACTIONS SUMMARY (QUERY)                        */
+/* -------------------------------------------------------------------------- */
+
+export const summaryTransactionsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inicial inválida")
+    .optional(),
+
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data final inválida")
+    .optional(),
+
+  accountId: z.uuid().optional(),
+  categoryId: z.uuid().optional(),
+  subcategoryId: z.uuid().optional(),
+  type: z.enum(transactionTypes).optional(),
+});
+
+export type SummaryTransactionsQuery = z.infer<typeof summaryTransactionsQuerySchema>;

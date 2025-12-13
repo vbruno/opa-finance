@@ -383,4 +383,16 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
     expect(body.data.length).toBe(5);
     expect(body.total).toBe(12); // 👈 AQUI O VALOR IMPORTANTE
   });
+
+  it("deve retornar erro se startDate for maior que endDate", async () => {
+    const { token } = await seedBasicData();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/transactions?startDate=2025-02-01&endDate=2025-01-01",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
 });

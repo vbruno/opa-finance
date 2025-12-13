@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql, sum } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
 import { TransactionType } from "./transaction.enums";
@@ -7,6 +7,7 @@ import type {
   CreateTransactionInput,
   UpdateTransactionInput,
   ListTransactionsQuery,
+  SummaryTransactionsQuery,
 } from "./transaction.schemas";
 import {
   NotFoundProblem,
@@ -146,7 +147,7 @@ export class TransactionService {
       .select()
       .from(transactions)
       .where(and(...filters))
-      .orderBy(transactions.date) // <-- ESSENCIAL
+      .orderBy(desc(transactions.date), desc(transactions.createdAt))
       .limit(limit)
       .offset(offset);
 
@@ -253,5 +254,56 @@ export class TransactionService {
     await this.app.db.delete(transactions).where(eq(transactions.id, id));
 
     return { message: "Transação removida com sucesso." };
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                                SUMMARY                                     */
+  /* -------------------------------------------------------------------------- */
+
+  async summary(userId: string, query: SummaryTransactionsQuery) {
+    const filters = [eq(transactions.userId, userId)];
+
+    if (query.startDate) {
+      filters.push(gte(transactions.date, query.startDate));
+    }
+
+    if (query.endDate) {
+      filters.push(lte(transactions.date, query.endDate));
+    }
+
+    if (query.accountId) {
+      filters.push(eq(transactions.accountId, query.accountId));
+    }
+
+    if (query.categoryId) {
+      filters.push(eq(transactions.categoryId, query.categoryId));
+    }
+
+    if (query.subcategoryId) {
+      filters.push(eq(transactions.subcategoryId, query.subcategoryId));
+    }
+
+    const [incomeRow] = await this.app.db
+      .select({
+        total: sum(transactions.amount),
+      })
+      .from(transactions)
+      .where(and(...filters, eq(transactions.type, "income")));
+
+    const [expenseRow] = await this.app.db
+      .select({
+        total: sum(transactions.amount),
+      })
+      .from(transactions)
+      .where(and(...filters, eq(transactions.type, "expense")));
+
+    const income = Number(incomeRow?.total ?? 0);
+    const expense = Number(expenseRow?.total ?? 0);
+
+    return {
+      income,
+      expense,
+      balance: income - expense,
+    };
   }
 }
