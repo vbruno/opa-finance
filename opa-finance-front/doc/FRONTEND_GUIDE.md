@@ -56,7 +56,7 @@ Fornecer uma interface:
 
 ### UI
 
-- shadcn/ui
+- shadcn/ui (integrado com Tailwind v4.1)
 
 ### Comunicação & Validação
 
@@ -138,7 +138,7 @@ src/
 - [x] Criação do projeto
 - [x] Instalação das dependências base
 - [x] Tailwind CSS v4.1 configurado e funcionando
-- [ ] shadcn/ui
+- [x] shadcn/ui
 - [ ] Router
 - [ ] Auth
 - [ ] Layout base
