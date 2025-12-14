@@ -49,10 +49,12 @@ Fornecer uma interface:
     @import "tailwindcss";
     ```
 
-### Roteamento & Estado
+### Roteamento & Navegação
 
 - TanStack Router
-- TanStack Query (React Query)
+  - File-based routing
+  - Plugin oficial do Vite (`@tanstack/router-plugin`)
+  - Geração automática de `routeTree.gen.ts`
 
 ### UI
 
@@ -65,27 +67,25 @@ Fornecer uma interface:
 
 ---
 
-## 🗂️ Arquitetura de Pastas
+## 🗂️ Arquitetura de Pastas (Frontend)
 
 ```txt
 src/
-├─ app/
-├─ features/
-│  ├─ auth/
-│  ├─ dashboard/
-│  ├─ accounts/
-│  ├─ categories/
-│  ├─ subcategories/
-│  └─ transactions/
+├─ routes/                # Rotas (TanStack Router)
+│  ├─ __root.tsx
+│  ├─ index.tsx
+│  ├─ login.tsx
+│  └─ app/
+│     └─ index.tsx
+├─ router/                # Configuração do Router
+│  ├─ router.ts
+│  └─ RouterProvider.tsx
 ├─ components/
+│  └─ ui/                 # shadcn/ui
 ├─ services/
 ├─ schemas/
-├─ types/
-├─ hooks/
 ├─ lib/
-├─ styles/
 └─ main.tsx
-```
 
 ---
 
@@ -135,11 +135,16 @@ src/
 
 ## ✅ Status
 
-- [x] Criação do projeto
-- [x] Instalação das dependências base
-- [x] Tailwind CSS v4.1 configurado e funcionando
-- [x] shadcn/ui
-- [ ] Router
-- [ ] Auth
+- [x] Criação do projeto (Vite + React + TS + SWC)
+- [x] Dependências base
+- [x] Tailwind CSS v4.1 (CSS-first)
+- [x] shadcn/ui configurado
+- [x] TanStack Router
+  - File-based routing
+  - Plugin do Vite configurado
+  - `routeTree.gen.ts` gerado
+  - Rotas `/`, `/login`, `/app`
+  - Fast Refresh warning corrigido
 - [ ] Layout base
+- [ ] Auth Guard
 - [ ] Dashboard
