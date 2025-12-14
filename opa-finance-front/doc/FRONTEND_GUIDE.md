@@ -32,19 +32,34 @@ Fornecer uma interface:
 ## 🧱 Stack Tecnológica
 
 ### Base
+
 - Vite
 - React
 - TypeScript (SWC)
 
+### Estilo
+
+- Tailwind CSS **v4.1**
+  - Configuração **CSS-first**
+  - Plugin: `@tailwindcss/vite`
+  - Arquivo global: `src/index.css`
+  - Importação:
+
+    ```css
+    @import "tailwindcss";
+    ```
+
 ### Roteamento & Estado
+
 - TanStack Router
 - TanStack Query (React Query)
 
-### UI & Estilo
-- Tailwind CSS
+### UI
+
 - shadcn/ui
 
 ### Comunicação & Validação
+
 - Axios
 - Zod
 
@@ -121,11 +136,10 @@ src/
 ## ✅ Status
 
 - [x] Criação do projeto
-- [ ] Setup base (stack)
+- [x] Instalação das dependências base
+- [x] Tailwind CSS v4.1 configurado e funcionando
+- [ ] shadcn/ui
+- [ ] Router
 - [ ] Auth
-- [ ] Layout
+- [ ] Layout base
 - [ ] Dashboard
-- [ ] Transactions
-- [ ] Accounts
-- [ ] Categories
-- [ ] Subcategories
