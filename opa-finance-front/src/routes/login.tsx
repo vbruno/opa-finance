@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { Button } from "@/components/ui/button"
+
 import { login } from "@/auth/auth.store"
+import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/login")({
   component: Login,

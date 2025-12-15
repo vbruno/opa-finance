@@ -3,6 +3,7 @@ import {
   createFileRoute,
   redirect,
 } from "@tanstack/react-router"
+
 import { getUser } from "@/auth/auth.store"
 
 export const Route = createFileRoute("/app")({
