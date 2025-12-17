@@ -2,16 +2,15 @@ import {
   Outlet,
   createFileRoute,
   redirect,
-} from "@tanstack/react-router"
+} from '@tanstack/react-router'
 
-import { getUser } from "@/auth/auth.store"
+import { getUser } from '@/auth/auth.store'
+import { Header } from '@/components/app/Header'
 
-export const Route = createFileRoute("/app")({
+export const Route = createFileRoute('/app')({
   beforeLoad: () => {
     if (!getUser()) {
-      throw redirect({
-        to: "/login",
-      })
+      throw redirect({ to: '/login' })
     }
   },
   component: AppLayout,
@@ -19,14 +18,18 @@ export const Route = createFileRoute("/app")({
 
 function AppLayout() {
   return (
-    <div className="flex min-h-dvh">
-      <aside className="w-64 border-r p-4">
-        <h2 className="font-bold">Opa Finance</h2>
-      </aside>
+    <div className="flex min-h-dvh flex-col">
+      <Header />
 
-      <main className="flex-1 p-6">
-        <Outlet />
-      </main>
+      <div className="flex flex-1">
+        <aside className="w-64 border-r p-4">
+          <p className="font-medium">Menu</p>
+        </aside>
+
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
