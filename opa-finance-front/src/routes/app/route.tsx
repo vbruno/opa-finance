@@ -6,6 +6,7 @@ import {
 
 import { getUser } from '@/auth/auth.store'
 import { Header } from '@/components/app/Header'
+import { Sidebar } from '@/components/app/Sidebar'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: () => {
@@ -22,9 +23,7 @@ function AppLayout() {
       <Header />
 
       <div className="flex flex-1">
-        <aside className="w-64 border-r p-4">
-          <p className="font-medium">Menu</p>
-        </aside>
+        <Sidebar />
 
         <main className="flex-1 p-6">
           <Outlet />
