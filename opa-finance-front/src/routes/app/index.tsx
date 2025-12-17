@@ -1,9 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
 
-export const Route = createFileRoute("/app/")({
-  component: AppHome,
+import { api } from '@/lib/api'
+
+export const Route = createFileRoute('/app/')({
+  component: Dashboard,
 })
 
-function AppHome() {
-  return <p>CONTEÚDO DO INDEX</p>
+function Dashboard() {
+  useEffect(() => {
+    api.get('/health').catch(() => {
+      console.log('API não conectada (ok por enquanto)')
+    })
+  }, [])
+
+  return <h1 className="text-2xl font-bold">Dashboard</h1>
 }
