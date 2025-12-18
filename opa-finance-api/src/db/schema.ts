@@ -1,3 +1,4 @@
+// src/db/schema.ts
 // Drizzle ORM schemas for finance project
 import {
   pgTable,
@@ -8,6 +9,7 @@ import {
   text,
   date,
   pgEnum,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 /* ----------------------------- ENUM DEFINITIONS ----------------------------- */
@@ -61,15 +63,13 @@ export const accounts = pgTable("accounts", {
 export const categories = pgTable("categories", {
   id: uuid("id").defaultRandom().primaryKey(),
 
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
 
   name: varchar("name", { length: 255 }).notNull(),
 
   type: categoryType("type").notNull(),
 
-  color: text("color"),
+  system: boolean("system").notNull().default(false),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -124,6 +124,8 @@ export const transactions = pgTable("transactions", {
   date: date("date").notNull(),
 
   description: text("description"),
+
+  transferId: uuid("transfer_id"),
 
   createdAt: timestamp("created_at").defaultNow(),
 });

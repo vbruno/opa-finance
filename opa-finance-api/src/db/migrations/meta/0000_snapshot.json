@@ -1,5 +1,5 @@
 {
-  "id": "ed6beabf-3ab0-4d72-8a69-0089fbd16879",
+  "id": "705b58ac-29f6-488c-b246-43494a610d1f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -105,7 +105,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "name": {
           "name": "name",
@@ -119,6 +119,13 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "system": {
+          "name": "system",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "color": {
           "name": "color",
@@ -305,6 +312,12 @@
         "description": {
           "name": "description",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transfer_id": {
+          "name": "transfer_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },

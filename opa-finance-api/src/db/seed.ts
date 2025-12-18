@@ -1,4 +1,3 @@
-// src/db/seed.ts
 import { hash } from "bcrypt";
 import { sql } from "drizzle-orm";
 import { db } from "../core/plugins/drizzle";
@@ -8,7 +7,9 @@ import { users, accounts, categories, subcategories, transactions } from "./sche
 async function seed() {
   console.log("🌱 Iniciando seed do banco...");
 
-  // ---------- LIMPAR TABELAS NA ORDEM CERTA ----------
+  /* -------------------------------------------------------------------------- */
+  /*                            LIMPAR TABELAS                                  */
+  /* -------------------------------------------------------------------------- */
   await db.execute(sql`DELETE FROM transactions`);
   await db.execute(sql`DELETE FROM subcategories`);
   await db.execute(sql`DELETE FROM categories`);
@@ -17,7 +18,9 @@ async function seed() {
 
   console.log("✔ Tabelas limpas");
 
-  // ---------- CRIAR USUÁRIO INICIAL ----------
+  /* -------------------------------------------------------------------------- */
+  /*                            USUÁRIO                                          */
+  /* -------------------------------------------------------------------------- */
   const passwordHash = await hash("123456", 10);
 
   const [user] = await db
@@ -31,7 +34,9 @@ async function seed() {
 
   console.log("✔ Usuário criado:", user.email);
 
-  // ---------- CONTAS ----------
+  /* -------------------------------------------------------------------------- */
+  /*                            CONTAS                                           */
+  /* -------------------------------------------------------------------------- */
   const [cashAcc] = await db
     .insert(accounts)
     .values({
@@ -64,13 +69,16 @@ async function seed() {
 
   console.log("✔ Contas criadas");
 
-  // ---------- CATEGORIAS ----------
+  /* -------------------------------------------------------------------------- */
+  /*                            CATEGORIAS                                      */
+  /* -------------------------------------------------------------------------- */
   const [salary] = await db
     .insert(categories)
     .values({
       userId: user.id,
       name: "Salário",
       type: "income",
+      system: false,
     })
     .returning();
 
@@ -80,6 +88,7 @@ async function seed() {
       userId: user.id,
       name: "Alimentação",
       type: "expense",
+      system: false,
     })
     .returning();
 
@@ -89,19 +98,32 @@ async function seed() {
       userId: user.id,
       name: "Transporte",
       type: "expense",
+      system: false,
     })
     .returning();
 
-  console.log("✔ Categorias criadas");
+  /* --------------------- CATEGORIA DE TRANSFERÊNCIA ------------------------- */
+  const [transferCategory] = await db
+    .insert(categories)
+    .values({
+      userId: user.id,
+      name: "Transferência",
+      type: "expense",
+      system: true, // ⭐️ ESSENCIAL
+    })
+    .returning();
 
-  // ---------- SUBCATEGORIAS (EXEMPLOS) ----------
+  console.log("✔ Categorias criadas (incluindo Transferência)");
+
+  /* -------------------------------------------------------------------------- */
+  /*                            SUBCATEGORIAS                                   */
+  /* -------------------------------------------------------------------------- */
   const [foodMarket] = await db
     .insert(subcategories)
     .values({
       userId: user.id,
       categoryId: food.id,
       name: "Supermercado",
-      type: food.type, // herda automaticamente
     })
     .returning();
 
@@ -111,7 +133,6 @@ async function seed() {
       userId: user.id,
       categoryId: food.id,
       name: "Restaurantes",
-      type: food.type,
     })
     .returning();
 
@@ -121,19 +142,19 @@ async function seed() {
       userId: user.id,
       categoryId: transport.id,
       name: "Ônibus",
-      type: transport.type,
     })
     .returning();
 
   console.log("✔ Subcategorias criadas");
 
-  // ---------- TRANSAÇÕES ----------
+  /* -------------------------------------------------------------------------- */
+  /*                            TRANSAÇÕES                                      */
+  /* -------------------------------------------------------------------------- */
   await db.insert(transactions).values([
     {
       userId: user.id,
       accountId: checkingAcc.id,
       categoryId: salary.id,
-      subcategoryId: null, // receitas não possuem subcategorias
       type: "income",
       amount: "4500.00",
       date: "2025-01-05",
@@ -172,8 +193,8 @@ async function seed() {
   ]);
 
   console.log("✔ Transações criadas");
-
   console.log("🌱 Seed finalizado com sucesso!");
+
   process.exit(0);
 }
 

@@ -20,7 +20,6 @@ export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export const updateCategorySchema = z
   .object({
     name: z.string().min(1, { message: "Nome é obrigatório." }).optional(),
-    type: z.enum(categoryTypes, { message: "Tipo de categoria inválido." }).optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Pelo menos um campo deve ser atualizado.",

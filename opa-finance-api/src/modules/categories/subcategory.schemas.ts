@@ -21,6 +21,7 @@ export const updateSubcategorySchema = z
     color: z
       .string()
       .regex(hexColorRegex, { message: "Cor inválida. Use formato HEX (#FFF ou #FFFFFF)." })
+      .nullable()
       .optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {

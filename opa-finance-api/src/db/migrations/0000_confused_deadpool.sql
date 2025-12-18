@@ -15,9 +15,10 @@ CREATE TABLE "accounts" (
 --> statement-breakpoint
 CREATE TABLE "categories" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" uuid NOT NULL,
+	"user_id" uuid,
 	"name" varchar(255) NOT NULL,
 	"type" "category_type" NOT NULL,
+	"system" boolean DEFAULT false NOT NULL,
 	"color" text,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
@@ -43,6 +44,7 @@ CREATE TABLE "transactions" (
 	"amount" numeric(12, 2) NOT NULL,
 	"date" date NOT NULL,
 	"description" text,
+	"transfer_id" uuid,
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint

@@ -1,10 +1,13 @@
-// src/modules/categories/category.service.ts
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
+import { CreateCategoryInput } from "./category.schemas";
 import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "@/core/errors/problems";
 
 import { categories, subcategories } from "@/db/schema";
+
+type Category = InferSelectModel<typeof categories>;
 
 export class CategoryService {
   constructor(private app: FastifyInstance) {}
@@ -12,10 +15,24 @@ export class CategoryService {
   /* -------------------------------------------------------------------------- */
   /*                                   CREATE                                   */
   /* -------------------------------------------------------------------------- */
-  async create(userId: string, data: any) {
+  async create(userId: string, data: CreateCategoryInput) {
+    const existingSystem = await this.app.db
+      .select()
+      .from(categories)
+      .where(and(eq(categories.name, data.name), eq(categories.system, true)));
+
+    if (existingSystem.length > 0) {
+      throw new ConflictProblem("Já existe uma categoria de sistema com esse nome.", "/categories");
+    }
+
     const [category] = await this.app.db
       .insert(categories)
-      .values({ ...data, userId })
+      .values({
+        userId,
+        name: data.name,
+        type: data.type,
+        system: false,
+      })
       .returning();
 
     return category;
@@ -25,7 +42,15 @@ export class CategoryService {
   /*                                   LIST                                     */
   /* -------------------------------------------------------------------------- */
   async list(userId: string) {
-    return await this.app.db.select().from(categories).where(eq(categories.userId, userId));
+    return this.app.db
+      .select()
+      .from(categories)
+      .where(
+        or(
+          eq(categories.userId, userId), // categorias do usuário
+          eq(categories.system, true), // categorias do sistema
+        ),
+      );
   }
 
   /* -------------------------------------------------------------------------- */
@@ -38,7 +63,8 @@ export class CategoryService {
       throw new NotFoundProblem("Categoria não encontrada.", `/categories/${id}`);
     }
 
-    if (category.userId !== userId) {
+    // categoria de sistema é visível para todos
+    if (!category.system && category.userId !== userId) {
       throw new ForbiddenProblem("Você não tem acesso a esta categoria.", `/categories/${id}`);
     }
 
@@ -49,12 +75,23 @@ export class CategoryService {
   /*                                  UPDATE                                    */
   /* -------------------------------------------------------------------------- */
   async update(id: string, userId: string, data: any) {
-    // Valida acesso (404 ou 403)
-    await this.getOne(id, userId);
+    const category = await this.getOne(id, userId);
+
+    // 🚫 Categoria de sistema não pode ser alterada
+    if (category.system) {
+      throw new ForbiddenProblem(
+        "Categorias de sistema não podem ser alteradas.",
+        `/categories/${id}`,
+      );
+    }
 
     const [updated] = await this.app.db
       .update(categories)
-      .set(data)
+      .set({
+        name: data.name ?? category.name,
+        color: data.color ?? category.color,
+        updatedAt: new Date(),
+      })
       .where(eq(categories.id, id))
       .returning();
 
@@ -65,10 +102,17 @@ export class CategoryService {
   /*                                  DELETE                                    */
   /* -------------------------------------------------------------------------- */
   async delete(id: string, userId: string) {
-    // Valida 404 e 403
-    await this.getOne(id, userId);
+    const category = await this.getOne(id, userId);
 
-    // Verifica subcategorias
+    // 🚫 Categoria de sistema não pode ser removida
+    if (category.system) {
+      throw new ForbiddenProblem(
+        "Categorias de sistema não podem ser removidas.",
+        `/categories/${id}`,
+      );
+    }
+
+    // 🔒 Verifica subcategorias
     const subs = await this.app.db
       .select()
       .from(subcategories)
@@ -81,7 +125,6 @@ export class CategoryService {
       );
     }
 
-    // Remove categoria
     await this.app.db.delete(categories).where(eq(categories.id, id));
 
     return { message: "Categoria removida com sucesso." };

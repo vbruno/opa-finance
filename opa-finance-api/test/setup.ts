@@ -11,6 +11,7 @@ import { accountRoutes } from "@/modules/accounts/account.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
 import { categoryRoutes } from "@/modules/categories/category.routes";
 import { transactionRoutes } from "@/modules/transactions/transaction.routes";
+import { transferRoutes } from "@/modules/transfers/transfer.routes";
 import { userRoutes } from "@/modules/users/user.routes";
 
 export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> {
@@ -49,6 +50,7 @@ export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> 
   app.register(accountRoutes);
   app.register(categoryRoutes);
   app.register(transactionRoutes);
+  app.register(transferRoutes);
 
   // Inicializa Fastify
   await app.ready();
