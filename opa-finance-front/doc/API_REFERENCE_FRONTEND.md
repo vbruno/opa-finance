@@ -42,6 +42,16 @@ Content-Type: application/json
 
 O refresh token é enviado automaticamente via cookie `refreshToken` (httpOnly, secure).
 
+### CORS + Credenciais (Frontend)
+
+O frontend envia requisições com `withCredentials: true` para permitir o refresh token.
+O backend deve responder com:
+
+```http
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Origin: http://localhost:5173
+```
+
 ---
 
 ## 🔐 Autenticação

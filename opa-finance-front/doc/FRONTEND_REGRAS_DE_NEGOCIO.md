@@ -79,14 +79,18 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🔐 Autenticação & Sessão (Frontend)
 
 ### Situação atual
-- Autenticação mockada
-- Sessão persistida via `localStorage`
+- Autenticação integrada com backend
+- Access token persistido via `localStorage`
+- Refresh token via cookie httpOnly (com `withCredentials`)
 - Guard de rotas via TanStack Router (`beforeLoad`)
 
 ### Comportamento esperado
 - Usuário não autenticado:
   - Não acessa `/app/*`
   - É redirecionado para `/login`
+- Usuário autenticado:
+  - Não acessa `/login`
+  - É redirecionado para `/app`
 - Logout:
   - Limpa sessão
   - Redireciona para `/login`
@@ -118,7 +122,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ### Interceptors
 - Token anexado automaticamente
 - Erros globais tratados centralmente
-- `401` → redirecionar para `/login`
+- `401` → tentar refresh e, se falhar, logout + redirecionar para `/login`
 
 ---
 
@@ -136,6 +140,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - helpers
   - hooks
   - schemas (Zod)
+  - React Hook Form + Zod (resolver)
 
 ---
 

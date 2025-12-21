@@ -66,6 +66,7 @@ Fornecer uma interface:
 
 - Axios
 - Zod
+- React Hook Form + @hookform/resolvers
 
 ### Qualidade de Código
 
@@ -78,6 +79,7 @@ Fornecer uma interface:
 
 ```txt
 src/
+├─ index.css
 ├─ routes/
 │  ├─ __root.tsx
 │  ├─ index.tsx           # Landing / redirect inicial
@@ -98,7 +100,12 @@ src/
 ├─ lib/
 │  ├─ api.ts              # Cliente HTTP (Axios)
 │  └─ api.interceptors.ts # Interceptors globais
+│  └─ utils.ts
+├─ router/
+│  ├─ RouterProvider.tsx
+│  └─ router.ts
 ├─ schemas/               # Zod schemas
+├─ routeTree.gen.ts
 ├─ main.tsx
 ```
 
@@ -107,11 +114,13 @@ src/
 ## 🧭 Fluxo de Navegação (MVP)
 
 1. Login
-2. Dashboard
-3. Contas
-4. Transações
+2. Área protegida `/app`
+3. Usuário (perfil)
+4. Contas
 5. Categorias / Subcategorias
-6. Acompanhamento mensal
+6. Transações
+7. Transferências
+8. Dashboard / Resumo mensal
 
 ---
 
@@ -119,20 +128,26 @@ src/
 
 ### Situação atual (Frontend)
 
-- Autenticação **mockada** para desenvolvimento
-- Estado do usuário centralizado
-- Persistência via `localStorage`
+- Autenticação integrada com backend
+- Access token persistido em `localStorage`
+- Refresh token via cookie httpOnly (com `withCredentials`)
+- Endpoint `/auth/me` para hidratar dados do usuário
+- Interceptor para anexar token e renovar em `401`
 - Guard de rotas usando `beforeLoad`
 - Rotas públicas: `/`, `/login`
 - Rotas protegidas: `/app/*`
 
-### Planejamento futuro
+### Próximos ajustes (se necessário)
 
-- JWT (access + refresh)
-- Access token em memória
-- Refresh token via cookie httpOnly
-- Endpoint `/me`
-- Renovação automática via interceptor
+- Melhorar UX de loading/erro global para autenticação
+
+---
+
+## 🧾 Formulários (padrão)
+
+- React Hook Form + Zod (resolver)
+- Erros de API em `errors.root`
+- Validação de campo em tempo real via schema
 
 ---
 
@@ -153,11 +168,13 @@ src/
 3. Auth Guard + persistência
 4. Sidebar + navegação
 5. Integração base com API
-6. Dashboard
-7. Transactions
-8. Accounts
-9. Categories / Subcategories
-10. Polimento de UX
+6. Usuário (perfil, edição de nome, troca de senha, logout)
+7. Accounts
+8. Categories / Subcategories
+9. Transactions
+10. Transfers
+11. Dashboard
+12. Polimento de UX
 
 ---
 
@@ -190,7 +207,12 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Header + Logout
 - [x] Sidebar + navegação
 - [x] Integração base com API
-- [ ] Dashboard (dados reais)
+- [x] Login integrado com backend
+- [x] Interceptor de auth (token + refresh)
+- [x] Formulário de login com React Hook Form + Zod
+- [ ] Usuário (perfil, edição de nome, troca de senha, logout)
 - [ ] Accounts
-- [ ] Transactions
 - [ ] Categories / Subcategories
+- [ ] Transactions
+- [ ] Transfers
+- [ ] Dashboard (dados reais)
