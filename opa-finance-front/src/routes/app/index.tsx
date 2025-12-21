@@ -9,9 +9,13 @@ export const Route = createFileRoute('/app/')({
 
 function Dashboard() {
   useEffect(() => {
-    api.get('/health').catch(() => {
-      console.log('API não conectada (ok por enquanto)')
-    })
+    api.get('/')
+      .finally(() => {
+        console.log('API conectada')
+      })
+      .catch(() => {
+        console.log('API não conectada (ok por enquanto)')
+      })
   }, [])
 
   return <h1 className="text-2xl font-bold">Dashboard</h1>
