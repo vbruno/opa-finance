@@ -22,7 +22,12 @@ async function start() {
   });
 
   // CORS
-  app.register(cors, { origin: true });
+  const corsOrigins =
+    env.CORS_ORIGINS?.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? [];
+  const corsOrigin = env.NODE_ENV === "development" ? true : corsOrigins;
+  app.register(cors, { origin: corsOrigin });
 
   // Cookies
   app.register(cookie, {
