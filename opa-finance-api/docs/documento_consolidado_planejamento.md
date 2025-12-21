@@ -1,182 +1,259 @@
-# 📘 Documento Consolidado --- Planejamento Completo do Sistema de Controle Financeiro
+# 📘 Documento Consolidado — Planejamento Completo do Sistema de Controle Financeiro
 
-Este documento reúne toda a visão **macro**, **técnica**, **regras de
-negócio**, **modelagem** e **roadmap** do projeto.
+Este documento consolida a **visão macro**, **decisões técnicas**, **regras de negócio**, **modelagem atualizada** e **roadmap** do projeto **OPA Finance**.  
+Ele deve ser usado como **fonte única de verdade** para backend e frontend.
 
-------------------------------------------------------------------------
+---
 
 ## 🧭 1. Visão Macro do Projeto
 
 ### 🎯 Objetivo
 
-Permitir que o usuário visualize onde está gastando, identificando
-oportunidades de reduzir despesas.
+Permitir que o usuário tenha **clareza total sobre sua vida financeira**, identificando padrões de gasto, oportunidades de economia e evolução mensal do patrimônio.
 
 ### 👥 Público-Alvo
 
--   Uso pessoal
--   Pessoas que desejam organizar e reduzir gastos
+- Uso pessoal
+- Pessoas que desejam organizar, controlar e reduzir gastos
+- Usuários iniciantes em controle financeiro
 
 ### 🧩 Problemas Resolvidos
 
-1.  Falta de visibilidade dos gastos\
-2.  Dificuldade de controlar o mês\
-3.  Gastar mais do que ganha sem perceber\
-4.  Falta de clareza por categoria\
-5.  Desorganização financeira\
-6.  Histórico difícil de analisar\
-7.  Comparação entre meses inexistente
+1. Falta de visibilidade dos gastos
+2. Dificuldade de controlar o mês
+3. Gastar mais do que ganha sem perceber
+4. Falta de clareza por categoria
+5. Desorganização financeira
+6. Histórico difícil de analisar
+7. Comparação entre meses inexistente
+8. Falta de visão de saldo real por conta
 
-### 🚀 MVP --- Funcionalidades Principais
+---
 
--   Login, Registro, Logout\
--   Categorias personalizadas\
--   Subcategorias opcionais\
--   Contas (wallet, bank, savings, etc.)\
--   Transações com filtros\
--   Dashboard básico\
--   Paginação de transações
+## 🚀 2. MVP — Funcionalidades Principais
 
-### 🔄 Fluxo do Usuário
+### Autenticação
 
-1.  Login\
-2.  Dashboard\
-3.  Criar categoria\
-4.  Criar conta\
-5.  Registrar transações\
-6.  Acompanhamento mensal
+- Login
+- Registro
+- Logout
+- JWT (access token)
 
-------------------------------------------------------------------------
+### Estrutura Financeira
 
-## 🏛 2. Visão Técnica do Sistema
+- Contas (cash, checking, savings, credit card, investment)
+- Categorias
+  - Categorias **de sistema**
+  - Categorias **do usuário**
+- Subcategorias (opcionais)
+
+### Transações
+
+- Income / Expense
+- Filtros:
+  - Período (startDate / endDate)
+  - Conta
+  - Categoria
+  - Subcategoria
+  - Tipo
+- Paginação
+- Validações de regra de negócio
+
+### Transferências
+
+- Transferência entre contas
+- Implementada como **duas transações**
+- Utiliza **Categoria de Sistema: Transferência**
+- Ligadas por `transferId`
+
+### Dashboard (MVP)
+
+- Total de receitas
+- Total de despesas
+- Saldo
+- Resumo mensal
+
+---
+
+## 🏛 3. Visão Técnica do Sistema
 
 ### Frontend
 
--   **Vite + React + TS**
--   **TanStack Router**
--   **React Query**
--   **Tailwind + shadcn/ui**
--   **Axios + Zod**
+- Vite + React + TypeScript
+- TanStack Router
+- TanStack Query
+- Tailwind CSS
+- shadcn/ui
+- Zod
+- Axios
 
 ### Backend
 
--   **Fastify + TypeScript**
--   **Drizzle ORM**
--   **PostgreSQL**
--   **JWT (access + refresh)**
--   **Zod**
+- Fastify + TypeScript
+- Drizzle ORM
+- PostgreSQL
+- Zod (schemas)
+- JWT
+- Arquitetura modular por domínio
 
 ### Infraestrutura
 
--   Docker + Portainer\
--   Nginx (proxy reverso)\
--   Certbot (HTTPS)\
--   VPS Hostinger
+- Docker
+- Portainer
+- Nginx (proxy reverso)
+- Certbot (HTTPS)
+- VPS (Hostinger)
 
-------------------------------------------------------------------------
+---
 
-## 🧱 3. Modelagem do Banco (Atualizada 2025)
+## 🧱 4. Modelagem do Banco de Dados (Atualizada)
 
 ### USERS
 
-    id, name, email, password_hash, timestamps
+- id
+- name
+- email
+- password_hash
+- created_at
 
 ### ACCOUNTS
 
-    id, user_id, name,
-    type ("cash", "checking_account", "savings_account", "credit_card", "investment"),
-    initial_balance, color, icon, timestamps
+- id
+- user_id
+- name
+- type
+- initial_balance
+- color
+- icon
+- created_at
+- updated_at
 
-Regras: - Saldo é calculado automaticamente\
-- Não pode excluir se houver transações
+**Regras**
+
+- Pertence a um usuário
+- Não pode ser removida se houver transações
 
 ### CATEGORIES
 
-    id, user_id, name, type ("income" | "expense"), color, timestamps
+- id
+- user_id (nullable para sistema)
+- name
+- type (income | expense)
+- color
+- system (boolean)
+- created_at
+- updated_at
 
-Regras: - Obrigatória na transação\
-- Personalizada por usuário\
-- Não excluir se usada
+**Regras**
 
-### SUBCATEGORIES *(Nova entidade)*
+- Categorias de sistema são globais
+- Categorias de sistema não podem ser alteradas ou removidas
+- Usuários não podem criar categorias com o mesmo nome de categorias de sistema
 
-    id, user_id, category_id, name, color, timestamps
+### SUBCATEGORIES
 
-Regras: - Herda tipo da categoria (não editável)\
-- Opcional na transação\
-- Pode repetir nome em categorias diferentes\
-- Só excluir se não usada
+- id
+- user_id
+- category_id
+- name
+- color
+- created_at
+- updated_at
+
+**Regras**
+
+- Sempre pertencem a uma categoria
+- Herdam o tipo da categoria
+- Opcionais na transação
 
 ### TRANSACTIONS
 
-    id, user_id, account_id, category_id,
-    subcategory_id (opcional),
-    type ("income" | "expense"),
-    amount, description, date, timestamps
+- id
+- user_id
+- account_id
+- category_id
+- subcategory_id (opcional)
+- type (income | expense)
+- amount
+- date
+- description
+- transfer_id (opcional)
+- created_at
 
-Regras: - category_id obrigatório\
-- subcategory_id opcional\
-- mudar categoria remove subcategoria
+**Regras**
 
-------------------------------------------------------------------------
+- `category_id` é obrigatório
+- `subcategory_id` opcional
+- Transferências geram duas transações
 
-## 🔗 4. Relacionamentos
+---
 
-    users 1:N accounts  
-    users 1:N categories  
-    users 1:N subcategories  
-    users 1:N transactions  
-    categories 1:N subcategories  
-    categories 1:N transactions  
-    subcategories 1:N transactions  
-    accounts 1:N transactions
+## 🔗 5. Relacionamentos
 
-------------------------------------------------------------------------
+- users 1:N accounts
+- users 1:N categories
+- users 1:N subcategories
+- users 1:N transactions
+- categories 1:N subcategories
+- categories 1:N transactions
+- accounts 1:N transactions
 
-## 🧪 5. Testes do Backend
+---
 
-### Ferramentas:
+## 🧪 6. Testes
 
--   Vitest\
--   fastify.inject\
--   SQLite para testes
+### Backend
 
-### Tipos de Testes
+- Vitest
+- fastify.inject
+- Testes de integração por módulo
+- Banco PostgreSQL de teste (remoto)
 
--   Unitários (services, regras)\
--   Integração (rotas)\
--   Banco (migrations + queries)\
--   Segurança (JWT, refresh, rotas privadas)
+### Cobertura
 
-------------------------------------------------------------------------
+- Regras de negócio
+- Validações
+- Segurança (JWT)
+- Filtros e paginação
 
-## 📚 6. Documentação
+---
 
-### Backend:
+## 📚 7. Documentação
 
--   Swagger/OpenAPI\
--   Documentação de módulos\
--   Documentação de banco\
--   README técnico
+- README técnico
+- Documentação de regras de negócio
+- OpenAPI / Swagger (planejado)
+- Diagramas (ERD)
 
-------------------------------------------------------------------------
+---
 
-## 🗺 7. Roadmap Resumido
+## 🗺 8. Roadmap
 
-1.  Backend base + autenticação\
-2.  Módulos principais (accounts, categories, subcategories,
-    transactions)\
-3.  Dashboard\
-4.  Testes\
-5.  Documentação\
-6.  Frontend base\
-7.  MVP completo\
-8.  Deploy na VPS\
-9.  Relatórios e melhorias pós-MVP
+### Curto Prazo
 
-------------------------------------------------------------------------
+1. Finalizar módulo de Transferências
+2. Ajustar categorias de sistema
+3. Consolidar testes
+4. Swagger
 
-## ✔ Documento Consolidado Finalizado
+### Médio Prazo
 
-Pronto para anexar ao repositório e guiar o desenvolvimento completo do
-projeto.
+5. Dashboard
+6. Relatórios
+7. Frontend MVP
+
+### Longo Prazo
+
+8. Comparativos mensais
+9. Exportação de dados
+10. Mobile (futuro)
+
+---
+
+## ✔ Documento Consolidado Atualizado
+
+Este documento reflete o **estado atual real do backend** e está pronto para:
+
+- Ser anexado ao repositório
+- Guiar o desenvolvimento do frontend
+- Servir como documentação oficial do projeto

@@ -46,7 +46,7 @@ Fornecer uma interface:
   - Importação:
 
     ```css
-    @import "tailwindcss";
+    @import 'tailwindcss';
     ```
 
 ### Roteamento & Navegação
@@ -148,3 +148,4 @@ src/
 - [ ] Layout base
 - [ ] Auth Guard
 - [ ] Dashboard
+```
