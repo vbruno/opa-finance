@@ -12,6 +12,8 @@
     "db:integrity": "./scripts/db-integrity.sh",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:system": "tsx src/db/seed.system.ts",
+    "db:seed:system:reset": "tsx src/db/seed.system.ts --reset",
     "lint": "eslint . --ext .ts --config eslint.config.ts",
     "lint:fix": "eslint . --ext .ts --fix --config eslint.config.ts",
     "format": "prettier --write .",

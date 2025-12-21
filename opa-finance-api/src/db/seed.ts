@@ -102,18 +102,7 @@ async function seed() {
     })
     .returning();
 
-  /* --------------------- CATEGORIA DE TRANSFERÊNCIA ------------------------- */
-  const [transferCategory] = await db
-    .insert(categories)
-    .values({
-      userId: user.id,
-      name: "Transferência",
-      type: "expense",
-      system: true, // ⭐️ ESSENCIAL
-    })
-    .returning();
-
-  console.log("✔ Categorias criadas (incluindo Transferência)");
+  console.log("✔ Categorias criadas");
 
   /* -------------------------------------------------------------------------- */
   /*                            SUBCATEGORIAS                                   */
