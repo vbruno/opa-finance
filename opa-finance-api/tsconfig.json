@@ -3,27 +3,21 @@
   "_version": "24.0.0",
 
   "compilerOptions": {
-    "lib": [
-      "es2024",
-      "ESNext.Array",
-      "ESNext.Collection",
-      "ESNext.Iterator",
-      "ESNext.Promise"
-    ],
+    "lib": ["es2023", "esnext.array", "esnext.collection", "esnext.promise"],
     "module": "nodenext",
-    "target": "es2024",
+    "target": "esnext",
 
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "node16",
 
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
 
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]
-    },
+    }
   },
   "include": ["src", "src/@types", "test"],
   "exclude": ["node_modules", "dist"]
