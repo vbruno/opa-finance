@@ -16,9 +16,10 @@
 
 ## CATEGORIES
 - id  
-- user_id  
+- user_id (nullable para categorias de sistema)  
 - name  
 - type ("income" | "expense")  
+- system (boolean) - categorias de sistema são globais  
 - color  
 - timestamps  
 
@@ -40,6 +41,7 @@
 - amount  
 - description  
 - date  
+- transfer_id (opcional) - vincula transações de transferências  
 - timestamps  
 
 ## Relacionamentos

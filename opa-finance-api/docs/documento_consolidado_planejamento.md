@@ -62,9 +62,15 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 ### Transferências
 
 - Transferência entre contas
-- Implementada como **duas transações**
-- Utiliza **Categoria de Sistema: Transferência**
-- Ligadas por `transferId`
+- Implementada como **duas transações** (débito na origem, crédito no destino)
+- Utiliza **Categoria de Sistema: Transferência** (userId null, system true)
+- Ligadas por `transferId` (UUID único)
+- Validações:
+  - Contas devem ser diferentes
+  - Ambas as contas devem pertencer ao usuário
+  - Valor deve ser positivo
+  - Data no formato YYYY-MM-DD
+- Operação atômica (transação de banco de dados)
 
 ### Dashboard (MVP)
 
@@ -215,6 +221,7 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 - Validações
 - Segurança (JWT)
 - Filtros e paginação
+- Transferências entre contas
 
 ---
 
@@ -231,7 +238,7 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 
 ### Curto Prazo
 
-1. Finalizar módulo de Transferências
+1. ~~Finalizar módulo de Transferências~~ ✅
 2. Ajustar categorias de sistema
 3. Consolidar testes
 4. Swagger

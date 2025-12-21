@@ -54,6 +54,7 @@ src/
     categories/
     subcategories/
     transactions/
+    transfers/
   core/
     config/
     plugins/
@@ -119,6 +120,14 @@ Entidades principais:
 - Mudar categoria remove subcategoria  
 - Soma no saldo da conta  
 - Paginação obrigatória  
+- transfer_id opcional (vincula transações de transferências)
+
+### **Transfers**
+- Transferência entre contas do mesmo usuário
+- Implementada como duas transações (débito na origem, crédito no destino)
+- Utiliza categoria de sistema "Transferência"
+- Operação atômica (transação de banco de dados)
+- Contas de origem e destino devem ser diferentes
 
 ### **Autenticação**
 - Refresh token seguro em cookie httpOnly  
@@ -164,6 +173,11 @@ Tipos suportados:
 - paginação  
 - filtros  
 - dashboard mensal  
+
+### 🔄 Transfers
+- Transferência entre contas
+- Validação de acesso às contas
+- Operação atômica
 
 ---
 
@@ -221,6 +235,7 @@ src/
     categories/
     subcategories/
     transactions/
+    transfers/
 ```
 
 ---
@@ -247,12 +262,13 @@ Testes:
 3. Categories  
 4. Subcategories  
 5. Transactions  
-6. Dashboard  
-7. Testes  
-8. Documentação  
-9. Frontend  
-10. Deploy VPS  
-11. Pós-MVP  
+6. Transfers ✅  
+7. Dashboard  
+8. Testes  
+9. Documentação  
+10. Frontend  
+11. Deploy VPS  
+12. Pós-MVP  
 
 ---
 

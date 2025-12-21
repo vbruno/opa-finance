@@ -23,4 +23,5 @@ Permitir que o usuário visualize onde está gastando e identificar oportunidade
 - Categorias
 - Subcategorias
 - Transações
+- Transferências entre contas
 - Dashboard
