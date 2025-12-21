@@ -1,5 +1,6 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import React, { useState } from 'react'
+import { useForm } from 'react-hook-form'
 
 import { isAuthenticated, logout, setAuth } from '@/auth/auth.store'
 import { Button } from '@/components/ui/button'
@@ -19,48 +20,20 @@ export const Route = createFileRoute('/login')({
 
 function Login() {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState<LoginFormData>({
-    email: '',
-    password: '',
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
   })
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof LoginFormData, string>>
-  >({})
-  const [isLoading, setIsLoading] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    // Limpa erro do campo quando usuário começa a digitar
-    if (errors[name as keyof LoginFormData]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }))
-    }
-    if (apiError) {
-      setApiError(null)
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setApiError(null)
-
-    // Validação com Zod
-    const result = loginSchema.safeParse(formData)
-
-    if (!result.success) {
-      const fieldErrors: Partial<Record<keyof LoginFormData, string>> = {}
-      result.error.errors.forEach((error) => {
-        if (error.path[0]) {
-          fieldErrors[error.path[0] as keyof LoginFormData] = error.message
-        }
-      })
-      setErrors(fieldErrors)
-      return
-    }
-
-    setIsLoading(true)
-
+  async function onSubmit(formData: LoginFormData) {
     try {
       // Faz login na API
       const response = await api.post<{ accessToken: string }>('/auth/login', {
@@ -109,17 +82,17 @@ function Login() {
           axiosError.response?.data?.detail || axiosError.response?.data?.title
 
         if (status === 401) {
-          setApiError('Email ou senha inválidos')
+          setError('root', { message: 'Email ou senha inválidos' })
         } else if (status === 400) {
-          setApiError(detail || 'Dados inválidos')
+          setError('root', { message: detail || 'Dados inválidos' })
         } else {
-          setApiError(detail || 'Erro ao fazer login. Tente novamente.')
+          setError('root', {
+            message: detail || 'Erro ao fazer login. Tente novamente.',
+          })
         }
       } else {
-        setApiError('Erro ao fazer login. Tente novamente.')
+        setError('root', { message: 'Erro ao fazer login. Tente novamente.' })
       }
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -133,10 +106,10 @@ function Login() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {apiError && (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {errors.root?.message && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {apiError}
+              {errors.root.message}
             </div>
           )}
 
@@ -144,16 +117,16 @@ function Login() {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
-              name="email"
               type="email"
               placeholder="seu@email.com"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={isLoading}
+              disabled={isSubmitting}
               aria-invalid={!!errors.email}
+              {...register('email')}
             />
             {errors.email && (
-              <p className="text-sm text-destructive">{errors.email}</p>
+              <p className="text-sm text-destructive">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
@@ -161,21 +134,21 @@ function Login() {
             <Label htmlFor="password">Senha</Label>
             <Input
               id="password"
-              name="password"
               type="password"
               placeholder="••••••••"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={isLoading}
+              disabled={isSubmitting}
               aria-invalid={!!errors.password}
+              {...register('password')}
             />
             {errors.password && (
-              <p className="text-sm text-destructive">{errors.password}</p>
+              <p className="text-sm text-destructive">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Entrando...' : 'Entrar'}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>
       </div>
