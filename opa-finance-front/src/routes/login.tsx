@@ -2,11 +2,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useForm } from 'react-hook-form'
 
-import { isAuthenticated, logout, setAuth } from '@/auth/auth.store'
+import { isAuthenticated } from '@/auth/auth.store'
+import { useLogin } from '@/auth/useLogin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { loginSchema, type LoginFormData } from '@/schemas/auth.schema'
 
 export const Route = createFileRoute('/login')({
@@ -33,66 +34,19 @@ function Login() {
     },
   })
 
+  const loginMutation = useLogin()
+
   async function onSubmit(formData: LoginFormData) {
     try {
-      // Faz login na API
-      const response = await api.post<{ accessToken: string }>('/auth/login', {
-        email: formData.email,
-        password: formData.password,
-      })
-
-      const { accessToken } = response.data
-
-      // Atualiza o token no store para que o interceptor possa usá-lo
-      // Usa dados temporários até buscar do servidor
-      setAuth(accessToken, {
-        id: '',
-        name: '',
-        email: formData.email,
-        createdAt: '',
-      })
-
-      // Busca dados completos do usuário (o interceptor já adiciona o token)
-      try {
-        const userResponse = await api.get<User>('/auth/me')
-        // Atualiza com dados completos do usuário
-        setAuth(accessToken, userResponse.data)
-      } catch (meError) {
-        // Se falhar, limpa sessão para evitar estado inconsistente
-        logout()
-        throw meError
-      }
-
-      // Redireciona para o app
+      await loginMutation.mutateAsync(formData)
       navigate({ to: '/app' })
     } catch (error: unknown) {
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as {
-          response?: {
-            status?: number
-            data?: {
-              detail?: string
-              title?: string
-            }
-          }
-        }
-
-        const status = axiosError.response?.status
-        const detail =
-          axiosError.response?.data?.detail || axiosError.response?.data?.title
-
-        if (status === 401) {
-          setError('root', { message: 'Email ou senha inválidos' })
-        } else if (status === 400) {
-          setError('root', { message: detail || 'Dados inválidos' })
-        } else {
-          setError('root', {
-            message: detail || 'Erro ao fazer login. Tente novamente.',
-          })
-        }
-      } else {
-        setError('root', { message: 'Erro ao fazer login. Tente novamente.' })
-      }
+      setError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao fazer login. Tente novamente.',
+          invalidCredentialsMessage: 'Email ou senha inválidos',
+        }),
+      })
     }
   }
 
@@ -147,18 +101,15 @@ function Login() {
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Entrando...' : 'Entrar'}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isSubmitting || loginMutation.isPending}
+          >
+            {isSubmitting || loginMutation.isPending ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>
       </div>
     </div>
   )
-}
-
-type User = {
-  id: string
-  name: string
-  email: string
-  createdAt: string
 }
