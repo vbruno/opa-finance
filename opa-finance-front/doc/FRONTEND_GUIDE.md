@@ -44,7 +44,6 @@ Fornecer uma interface:
   - Plugin: `@tailwindcss/vite`
   - Arquivo global: `src/index.css`
   - Importação:
-
     ```css
     @import 'tailwindcss';
     ```
@@ -55,6 +54,8 @@ Fornecer uma interface:
   - File-based routing
   - Plugin oficial do Vite (`@tanstack/router-plugin`)
   - Geração automática de `routeTree.gen.ts`
+  - Layout por `route.tsx`
+  - Guard de rotas via `beforeLoad`
 
 ### UI
 
@@ -65,48 +66,72 @@ Fornecer uma interface:
 - Axios
 - Zod
 
+### Qualidade de Código
+
+- ESLint v9 (Flat Config)
+- Prettier
+
 ---
 
 ## 🗂️ Arquitetura de Pastas (Frontend)
 
 ```txt
 src/
-├─ routes/                # Rotas (TanStack Router)
+├─ routes/
 │  ├─ __root.tsx
-│  ├─ index.tsx
-│  ├─ login.tsx
+│  ├─ index.tsx           # Landing / redirect inicial
+│  ├─ login.tsx           # Login (rota pública)
 │  └─ app/
-│     └─ index.tsx
-├─ router/                # Configuração do Router
-│  ├─ router.ts
-│  └─ RouterProvider.tsx
+│     ├─ route.tsx        # Layout + Auth Guard
+│     ├─ index.tsx        # Dashboard
+│     ├─ accounts.tsx     # Contas
+│     └─ transactions.tsx # Transações
 ├─ components/
-│  └─ ui/                 # shadcn/ui
-├─ services/
-├─ schemas/
+│  ├─ ui/                 # shadcn/ui
+│  └─ app/
+│     ├─ Header.tsx
+│     └─ Sidebar.tsx
+├─ auth/
+│  ├─ auth.store.ts       # Estado de auth + persistência
+│  └─ useAuth.ts
 ├─ lib/
-└─ main.tsx
+│  ├─ api.ts              # Cliente HTTP (Axios)
+│  └─ api.interceptors.ts # Interceptors globais
+├─ schemas/               # Zod schemas
+├─ main.tsx
+```
 
 ---
 
 ## 🧭 Fluxo de Navegação (MVP)
 
-1. Login / Register
+1. Login
 2. Dashboard
 3. Contas
-4. Categorias / Subcategorias
-5. Transações
+4. Transações
+5. Categorias / Subcategorias
 6. Acompanhamento mensal
 
 ---
 
 ## 🔐 Autenticação
 
+### Situação atual (Frontend)
+
+- Autenticação **mockada** para desenvolvimento
+- Estado do usuário centralizado
+- Persistência via `localStorage`
+- Guard de rotas usando `beforeLoad`
+- Rotas públicas: `/`, `/login`
+- Rotas protegidas: `/app/*`
+
+### Planejamento futuro
+
 - JWT (access + refresh)
 - Access token em memória
 - Refresh token via cookie httpOnly
 - Endpoint `/me`
-- Guard de rotas com TanStack Router
+- Renovação automática via interceptor
 
 ---
 
@@ -123,29 +148,32 @@ src/
 ## 🚦 Ordem de Implementação
 
 1. Setup do projeto
-2. Autenticação
-3. Layout base
-4. Dashboard
-5. Transactions
-6. Accounts
-7. Categories / Subcategories
-8. Polimento de UX
+2. Layout base + Router
+3. Auth Guard + persistência
+4. Sidebar + navegação
+5. Integração base com API
+6. Dashboard
+7. Transactions
+8. Accounts
+9. Categories / Subcategories
+10. Polimento de UX
 
 ---
 
-## ✅ Status
+## ✅ Status Atual
 
 - [x] Criação do projeto (Vite + React + TS + SWC)
 - [x] Dependências base
 - [x] Tailwind CSS v4.1 (CSS-first)
 - [x] shadcn/ui configurado
 - [x] TanStack Router
-  - File-based routing
-  - Plugin do Vite configurado
-  - `routeTree.gen.ts` gerado
-  - Rotas `/`, `/login`, `/app`
-  - Fast Refresh warning corrigido
-- [ ] Layout base
-- [ ] Auth Guard
-- [ ] Dashboard
-```
+- [x] Layout base
+- [x] Auth Guard
+- [x] Persistência de sessão
+- [x] Header + Logout
+- [x] Sidebar + navegação
+- [x] Integração base com API
+- [ ] Dashboard (dados reais)
+- [ ] Accounts
+- [ ] Transactions
+- [ ] Categories / Subcategories
