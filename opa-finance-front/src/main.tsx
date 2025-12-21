@@ -1,11 +1,13 @@
-import React from "react"
-import ReactDOM from "react-dom/client"
-import "./index.css"
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import './index.css'
 
-import { AppRouter } from "./router/RouterProvider"
+import './lib/api.interceptors'
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+import { AppRouter } from './router/RouterProvider'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppRouter />
-  </React.StrictMode>
+  </React.StrictMode>,
 )

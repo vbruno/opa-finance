@@ -1,12 +1,11 @@
-import { getUser, login, logout } from './auth.store'
+import { getUser, logout, isAuthenticated } from './auth.store'
 
 export function useAuth() {
   const user = getUser()
 
   return {
     user,
-    login,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated: isAuthenticated(),
   }
 }

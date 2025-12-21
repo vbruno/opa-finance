@@ -4,13 +4,13 @@ import {
   redirect,
 } from '@tanstack/react-router'
 
-import { getUser } from '@/auth/auth.store'
+import { isAuthenticated } from '@/auth/auth.store'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: () => {
-    if (!getUser()) {
+    if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
     }
   },
