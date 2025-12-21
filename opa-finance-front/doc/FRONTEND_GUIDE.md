@@ -44,6 +44,7 @@ Fornecer uma interface:
   - Plugin: `@tailwindcss/vite`
   - Arquivo global: `src/index.css`
   - Importação:
+
     ```css
     @import 'tailwindcss';
     ```
@@ -157,6 +158,22 @@ src/
 8. Accounts
 9. Categories / Subcategories
 10. Polimento de UX
+
+---
+
+## 📚 Documentação Complementar
+
+Este guia é complementado pelos seguintes documentos:
+
+- **Regras de Negócio & Orientações (Frontend)**  
+  Documento com regras de domínio, responsabilidades do frontend e boas práticas de desenvolvimento.  
+  📄 `FRONTEND_REGRAS_DE_NEGOCIO.md`
+
+Esses documentos devem ser lidos em conjunto para garantir:
+
+- alinhamento entre UI e regras de negócio
+- consistência de comportamento
+- evolução segura do frontend
 
 ---
 
