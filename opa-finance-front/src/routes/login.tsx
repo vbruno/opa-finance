@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import React, { useState } from 'react'
 
-import { logout, setAuth } from '@/auth/auth.store'
+import { isAuthenticated, logout, setAuth } from '@/auth/auth.store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,11 @@ import { api } from '@/lib/api'
 import { loginSchema, type LoginFormData } from '@/schemas/auth.schema'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: () => {
+    if (isAuthenticated()) {
+      throw redirect({ to: '/app' })
+    }
+  },
   component: Login,
 })
 
