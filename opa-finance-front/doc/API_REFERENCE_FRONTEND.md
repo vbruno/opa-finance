@@ -38,6 +38,11 @@ Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
+### Cliente HTTP (Frontend)
+
+No frontend, use `src/lib/api.ts` (Axios) com interceptors globais.
+Os exemplos abaixo usam `fetch` apenas por simplicidade.
+
 ### Cookies
 
 O refresh token é enviado automaticamente via cookie `refreshToken` (httpOnly, secure).
@@ -1447,11 +1452,11 @@ async function apiCall(url: string, options: RequestInit) {
 ## 📌 Checklist de Implementação
 
 - [ ] Configurar base URL (dev/prod)
-- [ ] Implementar armazenamento de access token
-- [ ] Implementar renovação automática de token
+- [x] Implementar armazenamento de access token
+- [x] Implementar renovação automática de token
 - [ ] Implementar tratamento de erros 401/403/404
 - [ ] Configurar CORS (se necessário)
-- [ ] Implementar interceptors para adicionar token
+- [x] Implementar interceptors para adicionar token
 - [ ] Implementar refresh automático antes de expirar
 - [ ] Tratar erros RFC 7807
 - [ ] Validar formatos (UUID, datas, valores)

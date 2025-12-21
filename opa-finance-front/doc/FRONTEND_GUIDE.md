@@ -67,6 +67,7 @@ Fornecer uma interface:
 - Axios
 - Zod
 - React Hook Form + @hookform/resolvers
+- TanStack Query
 
 ### Qualidade de Código
 
@@ -96,10 +97,13 @@ src/
 │     └─ Sidebar.tsx
 ├─ auth/
 │  ├─ auth.store.ts       # Estado de auth + persistência
-│  └─ useAuth.ts
+│  ├─ useAuth.ts
+│  └─ useLogin.ts
 ├─ lib/
 │  ├─ api.ts              # Cliente HTTP (Axios)
-│  └─ api.interceptors.ts # Interceptors globais
+│  ├─ api.interceptors.ts # Interceptors globais
+│  ├─ apiError.ts         # Helper de mensagens de erro
+│  ├─ queryClient.ts      # TanStack Query Client
 │  └─ utils.ts
 ├─ router/
 │  ├─ RouterProvider.tsx
@@ -148,6 +152,13 @@ src/
 - React Hook Form + Zod (resolver)
 - Erros de API em `errors.root`
 - Validação de campo em tempo real via schema
+
+---
+
+## 📦 Dados & Cache (padrão)
+
+- TanStack Query com `QueryClientProvider` no `main.tsx`
+- Queries/mutations centralizadas em hooks por feature
 
 ---
 
@@ -210,6 +221,7 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Login integrado com backend
 - [x] Interceptor de auth (token + refresh)
 - [x] Formulário de login com React Hook Form + Zod
+- [x] TanStack Query configurado
 - [ ] Usuário (perfil, edição de nome, troca de senha, logout)
 - [ ] Accounts
 - [ ] Categories / Subcategories

@@ -119,6 +119,9 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - É proibido:
   - Criar instâncias locais de Axios
 
+### Gerenciamento de dados
+- Queries e mutations devem usar TanStack Query
+
 ### Interceptors
 - Token anexado automaticamente
 - Erros globais tratados centralmente
