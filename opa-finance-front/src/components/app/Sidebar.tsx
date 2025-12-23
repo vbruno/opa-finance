@@ -3,7 +3,6 @@ import clsx from 'clsx'
 
 const navItems = [
   { to: '/app', label: 'Dashboard' },
-  { to: '/app/profile', label: 'Perfil' },
   { to: '/app/accounts', label: 'Accounts' },
   { to: '/app/transactions', label: 'Transactions' },
 ]
