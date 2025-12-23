@@ -83,6 +83,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Access token persistido via `localStorage`
 - Refresh token via cookie httpOnly (com `withCredentials`)
 - Guard de rotas via TanStack Router (`beforeLoad`)
+ - Menu do usuário no header com acesso ao perfil e logout
 
 ### Comportamento esperado
 - Usuário não autenticado:
@@ -94,6 +95,15 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Logout:
   - Limpa sessão
   - Redireciona para `/login`
+
+### Perfil (Frontend)
+- Usuário pode atualizar o próprio nome
+- Usuário pode alterar a senha (exige senha atual)
+- Email é exibido como somente leitura
+
+### Criação de usuário (Frontend)
+- Rota privada: `/app/register`
+- Acesso direto (não aparece no sidebar)
 
 ---
 

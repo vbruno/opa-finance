@@ -88,6 +88,8 @@ src/
 │  └─ app/
 │     ├─ route.tsx        # Layout + Auth Guard
 │     ├─ index.tsx        # Dashboard
+│     ├─ profile.tsx      # Perfil (editar nome + senha)
+│     ├─ register.tsx     # Criar usuário (rota privada, acesso direto)
 │     ├─ accounts.tsx     # Contas
 │     └─ transactions.tsx # Transações
 ├─ components/
@@ -109,6 +111,7 @@ src/
 │  ├─ RouterProvider.tsx
 │  └─ router.ts
 ├─ schemas/               # Zod schemas
+│  └─ user.schema.ts      # Perfil e alteração de senha
 ├─ routeTree.gen.ts
 ├─ main.tsx
 ```
@@ -119,7 +122,7 @@ src/
 
 1. Login
 2. Área protegida `/app`
-3. Usuário (perfil)
+3. Usuário (perfil + troca de senha)
 4. Contas
 5. Categorias / Subcategorias
 6. Transações
@@ -140,6 +143,8 @@ src/
 - Guard de rotas usando `beforeLoad`
 - Rotas públicas: `/`, `/login`
 - Rotas protegidas: `/app/*`
+- Menu do usuário no header com acesso ao perfil e logout
+- Criação de usuário disponível em `/app/register` (rota privada, sem link no sidebar)
 
 ### Próximos ajustes (se necessário)
 

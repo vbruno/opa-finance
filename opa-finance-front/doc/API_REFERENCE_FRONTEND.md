@@ -266,7 +266,7 @@ Altera senha do usuário autenticado.
 {
   "currentPassword": "SenhaAtual123!",
   "newPassword": "NovaSenha456!",
-  "confirmPassword": "NovaSenha456!"
+  "confirmNewPassword": "NovaSenha456!"
 }
 ```
 
