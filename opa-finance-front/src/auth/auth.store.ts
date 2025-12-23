@@ -57,6 +57,11 @@ export function setAuth(token: string, user: User) {
   saveUser(user)
 }
 
+export function updateUser(user: User | null) {
+  currentUser = user
+  saveUser(user)
+}
+
 export function logout() {
   accessToken = null
   currentUser = null
