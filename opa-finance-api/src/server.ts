@@ -27,7 +27,13 @@ async function start() {
       .map((origin) => origin.trim())
       .filter(Boolean) ?? [];
   const corsOrigin = env.NODE_ENV === "development" ? true : corsOrigins;
-  app.register(cors, { origin: corsOrigin, credentials: true });
+  app.register(cors, {
+    origin: corsOrigin,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Set-Cookie"],
+  });
 
   // Cookies
   app.register(cookie, {
