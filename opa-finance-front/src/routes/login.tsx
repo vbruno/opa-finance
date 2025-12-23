@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { isAuthenticated } from '@/auth/auth.store'
@@ -21,6 +22,7 @@ export const Route = createFileRoute('/login')({
 
 function Login() {
   const navigate = useNavigate()
+  const [showPassword, setShowPassword] = useState(false)
   const {
     register,
     handleSubmit,
@@ -88,7 +90,7 @@ function Login() {
             <Label htmlFor="password">Senha</Label>
             <Input
               id="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
               disabled={isSubmitting}
               aria-invalid={!!errors.password}
@@ -99,6 +101,17 @@ function Login() {
                 {errors.password.message}
               </p>
             )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="toggle-login-password"
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={showPassword}
+              onChange={(event) => setShowPassword(event.target.checked)}
+            />
+            <Label htmlFor="toggle-login-password">Mostrar senha</Label>
           </div>
 
           <Button
