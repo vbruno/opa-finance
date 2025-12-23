@@ -49,9 +49,16 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+    const originalUrl = String(originalRequest?.url || '')
+    const isAuthEndpoint =
+      originalUrl.includes('/auth/login') || originalUrl.includes('/auth/refresh')
 
     // Se for 401 e não for uma tentativa de refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
       if (isRefreshing) {
         // Se já está tentando refresh, adiciona à fila
         return new Promise((resolve, reject) => {
