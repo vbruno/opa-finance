@@ -17,6 +17,7 @@ import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
 import { Route as AppProfileRouteImport } from './routes/app/profile'
 import { Route as AppAccountsRouteImport } from './routes/app/accounts'
+import { Route as AppAccountsIdRouteImport } from './routes/app/accounts/$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -58,36 +59,44 @@ const AppAccountsRoute = AppAccountsRouteImport.update({
   path: '/accounts',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAccountsIdRoute = AppAccountsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppAccountsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/app/accounts': typeof AppAccountsRoute
+  '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/': typeof AppIndexRoute
+  '/app/accounts/$id': typeof AppAccountsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/app/accounts': typeof AppAccountsRoute
+  '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app': typeof AppIndexRoute
+  '/app/accounts/$id': typeof AppAccountsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/app/accounts': typeof AppAccountsRoute
+  '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/': typeof AppIndexRoute
+  '/app/accounts/$id': typeof AppAccountsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/app/register'
     | '/app/transactions'
     | '/app/'
+    | '/app/accounts/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/app/register'
     | '/app/transactions'
     | '/app'
+    | '/app/accounts/$id'
   id:
     | '__root__'
     | '/'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/app/register'
     | '/app/transactions'
     | '/app/'
+    | '/app/accounts/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,11 +197,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountsRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/accounts/$id': {
+      id: '/app/accounts/$id'
+      path: '/$id'
+      fullPath: '/app/accounts/$id'
+      preLoaderRoute: typeof AppAccountsIdRouteImport
+      parentRoute: typeof AppAccountsRoute
+    }
   }
 }
 
+interface AppAccountsRouteChildren {
+  AppAccountsIdRoute: typeof AppAccountsIdRoute
+}
+
+const AppAccountsRouteChildren: AppAccountsRouteChildren = {
+  AppAccountsIdRoute: AppAccountsIdRoute,
+}
+
+const AppAccountsRouteWithChildren = AppAccountsRoute._addFileChildren(
+  AppAccountsRouteChildren,
+)
+
 interface AppRouteRouteChildren {
-  AppAccountsRoute: typeof AppAccountsRoute
+  AppAccountsRoute: typeof AppAccountsRouteWithChildren
   AppProfileRoute: typeof AppProfileRoute
   AppRegisterRoute: typeof AppRegisterRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
@@ -197,7 +228,7 @@ interface AppRouteRouteChildren {
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
-  AppAccountsRoute: AppAccountsRoute,
+  AppAccountsRoute: AppAccountsRouteWithChildren,
   AppProfileRoute: AppProfileRoute,
   AppRegisterRoute: AppRegisterRoute,
   AppTransactionsRoute: AppTransactionsRoute,
