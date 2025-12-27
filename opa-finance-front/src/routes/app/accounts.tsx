@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,8 @@ import {
   formatCurrencyValue,
   parseCurrencyInput,
 } from '@/lib/utils'
+import { api } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   accountCreateSchema,
   type AccountCreateFormData,
@@ -21,11 +24,27 @@ export const Route = createFileRoute('/app/accounts')({
 })
 
 function Accounts() {
+  const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   )
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
+    null,
+  )
+
+  type Account = {
+    id: string
+    name: string
+    type: string
+    initialBalance: number
+    currentBalance?: number
+    createdAt: string
+    updatedAt: string
+  }
 
   const {
     control,
@@ -33,6 +52,7 @@ function Accounts() {
     handleSubmit,
     reset,
     watch,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<AccountCreateFormData>({
     resolver: zodResolver(accountCreateSchema),
@@ -52,6 +72,7 @@ function Accounts() {
     handleSubmit: handleEditSubmit,
     reset: resetEdit,
     watch: watchEdit,
+    setError: setEditError,
     formState: {
       errors: editErrors,
       isSubmitting: isEditSubmitting,
@@ -68,34 +89,77 @@ function Accounts() {
 
   const confirmEditValue = watchEdit('confirm')
 
-  const [accounts, setAccounts] = useState([
-    {
-      id: 'acc-1',
-      name: 'Conta Corrente',
-      type: 'checking_account',
-      currentBalance: 3580.45,
-      createdAt: '2025-01-15T10:30:00.000Z',
+  const accountsQuery = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const response = await api.get<Account[]>('/accounts')
+      return response.data
     },
-    {
-      id: 'acc-2',
-      name: 'Cartao de Credito',
-      type: 'credit_card',
-      currentBalance: -1240.9,
-      createdAt: '2025-02-02T09:15:00.000Z',
+  })
+
+  const createAccountMutation = useMutation({
+    mutationFn: async (formData: AccountCreateFormData) => {
+      const parsedBalance = parseCurrencyInput(formData.currentBalance) ?? 0
+      const response = await api.post<Account>('/accounts', {
+        name: formData.name,
+        type: formData.type,
+        initialBalance: parsedBalance,
+      })
+      return response.data
     },
-    {
-      id: 'acc-3',
-      name: 'Poupanca',
-      type: 'savings_account',
-      currentBalance: 12450,
-      createdAt: '2025-03-20T14:05:00.000Z',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      setIsCreateOpen(false)
+      reset()
     },
-  ])
+  })
+
+  const updateAccountMutation = useMutation({
+    mutationFn: async ({
+      id,
+      formData,
+    }: {
+      id: string
+      formData: AccountCreateFormData
+    }) => {
+      const parsedBalance = parseCurrencyInput(formData.currentBalance) ?? 0
+      const response = await api.put<Account>(`/accounts/${id}`, {
+        name: formData.name,
+        type: formData.type,
+        initialBalance: parsedBalance,
+      })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      setIsEditOpen(false)
+      setSelectedAccountId(null)
+      resetEdit()
+    },
+  })
 
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
+  const accounts = accountsQuery.data ?? []
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   )
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/accounts/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      setSelectedAccountId(null)
+      setDeleteConfirmed(false)
+      setDeleteError(null)
+    },
+  })
+
+  useEffect(() => {
+    setDeleteError(null)
+    setDeleteBlockedReason(null)
+  }, [selectedAccountId])
 
   const accountTypeLabels: Record<string, string> = {
     cash: 'Dinheiro',
@@ -103,6 +167,13 @@ function Accounts() {
     savings_account: 'Poupanca',
     credit_card: 'Cartao de Credito',
     investment: 'Investimento',
+  }
+  function getErrorStatus(error: unknown) {
+    if (!error || typeof error !== 'object' || !('response' in error)) {
+      return undefined
+    }
+    const response = (error as { response?: { status?: number } }).response
+    return response?.status
   }
 
   return (
@@ -165,33 +236,67 @@ function Accounts() {
             </tr>
           </thead>
           <tbody>
-            {accounts.map((account) => (
-              <tr
-                key={account.id}
-                className="cursor-pointer border-t hover:bg-muted/30"
-                onClick={() => setSelectedAccountId(account.id)}
-              >
-                <td className="px-4 py-3 font-medium">{account.name}</td>
-                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                  {accountTypeLabels[account.type] ?? account.type}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
-                  {`$ ${formatCurrencyValue(account.currentBalance)}`}
-                </td>
-              </tr>
-            ))}
-            {accounts.length === 0 && (
+            {accountsQuery.isLoading && (
               <tr>
                 <td colSpan={3} className="px-4 py-10 text-center">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">
-                      Nenhuma conta cadastrada ainda.
-                    </p>
-                    <Button size="sm">Criar conta</Button>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Carregando contas...
+                  </p>
                 </td>
               </tr>
             )}
+            {accountsQuery.isError && (
+              <tr>
+                <td colSpan={3} className="px-4 py-10 text-center">
+                  <p className="text-sm text-destructive">
+                    Erro ao carregar contas. Tente novamente.
+                  </p>
+                </td>
+              </tr>
+            )}
+            {!accountsQuery.isLoading &&
+              !accountsQuery.isError &&
+              accounts.map((account) => {
+                const displayBalance =
+                  account.currentBalance ?? account.initialBalance ?? 0
+                return (
+                  <tr
+                    key={account.id}
+                    className="cursor-pointer border-t hover:bg-muted/30"
+                    onClick={() => setSelectedAccountId(account.id)}
+                  >
+                    <td className="px-4 py-3 font-medium">{account.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {accountTypeLabels[account.type] ?? account.type}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
+                      {`$ ${formatCurrencyValue(displayBalance)}`}
+                    </td>
+                  </tr>
+                )
+              })}
+            {!accountsQuery.isLoading &&
+              !accountsQuery.isError &&
+              accounts.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-10 text-center">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">
+                        Nenhuma conta cadastrada ainda.
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          reset()
+                          setIsCreateOpen(true)
+                        }}
+                      >
+                        Criar conta
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
           </tbody>
         </table>
       </div>
@@ -214,9 +319,17 @@ function Accounts() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={handleSubmit(() => {
-                setIsCreateOpen(false)
-                reset()
+              onSubmit={handleSubmit(async (formData) => {
+                try {
+                  await createAccountMutation.mutateAsync(formData)
+                } catch (error: unknown) {
+                  setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao criar conta. Tente novamente.',
+                    }),
+                  })
+                }
               })}
             >
               <div className="space-y-2">
@@ -298,18 +411,27 @@ function Accounts() {
                   Confirmo que os dados estao corretos
                 </label>
                 <Button type="submit" disabled={!confirmValue || isSubmitting}>
-                  {isSubmitting ? 'Criando...' : 'Criar conta'}
+                  {isSubmitting || createAccountMutation.isPending
+                    ? 'Criando...'
+                    : 'Criar conta'}
                 </Button>
               </div>
               {errors.confirm && (
-                <p className="text-sm text-destructive">{errors.confirm.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.confirm.message}
+                </p>
+              )}
+              {errors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {errors.root.message}
+                </div>
               )}
             </form>
           </div>
         </div>
       )}
 
-      {selectedAccount && (
+      {selectedAccount && !isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
             className="fixed inset-0"
@@ -334,7 +456,11 @@ function Accounts() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Saldo atual</span>
                 <span className="font-semibold">
-                  {`$ ${formatCurrencyValue(selectedAccount.currentBalance)}`}
+                  {`$ ${formatCurrencyValue(
+                    selectedAccount.currentBalance ??
+                      selectedAccount.initialBalance ??
+                      0,
+                  )}`}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -346,21 +472,103 @@ function Accounts() {
             </div>
 
             <div className="mt-6 flex items-center justify-end">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="destructive"
+                  disabled={!!deleteBlockedReason}
+                  onClick={() => setIsDeleteConfirmOpen(true)}
+                >
+                  Excluir
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const displayBalance =
+                      selectedAccount.currentBalance ??
+                      selectedAccount.initialBalance ??
+                      0
+                    resetEdit({
+                      name: selectedAccount.name,
+                      type: selectedAccount.type,
+                      currentBalance: `$ ${formatCurrencyValue(displayBalance)}`,
+                      confirm: false,
+                    })
+                    setIsEditOpen(true)
+                  }}
+                >
+                  Editar
+                </Button>
+              </div>
+            </div>
+            {deleteBlockedReason && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                {deleteBlockedReason}
+              </p>
+            )}
+            {deleteError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {deleteError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isDeleteConfirmOpen && selectedAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsDeleteConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">
+                Confirmar exclusao
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja excluir a conta{' '}
+                <span className="font-medium">{selectedAccount.name}</span>?
+                Essa acao nao pode ser desfeita.
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  resetEdit({
-                    name: selectedAccount.name,
-                    type: selectedAccount.type,
-                    currentBalance: formatCurrencyInput(
-                      String(selectedAccount.currentBalance),
-                    ),
-                    confirm: false,
-                  })
-                  setIsEditOpen(true)
+                onClick={() => setIsDeleteConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteAccountMutation.isPending}
+                onClick={async () => {
+                  try {
+                    await deleteAccountMutation.mutateAsync(
+                      selectedAccount.id,
+                    )
+                    setIsDeleteConfirmOpen(false)
+                  } catch (error: unknown) {
+                    const status = getErrorStatus(error)
+                    if (status === 409) {
+                      setDeleteBlockedReason(
+                        'Conta possui transacoes e nao pode ser removida.',
+                      )
+                    } else {
+                      setDeleteError(
+                        getApiErrorMessage(error, {
+                          defaultMessage:
+                            'Erro ao excluir conta. Tente novamente.',
+                        }),
+                      )
+                    }
+                    setIsDeleteConfirmOpen(false)
+                  }
                 }}
               >
-                Editar
+                {deleteAccountMutation.isPending
+                  ? 'Excluindo...'
+                  : 'Confirmar exclusao'}
               </Button>
             </div>
           </div>
@@ -369,7 +577,13 @@ function Accounts() {
 
       {isEditOpen && selectedAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="fixed inset-0" onClick={() => setIsEditOpen(false)} />
+          <div
+            className="fixed inset-0"
+            onClick={() => {
+              setIsEditOpen(false)
+              setSelectedAccountId(null)
+            }}
+          />
           <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">Editar conta</h3>
@@ -380,22 +594,20 @@ function Accounts() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={handleEditSubmit((formData) => {
-                const parsedBalance = parseCurrencyInput(formData.currentBalance)
-                setAccounts((current) =>
-                  current.map((account) =>
-                    account.id === selectedAccount.id
-                      ? {
-                          ...account,
-                          name: formData.name,
-                          type: formData.type,
-                          currentBalance: parsedBalance ?? account.currentBalance,
-                        }
-                      : account,
-                  ),
-                )
-                setIsEditOpen(false)
-                resetEdit()
+              onSubmit={handleEditSubmit(async (formData) => {
+                try {
+                  await updateAccountMutation.mutateAsync({
+                    id: selectedAccount.id,
+                    formData,
+                  })
+                } catch (error: unknown) {
+                  setEditError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao atualizar conta. Tente novamente.',
+                    }),
+                  })
+                }
               })}
             >
               <div className="space-y-2">
@@ -480,13 +692,20 @@ function Accounts() {
                   type="submit"
                   disabled={!confirmEditValue || isEditSubmitting}
                 >
-                  {isEditSubmitting ? 'Salvando...' : 'Salvar alteracoes'}
+                  {isEditSubmitting || updateAccountMutation.isPending
+                    ? 'Salvando...'
+                    : 'Salvar alteracoes'}
                 </Button>
               </div>
               {editErrors.confirm && (
                 <p className="text-sm text-destructive">
                   {editErrors.confirm.message}
                 </p>
+              )}
+              {editErrors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {editErrors.root.message}
+                </div>
               )}
             </form>
           </div>
