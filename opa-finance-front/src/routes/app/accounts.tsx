@@ -158,10 +158,10 @@ function Accounts() {
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Conta</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3 text-right">Saldo atual</th>
-              <th className="px-4 py-3">Criada em</th>
-              <th className="px-4 py-3 text-right">Acoes</th>
+              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
+              <th className="w-[1%] px-4 py-3 text-right whitespace-nowrap">
+                Saldo atual
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -172,32 +172,17 @@ function Accounts() {
                 onClick={() => setSelectedAccountId(account.id)}
               >
                 <td className="px-4 py-3 font-medium">{account.name}</td>
-                <td className="px-4 py-3 text-muted-foreground">
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                   {accountTypeLabels[account.type] ?? account.type}
                 </td>
-                <td className="px-4 py-3 text-right font-semibold">
+                <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
                   {`$ ${formatCurrencyValue(account.currentBalance)}`}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {dateFormatter.format(new Date(account.createdAt))}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setSelectedAccountId(account.id)
-                    }}
-                  >
-                    Ver detalhes
-                  </Button>
                 </td>
               </tr>
             ))}
             {accounts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center">
+                <td colSpan={3} className="px-4 py-10 text-center">
                   <div className="space-y-2">
                     <p className="text-sm font-medium">
                       Nenhuma conta cadastrada ainda.
@@ -361,27 +346,22 @@ function Accounts() {
             </div>
 
             <div className="mt-6 flex items-center justify-end">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    resetEdit({
-                      name: selectedAccount.name,
-                      type: selectedAccount.type,
-                      currentBalance: formatCurrencyInput(
-                        String(selectedAccount.currentBalance),
-                      ),
-                      confirm: false,
-                    })
-                    setIsEditOpen(true)
-                  }}
-                >
-                  Editar
-                </Button>
-                <Button onClick={() => setSelectedAccountId(null)}>
-                  Fechar
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  resetEdit({
+                    name: selectedAccount.name,
+                    type: selectedAccount.type,
+                    currentBalance: formatCurrencyInput(
+                      String(selectedAccount.currentBalance),
+                    ),
+                    confirm: false,
+                  })
+                  setIsEditOpen(true)
+                }}
+              >
+                Editar
+              </Button>
             </div>
           </div>
         </div>
