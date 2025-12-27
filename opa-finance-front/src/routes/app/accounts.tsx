@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,7 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatCurrencyInput, formatCurrencyValue } from '@/lib/utils'
+import {
+  formatCurrencyInput,
+  formatCurrencyValue,
+  parseCurrencyInput,
+} from '@/lib/utils'
 import {
   accountCreateSchema,
   type AccountCreateFormData,
@@ -17,8 +21,11 @@ export const Route = createFileRoute('/app/accounts')({
 })
 
 function Accounts() {
-  const navigate = useNavigate()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  )
 
   const {
     control,
@@ -39,7 +46,29 @@ function Accounts() {
 
   const confirmValue = watch('confirm')
 
-  const accounts = [
+  const {
+    control: editControl,
+    register: editRegister,
+    handleSubmit: handleEditSubmit,
+    reset: resetEdit,
+    watch: watchEdit,
+    formState: {
+      errors: editErrors,
+      isSubmitting: isEditSubmitting,
+    },
+  } = useForm<AccountCreateFormData>({
+    resolver: zodResolver(accountCreateSchema),
+    defaultValues: {
+      name: '',
+      type: undefined,
+      currentBalance: '',
+      confirm: false,
+    },
+  })
+
+  const confirmEditValue = watchEdit('confirm')
+
+  const [accounts, setAccounts] = useState([
     {
       id: 'acc-1',
       name: 'Conta Corrente',
@@ -61,9 +90,20 @@ function Accounts() {
       currentBalance: 12450,
       createdAt: '2025-03-20T14:05:00.000Z',
     },
-  ]
+  ])
 
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
+  const selectedAccount = accounts.find(
+    (account) => account.id === selectedAccountId,
+  )
+
+  const accountTypeLabels: Record<string, string> = {
+    cash: 'Dinheiro',
+    checking_account: 'Conta Corrente',
+    savings_account: 'Poupanca',
+    credit_card: 'Cartao de Credito',
+    investment: 'Investimento',
+  }
 
   return (
     <div className="space-y-6">
@@ -129,12 +169,12 @@ function Accounts() {
               <tr
                 key={account.id}
                 className="cursor-pointer border-t hover:bg-muted/30"
-                onClick={() =>
-                  navigate({ to: '/app/accounts/$id', params: { id: account.id } })
-                }
+                onClick={() => setSelectedAccountId(account.id)}
               >
                 <td className="px-4 py-3 font-medium">{account.name}</td>
-                <td className="px-4 py-3 text-muted-foreground">{account.type}</td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {accountTypeLabels[account.type] ?? account.type}
+                </td>
                 <td className="px-4 py-3 text-right font-semibold">
                   {`$ ${formatCurrencyValue(account.currentBalance)}`}
                 </td>
@@ -147,10 +187,7 @@ function Accounts() {
                     size="sm"
                     onClick={(event) => {
                       event.stopPropagation()
-                      navigate({
-                        to: '/app/accounts/$id',
-                        params: { id: account.id },
-                      })
+                      setSelectedAccountId(account.id)
                     }}
                   >
                     Ver detalhes
@@ -281,6 +318,195 @@ function Accounts() {
               </div>
               {errors.confirm && (
                 <p className="text-sm text-destructive">{errors.confirm.message}</p>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setSelectedAccountId(null)}
+          />
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">{selectedAccount.name}</h3>
+              <p className="text-sm text-muted-foreground">
+                Detalhes da conta
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tipo</span>
+                <span className="font-medium">
+                  {accountTypeLabels[selectedAccount.type] ??
+                    selectedAccount.type}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Saldo atual</span>
+                <span className="font-semibold">
+                  {`$ ${formatCurrencyValue(selectedAccount.currentBalance)}`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Criada em</span>
+                <span className="font-medium">
+                  {dateFormatter.format(new Date(selectedAccount.createdAt))}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    resetEdit({
+                      name: selectedAccount.name,
+                      type: selectedAccount.type,
+                      currentBalance: formatCurrencyInput(
+                        String(selectedAccount.currentBalance),
+                      ),
+                      confirm: false,
+                    })
+                    setIsEditOpen(true)
+                  }}
+                >
+                  Editar
+                </Button>
+                <Button onClick={() => setSelectedAccountId(null)}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditOpen && selectedAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="fixed inset-0" onClick={() => setIsEditOpen(false)} />
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Editar conta</h3>
+              <p className="text-sm text-muted-foreground">
+                Atualize as informacoes da conta selecionada.
+              </p>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={handleEditSubmit((formData) => {
+                const parsedBalance = parseCurrencyInput(formData.currentBalance)
+                setAccounts((current) =>
+                  current.map((account) =>
+                    account.id === selectedAccount.id
+                      ? {
+                          ...account,
+                          name: formData.name,
+                          type: formData.type,
+                          currentBalance: parsedBalance ?? account.currentBalance,
+                        }
+                      : account,
+                  ),
+                )
+                setIsEditOpen(false)
+                resetEdit()
+              })}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="edit-account-name">Nome</Label>
+                <Input
+                  id="edit-account-name"
+                  placeholder="Ex: Conta Corrente"
+                  className="h-10"
+                  aria-invalid={!!editErrors.name}
+                  {...editRegister('name')}
+                />
+                {editErrors.name && (
+                  <p className="text-sm text-destructive">
+                    {editErrors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-type">Tipo</Label>
+                  <select
+                    id="edit-account-type"
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    aria-invalid={!!editErrors.type}
+                    {...editRegister('type')}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="checking_account">Conta Corrente</option>
+                    <option value="savings_account">Poupanca</option>
+                    <option value="credit_card">Cartao de Credito</option>
+                    <option value="investment">Investimento</option>
+                    <option value="cash">Dinheiro</option>
+                  </select>
+                  {editErrors.type && (
+                    <p className="text-sm text-destructive">
+                      {editErrors.type.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-balance">Saldo atual</Label>
+                  <Controller
+                    control={editControl}
+                    name="currentBalance"
+                    render={({ field }) => (
+                      <Input
+                        id="edit-account-balance"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="$ 0,00"
+                        value={field.value}
+                        onChange={(event) =>
+                          field.onChange(
+                            formatCurrencyInput(event.target.value),
+                          )
+                        }
+                        className="h-10"
+                        aria-invalid={!!editErrors.currentBalance}
+                      />
+                    )}
+                  />
+                  {editErrors.currentBalance && (
+                    <p className="text-sm text-destructive">
+                      {editErrors.currentBalance.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    {...editRegister('confirm')}
+                  />
+                  Confirmo que os dados estao corretos
+                </label>
+                <Button
+                  type="submit"
+                  disabled={!confirmEditValue || isEditSubmitting}
+                >
+                  {isEditSubmitting ? 'Salvando...' : 'Salvar alteracoes'}
+                </Button>
+              </div>
+              {editErrors.confirm && (
+                <p className="text-sm text-destructive">
+                  {editErrors.confirm.message}
+                </p>
               )}
             </form>
           </div>
