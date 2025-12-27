@@ -209,8 +209,8 @@ src/
 
 Este guia é complementado pelos seguintes documentos:
 
-- **Regras de Negócio & Orientações (Frontend)**  
-  Documento com regras de domínio, responsabilidades do frontend e boas práticas de desenvolvimento.  
+- **Regras de Negócio & Orientações (Frontend)**
+  Documento com regras de domínio, responsabilidades do frontend e boas práticas de desenvolvimento.
   📄 `FRONTEND_REGRAS_DE_NEGOCIO.md`
 
 Esses documentos devem ser lidos em conjunto para garantir:
@@ -239,8 +239,8 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Formulário de login com React Hook Form + Zod
 - [x] TanStack Query configurado
 - [x] Tema claro/escuro com toggle
-- [ ] Usuário (perfil, edição de nome, troca de senha, logout)
-- [ ] Accounts
+- [x] Usuário (perfil, edição de nome, troca de senha, logout)
+- [x] Accounts (tabela, filtros na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação)
 - [ ] Categories / Subcategories
 - [ ] Transactions
 - [ ] Transfers
