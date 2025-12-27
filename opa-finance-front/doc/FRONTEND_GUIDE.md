@@ -49,6 +49,12 @@ Fornecer uma interface:
     @import 'tailwindcss';
     ```
 
+### Tema (claro/escuro)
+
+- Tokens de cor definidos em `src/index.css` com suporte a `.dark`.
+- `ThemeProvider` aplica a classe `dark` no `html` e sincroniza com `localStorage`.
+- Toggle disponível no header (área privada) e na tela de login.
+
 ### Roteamento & Navegação
 
 - TanStack Router
@@ -91,12 +97,17 @@ src/
 │     ├─ profile.tsx      # Perfil (editar nome + senha)
 │     ├─ register.tsx     # Criar usuário (rota privada, acesso direto)
 │     ├─ accounts.tsx     # Contas
+│     ├─ accounts/
+│     │  └─ $id.tsx       # Detalhe da conta
 │     └─ transactions.tsx # Transações
 ├─ components/
 │  ├─ ui/                 # shadcn/ui
 │  └─ app/
 │     ├─ Header.tsx
 │     └─ Sidebar.tsx
+│  └─ theme/
+│     ├─ ThemeProvider.tsx
+│     └─ ThemeToggle.tsx
 ├─ auth/
 │  ├─ auth.store.ts       # Estado de auth + persistência
 │  ├─ useAuth.ts
@@ -227,6 +238,7 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Interceptor de auth (token + refresh)
 - [x] Formulário de login com React Hook Form + Zod
 - [x] TanStack Query configurado
+- [x] Tema claro/escuro com toggle
 - [ ] Usuário (perfil, edição de nome, troca de senha, logout)
 - [ ] Accounts
 - [ ] Categories / Subcategories
