@@ -7,11 +7,14 @@ import './lib/api.interceptors'
 
 import { queryClient } from './lib/queryClient'
 import { AppRouter } from './router/RouterProvider'
+import { ThemeProvider } from './components/theme/ThemeProvider'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AppRouter />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppRouter />
+      </QueryClientProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 )

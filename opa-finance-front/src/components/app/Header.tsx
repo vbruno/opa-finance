@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { getUser, logout } from '@/auth/auth.store'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 
 export function Header() {
@@ -22,6 +23,7 @@ export function Header() {
         <Button variant="outline" onClick={() => setIsMenuOpen(true)}>
           {user?.name ?? 'Conta'}
         </Button>
+        <ThemeToggle />
       </div>
 
       {isMenuOpen && (

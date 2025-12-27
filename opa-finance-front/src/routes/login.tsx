@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 
 import { isAuthenticated } from '@/auth/auth.store'
 import { useLogin } from '@/auth/useLogin'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -54,7 +55,10 @@ function Login() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border bg-background p-6 shadow-sm">
+      <div className="relative w-full max-w-sm space-y-6 rounded-lg border bg-background p-6 shadow-sm">
+        <div className="absolute right-4 top-4">
+          <ThemeToggle />
+        </div>
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold">Opa Finance</h1>
           <p className="text-sm text-muted-foreground">
