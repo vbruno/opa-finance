@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
+import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,10 +21,15 @@ import {
 } from '@/schemas/account.schema'
 
 export const Route = createFileRoute('/app/accounts')({
+  validateSearch: z.object({
+    q: z.string().optional(),
+    type: z.string().optional(),
+  }),
   component: Accounts,
 })
 
 function Accounts() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -140,9 +146,21 @@ function Accounts() {
 
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const accounts = accountsQuery.data ?? []
+  const search = Route.useSearch()
+  const searchTerm = search.q ?? ''
+  const typeFilter = search.type ?? ''
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   )
+  const hasActiveFilters = searchTerm.trim() !== '' || typeFilter !== ''
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const filteredAccounts = accounts.filter((account) => {
+    const matchesName = normalizedSearch
+      ? account.name.toLowerCase().includes(normalizedSearch)
+      : true
+    const matchesType = typeFilter ? account.type === typeFilter : true
+    return matchesName && matchesType
+  })
 
   const deleteAccountMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -198,7 +216,7 @@ function Accounts() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4">
         <div className="flex-1">
           <label className="text-xs font-semibold uppercase text-muted-foreground">
             Buscar
@@ -206,21 +224,78 @@ function Accounts() {
           <Input
             type="text"
             placeholder="Buscar por nome..."
-            className="mt-2"
+            className="mt-2 h-10"
+            value={searchTerm}
+            onChange={(event) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  q: event.target.value.trim() ? event.target.value : undefined,
+                }),
+                replace: true,
+              })
+            }
           />
         </div>
         <div className="w-full sm:w-56">
           <label className="text-xs font-semibold uppercase text-muted-foreground">
             Tipo
           </label>
-          <select className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
+          <div className="relative mt-2">
+            <select
+              className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
+            value={typeFilter}
+            onChange={(event) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  type: event.target.value || undefined,
+                }),
+                replace: true,
+              })
+            }
+          >
             <option value="">Todos</option>
-            <option value="checking_account">Conta Corrente</option>
-            <option value="savings_account">Poupanca</option>
-            <option value="credit_card">Cartao de Credito</option>
-            <option value="investment">Investimento</option>
-            <option value="cash">Dinheiro</option>
-          </select>
+              <option value="checking_account">Conta Corrente</option>
+              <option value="savings_account">Poupanca</option>
+              <option value="credit_card">Cartao de Credito</option>
+              <option value="investment">Investimento</option>
+              <option value="cash">Dinheiro</option>
+            </select>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+              <svg
+                viewBox="0 0 16 16"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 6l4 4 4-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </div>
+        </div>
+        <div className="flex h-10 items-end">
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={!hasActiveFilters}
+            aria-label="Limpar filtros"
+            className="h-10 w-10"
+            onClick={() => {
+              navigate({
+                search: () => ({}),
+                replace: true,
+              })
+            }}
+          >
+            x
+          </Button>
         </div>
       </div>
 
@@ -256,7 +331,7 @@ function Accounts() {
             )}
             {!accountsQuery.isLoading &&
               !accountsQuery.isError &&
-              accounts.map((account) => {
+              filteredAccounts.map((account) => {
                 const displayBalance =
                   account.currentBalance ?? account.initialBalance ?? 0
                 return (
@@ -277,22 +352,30 @@ function Accounts() {
               })}
             {!accountsQuery.isLoading &&
               !accountsQuery.isError &&
-              accounts.length === 0 && (
+              filteredAccounts.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-10 text-center">
                     <div className="space-y-2">
-                      <p className="text-sm font-medium">
-                        Nenhuma conta cadastrada ainda.
-                      </p>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          reset()
-                          setIsCreateOpen(true)
-                        }}
-                      >
-                        Criar conta
-                      </Button>
+                      {accounts.length === 0 ? (
+                        <>
+                          <p className="text-sm font-medium">
+                            Nenhuma conta cadastrada ainda.
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              reset()
+                              setIsCreateOpen(true)
+                            }}
+                          >
+                            Criar conta
+                          </Button>
+                        </>
+                      ) : (
+                        <p className="text-sm font-medium">
+                          Nenhuma conta encontrada com os filtros atuais.
+                        </p>
+                      )}
                     </div>
                   </td>
                 </tr>
