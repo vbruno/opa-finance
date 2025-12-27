@@ -1,19 +1,19 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { api } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,
   formatCurrencyValue,
   parseCurrencyInput,
 } from '@/lib/utils'
-import { api } from '@/lib/api'
-import { getApiErrorMessage } from '@/lib/apiError'
 import {
   accountCreateSchema,
   type AccountCreateFormData,
@@ -458,8 +458,8 @@ function Accounts() {
                 <span className="font-semibold">
                   {`$ ${formatCurrencyValue(
                     selectedAccount.currentBalance ??
-                      selectedAccount.initialBalance ??
-                      0,
+                    selectedAccount.initialBalance ??
+                    0,
                   )}`}
                 </span>
               </div>
