@@ -1,7 +1,7 @@
-import { useMutation } from '@tanstack/react-query'
-import type { UseMutationResult } from '@tanstack/react-query'
+import { useMutation, type UseMutationResult } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+
 import { setAuth, logout } from './auth.store'
 
 type LoginInput = {

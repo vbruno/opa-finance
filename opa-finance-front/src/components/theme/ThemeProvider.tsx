@@ -1,10 +1,19 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
 
 type Theme = 'light' | 'dark'
 
 type ThemeContextValue = {
   theme: Theme
-  setTheme: (theme: Theme) => void
+  setTheme: Dispatch<SetStateAction<Theme>>
   toggleTheme: () => void
 }
 

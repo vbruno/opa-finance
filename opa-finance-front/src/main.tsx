@@ -5,9 +5,9 @@ import './index.css'
 
 import './lib/api.interceptors'
 
+import { ThemeProvider } from './components/theme/ThemeProvider'
 import { queryClient } from './lib/queryClient'
 import { AppRouter } from './router/RouterProvider'
-import { ThemeProvider } from './components/theme/ThemeProvider'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
