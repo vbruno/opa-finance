@@ -169,7 +169,6 @@ function Accounts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       setSelectedAccountId(null)
-      setDeleteConfirmed(false)
       setDeleteError(null)
     },
   })
