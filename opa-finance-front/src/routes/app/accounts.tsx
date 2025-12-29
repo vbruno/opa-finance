@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -82,6 +82,10 @@ function Accounts() {
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
   )
+  const createNameRef = useRef<HTMLInputElement | null>(null)
+  const editNameRef = useRef<HTMLInputElement | null>(null)
+  const detailModalRef = useRef<HTMLDivElement | null>(null)
+  const deleteModalRef = useRef<HTMLDivElement | null>(null)
 
   type Account = {
     id: string
@@ -249,7 +253,7 @@ function Accounts() {
           dir: nextDirection,
         }
       },
-      replace: true,
+      replace: false,
     })
   }
 
@@ -271,6 +275,99 @@ function Accounts() {
     setDeleteError(null)
     setDeleteBlockedReason(null)
   }, [selectedAccountId])
+
+  useEffect(() => {
+    if (!selectedAccountId || accountsQuery.isLoading || selectedAccount) {
+      return
+    }
+
+    navigate({
+      search: (prev) => ({ ...prev, id: undefined }),
+      replace: true,
+    })
+  }, [accountsQuery.isLoading, navigate, selectedAccount, selectedAccountId])
+
+  useEffect(() => {
+    const hasOpenModal =
+      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedAccount
+    if (!hasOpenModal) {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedAccount])
+
+  useEffect(() => {
+    if (!isCreateOpen) {
+      return
+    }
+    createNameRef.current?.focus()
+  }, [isCreateOpen])
+
+  useEffect(() => {
+    if (!isEditOpen) {
+      return
+    }
+    editNameRef.current?.focus()
+  }, [isEditOpen])
+
+  useEffect(() => {
+    if (isDeleteConfirmOpen) {
+      deleteModalRef.current?.focus()
+      return
+    }
+    if (selectedAccount && !isEditOpen) {
+      detailModalRef.current?.focus()
+    }
+  }, [isDeleteConfirmOpen, isEditOpen, selectedAccount])
+
+  useEffect(() => {
+    const hasOpenModal =
+      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedAccount
+    if (!hasOpenModal) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (isDeleteConfirmOpen) {
+        setIsDeleteConfirmOpen(false)
+        return
+      }
+
+      if (isEditOpen) {
+        setIsEditOpen(false)
+        navigate({
+          search: (prev) => ({ ...prev, id: undefined }),
+          replace: true,
+        })
+        return
+      }
+
+      if (isCreateOpen) {
+        setIsCreateOpen(false)
+        return
+      }
+
+      if (selectedAccount) {
+        navigate({
+          search: (prev) => ({ ...prev, id: undefined }),
+          replace: true,
+        })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedAccount, navigate])
 
   function getErrorStatus(error: unknown) {
     if (!error || typeof error !== 'object' || !('response' in error)) {
@@ -321,6 +418,20 @@ function Accounts() {
                 replace: true,
               })
             }
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') {
+                return
+              }
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  q: event.currentTarget.value.trim()
+                    ? event.currentTarget.value
+                    : undefined,
+                }),
+                replace: false,
+              })
+            }}
           />
         </div>
         <div className="w-full sm:w-56">
@@ -337,7 +448,7 @@ function Accounts() {
                   ...prev,
                   type: event.target.value || undefined,
                 }),
-                replace: true,
+                replace: false,
               })
             }
           >
@@ -376,7 +487,7 @@ function Accounts() {
             onClick={() => {
               navigate({
                 search: () => ({}),
-                replace: true,
+                replace: false,
               })
             }}
           >
@@ -536,6 +647,7 @@ function Accounts() {
                   id="account-name"
                   placeholder="Ex: Conta Corrente"
                   className="h-10"
+                  ref={createNameRef}
                   aria-invalid={!!errors.name}
                   {...register('name')}
                 />
@@ -640,7 +752,11 @@ function Accounts() {
               })
             }
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div
+            className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
+            ref={detailModalRef}
+            tabIndex={-1}
+          >
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">{selectedAccount.name}</h3>
               <p className="text-sm text-muted-foreground">
@@ -721,7 +837,11 @@ function Accounts() {
             className="fixed inset-0"
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+          <div
+            className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+            ref={deleteModalRef}
+            tabIndex={-1}
+          >
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">
                 Confirmar exclusao
@@ -825,6 +945,7 @@ function Accounts() {
                   id="edit-account-name"
                   placeholder="Ex: Conta Corrente"
                   className="h-10"
+                  ref={editNameRef}
                   aria-invalid={!!editErrors.name}
                   {...editRegister('name')}
                 />
