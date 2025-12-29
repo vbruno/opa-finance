@@ -64,6 +64,10 @@ function Accounts() {
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
   )
+  const [sortKey, setSortKey] = useState<'name' | 'type' | 'balance' | null>(
+    null,
+  )
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   type Account = {
     id: string
@@ -175,6 +179,13 @@ function Accounts() {
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   )
+  const accountTypeLabels: Record<string, string> = {
+    cash: 'Dinheiro',
+    checking_account: 'Conta Corrente',
+    savings_account: 'Poupanca',
+    credit_card: 'Cartao de Credito',
+    investment: 'Investimento',
+  }
   const hasActiveFilters = searchTerm.trim() !== '' || typeFilter !== ''
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredAccounts = accounts.filter((account) => {
@@ -184,6 +195,36 @@ function Accounts() {
     const matchesType = typeFilter ? account.type === typeFilter : true
     return matchesName && matchesType
   })
+  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+    if (!sortKey) {
+      return 0
+    }
+
+    const directionMultiplier = sortDirection === 'asc' ? 1 : -1
+
+    if (sortKey === 'balance') {
+      const balanceA = a.currentBalance ?? a.initialBalance ?? 0
+      const balanceB = b.currentBalance ?? b.initialBalance ?? 0
+      return (balanceA - balanceB) * directionMultiplier
+    }
+
+    if (sortKey === 'type') {
+      const labelA = accountTypeLabels[a.type] ?? a.type
+      const labelB = accountTypeLabels[b.type] ?? b.type
+      return labelA.localeCompare(labelB) * directionMultiplier
+    }
+
+    return a.name.localeCompare(b.name) * directionMultiplier
+  })
+
+  function handleSort(nextKey: 'name' | 'type' | 'balance') {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(nextKey)
+    setSortDirection('asc')
+  }
 
   const deleteAccountMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -201,13 +242,6 @@ function Accounts() {
     setDeleteBlockedReason(null)
   }, [selectedAccountId])
 
-  const accountTypeLabels: Record<string, string> = {
-    cash: 'Dinheiro',
-    checking_account: 'Conta Corrente',
-    savings_account: 'Poupanca',
-    credit_card: 'Cartao de Credito',
-    investment: 'Investimento',
-  }
   function getErrorStatus(error: unknown) {
     if (!error || typeof error !== 'object' || !('response' in error)) {
       return undefined
@@ -325,10 +359,35 @@ function Accounts() {
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">Conta</th>
-              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('name')}
+                >
+                  Conta
+                  <SortIcon isActive={sortKey === 'name'} direction={sortDirection} />
+                </button>
+              </th>
+              <th className="w-[1%] px-4 py-3 whitespace-nowrap">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('type')}
+                >
+                  Tipo
+                  <SortIcon isActive={sortKey === 'type'} direction={sortDirection} />
+                </button>
+              </th>
               <th className="w-[1%] px-4 py-3 text-right whitespace-nowrap">
-                Saldo atual
+                <button
+                  className="inline-flex items-center gap-2 text-right"
+                  type="button"
+                  onClick={() => handleSort('balance')}
+                >
+                  Saldo atual
+                  <SortIcon isActive={sortKey === 'balance'} direction={sortDirection} />
+                </button>
               </th>
             </tr>
           </thead>
@@ -353,7 +412,7 @@ function Accounts() {
             )}
             {!accountsQuery.isLoading &&
               !accountsQuery.isError &&
-              filteredAccounts.map((account) => {
+              sortedAccounts.map((account) => {
                 const displayBalance =
                   account.currentBalance ?? account.initialBalance ?? 0
                 return (
@@ -374,7 +433,7 @@ function Accounts() {
               })}
             {!accountsQuery.isLoading &&
               !accountsQuery.isError &&
-              filteredAccounts.length === 0 && (
+              sortedAccounts.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-10 text-center">
                     <div className="space-y-2">
@@ -820,5 +879,45 @@ function Accounts() {
         </div>
       )}
     </div>
+  )
+}
+
+function SortIcon({
+  isActive,
+  direction,
+}: {
+  isActive: boolean
+  direction: 'asc' | 'desc'
+}) {
+  if (!isActive) {
+    return (
+      <span className="text-muted-foreground">
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+          <path
+            d="M5 3l3-3 3 3M11 13l-3 3-3-3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+    )
+  }
+
+  return (
+    <span className="text-foreground">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+        <path
+          d={direction === 'asc' ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   )
 }
