@@ -23,7 +23,30 @@ import {
 export const Route = createFileRoute('/app/accounts')({
   validateSearch: z.object({
     q: z.string().optional(),
-    type: z.string().optional(),
+    type: z.preprocess(
+      (value) => {
+        const allowed = [
+          'cash',
+          'checking_account',
+          'savings_account',
+          'credit_card',
+          'investment',
+        ]
+        if (typeof value !== 'string') {
+          return undefined
+        }
+        return allowed.includes(value) ? value : undefined
+      },
+      z
+        .enum([
+          'cash',
+          'checking_account',
+          'savings_account',
+          'credit_card',
+          'investment',
+        ])
+        .optional(),
+    ),
   }),
   component: Accounts,
 })
@@ -557,8 +580,11 @@ function Accounts() {
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   variant="destructive"
-                  disabled={!!deleteBlockedReason}
-                  onClick={() => setIsDeleteConfirmOpen(true)}
+                  onClick={() => {
+                    setDeleteBlockedReason(null)
+                    setDeleteError(null)
+                    setIsDeleteConfirmOpen(true)
+                  }}
                 >
                   Excluir
                 </Button>
@@ -582,11 +608,6 @@ function Accounts() {
                 </Button>
               </div>
             </div>
-            {deleteBlockedReason && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {deleteBlockedReason}
-              </p>
-            )}
             {deleteError && (
               <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {deleteError}
@@ -613,6 +634,11 @@ function Accounts() {
                 Essa acao nao pode ser desfeita.
               </p>
             </div>
+            {deleteBlockedReason && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {deleteBlockedReason}
+              </div>
+            )}
 
             <div className="mt-6 flex items-center justify-end gap-2">
               <Button
