@@ -47,6 +47,27 @@ export const Route = createFileRoute('/app/accounts')({
         ])
         .optional(),
     ),
+    id: z.string().optional(),
+    sort: z.preprocess(
+      (value) => {
+        const allowed = ['name', 'type', 'balance']
+        if (typeof value !== 'string') {
+          return undefined
+        }
+        return allowed.includes(value) ? value : undefined
+      },
+      z.enum(['name', 'type', 'balance']).optional(),
+    ),
+    dir: z.preprocess(
+      (value) => {
+        const allowed = ['asc', 'desc']
+        if (typeof value !== 'string') {
+          return undefined
+        }
+        return allowed.includes(value) ? value : undefined
+      },
+      z.enum(['asc', 'desc']).optional(),
+    ),
   }),
   component: Accounts,
 })
@@ -56,18 +77,11 @@ function Accounts() {
   const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
-    null,
-  )
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
   )
-  const [sortKey, setSortKey] = useState<'name' | 'type' | 'balance' | null>(
-    null,
-  )
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   type Account = {
     id: string
@@ -166,7 +180,10 @@ function Accounts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       setIsEditOpen(false)
-      setSelectedAccountId(null)
+      navigate({
+        search: (prev) => ({ ...prev, id: undefined }),
+        replace: true,
+      })
       resetEdit()
     },
   })
@@ -176,6 +193,9 @@ function Accounts() {
   const search = Route.useSearch()
   const searchTerm = search.q ?? ''
   const typeFilter = search.type ?? ''
+  const selectedAccountId = search.id ?? null
+  const sortKey = search.sort ?? null
+  const sortDirection = search.dir ?? 'asc'
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   )
@@ -218,12 +238,19 @@ function Accounts() {
   })
 
   function handleSort(nextKey: 'name' | 'type' | 'balance') {
-    if (sortKey === nextKey) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
-      return
-    }
-    setSortKey(nextKey)
-    setSortDirection('asc')
+    navigate({
+      search: (prev) => {
+        const isSame = prev.sort === nextKey
+        const nextDirection =
+          isSame && prev.dir === 'asc' ? 'desc' : 'asc'
+        return {
+          ...prev,
+          sort: nextKey,
+          dir: nextDirection,
+        }
+      },
+      replace: true,
+    })
   }
 
   const deleteAccountMutation = useMutation({
@@ -232,7 +259,10 @@ function Accounts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      setSelectedAccountId(null)
+      navigate({
+        search: (prev) => ({ ...prev, id: undefined }),
+        replace: true,
+      })
       setDeleteError(null)
     },
   })
@@ -419,7 +449,11 @@ function Accounts() {
                   <tr
                     key={account.id}
                     className="cursor-pointer border-t hover:bg-muted/30"
-                    onClick={() => setSelectedAccountId(account.id)}
+                    onClick={() =>
+                      navigate({
+                        search: (prev) => ({ ...prev, id: account.id }),
+                      })
+                    }
                   >
                     <td className="px-4 py-3 font-medium">{account.name}</td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
@@ -599,7 +633,12 @@ function Accounts() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
             className="fixed inset-0"
-            onClick={() => setSelectedAccountId(null)}
+            onClick={() =>
+              navigate({
+                search: (prev) => ({ ...prev, id: undefined }),
+                replace: true,
+              })
+            }
           />
           <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
             <div className="space-y-1">
@@ -748,7 +787,10 @@ function Accounts() {
             className="fixed inset-0"
             onClick={() => {
               setIsEditOpen(false)
-              setSelectedAccountId(null)
+              navigate({
+                search: (prev) => ({ ...prev, id: undefined }),
+                replace: true,
+              })
             }}
           />
           <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
