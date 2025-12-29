@@ -73,6 +73,15 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - Carteira
   - Cartão de crédito
 - Transações devem estar associadas a uma conta
+- Exclusão de conta:
+  - Backend bloqueia quando houver transações (`409`)
+  - Frontend deve exibir mensagem amigável e impedir a remoção
+- Tipos de conta devem seguir os valores da API:
+  - `cash`, `checking_account`, `savings_account`, `credit_card`, `investment`
+- Listagem de contas:
+  - Filtros por nome/tipo são client-side
+  - Ordenação por coluna é client-side
+  - Paginação é client-side (10 itens por página) e exibida apenas quando necessário
 
 ---
 

@@ -240,8 +240,18 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] TanStack Query configurado
 - [x] Tema claro/escuro com toggle
 - [x] Usuário (perfil, edição de nome, troca de senha, logout)
-- [x] Accounts (tabela, filtros na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação)
+- [x] Accounts (tabela, filtros/ordenação/paginação na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação e deep link)
 - [ ] Categories / Subcategories
 - [ ] Transactions
 - [ ] Transfers
 - [ ] Dashboard (dados reais)
+
+---
+
+## 🧩 Accounts — Notas de Implementação
+
+- Tabela com filtros (nome/tipo) e ordenação por coluna; estado persistido na URL.
+- Paginação client-side (10 itens) exibida apenas quando necessário, com navegação por página.
+- Modais de criação, edição, detalhes e exclusão com confirmação; foco automático, `Esc` para fechar e scroll do body bloqueado.
+- Deep link para detalhes via `/app/accounts/$id` redirecionando para `/app/accounts?id=...`.
+- Exclusão bloqueada pelo backend quando há transações (`409`), exibindo mensagem no modal de confirmação.

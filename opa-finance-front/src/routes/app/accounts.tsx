@@ -68,6 +68,16 @@ export const Route = createFileRoute('/app/accounts')({
       },
       z.enum(['asc', 'desc']).optional(),
     ),
+    page: z.preprocess(
+      (value) => {
+        const parsed = Number(value)
+        if (!Number.isFinite(parsed) || parsed < 1) {
+          return undefined
+        }
+        return Math.floor(parsed)
+      },
+      z.number().int().min(1).optional(),
+    ),
   }),
   component: Accounts,
 })
@@ -200,6 +210,7 @@ function Accounts() {
   const selectedAccountId = search.id ?? null
   const sortKey = search.sort ?? null
   const sortDirection = search.dir ?? 'asc'
+  const currentPage = search.page ?? 1
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   )
@@ -257,6 +268,14 @@ function Accounts() {
     })
   }
 
+  const pageSize = 10
+  const totalPages = Math.max(1, Math.ceil(sortedAccounts.length / pageSize))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedAccounts =
+    sortedAccounts.length > pageSize
+      ? sortedAccounts.slice((safePage - 1) * pageSize, safePage * pageSize)
+      : sortedAccounts
+
   const deleteAccountMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/accounts/${id}`)
@@ -277,15 +296,31 @@ function Accounts() {
   }, [selectedAccountId])
 
   useEffect(() => {
-    if (!selectedAccountId || accountsQuery.isLoading || selectedAccount) {
+    const nextPage =
+      totalPages > 0 ? Math.min(currentPage, totalPages) : currentPage
+
+    if (selectedAccountId && !accountsQuery.isLoading && !selectedAccount) {
+      navigate({
+        search: (prev) => ({ ...prev, id: undefined }),
+        replace: true,
+      })
       return
     }
 
-    navigate({
-      search: (prev) => ({ ...prev, id: undefined }),
-      replace: true,
-    })
-  }, [accountsQuery.isLoading, navigate, selectedAccount, selectedAccountId])
+    if (nextPage !== currentPage) {
+      navigate({
+        search: (prev) => ({ ...prev, page: nextPage }),
+        replace: true,
+      })
+    }
+  }, [
+    accountsQuery.isLoading,
+    currentPage,
+    navigate,
+    selectedAccount,
+    selectedAccountId,
+    totalPages,
+  ])
 
   useEffect(() => {
     const hasOpenModal =
@@ -553,7 +588,7 @@ function Accounts() {
             )}
             {!accountsQuery.isLoading &&
               !accountsQuery.isError &&
-              sortedAccounts.map((account) => {
+              paginatedAccounts.map((account) => {
                 const displayBalance =
                   account.currentBalance ?? account.initialBalance ?? 0
                 return (
@@ -609,6 +644,76 @@ function Accounts() {
           </tbody>
         </table>
       </div>
+
+      {sortedAccounts.length > pageSize && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Pagina {safePage} de {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={safePage === 1}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: 1,
+                  }),
+                  replace: false,
+                })
+              }
+            >
+              Primeira
+            </Button>
+            <Button
+              variant="outline"
+              disabled={safePage === 1}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: safePage - 1,
+                  }),
+                  replace: false,
+                })
+              }
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              disabled={safePage === totalPages}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: safePage + 1,
+                  }),
+                  replace: false,
+                })
+              }
+            >
+              Proxima
+            </Button>
+            <Button
+              variant="outline"
+              disabled={safePage === totalPages}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: totalPages,
+                  }),
+                  replace: false,
+                })
+              }
+            >
+              Ultima
+            </Button>
+          </div>
+        </div>
+      )}
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
