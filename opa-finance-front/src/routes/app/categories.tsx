@@ -199,6 +199,7 @@ function Categories() {
           queryKey: ['subcategories', subcategoryParent.id],
         })
       }
+      queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
       setIsSubCreateOpen(false)
       subCreateForm.reset()
     },
@@ -223,6 +224,7 @@ function Categories() {
           queryKey: ['subcategories', subcategoryParent.id],
         })
       }
+      queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
       setIsSubEditOpen(false)
       setSelectedSubcategory(null)
       subEditForm.reset()
@@ -239,6 +241,7 @@ function Categories() {
           queryKey: ['subcategories', subcategoryParent.id],
         })
       }
+      queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
       setIsSubDeleteConfirmOpen(false)
       setSelectedSubcategory(null)
       setSubDeleteError(null)
@@ -252,13 +255,58 @@ function Categories() {
   const hasActiveFilters = !!searchTerm || !!typeFilter
   const normalizedSearch = normalizeSearch(searchTerm)
   const userCategories = categories.filter((category) => !category.system)
+  const userCategoryIdsKey = userCategories
+    .map((category) => category.id)
+    .join(',')
+  const searchSubcategoriesQuery = useQuery({
+    queryKey: ['subcategories', 'search', userCategoryIdsKey],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        userCategories.map(async (category) => {
+          const response = await api.get<Subcategory[]>(
+            `/categories/${category.id}/subcategories`,
+          )
+          return [category.id, response.data] as const
+        }),
+      )
+      return Object.fromEntries(entries) as Record<string, Subcategory[]>
+    },
+    enabled: normalizedSearch.length > 0 && userCategories.length > 0,
+  })
   const filteredCategories = userCategories.filter((category) => {
     const matchesName = normalizedSearch
       ? normalizeSearch(category.name).includes(normalizedSearch)
       : true
+    const subcategories = searchSubcategoriesQuery.data?.[category.id] ?? []
+    const matchesSubcategory =
+      normalizedSearch.length > 0 &&
+      subcategories.some((subcategory) =>
+        normalizeSearch(subcategory.name).includes(normalizedSearch),
+      )
     const matchesType = typeFilter ? category.type === typeFilter : true
-    return matchesName && matchesType
+    return (matchesName || matchesSubcategory) && matchesType
   })
+  const categoryMatchIds = normalizedSearch.length
+    ? userCategories
+        .filter((category) =>
+          normalizeSearch(category.name).includes(normalizedSearch),
+        )
+        .map((category) => category.id)
+    : []
+  const subcategoryMatchIds = normalizedSearch.length
+    ? userCategories
+        .filter((category) => {
+          const subcategories =
+            searchSubcategoriesQuery.data?.[category.id] ?? []
+          return subcategories.some((subcategory) =>
+            normalizeSearch(subcategory.name).includes(normalizedSearch),
+          )
+        })
+        .map((category) => category.id)
+    : []
+  const searchExpandIds = normalizedSearch.length
+    ? Array.from(new Set([...categoryMatchIds, ...subcategoryMatchIds]))
+    : []
   const typeLabels: Record<Category['type'], string> = {
     income: 'Receita',
     expense: 'Despesa',
@@ -316,6 +364,22 @@ function Categories() {
     }, 0)
     return () => window.clearTimeout(focusId)
   }, [isSubEditOpen])
+
+  useEffect(() => {
+    if (!normalizedSearch.length) {
+      return
+    }
+    if (searchExpandIds.length === 0) {
+      if (expandedCategoryId) {
+        setExpandedCategoryId(null)
+      }
+      return
+    }
+    if (expandedCategoryId && searchExpandIds.includes(expandedCategoryId)) {
+      return
+    }
+    setExpandedCategoryId(searchExpandIds[0])
+  }, [normalizedSearch, searchExpandIds, expandedCategoryId])
 
   useEffect(() => {
     if (
