@@ -19,3 +19,12 @@ export const categoryCreateSchema = z.object({
 })
 
 export type CategoryCreateFormData = z.infer<typeof categoryCreateSchema>
+
+export const categoryUpdateSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Informe o nome da categoria.')
+    .max(255, 'O nome deve ter no máximo 255 caracteres.'),
+})
+
+export type CategoryUpdateFormData = z.infer<typeof categoryUpdateSchema>

@@ -11,7 +11,9 @@ import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   categoryCreateSchema,
+  categoryUpdateSchema,
   type CategoryCreateFormData,
+  type CategoryUpdateFormData,
 } from '@/schemas/category.schema'
 
 export const Route = createFileRoute('/app/categories')({
@@ -21,6 +23,10 @@ export const Route = createFileRoute('/app/categories')({
 function Categories() {
   const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   type Category = {
     id: string
@@ -46,6 +52,13 @@ function Categories() {
     defaultValues: {
       name: '',
       type: '',
+    },
+  })
+
+  const editForm = useForm<CategoryUpdateFormData>({
+    resolver: zodResolver(categoryUpdateSchema),
+    defaultValues: {
+      name: '',
     },
   })
 
@@ -77,6 +90,9 @@ function Categories() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setIsEditOpen(false)
+      setSelectedCategory(null)
+      editForm.reset()
     },
   })
 
@@ -86,6 +102,9 @@ function Categories() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setIsDeleteConfirmOpen(false)
+      setSelectedCategory(null)
+      setDeleteError(null)
     },
   })
 
@@ -132,12 +151,13 @@ function Categories() {
               <th className="px-4 py-3">Categoria</th>
               <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
               <th className="w-[1%] px-4 py-3 whitespace-nowrap">Origem</th>
+              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Acoes</th>
             </tr>
           </thead>
           <tbody>
             {categoriesQuery.isLoading && (
               <tr>
-                <td colSpan={3} className="px-4 py-10 text-center">
+                <td colSpan={4} className="px-4 py-10 text-center">
                   <p className="text-sm text-muted-foreground">
                     Carregando categorias...
                   </p>
@@ -146,7 +166,7 @@ function Categories() {
             )}
             {errorMessage && (
               <tr>
-                <td colSpan={3} className="px-4 py-10 text-center">
+                <td colSpan={4} className="px-4 py-10 text-center">
                   <p className="text-sm text-destructive">{errorMessage}</p>
                 </td>
               </tr>
@@ -162,13 +182,41 @@ function Categories() {
                   <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                     {category.system ? 'Sistema' : 'Usuario'}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={category.system}
+                        onClick={() => {
+                          setSelectedCategory(category)
+                          editForm.reset({ name: category.name })
+                          setIsEditOpen(true)
+                        }}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={category.system}
+                        onClick={() => {
+                          setSelectedCategory(category)
+                          setDeleteError(null)
+                          setIsDeleteConfirmOpen(true)
+                        }}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             {!categoriesQuery.isLoading &&
               !errorMessage &&
               categories.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-10 text-center">
+                  <td colSpan={4} className="px-4 py-10 text-center">
                     <div className="space-y-2">
                       <p className="text-sm font-medium">
                         Nenhuma categoria cadastrada ainda.
@@ -264,6 +312,131 @@ function Categories() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isEditOpen && selectedCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsEditOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Editar categoria</h3>
+                <p className="text-sm text-muted-foreground">
+                  Atualize o nome da categoria selecionada.
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={editForm.handleSubmit(async (formData) => {
+                try {
+                  await updateCategoryMutation.mutateAsync({
+                    id: selectedCategory.id,
+                    name: formData.name,
+                  })
+                } catch (error: unknown) {
+                  editForm.setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao atualizar categoria. Tente novamente.',
+                    }),
+                  })
+                }
+              })}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="category-edit-name">Nome</Label>
+                <Input
+                  id="category-edit-name"
+                  placeholder="Ex: Alimentacao"
+                  className="h-10"
+                  aria-invalid={!!editForm.formState.errors.name}
+                  {...editForm.register('name')}
+                />
+                {editForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">
+                    {editForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              {editForm.formState.errors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {editForm.formState.errors.root.message}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  disabled={updateCategoryMutation.isPending}
+                >
+                  {updateCategoryMutation.isPending
+                    ? 'Salvando...'
+                    : 'Salvar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isDeleteConfirmOpen && selectedCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsDeleteConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Excluir categoria</h3>
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja excluir "{selectedCategory.name}"?
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  setDeleteError(null)
+                  try {
+                    await deleteCategoryMutation.mutateAsync(
+                      selectedCategory.id,
+                    )
+                  } catch (error: unknown) {
+                    setDeleteError(
+                      getApiErrorMessage(error, {
+                        defaultMessage:
+                          'Erro ao excluir categoria. Tente novamente.',
+                      }),
+                    )
+                  }
+                }}
+                disabled={deleteCategoryMutation.isPending}
+              >
+                {deleteCategoryMutation.isPending
+                  ? 'Excluindo...'
+                  : 'Excluir'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
