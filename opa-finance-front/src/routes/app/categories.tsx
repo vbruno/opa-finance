@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,16 +18,32 @@ import {
 } from '@/schemas/category.schema'
 
 export const Route = createFileRoute('/app/categories')({
+  validateSearch: z.object({
+    q: z.string().optional(),
+    type: z.preprocess(
+      (value) => {
+        const allowed = ['income', 'expense']
+        if (typeof value !== 'string') {
+          return undefined
+        }
+        return allowed.includes(value) ? value : undefined
+      },
+      z.enum(['income', 'expense']).optional(),
+    ),
+  }),
   component: Categories,
 })
 
 function Categories() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const createNameRef = useRef<HTMLInputElement | null>(null)
+  const editNameRef = useRef<HTMLInputElement | null>(null)
 
   type Category = {
     id: string
@@ -109,6 +126,17 @@ function Categories() {
   })
 
   const categories = categoriesQuery.data ?? []
+  const search = Route.useSearch()
+  const searchTerm = search.q ?? ''
+  const typeFilter = search.type ?? ''
+  const hasActiveFilters = !!searchTerm || !!typeFilter
+  const filteredCategories = categories.filter((category) => {
+    const matchesName = searchTerm
+      ? category.name.toLowerCase().includes(searchTerm.toLowerCase())
+      : true
+    const matchesType = typeFilter ? category.type === typeFilter : true
+    return matchesName && matchesType
+  })
   const typeLabels: Record<Category['type'], string> = {
     income: 'Receita',
     expense: 'Despesa',
@@ -122,6 +150,52 @@ function Categories() {
         defaultMessage: 'Erro ao carregar categorias.',
       })
     : null
+
+  useEffect(() => {
+    if (!isCreateOpen) {
+      return
+    }
+    const focusId = window.setTimeout(() => {
+      createNameRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusId)
+  }, [isCreateOpen])
+
+  useEffect(() => {
+    if (!isEditOpen) {
+      return
+    }
+    const focusId = window.setTimeout(() => {
+      editNameRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusId)
+  }, [isEditOpen])
+
+  useEffect(() => {
+    if (!isCreateOpen && !isEditOpen && !isDeleteConfirmOpen) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+      if (isDeleteConfirmOpen) {
+        setIsDeleteConfirmOpen(false)
+        return
+      }
+      if (isEditOpen) {
+        setIsEditOpen(false)
+        return
+      }
+      if (isCreateOpen) {
+        setIsCreateOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen])
 
   return (
     <div className="space-y-6">
@@ -142,6 +216,96 @@ function Categories() {
         >
           Nova categoria
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4">
+        <div className="flex-1">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">
+            Buscar
+          </label>
+          <Input
+            type="text"
+            placeholder="Buscar por nome..."
+            className="mt-2 h-10"
+            value={searchTerm}
+            onChange={(event) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  q: event.target.value.trim() ? event.target.value : undefined,
+                }),
+                replace: true,
+              })
+            }
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') {
+                return
+              }
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  q: event.currentTarget.value.trim()
+                    ? event.currentTarget.value
+                    : undefined,
+                }),
+                replace: false,
+              })
+            }}
+          />
+        </div>
+        <div className="w-full sm:w-56">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">
+            Tipo
+          </label>
+          <div className="relative mt-2">
+            <select
+              className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
+              value={typeFilter}
+              onChange={(event) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    type: event.target.value || undefined,
+                  }),
+                  replace: false,
+                })
+              }
+            >
+              <option value="">Todos</option>
+              <option value="income">Receita</option>
+              <option value="expense">Despesa</option>
+            </select>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+              <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+                <path
+                  d="M4 6l4 4 4-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </div>
+        </div>
+        <div className="flex h-10 items-end">
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={!hasActiveFilters}
+            aria-label="Limpar filtros"
+            className="h-10 w-10"
+            onClick={() => {
+              navigate({
+                search: () => ({}),
+                replace: false,
+              })
+            }}
+          >
+            x
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border">
@@ -173,7 +337,7 @@ function Categories() {
             )}
             {!categoriesQuery.isLoading &&
               !errorMessage &&
-              categories.map((category) => (
+              filteredCategories.map((category) => (
                 <tr key={category.id} className="border-t">
                   <td className="px-4 py-3 font-medium">{category.name}</td>
                   <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
@@ -214,16 +378,31 @@ function Categories() {
               ))}
             {!categoriesQuery.isLoading &&
               !errorMessage &&
-              categories.length === 0 && (
+              filteredCategories.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center">
                     <div className="space-y-2">
-                      <p className="text-sm font-medium">
-                        Nenhuma categoria cadastrada ainda.
-                      </p>
-                      <Button size="sm" disabled={isMutating}>
-                        Criar categoria
-                      </Button>
+                      {categories.length === 0 ? (
+                        <>
+                          <p className="text-sm font-medium">
+                            Nenhuma categoria cadastrada ainda.
+                          </p>
+                          <Button
+                            size="sm"
+                            disabled={isMutating}
+                            onClick={() => {
+                              form.reset()
+                              setIsCreateOpen(true)
+                            }}
+                          >
+                            Criar categoria
+                          </Button>
+                        </>
+                      ) : (
+                        <p className="text-sm font-medium">
+                          Nenhuma categoria encontrada com os filtros atuais.
+                        </p>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -269,6 +448,7 @@ function Categories() {
                   id="category-name"
                   placeholder="Ex: Alimentacao"
                   className="h-10"
+                  ref={createNameRef}
                   aria-invalid={!!form.formState.errors.name}
                   {...form.register('name')}
                 />
@@ -356,6 +536,7 @@ function Categories() {
                   id="category-edit-name"
                   placeholder="Ex: Alimentacao"
                   className="h-10"
+                  ref={editNameRef}
                   aria-invalid={!!editForm.formState.errors.name}
                   {...editForm.register('name')}
                 />
