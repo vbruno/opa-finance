@@ -685,6 +685,12 @@ Lista todas as categorias do usuário (inclui categorias de sistema).
 
 ---
 
+### Notas de uso no Frontend (Categorias/Subcategorias)
+
+- Categorias de sistema **não** devem ser exibidas na listagem principal do usuário.
+- Subcategorias são exibidas dentro da tabela de categorias (expansão por linha).
+- Busca por categorias deve considerar também subcategorias e ignorar acentos.
+
 ### GET `/categories/:id`
 
 Obtém uma categoria específica.

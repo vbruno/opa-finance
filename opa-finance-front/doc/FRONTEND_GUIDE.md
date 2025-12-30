@@ -122,7 +122,10 @@ src/
 │  ├─ RouterProvider.tsx
 │  └─ router.ts
 ├─ schemas/               # Zod schemas
-│  └─ user.schema.ts      # Perfil e alteração de senha
+│  ├─ user.schema.ts      # Perfil e alteração de senha
+│  ├─ account.schema.ts   # Contas
+│  ├─ category.schema.ts  # Categorias
+│  └─ subcategory.schema.ts # Subcategorias
 ├─ routeTree.gen.ts
 ├─ main.tsx
 ```
@@ -241,7 +244,7 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Tema claro/escuro com toggle
 - [x] Usuário (perfil, edição de nome, troca de senha, logout)
 - [x] Accounts (tabela, filtros/ordenação/paginação na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação e deep link)
-- [ ] Categories / Subcategories
+- [x] Categories / Subcategories
 - [ ] Transactions
 - [ ] Transfers
 - [ ] Dashboard (dados reais)
@@ -255,3 +258,15 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - Modais de criação, edição, detalhes e exclusão com confirmação; foco automático, `Esc` para fechar e scroll do body bloqueado.
 - Deep link para detalhes via `/app/accounts/$id` redirecionando para `/app/accounts?id=...`.
 - Exclusão bloqueada pelo backend quando há transações (`409`), exibindo mensagem no modal de confirmação.
+
+---
+
+## 🧩 Categories / Subcategories — Notas de Implementação
+
+- Tela única para categorias e subcategorias com expansão por linha.
+- Categorias de sistema não aparecem na listagem.
+- CRUD de categorias e subcategorias via modais, com validação Zod e mensagens de erro amigáveis.
+- Busca e filtro por tipo na URL; busca ignora acentos e expande automaticamente categorias com match (com override manual).
+- Subcategorias são carregadas sob demanda por categoria; busca em subcategorias usa debounce (300ms).
+- Busca em contas também usa debounce (300ms) para reduzir chamadas e updates de URL.
+- Expansão automática respeita ajustes manuais enquanto houver termo de busca.

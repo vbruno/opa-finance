@@ -40,6 +40,10 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - `id`
   - `name`
   - `type`: `income | expense`
+- Categorias de sistema:
+  - `system: true` e `userId: null`
+  - **Não** aparecem na listagem de categorias do usuário
+  - **Não** podem ser editadas ou removidas pelo usuário
 
 ### 🔹 Subcategorias
 - Subcategoria **depende obrigatoriamente** de uma categoria
@@ -47,6 +51,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Não pode existir:
   - Categoria `income` com subcategoria `expense`
   - Categoria `expense` com subcategoria `income`
+- Busca por categoria/subcategoria deve ignorar acentos
 
 ### 🔹 Transações
 - Uma transação sempre possui:
