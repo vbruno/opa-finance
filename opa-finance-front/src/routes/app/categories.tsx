@@ -62,6 +62,8 @@ function Categories() {
   const [subcategoryParent, setSubcategoryParent] =
     useState<Category | null>(null)
   const [subDeleteError, setSubDeleteError] = useState<string | null>(null)
+  const [hasManualSearchExpandOverride, setHasManualSearchExpandOverride] =
+    useState(false)
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const subCreateNameRef = useRef<HTMLInputElement | null>(null)
@@ -383,7 +385,21 @@ function Categories() {
   }, [isSubEditOpen])
 
   useEffect(() => {
+    if (expandedCategoryIds.length === 0) {
+      return
+    }
+    const validIds = new Set(userCategories.map((category) => category.id))
+    setExpandedCategoryIds((prev) => {
+      const next = prev.filter((categoryId) => validIds.has(categoryId))
+      return arraysEqual(prev, next) ? prev : next
+    })
+  }, [userCategories, expandedCategoryIds.length])
+
+  useEffect(() => {
     if (!normalizedSearch.length) {
+      if (hasManualSearchExpandOverride) {
+        setHasManualSearchExpandOverride(false)
+      }
       return
     }
     if (searchExpandIds.length === 0) {
@@ -392,10 +408,21 @@ function Categories() {
       }
       return
     }
-    setExpandedCategoryIds((prev) =>
-      arraysEqual(prev, searchExpandIds) ? prev : searchExpandIds,
-    )
-  }, [normalizedSearch, searchExpandIds, expandedCategoryIds.length])
+    if (hasManualSearchExpandOverride) {
+      return
+    }
+    setExpandedCategoryIds((prev) => {
+      if (arraysEqual(prev, searchExpandIds)) {
+        return prev
+      }
+      return searchExpandIds
+    })
+  }, [
+    normalizedSearch,
+    searchExpandIds,
+    expandedCategoryIds.length,
+    hasManualSearchExpandOverride,
+  ])
 
   useEffect(() => {
     if (
@@ -625,13 +652,16 @@ function Categories() {
                               : 'Mostrar subcategorias'
                           }
                           aria-expanded={expandedCategoryIds.includes(category.id)}
-                          onClick={() =>
+                          onClick={() => {
+                            if (normalizedSearch.length > 0) {
+                              setHasManualSearchExpandOverride(true)
+                            }
                             setExpandedCategoryIds((prev) =>
                               prev.includes(category.id)
                                 ? prev.filter((id) => id !== category.id)
                                 : [...prev, category.id],
                             )
-                          }
+                          }}
                         >
                           <svg
                             viewBox="0 0 16 16"
