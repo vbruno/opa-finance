@@ -130,9 +130,11 @@ function Categories() {
   const searchTerm = search.q ?? ''
   const typeFilter = search.type ?? ''
   const hasActiveFilters = !!searchTerm || !!typeFilter
-  const filteredCategories = categories.filter((category) => {
-    const matchesName = searchTerm
-      ? category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const normalizedSearch = normalizeSearch(searchTerm)
+  const userCategories = categories.filter((category) => !category.system)
+  const filteredCategories = userCategories.filter((category) => {
+    const matchesName = normalizedSearch
+      ? normalizeSearch(category.name).includes(normalizedSearch)
       : true
     const matchesType = typeFilter ? category.type === typeFilter : true
     return matchesName && matchesType
@@ -344,7 +346,15 @@ function Categories() {
                     {typeLabels[category.type]}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                    {category.system ? 'Sistema' : 'Usuario'}
+                    <span
+                      className={
+                        category.system
+                          ? 'rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700'
+                          : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700'
+                      }
+                    >
+                      {category.system ? 'Sistema' : 'Usuario'}
+                    </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -382,7 +392,7 @@ function Categories() {
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center">
                     <div className="space-y-2">
-                      {categories.length === 0 ? (
+                      {userCategories.length === 0 ? (
                         <>
                           <p className="text-sm font-medium">
                             Nenhuma categoria cadastrada ainda.
@@ -623,4 +633,12 @@ function Categories() {
       )}
     </div>
   )
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
 }

@@ -222,10 +222,10 @@ function Accounts() {
     investment: 'Investimento',
   }
   const hasActiveFilters = searchTerm.trim() !== '' || typeFilter !== ''
-  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const normalizedSearch = normalizeSearch(searchTerm)
   const filteredAccounts = accounts.filter((account) => {
     const matchesName = normalizedSearch
-      ? account.name.toLowerCase().includes(normalizedSearch)
+      ? normalizeSearch(account.name).includes(normalizedSearch)
       : true
     const matchesType = typeFilter ? account.type === typeFilter : true
     return matchesName && matchesType
@@ -1148,6 +1148,14 @@ function Accounts() {
       )}
     </div>
   )
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
 }
 
 function SortIcon({
