@@ -4,6 +4,7 @@ import clsx from 'clsx'
 const navItems = [
   { to: '/app', label: 'Dashboard' },
   { to: '/app/accounts', label: 'Accounts' },
+  { to: '/app/categories', label: 'Categories' },
   { to: '/app/transactions', label: 'Transactions' },
 ]
 

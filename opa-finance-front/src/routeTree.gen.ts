@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
 import { Route as AppProfileRouteImport } from './routes/app/profile'
+import { Route as AppCategoriesRouteImport } from './routes/app/categories'
 import { Route as AppAccountsRouteImport } from './routes/app/accounts'
 import { Route as AppAccountsIdRouteImport } from './routes/app/accounts/$id'
 
@@ -54,6 +55,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppCategoriesRoute = AppCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppAccountsRoute = AppAccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
+  '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
+  '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
+  '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/app/accounts'
+    | '/app/categories'
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/app/accounts'
+    | '/app/categories'
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/app/accounts'
+    | '/app/categories'
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
@@ -190,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/categories': {
+      id: '/app/categories'
+      path: '/categories'
+      fullPath: '/app/categories'
+      preLoaderRoute: typeof AppCategoriesRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/accounts': {
       id: '/app/accounts'
       path: '/accounts'
@@ -221,6 +240,7 @@ const AppAccountsRouteWithChildren = AppAccountsRoute._addFileChildren(
 
 interface AppRouteRouteChildren {
   AppAccountsRoute: typeof AppAccountsRouteWithChildren
+  AppCategoriesRoute: typeof AppCategoriesRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRegisterRoute: typeof AppRegisterRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
@@ -229,6 +249,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAccountsRoute: AppAccountsRouteWithChildren,
+  AppCategoriesRoute: AppCategoriesRoute,
   AppProfileRoute: AppProfileRoute,
   AppRegisterRoute: AppRegisterRoute,
   AppTransactionsRoute: AppTransactionsRoute,
