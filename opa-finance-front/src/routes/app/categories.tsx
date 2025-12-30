@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -16,6 +16,12 @@ import {
   type CategoryCreateFormData,
   type CategoryUpdateFormData,
 } from '@/schemas/category.schema'
+import {
+  subcategoryCreateSchema,
+  subcategoryUpdateSchema,
+  type SubcategoryCreateFormData,
+  type SubcategoryUpdateFormData,
+} from '@/schemas/subcategory.schema'
 
 export const Route = createFileRoute('/app/categories')({
   validateSearch: z.object({
@@ -42,8 +48,21 @@ function Categories() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(
+    null,
+  )
+  const [isSubCreateOpen, setIsSubCreateOpen] = useState(false)
+  const [isSubEditOpen, setIsSubEditOpen] = useState(false)
+  const [isSubDeleteConfirmOpen, setIsSubDeleteConfirmOpen] = useState(false)
+  const [selectedSubcategory, setSelectedSubcategory] =
+    useState<Subcategory | null>(null)
+  const [subcategoryParent, setSubcategoryParent] =
+    useState<Category | null>(null)
+  const [subDeleteError, setSubDeleteError] = useState<string | null>(null)
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
+  const subCreateNameRef = useRef<HTMLInputElement | null>(null)
+  const subEditNameRef = useRef<HTMLInputElement | null>(null)
 
   type Category = {
     id: string
@@ -51,6 +70,16 @@ function Categories() {
     name: string
     type: 'income' | 'expense'
     system: boolean
+    color: string | null
+    createdAt: string
+    updatedAt: string
+  }
+
+  type Subcategory = {
+    id: string
+    userId: string
+    categoryId: string
+    name: string
     color: string | null
     createdAt: string
     updatedAt: string
@@ -64,6 +93,20 @@ function Categories() {
     },
   })
 
+  const subcategoriesQuery = useQuery({
+    queryKey: ['subcategories', expandedCategoryId],
+    queryFn: async () => {
+      if (!expandedCategoryId) {
+        return []
+      }
+      const response = await api.get<Subcategory[]>(
+        `/categories/${expandedCategoryId}/subcategories`,
+      )
+      return response.data
+    },
+    enabled: !!expandedCategoryId,
+  })
+
   const form = useForm<CategoryCreateFormData>({
     resolver: zodResolver(categoryCreateSchema),
     defaultValues: {
@@ -74,6 +117,20 @@ function Categories() {
 
   const editForm = useForm<CategoryUpdateFormData>({
     resolver: zodResolver(categoryUpdateSchema),
+    defaultValues: {
+      name: '',
+    },
+  })
+
+  const subCreateForm = useForm<SubcategoryCreateFormData>({
+    resolver: zodResolver(subcategoryCreateSchema),
+    defaultValues: {
+      name: '',
+    },
+  })
+
+  const subEditForm = useForm<SubcategoryUpdateFormData>({
+    resolver: zodResolver(subcategoryUpdateSchema),
     defaultValues: {
       name: '',
     },
@@ -125,6 +182,69 @@ function Categories() {
     },
   })
 
+  const createSubcategoryMutation = useMutation({
+    mutationFn: async (formData: SubcategoryCreateFormData) => {
+      if (!subcategoryParent) {
+        throw new Error('Categoria nao selecionada')
+      }
+      const response = await api.post<Subcategory>('/subcategories', {
+        categoryId: subcategoryParent.id,
+        name: formData.name,
+      })
+      return response.data
+    },
+    onSuccess: () => {
+      if (subcategoryParent) {
+        queryClient.invalidateQueries({
+          queryKey: ['subcategories', subcategoryParent.id],
+        })
+      }
+      setIsSubCreateOpen(false)
+      subCreateForm.reset()
+    },
+  })
+
+  const updateSubcategoryMutation = useMutation({
+    mutationFn: async ({
+      id,
+      name,
+    }: {
+      id: string
+      name: string
+    }) => {
+      const response = await api.put<Subcategory>(`/subcategories/${id}`, {
+        name,
+      })
+      return response.data
+    },
+    onSuccess: () => {
+      if (subcategoryParent) {
+        queryClient.invalidateQueries({
+          queryKey: ['subcategories', subcategoryParent.id],
+        })
+      }
+      setIsSubEditOpen(false)
+      setSelectedSubcategory(null)
+      subEditForm.reset()
+    },
+  })
+
+  const deleteSubcategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/subcategories/${id}`)
+    },
+    onSuccess: () => {
+      if (subcategoryParent) {
+        queryClient.invalidateQueries({
+          queryKey: ['subcategories', subcategoryParent.id],
+        })
+      }
+      setIsSubDeleteConfirmOpen(false)
+      setSelectedSubcategory(null)
+      setSubDeleteError(null)
+    },
+  })
+
   const categories = categoriesQuery.data ?? []
   const search = Route.useSearch()
   const searchTerm = search.q ?? ''
@@ -146,12 +266,16 @@ function Categories() {
   const isMutating =
     createCategoryMutation.isPending ||
     updateCategoryMutation.isPending ||
-    deleteCategoryMutation.isPending
+    deleteCategoryMutation.isPending ||
+    createSubcategoryMutation.isPending ||
+    updateSubcategoryMutation.isPending ||
+    deleteSubcategoryMutation.isPending
   const errorMessage = categoriesQuery.isError
     ? getApiErrorMessage(categoriesQuery.error, {
         defaultMessage: 'Erro ao carregar categorias.',
       })
     : null
+  const activeSubcategories = subcategoriesQuery.data ?? []
 
   useEffect(() => {
     if (!isCreateOpen) {
@@ -174,12 +298,51 @@ function Categories() {
   }, [isEditOpen])
 
   useEffect(() => {
-    if (!isCreateOpen && !isEditOpen && !isDeleteConfirmOpen) {
+    if (!isSubCreateOpen) {
+      return
+    }
+    const focusId = window.setTimeout(() => {
+      subCreateNameRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusId)
+  }, [isSubCreateOpen])
+
+  useEffect(() => {
+    if (!isSubEditOpen) {
+      return
+    }
+    const focusId = window.setTimeout(() => {
+      subEditNameRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusId)
+  }, [isSubEditOpen])
+
+  useEffect(() => {
+    if (
+      !isCreateOpen &&
+      !isEditOpen &&
+      !isDeleteConfirmOpen &&
+      !isSubCreateOpen &&
+      !isSubEditOpen &&
+      !isSubDeleteConfirmOpen
+    ) {
       return
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape') {
+        return
+      }
+      if (isSubDeleteConfirmOpen) {
+        setIsSubDeleteConfirmOpen(false)
+        return
+      }
+      if (isSubEditOpen) {
+        setIsSubEditOpen(false)
+        return
+      }
+      if (isSubCreateOpen) {
+        setIsSubCreateOpen(false)
         return
       }
       if (isDeleteConfirmOpen) {
@@ -197,7 +360,14 @@ function Categories() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen])
+  }, [
+    isCreateOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    isSubCreateOpen,
+    isSubEditOpen,
+    isSubDeleteConfirmOpen,
+  ])
 
   return (
     <div className="space-y-6">
@@ -209,15 +379,37 @@ function Categories() {
           </p>
         </div>
 
-        <Button
-          disabled={isMutating}
-          onClick={() => {
-            form.reset()
-            setIsCreateOpen(true)
-          }}
-        >
-          Nova categoria
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={isMutating || userCategories.length === 0}
+            onClick={() => {
+              if (expandedCategoryId) {
+                const parent = categories.find(
+                  (category) => category.id === expandedCategoryId,
+                )
+                if (parent) {
+                  setSubcategoryParent(parent)
+                }
+              } else {
+                setSubcategoryParent(userCategories[0])
+              }
+              subCreateForm.reset()
+              setIsSubCreateOpen(true)
+            }}
+          >
+            Nova subcategoria
+          </Button>
+          <Button
+            disabled={isMutating}
+            onClick={() => {
+              form.reset()
+              setIsCreateOpen(true)
+            }}
+          >
+            Nova categoria
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4">
@@ -340,51 +532,146 @@ function Categories() {
             {!categoriesQuery.isLoading &&
               !errorMessage &&
               filteredCategories.map((category) => (
-                <tr key={category.id} className="border-t">
-                  <td className="px-4 py-3 font-medium">{category.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                    {typeLabels[category.type]}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                    <span
-                      className={
-                        category.system
-                          ? 'rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700'
-                          : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700'
-                      }
-                    >
-                      {category.system ? 'Sistema' : 'Usuario'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={category.system}
-                        onClick={() => {
-                          setSelectedCategory(category)
-                          editForm.reset({ name: category.name })
-                          setIsEditOpen(true)
-                        }}
+                <Fragment key={category.id}>
+                  <tr className="border-t">
+                    <td className="px-4 py-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="flex h-6 w-6 items-center justify-center rounded border text-xs text-muted-foreground hover:bg-muted/40"
+                          aria-label={
+                            expandedCategoryId === category.id
+                              ? 'Ocultar subcategorias'
+                              : 'Mostrar subcategorias'
+                          }
+                          onClick={() =>
+                            setExpandedCategoryId((prev) =>
+                              prev === category.id ? null : category.id,
+                            )
+                          }
+                        >
+                          {expandedCategoryId === category.id ? '-' : '+'}
+                        </button>
+                        {category.name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {typeLabels[category.type]}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      <span
+                        className={
+                          category.system
+                            ? 'rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700'
+                            : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700'
+                        }
                       >
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={category.system}
-                        onClick={() => {
-                          setSelectedCategory(category)
-                          setDeleteError(null)
-                          setIsDeleteConfirmOpen(true)
-                        }}
-                      >
-                        Excluir
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
+                        {category.system ? 'Sistema' : 'Usuario'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={category.system}
+                          onClick={() => {
+                            setSelectedCategory(category)
+                            editForm.reset({ name: category.name })
+                            setIsEditOpen(true)
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={category.system}
+                          onClick={() => {
+                            setSelectedCategory(category)
+                            setDeleteError(null)
+                            setIsDeleteConfirmOpen(true)
+                          }}
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedCategoryId === category.id && (
+                    <>
+                      {subcategoriesQuery.isLoading && (
+                        <tr className="border-t">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-muted-foreground">
+                            Carregando subcategorias...
+                          </td>
+                        </tr>
+                      )}
+                      {subcategoriesQuery.isError && (
+                        <tr className="border-t">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-destructive">
+                            Erro ao carregar subcategorias. Tente novamente.
+                          </td>
+                        </tr>
+                      )}
+                      {!subcategoriesQuery.isLoading &&
+                        !subcategoriesQuery.isError &&
+                        activeSubcategories.map((subcategory) => (
+                          <tr key={subcategory.id} className="border-t bg-muted/10">
+                            <td className="px-4 py-3 text-sm">
+                              <span className="text-muted-foreground">—</span>{' '}
+                              {subcategory.name}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                              {typeLabels[category.type]}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                                Subcategoria
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSubcategoryParent(category)
+                                    setSelectedSubcategory(subcategory)
+                                    subEditForm.reset({ name: subcategory.name })
+                                    setIsSubEditOpen(true)
+                                  }}
+                                >
+                                  Editar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSubcategoryParent(category)
+                                    setSelectedSubcategory(subcategory)
+                                    setSubDeleteError(null)
+                                    setIsSubDeleteConfirmOpen(true)
+                                  }}
+                                >
+                                  Excluir
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      {!subcategoriesQuery.isLoading &&
+                        !subcategoriesQuery.isError &&
+                        activeSubcategories.length === 0 && (
+                          <tr className="border-t">
+                            <td colSpan={4} className="px-4 py-3 text-sm text-muted-foreground">
+                              Nenhuma subcategoria cadastrada.
+                            </td>
+                          </tr>
+                        )}
+                    </>
+                  )}
+                </Fragment>
               ))}
             {!categoriesQuery.isLoading &&
               !errorMessage &&
@@ -420,6 +707,7 @@ function Categories() {
           </tbody>
         </table>
       </div>
+
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -624,6 +912,224 @@ function Categories() {
                 disabled={deleteCategoryMutation.isPending}
               >
                 {deleteCategoryMutation.isPending
+                  ? 'Excluindo...'
+                  : 'Excluir'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSubCreateOpen && subcategoryParent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsSubCreateOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Criar subcategoria</h3>
+                <p className="text-sm text-muted-foreground">
+                  Categoria: {subcategoryParent.name}
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={subCreateForm.handleSubmit(async (formData) => {
+                try {
+                  await createSubcategoryMutation.mutateAsync(formData)
+                } catch (error: unknown) {
+                  subCreateForm.setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao criar subcategoria. Tente novamente.',
+                    }),
+                  })
+                }
+              })}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="subcategory-parent">Categoria</Label>
+                <select
+                  id="subcategory-parent"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={subcategoryParent.id}
+                  onChange={(event) => {
+                    const nextParent = userCategories.find(
+                      (category) => category.id === event.target.value,
+                    )
+                    if (nextParent) {
+                      setSubcategoryParent(nextParent)
+                    }
+                  }}
+                >
+                  {userCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subcategory-name">Nome</Label>
+                <Input
+                  id="subcategory-name"
+                  placeholder="Ex: Supermercado"
+                  className="h-10"
+                  ref={subCreateNameRef}
+                  aria-invalid={!!subCreateForm.formState.errors.name}
+                  {...subCreateForm.register('name')}
+                />
+                {subCreateForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">
+                    {subCreateForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              {subCreateForm.formState.errors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {subCreateForm.formState.errors.root.message}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  disabled={createSubcategoryMutation.isPending}
+                >
+                  {createSubcategoryMutation.isPending
+                    ? 'Criando...'
+                    : 'Criar subcategoria'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isSubEditOpen && selectedSubcategory && subcategoryParent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsSubEditOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Editar subcategoria</h3>
+                <p className="text-sm text-muted-foreground">
+                  Categoria: {subcategoryParent.name}
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={subEditForm.handleSubmit(async (formData) => {
+                try {
+                  await updateSubcategoryMutation.mutateAsync({
+                    id: selectedSubcategory.id,
+                    name: formData.name,
+                  })
+                } catch (error: unknown) {
+                  subEditForm.setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao atualizar subcategoria. Tente novamente.',
+                    }),
+                  })
+                }
+              })}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="subcategory-edit-name">Nome</Label>
+                <Input
+                  id="subcategory-edit-name"
+                  placeholder="Ex: Supermercado"
+                  className="h-10"
+                  ref={subEditNameRef}
+                  aria-invalid={!!subEditForm.formState.errors.name}
+                  {...subEditForm.register('name')}
+                />
+                {subEditForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">
+                    {subEditForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              {subEditForm.formState.errors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {subEditForm.formState.errors.root.message}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  disabled={updateSubcategoryMutation.isPending}
+                >
+                  {updateSubcategoryMutation.isPending
+                    ? 'Salvando...'
+                    : 'Salvar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isSubDeleteConfirmOpen && selectedSubcategory && subcategoryParent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsSubDeleteConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Excluir subcategoria</h3>
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja excluir "{selectedSubcategory.name}"?
+              </p>
+            </div>
+
+            {subDeleteError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {subDeleteError}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsSubDeleteConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  setSubDeleteError(null)
+                  try {
+                    await deleteSubcategoryMutation.mutateAsync(
+                      selectedSubcategory.id,
+                    )
+                  } catch (error: unknown) {
+                    setSubDeleteError(
+                      getApiErrorMessage(error, {
+                        defaultMessage:
+                          'Erro ao excluir subcategoria. Tente novamente.',
+                      }),
+                    )
+                  }
+                }}
+                disabled={deleteSubcategoryMutation.isPending}
+              >
+                {deleteSubcategoryMutation.isPending
                   ? 'Excluindo...'
                   : 'Excluir'}
               </Button>
