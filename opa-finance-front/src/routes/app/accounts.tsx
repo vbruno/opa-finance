@@ -206,6 +206,8 @@ function Accounts() {
   const accounts = accountsQuery.data ?? []
   const search = Route.useSearch()
   const searchTerm = search.q ?? ''
+  const [searchDraft, setSearchDraft] = useState(searchTerm)
+  const debouncedSearch = useDebouncedValue(searchDraft, 300)
   const typeFilter = search.type ?? ''
   const selectedAccountId = search.id ?? null
   const sortKey = search.sort ?? null
@@ -338,6 +340,24 @@ function Accounts() {
   }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedAccount])
 
   useEffect(() => {
+    setSearchDraft(searchTerm)
+  }, [searchTerm])
+
+  useEffect(() => {
+    if (debouncedSearch === searchTerm) {
+      return
+    }
+    const trimmedValue = debouncedSearch.trim()
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        q: trimmedValue ? trimmedValue : undefined,
+      }),
+      replace: true,
+    })
+  }, [debouncedSearch, navigate, searchTerm])
+
+  useEffect(() => {
     if (!isCreateOpen) {
       return
     }
@@ -443,26 +463,18 @@ function Accounts() {
             type="text"
             placeholder="Buscar por nome..."
             className="mt-2 h-10"
-            value={searchTerm}
-            onChange={(event) =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  q: event.target.value.trim() ? event.target.value : undefined,
-                }),
-                replace: true,
-              })
-            }
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== 'Enter') {
                 return
               }
+              const trimmedValue = event.currentTarget.value.trim()
+              setSearchDraft(event.currentTarget.value)
               navigate({
                 search: (prev) => ({
                   ...prev,
-                  q: event.currentTarget.value.trim()
-                    ? event.currentTarget.value
-                    : undefined,
+                  q: trimmedValue ? trimmedValue : undefined,
                 }),
                 replace: false,
               })
@@ -1156,6 +1168,19 @@ function normalizeSearch(value: string) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value)
+    }, delayMs)
+    return () => window.clearTimeout(timeoutId)
+  }, [value, delayMs])
+
+  return debouncedValue
 }
 
 function SortIcon({
