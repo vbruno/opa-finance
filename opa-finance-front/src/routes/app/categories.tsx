@@ -1,5 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -48,9 +53,7 @@ function Categories() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(
-    null,
-  )
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([])
   const [isSubCreateOpen, setIsSubCreateOpen] = useState(false)
   const [isSubEditOpen, setIsSubEditOpen] = useState(false)
   const [isSubDeleteConfirmOpen, setIsSubDeleteConfirmOpen] = useState(false)
@@ -93,18 +96,16 @@ function Categories() {
     },
   })
 
-  const subcategoriesQuery = useQuery({
-    queryKey: ['subcategories', expandedCategoryId],
-    queryFn: async () => {
-      if (!expandedCategoryId) {
-        return []
-      }
-      const response = await api.get<Subcategory[]>(
-        `/categories/${expandedCategoryId}/subcategories`,
-      )
-      return response.data
-    },
-    enabled: !!expandedCategoryId,
+  const expandedSubcategoriesQueries = useQueries({
+    queries: expandedCategoryIds.map((categoryId) => ({
+      queryKey: ['subcategories', categoryId],
+      queryFn: async () => {
+        const response = await api.get<Subcategory[]>(
+          `/categories/${categoryId}/subcategories`,
+        )
+        return response.data
+      },
+    })),
   })
 
   const form = useForm<CategoryCreateFormData>({
@@ -254,7 +255,23 @@ function Categories() {
   const typeFilter = search.type ?? ''
   const hasActiveFilters = !!searchTerm || !!typeFilter
   const normalizedSearch = normalizeSearch(searchTerm)
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300)
+  const debouncedNormalizedSearch = normalizeSearch(debouncedSearchTerm)
   const userCategories = categories.filter((category) => !category.system)
+  const expandedQueriesById = Object.fromEntries(
+    expandedCategoryIds.map((categoryId, index) => [
+      categoryId,
+      expandedSubcategoriesQueries[index],
+    ]),
+  ) as Record<
+    string,
+    {
+      data?: Subcategory[]
+      isLoading: boolean
+      isError: boolean
+    }
+  >
+  const primaryExpandedCategoryId = expandedCategoryIds[0] ?? null
   const userCategoryIdsKey = userCategories
     .map((category) => category.id)
     .join(',')
@@ -271,7 +288,8 @@ function Categories() {
       )
       return Object.fromEntries(entries) as Record<string, Subcategory[]>
     },
-    enabled: normalizedSearch.length > 0 && userCategories.length > 0,
+    enabled:
+      debouncedNormalizedSearch.length > 0 && userCategories.length > 0,
   })
   const filteredCategories = userCategories.filter((category) => {
     const matchesName = normalizedSearch
@@ -279,9 +297,9 @@ function Categories() {
       : true
     const subcategories = searchSubcategoriesQuery.data?.[category.id] ?? []
     const matchesSubcategory =
-      normalizedSearch.length > 0 &&
+      debouncedNormalizedSearch.length > 0 &&
       subcategories.some((subcategory) =>
-        normalizeSearch(subcategory.name).includes(normalizedSearch),
+        normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
       )
     const matchesType = typeFilter ? category.type === typeFilter : true
     return (matchesName || matchesSubcategory) && matchesType
@@ -293,13 +311,13 @@ function Categories() {
         )
         .map((category) => category.id)
     : []
-  const subcategoryMatchIds = normalizedSearch.length
+  const subcategoryMatchIds = debouncedNormalizedSearch.length
     ? userCategories
         .filter((category) => {
           const subcategories =
             searchSubcategoriesQuery.data?.[category.id] ?? []
           return subcategories.some((subcategory) =>
-            normalizeSearch(subcategory.name).includes(normalizedSearch),
+            normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
           )
         })
         .map((category) => category.id)
@@ -323,7 +341,6 @@ function Categories() {
         defaultMessage: 'Erro ao carregar categorias.',
       })
     : null
-  const activeSubcategories = subcategoriesQuery.data ?? []
 
   useEffect(() => {
     if (!isCreateOpen) {
@@ -370,16 +387,15 @@ function Categories() {
       return
     }
     if (searchExpandIds.length === 0) {
-      if (expandedCategoryId) {
-        setExpandedCategoryId(null)
+      if (expandedCategoryIds.length > 0) {
+        setExpandedCategoryIds([])
       }
       return
     }
-    if (expandedCategoryId && searchExpandIds.includes(expandedCategoryId)) {
-      return
-    }
-    setExpandedCategoryId(searchExpandIds[0])
-  }, [normalizedSearch, searchExpandIds, expandedCategoryId])
+    setExpandedCategoryIds((prev) =>
+      arraysEqual(prev, searchExpandIds) ? prev : searchExpandIds,
+    )
+  }, [normalizedSearch, searchExpandIds, expandedCategoryIds.length])
 
   useEffect(() => {
     if (
@@ -448,9 +464,9 @@ function Categories() {
             variant="outline"
             disabled={isMutating || userCategories.length === 0}
             onClick={() => {
-              if (expandedCategoryId) {
+              if (primaryExpandedCategoryId) {
                 const parent = categories.find(
-                  (category) => category.id === expandedCategoryId,
+                  (category) => category.id === primaryExpandedCategoryId,
                 )
                 if (parent) {
                   setSubcategoryParent(parent)
@@ -602,19 +618,39 @@ function Categories() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          className="flex h-6 w-6 items-center justify-center rounded border text-xs text-muted-foreground hover:bg-muted/40"
+                          className="flex h-6 w-6 items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40"
                           aria-label={
-                            expandedCategoryId === category.id
+                            expandedCategoryIds.includes(category.id)
                               ? 'Ocultar subcategorias'
                               : 'Mostrar subcategorias'
                           }
+                          aria-expanded={expandedCategoryIds.includes(category.id)}
                           onClick={() =>
-                            setExpandedCategoryId((prev) =>
-                              prev === category.id ? null : category.id,
+                            setExpandedCategoryIds((prev) =>
+                              prev.includes(category.id)
+                                ? prev.filter((id) => id !== category.id)
+                                : [...prev, category.id],
                             )
                           }
                         >
-                          {expandedCategoryId === category.id ? '-' : '+'}
+                          <svg
+                            viewBox="0 0 16 16"
+                            className={`h-4 w-4 transition-transform duration-200 ${
+                              expandedCategoryIds.includes(category.id)
+                                ? 'rotate-90'
+                                : ''
+                            }`}
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M6 4l4 4-4 4"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </button>
                         {category.name}
                       </div>
@@ -662,25 +698,26 @@ function Categories() {
                       </div>
                     </td>
                   </tr>
-                  {expandedCategoryId === category.id && (
+                  {expandedCategoryIds.includes(category.id) && (
                     <>
-                      {subcategoriesQuery.isLoading && (
+                      {expandedQueriesById[category.id]?.isLoading && (
                         <tr className="border-t">
                           <td colSpan={4} className="px-4 py-3 text-sm text-muted-foreground">
                             Carregando subcategorias...
                           </td>
                         </tr>
                       )}
-                      {subcategoriesQuery.isError && (
+                      {expandedQueriesById[category.id]?.isError && (
                         <tr className="border-t">
                           <td colSpan={4} className="px-4 py-3 text-sm text-destructive">
                             Erro ao carregar subcategorias. Tente novamente.
                           </td>
                         </tr>
                       )}
-                      {!subcategoriesQuery.isLoading &&
-                        !subcategoriesQuery.isError &&
-                        activeSubcategories.map((subcategory) => (
+                      {!expandedQueriesById[category.id]?.isLoading &&
+                        !expandedQueriesById[category.id]?.isError &&
+                        (expandedQueriesById[category.id]?.data ?? []).map(
+                          (subcategory) => (
                           <tr key={subcategory.id} className="border-t bg-muted/10">
                             <td className="px-4 py-3 text-sm">
                               <span className="text-muted-foreground">—</span>{' '}
@@ -723,10 +760,12 @@ function Categories() {
                               </div>
                             </td>
                           </tr>
-                        ))}
-                      {!subcategoriesQuery.isLoading &&
-                        !subcategoriesQuery.isError &&
-                        activeSubcategories.length === 0 && (
+                        ),
+                        )}
+                      {!expandedQueriesById[category.id]?.isLoading &&
+                        !expandedQueriesById[category.id]?.isError &&
+                        (expandedQueriesById[category.id]?.data ?? [])
+                          .length === 0 && (
                           <tr className="border-t">
                             <td colSpan={4} className="px-4 py-3 text-sm text-muted-foreground">
                               Nenhuma subcategoria cadastrada.
@@ -1211,4 +1250,29 @@ function normalizeSearch(value: string) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value)
+    }, delayMs)
+    return () => window.clearTimeout(timeoutId)
+  }, [value, delayMs])
+
+  return debouncedValue
+}
+
+function arraysEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false
+    }
+  }
+  return true
 }
