@@ -124,6 +124,7 @@ export const transactions = pgTable("transactions", {
   date: date("date").notNull(),
 
   description: text("description"),
+  notes: text("notes"),
 
   transferId: uuid("transfer_id"),
 

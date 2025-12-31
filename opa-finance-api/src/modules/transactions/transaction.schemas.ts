@@ -72,6 +72,8 @@ export const listTransactionsQuerySchema = z
     categoryId: z.uuid().optional(),
     subcategoryId: z.uuid().optional(),
     type: z.enum(transactionTypes).optional(),
+    description: z.string().min(1).optional(),
+    notes: z.string().min(1).optional(),
   })
   .refine((data) => !data.startDate || !data.endDate || data.startDate <= data.endDate, {
     message: "Data inicial não pode ser maior que a data final",

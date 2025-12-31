@@ -250,7 +250,98 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
   });
 
   /* -------------------------------------------------------------------------- */
-  /* 5) Paginação                                                               */
+  /* 5) Filtros por description e notes                                         */
+  /* -------------------------------------------------------------------------- */
+  it("deve filtrar por description", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 100,
+        date: "2025-01-01",
+        description: "Bonus de performance",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 200,
+        date: "2025-01-02",
+        description: "Pagamento mensal",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/transactions?description=Bonus",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = res.json().data;
+
+    expect(data.length).toBe(1);
+    expect(data[0].description).toContain("Bonus");
+  });
+
+  it("deve filtrar por notes", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 100,
+        date: "2025-01-01",
+        notes: "Pix recebido do cliente",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 200,
+        date: "2025-01-02",
+        notes: "Transferencia interna",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/transactions?notes=Pix",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = res.json().data;
+
+    expect(data.length).toBe(1);
+    expect(data[0].notes).toContain("Pix");
+  });
+
+  /* -------------------------------------------------------------------------- */
+  /* 6) Paginação                                                               */
   /* -------------------------------------------------------------------------- */
   it("deve paginar corretamente (page, limit)", async () => {
     const { token, account, incomeCat } = await seedBasicData();
@@ -284,7 +375,7 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
   }, 20000);
 
   /* -------------------------------------------------------------------------- */
-  /* 6) Sem token → 401                                                         */
+  /* 7) Sem token → 401                                                         */
   /* -------------------------------------------------------------------------- */
   it("deve retornar 401 se não enviar token", async () => {
     const res = await app.inject({
