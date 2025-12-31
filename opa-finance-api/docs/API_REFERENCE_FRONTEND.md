@@ -980,6 +980,7 @@ Lista transações com filtros e paginação.
 - `type` ("income" | "expense") - opcional
 - `description` (string, busca parcial) - opcional
 - `notes` (string, busca parcial) - opcional
+  - Observação: a busca por `description` e `notes` é insensível a acento (requer extensão `unaccent` no Postgres)
 
 **Exemplo:**
 
