@@ -8,8 +8,11 @@ export type Transaction = {
   id: string
   userId: string
   accountId: string
+  accountName?: string | null
   categoryId: string
+  categoryName?: string | null
   subcategoryId: string | null
+  subcategoryName?: string | null
   type: TransactionType
   amount: number
   date: string
@@ -37,6 +40,15 @@ export type TransactionsQueryParams = {
   type?: TransactionType
   description?: string
   notes?: string
+  sort?:
+    | 'date'
+    | 'description'
+    | 'account'
+    | 'category'
+    | 'subcategory'
+    | 'type'
+    | 'amount'
+  dir?: 'asc' | 'desc'
 }
 
 export type TransactionCreatePayload = {

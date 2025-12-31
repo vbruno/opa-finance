@@ -72,6 +72,10 @@ export const listTransactionsQuerySchema = z
     categoryId: z.uuid().optional(),
     subcategoryId: z.uuid().optional(),
     type: z.enum(transactionTypes).optional(),
+    sort: z
+      .enum(["date", "description", "account", "category", "subcategory", "type", "amount"])
+      .optional(),
+    dir: z.enum(["asc", "desc"]).optional(),
     description: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
   })

@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, desc, eq, gte, ilike, lte, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, lte, sql, sum } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
 import { TransactionType } from "./transaction.enums";
@@ -175,22 +175,56 @@ export class TransactionService {
       }
     }
 
+    const sortKey = query.sort ?? "date";
+    const sortDirection = query.dir === "asc" ? asc : desc;
+    const orderBy = (() => {
+      switch (sortKey) {
+        case "amount":
+          return [sortDirection(transactions.amount), desc(transactions.createdAt)];
+        case "type":
+          return [sortDirection(transactions.type), desc(transactions.createdAt)];
+        case "description":
+          return [sortDirection(transactions.description), desc(transactions.createdAt)];
+        case "account":
+          return [sortDirection(accounts.name), desc(transactions.createdAt)];
+        case "category":
+          return [sortDirection(categories.name), desc(transactions.createdAt)];
+        case "subcategory":
+          return [sortDirection(subcategories.name), desc(transactions.createdAt)];
+        case "date":
+          return [sortDirection(transactions.date), desc(transactions.createdAt)];
+        default:
+          return [desc(transactions.date), desc(transactions.createdAt)];
+      }
+    })();
+
     const [{ count }] = await this.app.db
       .select({ count: sql<number>`count(*)` })
       .from(transactions)
       .where(and(...filters));
 
     const rows = await this.app.db
-      .select()
+      .select({
+        transaction: transactions,
+        accountName: accounts.name,
+        categoryName: categories.name,
+        subcategoryName: subcategories.name,
+      })
       .from(transactions)
+      .leftJoin(accounts, eq(accounts.id, transactions.accountId))
+      .leftJoin(categories, eq(categories.id, transactions.categoryId))
+      .leftJoin(subcategories, eq(subcategories.id, transactions.subcategoryId))
       .where(and(...filters))
-      .orderBy(desc(transactions.date), desc(transactions.createdAt))
+      .orderBy(...orderBy)
       .limit(limit)
       .offset(offset);
 
-    const data = rows.map((tx: typeof transactions.$inferSelect) => ({
-      ...tx,
-      amount: Number(tx.amount),
+    const data = rows.map((row) => ({
+      ...row.transaction,
+      amount: Number(row.transaction.amount),
+      accountName: row.accountName ?? null,
+      categoryName: row.categoryName ?? null,
+      subcategoryName: row.subcategoryName ?? null,
     }));
 
     return {

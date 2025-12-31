@@ -997,8 +997,11 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
       "id": "uuid",
       "userId": "uuid",
       "accountId": "uuid",
+      "accountName": "Conta Corrente",
       "categoryId": "uuid",
+      "categoryName": "Alimentacao",
       "subcategoryId": "uuid",
+      "subcategoryName": "Supermercado",
       "type": "expense",
       "amount": 150.50,
       "date": "2025-01-15",
@@ -1013,6 +1016,11 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
   "total": 1
 }
 ```
+
+**Notas:**
+
+- `accountName`, `categoryName` e `subcategoryName` sao retornados via join.
+- `subcategoryName` pode ser `null` quando a transacao nao tiver subcategoria.
 
 ---
 

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
@@ -180,6 +180,7 @@ function Transactions() {
     categoryFilter ||
     subcategoryFilter ||
     descriptionFilter ||
+    includeNotes ||
     startDateFilter ||
     endDateFilter
   const hasHiddenFilters =
@@ -204,6 +205,8 @@ function Transactions() {
     subcategoryId: subcategoryFilter || undefined,
     description: descriptionFilter || undefined,
     notes: includeNotes && descriptionFilter ? descriptionFilter : undefined,
+    sort: sortKey || undefined,
+    dir: sortKey ? sortDirection : undefined,
     startDate: startDateFilter || undefined,
     endDate: endDateFilter || undefined,
   })
@@ -322,77 +325,6 @@ function Transactions() {
   const categoryMap = new Map(
     categories.map((category) => [category.id, category.name]),
   )
-  const transactionCategoryIds = Array.from(
-    new Set(transactions.map((transaction) => transaction.categoryId)),
-  )
-  const subcategoriesQueries = useQueries({
-    queries: transactionCategoryIds.map((categoryId) => ({
-      queryKey: ['subcategories', 'transaction-list', categoryId],
-      queryFn: async () => {
-        const response = await api.get<Subcategory[]>(
-          `/categories/${categoryId}/subcategories`,
-        )
-        return response.data
-      },
-    })),
-  })
-  const subcategoryMap = new Map<string, string>()
-  subcategoriesQueries.forEach((query) => {
-    query.data?.forEach((subcategory) => {
-      subcategoryMap.set(subcategory.id, subcategory.name)
-    })
-  })
-  const sortedTransactions = [...transactions].sort((a, b) => {
-    if (!sortKey) {
-      return 0
-    }
-
-    const directionMultiplier = sortDirection === 'asc' ? 1 : -1
-
-    if (sortKey === 'date') {
-      return (
-        (new Date(a.date).getTime() - new Date(b.date).getTime()) *
-        directionMultiplier
-      )
-    }
-
-    if (sortKey === 'amount') {
-      return (a.amount - b.amount) * directionMultiplier
-    }
-
-    if (sortKey === 'type') {
-      return a.type.localeCompare(b.type) * directionMultiplier
-    }
-
-    if (sortKey === 'account') {
-      const accountA = accountMap.get(a.accountId) ?? ''
-      const accountB = accountMap.get(b.accountId) ?? ''
-      return accountA.localeCompare(accountB) * directionMultiplier
-    }
-
-    if (sortKey === 'category') {
-      const categoryA = categoryMap.get(a.categoryId) ?? ''
-      const categoryB = categoryMap.get(b.categoryId) ?? ''
-      return categoryA.localeCompare(categoryB) * directionMultiplier
-    }
-
-    if (sortKey === 'subcategory') {
-      const subA = a.subcategoryId
-        ? subcategoryMap.get(a.subcategoryId) ?? ''
-        : ''
-      const subB = b.subcategoryId
-        ? subcategoryMap.get(b.subcategoryId) ?? ''
-        : ''
-      return subA.localeCompare(subB) * directionMultiplier
-    }
-
-    const descA =
-      a.description ?? categoryMap.get(a.categoryId) ?? ''
-    const descB =
-      b.description ?? categoryMap.get(b.categoryId) ?? ''
-    return descA.localeCompare(descB) * directionMultiplier
-  })
-
   function handleSort(
     nextKey:
       | 'date'
@@ -560,6 +492,7 @@ function Transactions() {
       search: (prev) => ({
         ...prev,
         description: trimmedValue ? trimmedValue : undefined,
+        includeNotes: trimmedValue ? prev.includeNotes : undefined,
         page: 1,
       }),
       replace: true,
@@ -583,6 +516,20 @@ function Transactions() {
       })
     }
   }, [navigate, page, totalPages])
+
+  useEffect(() => {
+    if (sortKey) {
+      return
+    }
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        sort: 'date',
+        dir: 'desc',
+      }),
+      replace: true,
+    })
+  }, [navigate, sortKey])
 
   const handleOpenEdit = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
@@ -670,12 +617,20 @@ function Transactions() {
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <div className="space-y-2 lg:col-span-3">
               <Label htmlFor="filter-include-notes">Busca</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <label
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+                title={
+                  descriptionFilter
+                    ? undefined
+                    : 'Informe uma descricao para buscar nas notas'
+                }
+              >
                 <input
                   id="filter-include-notes"
                   type="checkbox"
                   className="h-4 w-4"
                   checked={includeNotes}
+                  disabled={!descriptionFilter}
                   onChange={(event) =>
                     navigate({
                       search: (prev) => ({
@@ -686,7 +641,7 @@ function Transactions() {
                     })
                   }
                 />
-                Buscar tambem nas notas
+                Buscar nas notas
               </label>
             </div>
             <div className="space-y-2">
@@ -921,15 +876,14 @@ function Transactions() {
                 </td>
               </tr>
             )}
-            {!transactionsQuery.isLoading &&
-              sortedTransactions.length === 0 && (
+            {!transactionsQuery.isLoading && transactions.length === 0 && (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
                   Nenhuma transacao encontrada.
                 </td>
               </tr>
             )}
-            {sortedTransactions.map((transaction) => (
+            {transactions.map((transaction) => (
               <tr
                 key={transaction.id}
                 className="cursor-pointer border-t hover:bg-muted/30"
@@ -942,19 +896,36 @@ function Transactions() {
                   {dateFormatter.format(new Date(transaction.date))}
                 </td>
                 <td className="px-4 py-3">
-                  {transaction.description ||
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {transaction.description ||
+                        transaction.categoryName ||
+                        categoryMap.get(transaction.categoryId) ||
+                        'Sem descricao'}
+                    </span>
+                    {transaction.notes && (
+                      <span
+                        className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                        title={transaction.notes}
+                      >
+                        Notas
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {transaction.accountName ||
+                    accountMap.get(transaction.accountId) ||
+                    '-'}
+                </td>
+                <td className="px-4 py-3">
+                  {transaction.categoryName ||
                     categoryMap.get(transaction.categoryId) ||
-                    'Sem descricao'}
-                </td>
-                <td className="px-4 py-3">
-                  {accountMap.get(transaction.accountId) || '-'}
-                </td>
-                <td className="px-4 py-3">
-                  {categoryMap.get(transaction.categoryId) || '-'}
+                    '-'}
                 </td>
                 <td className="px-4 py-3">
                   {transaction.subcategoryId
-                    ? subcategoryMap.get(transaction.subcategoryId) || '-'
+                    ? transaction.subcategoryName || '-'
                     : '-'}
                 </td>
                 <td className="px-4 py-3">
@@ -1276,21 +1247,24 @@ function Transactions() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Conta</span>
                 <span className="font-medium">
-                  {accountMap.get(selectedTransaction.accountId) || '-'}
+                  {selectedTransaction.accountName ||
+                    accountMap.get(selectedTransaction.accountId) ||
+                    '-'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Categoria</span>
                 <span className="font-medium">
-                  {categoryMap.get(selectedTransaction.categoryId) || '-'}
+                  {selectedTransaction.categoryName ||
+                    categoryMap.get(selectedTransaction.categoryId) ||
+                    '-'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Subcategoria</span>
                 <span className="font-medium">
                   {selectedTransaction.subcategoryId
-                    ? subcategoryMap.get(selectedTransaction.subcategoryId) ||
-                      '-'
+                    ? selectedTransaction.subcategoryName || '-'
                     : '-'}
                 </span>
               </div>
