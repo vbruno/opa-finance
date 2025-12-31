@@ -36,6 +36,7 @@ export type TransactionsQueryParams = {
   subcategoryId?: string
   type?: TransactionType
   description?: string
+  notes?: string
 }
 
 export type TransactionCreatePayload = {

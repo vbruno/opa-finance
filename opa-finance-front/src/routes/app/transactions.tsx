@@ -53,6 +53,56 @@ export const Route = createFileRoute('/app/transactions')({
     categoryId: z.string().optional(),
     subcategoryId: z.string().optional(),
     description: z.string().optional(),
+    includeNotes: z.preprocess(
+      (value) => {
+        if (value === 'true' || value === '1') {
+          return true
+        }
+        if (value === 'false' || value === '0') {
+          return false
+        }
+        return undefined
+      },
+      z.boolean().optional(),
+    ),
+    sort: z.preprocess(
+      (value) => {
+        const allowed = [
+          'date',
+          'description',
+          'account',
+          'category',
+          'subcategory',
+          'type',
+          'amount',
+        ]
+        if (typeof value !== 'string') {
+          return undefined
+        }
+        return allowed.includes(value) ? value : undefined
+      },
+      z
+        .enum([
+          'date',
+          'description',
+          'account',
+          'category',
+          'subcategory',
+          'type',
+          'amount',
+        ])
+        .optional(),
+    ),
+    dir: z.preprocess(
+      (value) => {
+        const allowed = ['asc', 'desc']
+        if (typeof value !== 'string') {
+          return undefined
+        }
+        return allowed.includes(value) ? value : undefined
+      },
+      z.enum(['asc', 'desc']).optional(),
+    ),
     startDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -117,6 +167,9 @@ function Transactions() {
   const categoryFilter = search.categoryId ?? ''
   const subcategoryFilter = search.subcategoryId ?? ''
   const descriptionFilter = search.description ?? ''
+  const includeNotes = search.includeNotes ?? false
+  const sortKey = search.sort ?? null
+  const sortDirection = search.dir ?? 'desc'
   const startDateFilter = search.startDate ?? ''
   const endDateFilter = search.endDate ?? ''
   const hasActiveFilters =
@@ -125,6 +178,14 @@ function Transactions() {
     categoryFilter ||
     subcategoryFilter ||
     descriptionFilter ||
+    startDateFilter ||
+    endDateFilter
+  const hasHiddenFilters =
+    typeFilter ||
+    accountFilter ||
+    categoryFilter ||
+    subcategoryFilter ||
+    includeNotes ||
     startDateFilter ||
     endDateFilter
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
@@ -140,6 +201,7 @@ function Transactions() {
     categoryId: categoryFilter || undefined,
     subcategoryId: subcategoryFilter || undefined,
     description: descriptionFilter || undefined,
+    notes: includeNotes && descriptionFilter ? descriptionFilter : undefined,
     startDate: startDateFilter || undefined,
     endDate: endDateFilter || undefined,
   })
@@ -278,6 +340,81 @@ function Transactions() {
       subcategoryMap.set(subcategory.id, subcategory.name)
     })
   })
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    if (!sortKey) {
+      return 0
+    }
+
+    const directionMultiplier = sortDirection === 'asc' ? 1 : -1
+
+    if (sortKey === 'date') {
+      return (
+        (new Date(a.date).getTime() - new Date(b.date).getTime()) *
+        directionMultiplier
+      )
+    }
+
+    if (sortKey === 'amount') {
+      return (a.amount - b.amount) * directionMultiplier
+    }
+
+    if (sortKey === 'type') {
+      return a.type.localeCompare(b.type) * directionMultiplier
+    }
+
+    if (sortKey === 'account') {
+      const accountA = accountMap.get(a.accountId) ?? ''
+      const accountB = accountMap.get(b.accountId) ?? ''
+      return accountA.localeCompare(accountB) * directionMultiplier
+    }
+
+    if (sortKey === 'category') {
+      const categoryA = categoryMap.get(a.categoryId) ?? ''
+      const categoryB = categoryMap.get(b.categoryId) ?? ''
+      return categoryA.localeCompare(categoryB) * directionMultiplier
+    }
+
+    if (sortKey === 'subcategory') {
+      const subA = a.subcategoryId
+        ? subcategoryMap.get(a.subcategoryId) ?? ''
+        : ''
+      const subB = b.subcategoryId
+        ? subcategoryMap.get(b.subcategoryId) ?? ''
+        : ''
+      return subA.localeCompare(subB) * directionMultiplier
+    }
+
+    const descA =
+      a.description ?? categoryMap.get(a.categoryId) ?? ''
+    const descB =
+      b.description ?? categoryMap.get(b.categoryId) ?? ''
+    return descA.localeCompare(descB) * directionMultiplier
+  })
+
+  function handleSort(
+    nextKey:
+      | 'date'
+      | 'description'
+      | 'account'
+      | 'category'
+      | 'subcategory'
+      | 'type'
+      | 'amount',
+  ) {
+    navigate({
+      search: (prev) => {
+        const isSame = prev.sort === nextKey
+        const nextDirection =
+          isSame && prev.dir === 'asc' ? 'desc' : 'asc'
+        return {
+          ...prev,
+          sort: nextKey,
+          dir: nextDirection,
+        }
+      },
+      replace: false,
+    })
+  }
 
   const filterSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-filter', categoryFilter],
@@ -377,12 +514,12 @@ function Transactions() {
   }, [debouncedDescription, descriptionFilter, navigate])
 
   useEffect(() => {
-    if (hasActiveFilters) {
+    if (hasHiddenFilters) {
       setIsFilterExpanded(true)
     } else {
       setIsFilterExpanded(false)
     }
-  }, [hasActiveFilters])
+  }, [hasHiddenFilters])
 
   useEffect(() => {
     const nextPage = totalPages > 0 ? Math.min(page, totalPages) : page
@@ -456,6 +593,7 @@ function Transactions() {
                         categoryId: undefined,
                         subcategoryId: undefined,
                         description: undefined,
+                        includeNotes: undefined,
                         startDate: undefined,
                         endDate: undefined,
                       }),
@@ -477,6 +615,27 @@ function Transactions() {
 
         {isFilterExpanded && (
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <div className="space-y-2 lg:col-span-3">
+              <Label htmlFor="filter-include-notes">Busca</Label>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  id="filter-include-notes"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={includeNotes}
+                  onChange={(event) =>
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        includeNotes: event.target.checked ? true : undefined,
+                        page: 1,
+                      }),
+                    })
+                  }
+                />
+                Buscar tambem nas notas
+              </label>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="filter-start-date">Data inicial</Label>
               <Input
@@ -612,15 +771,93 @@ function Transactions() {
 
       <div className="overflow-hidden rounded-lg border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left">
+          <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-medium">Data</th>
-              <th className="px-4 py-3 font-medium">Descricao</th>
-              <th className="px-4 py-3 font-medium">Conta</th>
-              <th className="px-4 py-3 font-medium">Categoria</th>
-              <th className="px-4 py-3 font-medium">Subcategoria</th>
-              <th className="px-4 py-3 font-medium">Tipo</th>
-              <th className="px-4 py-3 text-right font-medium">Valor</th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('date')}
+                >
+                  Data
+                  <SortIcon isActive={sortKey === 'date'} direction={sortDirection} />
+                </button>
+              </th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('description')}
+                >
+                  Descricao
+                  <SortIcon
+                    isActive={sortKey === 'description'}
+                    direction={sortDirection}
+                  />
+                </button>
+              </th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('account')}
+                >
+                  Conta
+                  <SortIcon
+                    isActive={sortKey === 'account'}
+                    direction={sortDirection}
+                  />
+                </button>
+              </th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('category')}
+                >
+                  Categoria
+                  <SortIcon
+                    isActive={sortKey === 'category'}
+                    direction={sortDirection}
+                  />
+                </button>
+              </th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('subcategory')}
+                >
+                  Subcategoria
+                  <SortIcon
+                    isActive={sortKey === 'subcategory'}
+                    direction={sortDirection}
+                  />
+                </button>
+              </th>
+              <th className="px-4 py-3">
+                <button
+                  className="inline-flex items-center gap-2 text-left"
+                  type="button"
+                  onClick={() => handleSort('type')}
+                >
+                  Tipo
+                  <SortIcon isActive={sortKey === 'type'} direction={sortDirection} />
+                </button>
+              </th>
+              <th className="px-4 py-3 text-right">
+                <button
+                  className="inline-flex items-center gap-2 text-right"
+                  type="button"
+                  onClick={() => handleSort('amount')}
+                >
+                  Valor
+                  <SortIcon
+                    isActive={sortKey === 'amount'}
+                    direction={sortDirection}
+                  />
+                </button>
+              </th>
               <th className="px-4 py-3 text-right font-medium">Acoes</th>
             </tr>
           </thead>
@@ -632,14 +869,15 @@ function Transactions() {
                 </td>
               </tr>
             )}
-            {!transactionsQuery.isLoading && transactions.length === 0 && (
+            {!transactionsQuery.isLoading &&
+              sortedTransactions.length === 0 && (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
                   Nenhuma transacao encontrada.
                 </td>
               </tr>
             )}
-            {transactions.map((transaction) => (
+            {sortedTransactions.map((transaction) => (
               <tr key={transaction.id} className="border-t">
                 <td className="px-4 py-3">
                   {dateFormatter.format(new Date(transaction.date))}
@@ -1268,4 +1506,44 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   }, [value, delayMs])
 
   return debouncedValue
+}
+
+function SortIcon({
+  isActive,
+  direction,
+}: {
+  isActive: boolean
+  direction: 'asc' | 'desc'
+}) {
+  if (!isActive) {
+    return (
+      <span className="text-muted-foreground">
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+          <path
+            d="M5 3l3-3 3 3M11 13l-3 3-3-3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+    )
+  }
+
+  return (
+    <span className="text-foreground">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+        <path
+          d={direction === 'asc' ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  )
 }
