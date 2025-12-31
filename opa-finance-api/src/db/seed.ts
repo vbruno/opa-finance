@@ -57,7 +57,7 @@ async function seed() {
     })
     .returning();
 
-  const [creditCardAcc] = await db
+  await db
     .insert(accounts)
     .values({
       userId: user.id,

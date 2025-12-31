@@ -1,14 +1,10 @@
 import { and, eq, or } from "drizzle-orm";
-import type { InferSelectModel } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import { CreateCategoryInput } from "./category.schemas";
 import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "@/core/errors/problems";
 
 import { categories, subcategories } from "@/db/schema";
-
-type Category = InferSelectModel<typeof categories>;
-
 export class CategoryService {
   constructor(private app: FastifyInstance) {}
 

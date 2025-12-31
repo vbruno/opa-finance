@@ -26,7 +26,8 @@ export class AuthService {
   /*                                 REGISTER                                   */
   /* -------------------------------------------------------------------------- */
   async register(data: RegisterInput) {
-    const { confirmPassword: _ignored, ...userData } = data;
+    const { confirmPassword, ...userData } = data;
+    void confirmPassword;
 
     const exists = await this.db
       .select()

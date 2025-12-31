@@ -134,7 +134,7 @@ describe("POST /transfers", () => {
   });
 
   it("deve falhar ao transferir de conta que não pertence ao usuário (403)", async () => {
-    const { token: tokenA, user: userA } = await registerAndLogin(app, db, "userA@test.com");
+    const { user: userA } = await registerAndLogin(app, db, "userA@test.com");
     const { token: tokenB, user: userB } = await registerAndLogin(app, db, "userB@test.com");
 
     // Conta do usuário A
@@ -176,7 +176,7 @@ describe("POST /transfers", () => {
   });
 
   it("deve falhar ao transferir para conta que não pertence ao usuário (403)", async () => {
-    const { token: tokenA, user: userA } = await registerAndLogin(app, db, "userA@test.com");
+    const { user: userA } = await registerAndLogin(app, db, "userA@test.com");
     const { token: tokenB, user: userB } = await registerAndLogin(app, db, "userB@test.com");
 
     // Conta do usuário A

@@ -27,7 +27,8 @@ export class UserService {
       throw new NotFoundProblem("Usuário não encontrado.", `/users/${params.id}`);
     }
 
-    const { passwordHash: _passwordHash, ...publicUser } = user;
+    const { passwordHash, ...publicUser } = user;
+    void passwordHash;
     return publicUser;
   }
 
@@ -51,7 +52,10 @@ export class UserService {
 
     const rows = result as UserRow[];
 
-    const sanitized = rows.map(({ passwordHash: _passwordHash, ...u }) => u);
+    const sanitized = rows.map(({ passwordHash, ...u }) => {
+      void passwordHash;
+      return u;
+    });
 
     return { data: sanitized, page, limit };
   }
@@ -77,7 +81,8 @@ export class UserService {
 
     const [updated] = updatedResult as UserRow[];
 
-    const { passwordHash: _passwordHash, ...publicUser } = updated;
+    const { passwordHash, ...publicUser } = updated;
+    void passwordHash;
     return publicUser;
   }
 

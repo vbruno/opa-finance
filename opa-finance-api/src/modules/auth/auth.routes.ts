@@ -101,7 +101,8 @@ export async function authRoutes(app: FastifyInstance) {
       throw new NotFoundProblem("Usuário não encontrado", req.url);
     }
 
-    const { passwordHash: _ignored, ...publicUser } = user;
+    const { passwordHash, ...publicUser } = user;
+    void passwordHash;
     return publicUser;
   });
 
