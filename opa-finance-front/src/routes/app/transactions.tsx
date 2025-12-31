@@ -125,6 +125,8 @@ function Transactions() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
   const editAmountRef = useRef<HTMLInputElement | null>(null)
+  const detailModalRef = useRef<HTMLDivElement | null>(null)
+  const deleteModalRef = useRef<HTMLDivElement | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
@@ -465,7 +467,7 @@ function Transactions() {
 
   useEffect(() => {
     const hasOpenModal =
-      isCreateOpen || isEditOpen || isDeleteConfirmOpen
+      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedTransaction
     if (!hasOpenModal) {
       return
     }
@@ -476,7 +478,7 @@ function Transactions() {
     return () => {
       document.body.style.overflow = previousOverflow
     }
-  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen])
+  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedTransaction])
 
   useEffect(() => {
     if (isCreateOpen) {
@@ -489,6 +491,57 @@ function Transactions() {
       editAmountRef.current?.focus()
     }
   }, [isEditOpen])
+
+  useEffect(() => {
+    if (isDeleteConfirmOpen) {
+      deleteModalRef.current?.focus()
+      return
+    }
+    if (selectedTransaction && !isEditOpen) {
+      detailModalRef.current?.focus()
+    }
+  }, [isDeleteConfirmOpen, isEditOpen, selectedTransaction])
+
+  useEffect(() => {
+    const hasOpenModal =
+      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedTransaction
+    if (!hasOpenModal) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (isDeleteConfirmOpen) {
+        setIsDeleteConfirmOpen(false)
+        return
+      }
+
+      if (isEditOpen) {
+        setIsEditOpen(false)
+        return
+      }
+
+      if (isCreateOpen) {
+        setIsCreateOpen(false)
+        return
+      }
+
+      if (selectedTransaction) {
+        setSelectedTransaction(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    isCreateOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    selectedTransaction,
+  ])
 
   useEffect(() => {
     setDescriptionDraft(descriptionFilter)
@@ -858,13 +911,12 @@ function Transactions() {
                   />
                 </button>
               </th>
-              <th className="px-4 py-3 text-right font-medium">Acoes</th>
             </tr>
           </thead>
           <tbody>
             {transactionsQuery.isLoading && (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
                   Carregando transacoes...
                 </td>
               </tr>
@@ -872,13 +924,20 @@ function Transactions() {
             {!transactionsQuery.isLoading &&
               sortedTransactions.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
                   Nenhuma transacao encontrada.
                 </td>
               </tr>
             )}
             {sortedTransactions.map((transaction) => (
-              <tr key={transaction.id} className="border-t">
+              <tr
+                key={transaction.id}
+                className="cursor-pointer border-t hover:bg-muted/30"
+                onClick={() => {
+                  setDeleteError(null)
+                  setSelectedTransaction(transaction)
+                }}
+              >
                 <td className="px-4 py-3">
                   {dateFormatter.format(new Date(transaction.date))}
                 </td>
@@ -903,24 +962,6 @@ function Transactions() {
                 </td>
                 <td className="px-4 py-3 text-right font-medium">
                   {formatCurrencyValue(transaction.amount)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleOpenEdit(transaction)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleOpenDelete(transaction)}
-                    >
-                      Excluir
-                    </Button>
-                  </div>
                 </td>
               </tr>
             ))}
@@ -1197,6 +1238,113 @@ function Transactions() {
         </div>
       )}
 
+      {selectedTransaction && !isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setSelectedTransaction(null)}
+          />
+          <div
+            className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
+            ref={detailModalRef}
+            tabIndex={-1}
+          >
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Detalhes da transacao</h3>
+              <p className="text-sm text-muted-foreground">
+                Informacoes da transacao selecionada.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Data</span>
+                <span className="font-medium">
+                  {dateFormatter.format(
+                    new Date(selectedTransaction.date),
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Descricao</span>
+                <span className="font-medium">
+                  {selectedTransaction.description ||
+                    categoryMap.get(selectedTransaction.categoryId) ||
+                    'Sem descricao'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Conta</span>
+                <span className="font-medium">
+                  {accountMap.get(selectedTransaction.accountId) || '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Categoria</span>
+                <span className="font-medium">
+                  {categoryMap.get(selectedTransaction.categoryId) || '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Subcategoria</span>
+                <span className="font-medium">
+                  {selectedTransaction.subcategoryId
+                    ? subcategoryMap.get(selectedTransaction.subcategoryId) ||
+                      '-'
+                    : '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tipo</span>
+                <span className="font-medium">
+                  {selectedTransaction.type === 'income'
+                    ? 'Receita'
+                    : 'Despesa'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Valor</span>
+                <span className="font-semibold">
+                  {formatCurrencyValue(selectedTransaction.amount)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Notas</span>
+                <span className="font-medium">
+                  {selectedTransaction.notes || 'Sem notas'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Criada em</span>
+                <span className="font-medium">
+                  {dateFormatter.format(
+                    new Date(selectedTransaction.createdAt),
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="destructive"
+                  onClick={() => handleOpenDelete(selectedTransaction)}
+                >
+                  Excluir
+                </Button>
+                <Button
+                  variant="outline"
+                  autoFocus
+                  onClick={() => handleOpenEdit(selectedTransaction)}
+                >
+                  Editar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isEditOpen && selectedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
@@ -1444,7 +1592,11 @@ function Transactions() {
             className="fixed inset-0"
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+          <div
+            className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+            ref={deleteModalRef}
+            tabIndex={-1}
+          >
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Confirmar exclusao</h3>
               <p className="text-sm text-muted-foreground">
