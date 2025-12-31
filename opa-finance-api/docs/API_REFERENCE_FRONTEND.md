@@ -978,11 +978,13 @@ Lista transações com filtros e paginação.
 - `categoryId` (uuid) - opcional
 - `subcategoryId` (uuid) - opcional
 - `type` ("income" | "expense") - opcional
+- `description` (string, busca parcial) - opcional
+- `notes` (string, busca parcial) - opcional
 
 **Exemplo:**
 
 ```
-GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=expense
+GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=expense&description=mercado&notes=extra
 ```
 
 **Response 200:**

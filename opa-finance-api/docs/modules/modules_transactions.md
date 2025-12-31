@@ -16,4 +16,7 @@
 - transfer_id opcional: vincula transações de transferências (duas transações com mesmo transferId)
 
 ## Campos
-- amount, type, date, description, transfer_id (opcional)
+- amount, type, date, description, notes, transfer_id (opcional)
+
+## Filtros de listagem
+- startDate, endDate, accountId, categoryId, subcategoryId, type, description, notes

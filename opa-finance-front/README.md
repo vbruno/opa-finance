@@ -31,4 +31,4 @@ TypeScript e Tailwind CSS v4.
 
 - `doc/FRONTEND_GUIDE.md`
 - `doc/FRONTEND_REGRAS_DE_NEGOCIO.md`
-- `doc/API_REFERENCE_FRONTEND.md`
+- `doc/API_REFERENCE_FRONTEND.md` (fonte unica no backend: `../opa-finance-api/docs/API_REFERENCE_FRONTEND.md`)
