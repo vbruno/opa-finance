@@ -77,6 +77,7 @@ function Transactions() {
   const editAmountRef = useRef<HTMLInputElement | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
+  const isClearingDescription = useRef(false)
 
   type Account = {
     id: string
@@ -360,6 +361,10 @@ function Transactions() {
     if (debouncedDescription === descriptionFilter) {
       return
     }
+    if (isClearingDescription.current) {
+      isClearingDescription.current = false
+      return
+    }
     const trimmedValue = debouncedDescription.trim()
     navigate({
       search: (prev) => ({
@@ -426,46 +431,47 @@ function Transactions() {
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-semibold">Filtros</h3>
-            {hasActiveFilters && (
-              <p className="text-sm text-muted-foreground">
-                {transactionsQuery.isLoading
-                  ? 'Atualizando resultados...'
-                  : `${total} transacoes encontradas`}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {hasActiveFilters && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <h3 className="text-base font-semibold">Filtros</h3>
+          <div className="flex flex-1 items-center gap-3">
+            <Input
+              id="filter-description"
+              placeholder="Buscar por descricao"
+              value={descriptionDraft}
+              onChange={(event) => setDescriptionDraft(event.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    isClearingDescription.current = true
+                    setDescriptionDraft('')
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        page: 1,
+                        type: undefined,
+                        accountId: undefined,
+                        categoryId: undefined,
+                        subcategoryId: undefined,
+                        description: undefined,
+                        startDate: undefined,
+                        endDate: undefined,
+                      }),
+                    })
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              )}
               <Button
                 variant="outline"
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: 1,
-                      type: undefined,
-                      accountId: undefined,
-                      categoryId: undefined,
-                      subcategoryId: undefined,
-                      description: undefined,
-                      startDate: undefined,
-                      endDate: undefined,
-                    }),
-                  })
-                }
+                onClick={() => setIsFilterExpanded((prev) => !prev)}
               >
-                Limpar filtros
+                {isFilterExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
               </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => setIsFilterExpanded((prev) => !prev)}
-            >
-              {isFilterExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
-            </Button>
+            </div>
           </div>
         </div>
 
@@ -525,15 +531,6 @@ function Transactions() {
                 <option value="income">Receita</option>
                 <option value="expense">Despesa</option>
               </select>
-            </div>
-            <div className="space-y-2 lg:col-span-3">
-              <Label htmlFor="filter-description">Descricao</Label>
-              <Input
-                id="filter-description"
-                placeholder="Buscar por descricao"
-                value={descriptionDraft}
-                onChange={(event) => setDescriptionDraft(event.target.value)}
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-account">Conta</Label>
