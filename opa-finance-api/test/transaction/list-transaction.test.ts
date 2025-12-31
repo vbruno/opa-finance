@@ -1,6 +1,7 @@
 // test/transaction/list-transaction.test.ts
 import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { sql } from "drizzle-orm";
 
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
@@ -338,6 +339,40 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
 
     expect(data.length).toBe(1);
     expect(data[0].notes).toContain("Pix");
+  });
+
+  it("deve filtrar por description sem acento", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    const ext = await db.execute(sql`select 1 from pg_extension where extname = 'unaccent'`);
+    const rows = (ext as { rows?: unknown[] }).rows ?? [];
+    if (rows.length === 0) return;
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 100,
+        date: "2025-01-01",
+        description: "Compra de ação",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/transactions?description=acao",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = res.json().data;
+
+    expect(data.length).toBe(1);
+    expect(data[0].description).toBe("Compra de ação");
   });
 
   /* -------------------------------------------------------------------------- */

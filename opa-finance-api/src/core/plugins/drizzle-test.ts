@@ -13,6 +13,12 @@ export async function createTestDB(): Promise<DB> {
 
   const db = drizzle(pool, { schema }) as DB;
 
+  try {
+    await db.execute(sql`CREATE EXTENSION IF NOT EXISTS unaccent`);
+  } catch {
+    // extensao pode exigir permissao no banco de teste
+  }
+
   // limpa todas as tabelas sem precisar de permissões
   for (const table of Object.values(schema)) {
     if (table && typeof table === "object" && "name" in table) {

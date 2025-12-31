@@ -20,6 +20,24 @@ import { accounts, categories, subcategories, transactions } from "@/db/schema";
 export class TransactionService {
   constructor(private app: FastifyInstance) {}
 
+  private unaccentAvailable?: boolean;
+
+  private async hasUnaccent() {
+    if (this.unaccentAvailable !== undefined) return this.unaccentAvailable;
+
+    try {
+      const result = await this.app.db.execute(
+        sql`select 1 from pg_extension where extname = 'unaccent'`,
+      );
+      const rows = (result as { rows?: unknown[] }).rows ?? [];
+      this.unaccentAvailable = rows.length > 0;
+    } catch {
+      this.unaccentAvailable = false;
+    }
+
+    return this.unaccentAvailable;
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                               VALIDADORES                                   */
   /* -------------------------------------------------------------------------- */
@@ -137,8 +155,25 @@ export class TransactionService {
     if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
     if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
     if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
-    if (query.description) filters.push(ilike(transactions.description, `%${query.description}%`));
-    if (query.notes) filters.push(ilike(transactions.notes, `%${query.notes}%`));
+    const useUnaccent =
+      (query.description || query.notes) ? await this.hasUnaccent() : false;
+
+    if (query.description) {
+      if (useUnaccent) {
+        filters.push(
+          sql`unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})`,
+        );
+      } else {
+        filters.push(ilike(transactions.description, `%${query.description}%`));
+      }
+    }
+    if (query.notes) {
+      if (useUnaccent) {
+        filters.push(sql`unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})`);
+      } else {
+        filters.push(ilike(transactions.notes, `%${query.notes}%`));
+      }
+    }
 
     const [{ count }] = await this.app.db
       .select({ count: sql<number>`count(*)` })

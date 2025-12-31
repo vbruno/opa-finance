@@ -20,3 +20,4 @@
 
 ## Filtros de listagem
 - startDate, endDate, accountId, categoryId, subcategoryId, type, description, notes
+  - Observação: busca por description/notes é insensível a acento com extensão `unaccent` habilitada.
