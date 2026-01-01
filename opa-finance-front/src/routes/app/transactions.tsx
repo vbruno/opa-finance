@@ -24,12 +24,17 @@ import {
   type TransactionCreateFormData,
 } from '@/schemas/transaction.schema'
 import {
+  transferCreateSchema,
+  type TransferCreateFormData,
+} from '@/schemas/transfer.schema'
+import {
   useCreateTransaction,
   useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
   type Transaction,
 } from '@/features/transactions'
+import { useCreateTransfer } from '@/features/transfers'
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
@@ -130,12 +135,14 @@ export const Route = createFileRoute('/app/transactions')({
 function Transactions() {
   const navigate = Route.useNavigate()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
+  const transferAmountRef = useRef<HTMLInputElement | null>(null)
   const editAmountRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
@@ -192,6 +199,7 @@ function Transactions() {
     endDate: endDateFilter || undefined,
   })
   const createTransactionMutation = useCreateTransaction()
+  const createTransferMutation = useCreateTransfer()
   const updateTransactionMutation = useUpdateTransaction()
   const deleteTransactionMutation = useDeleteTransaction()
 
@@ -218,6 +226,17 @@ function Transactions() {
       date: '',
       description: '',
       notes: '',
+    },
+  })
+
+  const transferForm = useForm<TransferCreateFormData>({
+    resolver: zodResolver(transferCreateSchema),
+    defaultValues: {
+      fromAccountId: '',
+      toAccountId: '',
+      amount: '',
+      date: '',
+      description: '',
     },
   })
 
@@ -352,7 +371,11 @@ function Transactions() {
 
   useEffect(() => {
     const hasOpenModal =
-      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedTransaction
+      isCreateOpen ||
+      isTransferOpen ||
+      isEditOpen ||
+      isDeleteConfirmOpen ||
+      !!selectedTransaction
     if (!hasOpenModal) {
       return
     }
@@ -363,13 +386,25 @@ function Transactions() {
     return () => {
       document.body.style.overflow = previousOverflow
     }
-  }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedTransaction])
+  }, [
+    isCreateOpen,
+    isTransferOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    selectedTransaction,
+  ])
 
   useEffect(() => {
     if (isCreateOpen) {
       createAmountRef.current?.focus()
     }
   }, [isCreateOpen])
+
+  useEffect(() => {
+    if (isTransferOpen) {
+      transferAmountRef.current?.focus()
+    }
+  }, [isTransferOpen])
 
   useEffect(() => {
     if (isEditOpen) {
@@ -389,7 +424,11 @@ function Transactions() {
 
   useEffect(() => {
     const hasOpenModal =
-      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedTransaction
+      isCreateOpen ||
+      isTransferOpen ||
+      isEditOpen ||
+      isDeleteConfirmOpen ||
+      !!selectedTransaction
     if (!hasOpenModal) {
       return
     }
@@ -401,6 +440,11 @@ function Transactions() {
 
       if (isDeleteConfirmOpen) {
         setIsDeleteConfirmOpen(false)
+        return
+      }
+
+      if (isTransferOpen) {
+        setIsTransferOpen(false)
         return
       }
 
@@ -423,6 +467,7 @@ function Transactions() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [
     isCreateOpen,
+    isTransferOpen,
     isEditOpen,
     isDeleteConfirmOpen,
     selectedTransaction,
@@ -515,9 +560,14 @@ function Transactions() {
             Acompanhe receitas e despesas registradas nas contas.
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          Nova transacao
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
+            Nova transferencia
+          </Button>
+          <Button onClick={() => setIsCreateOpen(true)}>
+            Nova transacao
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border bg-card p-4">
@@ -1155,6 +1205,185 @@ function Transactions() {
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
                   Salvar
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isTransferOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsTransferOpen(false)}
+          />
+          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
+            <div>
+              <h3 className="text-lg font-semibold">Nova transferencia</h3>
+              <p className="text-sm text-muted-foreground">
+                Informe as contas de origem e destino.
+              </p>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={transferForm.handleSubmit(async (formData) => {
+                try {
+                  const parsedAmount =
+                    parseCurrencyInput(formData.amount) ?? 0
+                  await createTransferMutation.mutateAsync({
+                    fromAccountId: formData.fromAccountId,
+                    toAccountId: formData.toAccountId,
+                    amount: parsedAmount,
+                    date: formData.date,
+                    description: formData.description?.trim() || null,
+                  })
+                  setIsTransferOpen(false)
+                  transferForm.reset()
+                } catch (error: unknown) {
+                  transferForm.setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao criar transferencia. Tente novamente.',
+                    }),
+                  })
+                }
+              })}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="transfer-from-account">Conta de origem</Label>
+                  <select
+                    id="transfer-from-account"
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    aria-invalid={
+                      !!transferForm.formState.errors.fromAccountId
+                    }
+                    {...transferForm.register('fromAccountId')}
+                  >
+                    <option value="">Selecione</option>
+                    {(accountsQuery.data ?? []).map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                  {transferForm.formState.errors.fromAccountId && (
+                    <p className="text-sm text-destructive">
+                      {transferForm.formState.errors.fromAccountId.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="transfer-to-account">Conta de destino</Label>
+                  <select
+                    id="transfer-to-account"
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    aria-invalid={
+                      !!transferForm.formState.errors.toAccountId
+                    }
+                    {...transferForm.register('toAccountId')}
+                  >
+                    <option value="">Selecione</option>
+                    {(accountsQuery.data ?? []).map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                  {transferForm.formState.errors.toAccountId && (
+                    <p className="text-sm text-destructive">
+                      {transferForm.formState.errors.toAccountId.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="transfer-date">Data</Label>
+                  <Input
+                    id="transfer-date"
+                    type="date"
+                    className="h-10"
+                    aria-invalid={!!transferForm.formState.errors.date}
+                    {...transferForm.register('date')}
+                  />
+                  {transferForm.formState.errors.date && (
+                    <p className="text-sm text-destructive">
+                      {transferForm.formState.errors.date.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="transfer-amount">Valor</Label>
+                  <Controller
+                    control={transferForm.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <Input
+                        id="transfer-amount"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="$ 0,00"
+                        className="h-10"
+                        ref={transferAmountRef}
+                        value={field.value}
+                        onChange={(event) =>
+                          field.onChange(
+                            formatCurrencyInput(event.target.value),
+                          )
+                        }
+                        aria-invalid={!!transferForm.formState.errors.amount}
+                      />
+                    )}
+                  />
+                  {transferForm.formState.errors.amount && (
+                    <p className="text-sm text-destructive">
+                      {transferForm.formState.errors.amount.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="transfer-description">Descricao</Label>
+                <Input
+                  id="transfer-description"
+                  placeholder="Opcional"
+                  className="h-10"
+                  aria-invalid={!!transferForm.formState.errors.description}
+                  {...transferForm.register('description')}
+                />
+                {transferForm.formState.errors.description && (
+                  <p className="text-sm text-destructive">
+                    {transferForm.formState.errors.description.message}
+                  </p>
+                )}
+              </div>
+
+              {transferForm.formState.errors.root && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {transferForm.formState.errors.root.message}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsTransferOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={transferForm.formState.isSubmitting}
+                >
+                  Transferir
                 </Button>
               </div>
             </form>
