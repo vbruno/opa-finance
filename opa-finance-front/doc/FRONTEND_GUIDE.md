@@ -74,6 +74,7 @@ Fornecer uma interface:
 - Zod
 - React Hook Form + @hookform/resolvers
 - TanStack Query
+- Zustand (estado global quando necessário)
 
 ### Qualidade de Código
 
@@ -87,6 +88,13 @@ Fornecer uma interface:
 ```txt
 src/
 ├─ index.css
+├─ features/
+│  ├─ accounts/           # Hooks + tipos de contas
+│  ├─ auth/               # Store e hooks de auth
+│  ├─ categories/         # Hooks + tipos de categorias/subcategorias
+│  ├─ profile/            # Hooks de perfil
+│  ├─ system/             # Health/ping
+│  └─ transactions/       # Hooks + tipos de transações
 ├─ routes/
 │  ├─ __root.tsx
 │  ├─ index.tsx           # Landing / redirect inicial
@@ -108,10 +116,6 @@ src/
 │  └─ theme/
 │     ├─ ThemeProvider.tsx
 │     └─ ThemeToggle.tsx
-├─ auth/
-│  ├─ auth.store.ts       # Estado de auth + persistência
-│  ├─ useAuth.ts
-│  └─ useLogin.ts
 ├─ lib/
 │  ├─ api.ts              # Cliente HTTP (Axios)
 │  ├─ api.interceptors.ts # Interceptors globais
@@ -131,6 +135,12 @@ src/
 ```
 
 ---
+
+## 🧩 System Design
+
+O frontend segue um **feature-based architecture** (modular por dominio).
+Cada feature concentra seus hooks de dados e tipos em `src/features/*`,
+enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 
 ## 🧭 Fluxo de Navegação (MVP)
 
@@ -177,7 +187,12 @@ src/
 ## 📦 Dados & Cache (padrão)
 
 - TanStack Query com `QueryClientProvider` no `main.tsx`
-- Queries/mutations centralizadas em hooks por feature
+- Queries/mutations centralizadas em hooks por feature (`src/features/*`)
+
+## 🧠 Estado Global (padrão)
+
+- Usar Zustand apenas quando o estado for realmente compartilhado entre telas/fluxos.
+- Exemplos: filtros globais de periodo, conta/portfolio selecionado entre telas, preferencia de exibicao.
 
 ---
 
@@ -245,7 +260,7 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Usuário (perfil, edição de nome, troca de senha, logout)
 - [x] Accounts (tabela, filtros/ordenação/paginação na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação e deep link)
 - [x] Categories / Subcategories
-- [ ] Transactions
+- [x] Transactions (listagem, filtros na URL, ordenação server-side, CRUD, modais)
 - [ ] Transfers
 - [ ] Dashboard (dados reais)
 
@@ -270,3 +285,14 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - Subcategorias são carregadas sob demanda por categoria; busca em subcategorias usa debounce (300ms).
 - Busca em contas também usa debounce (300ms) para reduzir chamadas e updates de URL.
 - Expansão automática respeita ajustes manuais enquanto houver termo de busca.
+
+---
+
+## 🧩 Transactions — Notas de Implementação
+
+- Listagem com filtros persistidos na URL (data, tipo, conta, categoria, subcategoria, descricao).
+- Ordenacao server-side via `sort`/`dir` (backend).
+- Busca em descricao opcionalmente inclui notas (checkbox).
+- Modal de detalhes, criacao, edicao e exclusao.
+- Categoria define o tipo da transacao e limpa subcategoria ao trocar.
+- Resposta da API ja inclui `accountName`, `categoryName`, `subcategoryName` (evita N+1).

@@ -62,6 +62,11 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - se existir, deve pertencer à categoria selecionada
 - Valores **sempre positivos**
   - O tipo (`income | expense`) define o fluxo
+ - Filtros da listagem:
+   - Data/conta/categoria/subcategoria/tipo são server-side
+   - Descrição é opcional; pode incluir notas quando o usuário marcar a opção
+ - Ordenação:
+   - Deve ser feita no backend usando `sort`/`dir` (lista paginada)
 
 ### 🔹 Alteração de Categoria
 - Ao trocar a categoria:
@@ -87,6 +92,14 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - Filtros por nome/tipo são client-side
   - Ordenação por coluna é client-side
   - Paginação é client-side (10 itens por página) e exibida apenas quando necessário
+
+---
+
+## 🧾 Transações (Listagem)
+
+- Listagem é paginada no backend.
+- Ordenação e filtros devem ser enviados para a API.
+- Campos `accountName`, `categoryName`, `subcategoryName` podem vir direto da API para evitar N+1.
 
 ---
 
