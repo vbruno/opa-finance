@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { getUser, logout } from '@/auth/auth.store'
+import { getUser, logout } from '@/features/auth/auth.store'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 
