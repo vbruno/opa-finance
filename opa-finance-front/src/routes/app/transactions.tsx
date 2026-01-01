@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -8,7 +8,11 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import { useAccounts } from '@/features/accounts/accounts.api'
+import {
+  fetchSubcategories,
+  useCategories,
+} from '@/features/categories/categories.api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,
@@ -29,45 +33,66 @@ import {
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
-    page: z.preprocess(
-      (value) => {
-        const parsed = Number(value)
-        if (!Number.isFinite(parsed) || parsed < 1) {
-          return undefined
-        }
-        return Math.floor(parsed)
-      },
-      z.number().int().min(1).optional(),
-    ),
-    type: z.preprocess(
-      (value) => {
-        const allowed = ['income', 'expense']
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z.enum(['income', 'expense']).optional(),
-    ),
+    page: z
+      .preprocess(
+        (value) => {
+          const parsed = Number(value)
+          if (!Number.isFinite(parsed) || parsed < 1) {
+            return undefined
+          }
+          return Math.floor(parsed)
+        },
+        z.number().int().min(1),
+      )
+      .optional(),
+    type: z
+      .preprocess(
+        (value) => {
+          const allowed = ['income', 'expense']
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum(['income', 'expense']),
+      )
+      .optional(),
     accountId: z.string().optional(),
     categoryId: z.string().optional(),
     subcategoryId: z.string().optional(),
     description: z.string().optional(),
-    includeNotes: z.preprocess(
-      (value) => {
-        if (value === 'true' || value === '1') {
-          return true
-        }
-        if (value === 'false' || value === '0') {
-          return false
-        }
-        return undefined
-      },
-      z.boolean().optional(),
-    ),
-    sort: z.preprocess(
-      (value) => {
-        const allowed = [
+    includeNotes: z
+      .preprocess(
+        (value) => {
+          if (value === 'true' || value === '1') {
+            return true
+          }
+          if (value === 'false' || value === '0') {
+            return false
+          }
+          return undefined
+        },
+        z.boolean(),
+      )
+      .optional(),
+    sort: z
+      .preprocess(
+        (value) => {
+          const allowed = [
+            'date',
+            'description',
+            'account',
+            'category',
+            'subcategory',
+            'type',
+            'amount',
+          ]
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum([
           'date',
           'description',
           'account',
@@ -75,34 +100,21 @@ export const Route = createFileRoute('/app/transactions')({
           'subcategory',
           'type',
           'amount',
-        ]
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z
-        .enum([
-          'date',
-          'description',
-          'account',
-          'category',
-          'subcategory',
-          'type',
-          'amount',
-        ])
-        .optional(),
-    ),
-    dir: z.preprocess(
-      (value) => {
-        const allowed = ['asc', 'desc']
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z.enum(['asc', 'desc']).optional(),
-    ),
+        ]),
+      )
+      .optional(),
+    dir: z
+      .preprocess(
+        (value) => {
+          const allowed = ['asc', 'desc']
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum(['asc', 'desc']),
+      )
+      .optional(),
     startDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -116,7 +128,7 @@ export const Route = createFileRoute('/app/transactions')({
 })
 
 function Transactions() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -130,37 +142,6 @@ function Transactions() {
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
-
-  type Account = {
-    id: string
-    name: string
-    type: string
-    initialBalance: number
-    currentBalance?: number
-    createdAt: string
-    updatedAt: string
-  }
-
-  type Category = {
-    id: string
-    userId: string | null
-    name: string
-    type: 'income' | 'expense'
-    system: boolean
-    color: string | null
-    createdAt: string
-    updatedAt: string
-  }
-
-  type Subcategory = {
-    id: string
-    userId: string
-    categoryId: string
-    name: string
-    color: string | null
-    createdAt: string
-    updatedAt: string
-  }
 
   const search = Route.useSearch()
   const page = search.page ?? 1
@@ -214,21 +195,8 @@ function Transactions() {
   const updateTransactionMutation = useUpdateTransaction()
   const deleteTransactionMutation = useDeleteTransaction()
 
-  const accountsQuery = useQuery({
-    queryKey: ['accounts'],
-    queryFn: async () => {
-      const response = await api.get<Account[]>('/accounts')
-      return response.data
-    },
-  })
-
-  const categoriesQuery = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const response = await api.get<Category[]>('/categories')
-      return response.data
-    },
-  })
+  const accountsQuery = useAccounts()
+  const categoriesQuery = useCategories()
 
   const {
     control,
@@ -293,23 +261,13 @@ function Transactions() {
 
   const createSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-create', createCategoryId],
-    queryFn: async () => {
-      const response = await api.get<Subcategory[]>(
-        `/categories/${createCategoryId}/subcategories`,
-      )
-      return response.data
-    },
+    queryFn: () => fetchSubcategories(createCategoryId ?? ''),
     enabled: Boolean(createCategoryId),
   })
 
   const editSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-edit', editCategoryId],
-    queryFn: async () => {
-      const response = await api.get<Subcategory[]>(
-        `/categories/${editCategoryId}/subcategories`,
-      )
-      return response.data
-    },
+    queryFn: () => fetchSubcategories(editCategoryId ?? ''),
     enabled: Boolean(editCategoryId),
   })
 
@@ -352,12 +310,7 @@ function Transactions() {
 
   const filterSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-filter', categoryFilter],
-    queryFn: async () => {
-      const response = await api.get<Subcategory[]>(
-        `/categories/${categoryFilter}/subcategories`,
-      )
-      return response.data
-    },
+    queryFn: () => fetchSubcategories(categoryFilter ?? ''),
     enabled: Boolean(categoryFilter),
   })
 

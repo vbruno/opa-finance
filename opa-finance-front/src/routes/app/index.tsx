@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
-import { api } from '@/lib/api'
+import { pingApi } from '@/features/system/health.api'
 
 export const Route = createFileRoute('/app/')({
   component: Dashboard,
@@ -9,7 +9,7 @@ export const Route = createFileRoute('/app/')({
 
 function Dashboard() {
   useEffect(() => {
-    api.get('/')
+    pingApi()
       .finally(() => {
         console.log('API conectada')
       })

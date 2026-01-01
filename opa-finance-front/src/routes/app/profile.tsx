@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -8,7 +7,8 @@ import { getUser, updateUser, type User } from '@/auth/auth.store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import { useChangePassword } from '@/features/auth/auth.api'
+import { useUpdateProfile } from '@/features/profile/profile.api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   changePasswordSchema,
@@ -45,44 +45,23 @@ function Profile() {
     },
   })
 
-  const updateProfileMutation = useMutation({
-    mutationFn: async (formData: UpdateProfileFormData) => {
-      if (!user) {
-        throw new Error('Usuário não encontrado')
-      }
-
-      const response = await api.put<User>(`/users/${user.id}`, {
-        name: formData.name,
-      })
-
-      return response.data
-    },
-    onSuccess: (updatedUser) => {
-      updateUser(updatedUser)
-      setUser(updatedUser)
-      profileForm.reset({ name: updatedUser.name })
-      setProfileMessage('Perfil atualizado com sucesso.')
-    },
-  })
-
-  const changePasswordMutation = useMutation({
-    mutationFn: async (formData: ChangePasswordFormData) => {
-      await api.post('/auth/change-password', {
-        currentPassword: formData.currentPassword,
-        newPassword: formData.newPassword,
-        confirmNewPassword: formData.confirmNewPassword,
-      })
-    },
-    onSuccess: () => {
-      passwordForm.reset()
-      setPasswordMessage('Senha alterada com sucesso.')
-    },
-  })
+  const updateProfileMutation = useUpdateProfile()
+  const changePasswordMutation = useChangePassword()
 
   async function onUpdateProfile(formData: UpdateProfileFormData) {
     setProfileMessage(null)
     try {
-      await updateProfileMutation.mutateAsync(formData)
+      if (!user) {
+        throw new Error('Usuário não encontrado')
+      }
+      const updatedUser = await updateProfileMutation.mutateAsync({
+        id: user.id,
+        name: formData.name,
+      })
+      updateUser(updatedUser)
+      setUser(updatedUser)
+      profileForm.reset({ name: updatedUser.name })
+      setProfileMessage('Perfil atualizado com sucesso.')
     } catch (error: unknown) {
       profileForm.setError('root', {
         message: getApiErrorMessage(error, {
@@ -95,7 +74,13 @@ function Profile() {
   async function onChangePassword(formData: ChangePasswordFormData) {
     setPasswordMessage(null)
     try {
-      await changePasswordMutation.mutateAsync(formData)
+      await changePasswordMutation.mutateAsync({
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+        confirmNewPassword: formData.confirmNewPassword,
+      })
+      passwordForm.reset()
+      setPasswordMessage('Senha alterada com sucesso.')
     } catch (error: unknown) {
       passwordForm.setError('root', {
         message: getApiErrorMessage(error, {

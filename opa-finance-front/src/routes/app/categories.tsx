@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -37,22 +37,24 @@ import {
 export const Route = createFileRoute('/app/categories')({
   validateSearch: z.object({
     q: z.string().optional(),
-    type: z.preprocess(
-      (value) => {
-        const allowed = ['income', 'expense']
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z.enum(['income', 'expense']).optional(),
-    ),
+    type: z
+      .preprocess(
+        (value) => {
+          const allowed = ['income', 'expense']
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum(['income', 'expense']),
+      )
+      .optional(),
   }),
   component: Categories,
 })
 
 function Categories() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -111,6 +113,11 @@ function Categories() {
       name: '',
     },
   })
+
+  const createNameField = form.register('name')
+  const editNameField = editForm.register('name')
+  const subCreateNameField = subCreateForm.register('name')
+  const subEditNameField = subEditForm.register('name')
 
   const createCategoryMutation = useCreateCategory()
 
@@ -179,21 +186,21 @@ function Categories() {
   })
   const categoryMatchIds = normalizedSearch.length
     ? userCategories
-        .filter((category) =>
-          normalizeSearch(category.name).includes(normalizedSearch),
-        )
-        .map((category) => category.id)
+      .filter((category) =>
+        normalizeSearch(category.name).includes(normalizedSearch),
+      )
+      .map((category) => category.id)
     : []
   const subcategoryMatchIds = debouncedNormalizedSearch.length
     ? userCategories
-        .filter((category) => {
-          const subcategories =
-            searchSubcategoriesQuery.data?.[category.id] ?? []
-          return subcategories.some((subcategory) =>
-            normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
-          )
-        })
-        .map((category) => category.id)
+      .filter((category) => {
+        const subcategories =
+          searchSubcategoriesQuery.data?.[category.id] ?? []
+        return subcategories.some((subcategory) =>
+          normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
+        )
+      })
+      .map((category) => category.id)
     : []
   const searchExpandIds = normalizedSearch.length
     ? Array.from(new Set([...categoryMatchIds, ...subcategoryMatchIds]))
@@ -211,8 +218,8 @@ function Categories() {
     deleteSubcategoryMutation.isPending
   const errorMessage = categoriesQuery.isError
     ? getApiErrorMessage(categoriesQuery.error, {
-        defaultMessage: 'Erro ao carregar categorias.',
-      })
+      defaultMessage: 'Erro ao carregar categorias.',
+    })
     : null
 
   useEffect(() => {
@@ -536,11 +543,10 @@ function Categories() {
                         >
                           <svg
                             viewBox="0 0 16 16"
-                            className={`h-4 w-4 transition-transform duration-200 ${
-                              expandedCategoryIds.includes(category.id)
+                            className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
                                 ? 'rotate-90'
                                 : ''
-                            }`}
+                              }`}
                             aria-hidden="true"
                           >
                             <path
@@ -619,49 +625,49 @@ function Categories() {
                         !expandedQueriesById[category.id]?.isError &&
                         (expandedQueriesById[category.id]?.data ?? []).map(
                           (subcategory) => (
-                          <tr key={subcategory.id} className="border-t bg-muted/10">
-                            <td className="px-4 py-3 text-sm">
-                              <span className="text-muted-foreground">—</span>{' '}
-                              {subcategory.name}
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                              {typeLabels[category.type]}
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                                Subcategoria
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSubcategoryParent(category)
-                                    setSelectedSubcategory(subcategory)
-                                    subEditForm.reset({ name: subcategory.name })
-                                    setIsSubEditOpen(true)
-                                  }}
-                                >
-                                  Editar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSubcategoryParent(category)
-                                    setSelectedSubcategory(subcategory)
-                                    setSubDeleteError(null)
-                                    setIsSubDeleteConfirmOpen(true)
-                                  }}
-                                >
-                                  Excluir
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ),
+                            <tr key={subcategory.id} className="border-t bg-muted/10">
+                              <td className="px-4 py-3 text-sm">
+                                <span className="text-muted-foreground">—</span>{' '}
+                                {subcategory.name}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                                {typeLabels[category.type]}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                                  Subcategoria
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSubcategoryParent(category)
+                                      setSelectedSubcategory(subcategory)
+                                      subEditForm.reset({ name: subcategory.name })
+                                      setIsSubEditOpen(true)
+                                    }}
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSubcategoryParent(category)
+                                      setSelectedSubcategory(subcategory)
+                                      setSubDeleteError(null)
+                                      setIsSubDeleteConfirmOpen(true)
+                                    }}
+                                  >
+                                    Excluir
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ),
                         )}
                       {!expandedQueriesById[category.id]?.isLoading &&
                         !expandedQueriesById[category.id]?.isError &&
@@ -755,9 +761,12 @@ function Categories() {
                   id="category-name"
                   placeholder="Ex: Alimentacao"
                   className="h-10"
-                  ref={createNameRef}
                   aria-invalid={!!form.formState.errors.name}
-                  {...form.register('name')}
+                  {...createNameField}
+                  ref={(node) => {
+                    createNameField.ref(node)
+                    createNameRef.current = node
+                  }}
                 />
                 {form.formState.errors.name && (
                   <p className="text-sm text-destructive">
@@ -846,9 +855,12 @@ function Categories() {
                   id="category-edit-name"
                   placeholder="Ex: Alimentacao"
                   className="h-10"
-                  ref={editNameRef}
                   aria-invalid={!!editForm.formState.errors.name}
-                  {...editForm.register('name')}
+                  {...editNameField}
+                  ref={(node) => {
+                    editNameField.ref(node)
+                    editNameRef.current = node
+                  }}
                 />
                 {editForm.formState.errors.name && (
                   <p className="text-sm text-destructive">
@@ -1003,9 +1015,12 @@ function Categories() {
                   id="subcategory-name"
                   placeholder="Ex: Supermercado"
                   className="h-10"
-                  ref={subCreateNameRef}
                   aria-invalid={!!subCreateForm.formState.errors.name}
-                  {...subCreateForm.register('name')}
+                  {...subCreateNameField}
+                  ref={(node) => {
+                    subCreateNameField.ref(node)
+                    subCreateNameRef.current = node
+                  }}
                 />
                 {subCreateForm.formState.errors.name && (
                   <p className="text-sm text-destructive">
@@ -1079,9 +1094,12 @@ function Categories() {
                   id="subcategory-edit-name"
                   placeholder="Ex: Supermercado"
                   className="h-10"
-                  ref={subEditNameRef}
                   aria-invalid={!!subEditForm.formState.errors.name}
-                  {...subEditForm.register('name')}
+                  {...subEditNameField}
+                  ref={(node) => {
+                    subEditNameField.ref(node)
+                    subEditNameRef.current = node
+                  }}
                 />
                 {subEditForm.formState.errors.name && (
                   <p className="text-sm text-destructive">

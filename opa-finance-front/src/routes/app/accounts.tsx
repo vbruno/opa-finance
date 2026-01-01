@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
@@ -7,14 +7,13 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getApiErrorMessage } from '@/lib/apiError'
 import {
   useAccounts,
   useCreateAccount,
   useDeleteAccount,
   useUpdateAccount,
-  type Account,
 } from '@/features/accounts/accounts.api'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,
   formatCurrencyValue,
@@ -28,67 +27,73 @@ import {
 export const Route = createFileRoute('/app/accounts')({
   validateSearch: z.object({
     q: z.string().optional(),
-    type: z.preprocess(
-      (value) => {
-        const allowed = [
+    type: z
+      .preprocess(
+        (value) => {
+          const allowed = [
+            'cash',
+            'checking_account',
+            'savings_account',
+            'credit_card',
+            'investment',
+          ]
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum([
           'cash',
           'checking_account',
           'savings_account',
           'credit_card',
           'investment',
-        ]
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z
-        .enum([
-          'cash',
-          'checking_account',
-          'savings_account',
-          'credit_card',
-          'investment',
-        ])
-        .optional(),
-    ),
+        ]),
+      )
+      .optional(),
     id: z.string().optional(),
-    sort: z.preprocess(
-      (value) => {
-        const allowed = ['name', 'type', 'balance']
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z.enum(['name', 'type', 'balance']).optional(),
-    ),
-    dir: z.preprocess(
-      (value) => {
-        const allowed = ['asc', 'desc']
-        if (typeof value !== 'string') {
-          return undefined
-        }
-        return allowed.includes(value) ? value : undefined
-      },
-      z.enum(['asc', 'desc']).optional(),
-    ),
-    page: z.preprocess(
-      (value) => {
-        const parsed = Number(value)
-        if (!Number.isFinite(parsed) || parsed < 1) {
-          return undefined
-        }
-        return Math.floor(parsed)
-      },
-      z.number().int().min(1).optional(),
-    ),
+    sort: z
+      .preprocess(
+        (value) => {
+          const allowed = ['name', 'type', 'balance']
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum(['name', 'type', 'balance']),
+      )
+      .optional(),
+    dir: z
+      .preprocess(
+        (value) => {
+          const allowed = ['asc', 'desc']
+          if (typeof value !== 'string') {
+            return undefined
+          }
+          return allowed.includes(value) ? value : undefined
+        },
+        z.enum(['asc', 'desc']),
+      )
+      .optional(),
+    page: z
+      .preprocess(
+        (value) => {
+          const parsed = Number(value)
+          if (!Number.isFinite(parsed) || parsed < 1) {
+            return undefined
+          }
+          return Math.floor(parsed)
+        },
+        z.number().int().min(1),
+      )
+      .optional(),
   }),
   component: Accounts,
 })
 
 function Accounts() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -143,6 +148,8 @@ function Accounts() {
   })
 
   const confirmEditValue = watchEdit('confirm')
+  const createNameField = register('name')
+  const editNameField = editRegister('name')
 
   const accountsQuery = useAccounts()
 
@@ -424,18 +431,18 @@ function Accounts() {
           <div className="relative mt-2">
             <select
               className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
-            value={typeFilter}
-            onChange={(event) =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  type: event.target.value || undefined,
-                }),
-                replace: false,
-              })
-            }
-          >
-            <option value="">Todos</option>
+              value={typeFilter}
+              onChange={(event) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    type: event.target.value || undefined,
+                  }),
+                  replace: false,
+                })
+              }
+            >
+              <option value="">Todos</option>
               <option value="checking_account">Conta Corrente</option>
               <option value="savings_account">Poupanca</option>
               <option value="credit_card">Cartao de Credito</option>
@@ -708,9 +715,12 @@ function Accounts() {
                   id="account-name"
                   placeholder="Ex: Conta Corrente"
                   className="h-10"
-                  ref={createNameRef}
                   aria-invalid={!!errors.name}
-                  {...register('name')}
+                  {...createNameField}
+                  ref={(node) => {
+                    createNameField.ref(node)
+                    createNameRef.current = node
+                  }}
                 />
                 {errors.name && (
                   <p className="text-sm text-destructive">
@@ -1023,9 +1033,12 @@ function Accounts() {
                   id="edit-account-name"
                   placeholder="Ex: Conta Corrente"
                   className="h-10"
-                  ref={editNameRef}
                   aria-invalid={!!editErrors.name}
-                  {...editRegister('name')}
+                  {...editNameField}
+                  ref={(node) => {
+                    editNameField.ref(node)
+                    editNameRef.current = node
+                  }}
                 />
                 {editErrors.name && (
                   <p className="text-sm text-destructive">

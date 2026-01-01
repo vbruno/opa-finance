@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -7,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import { useRegister } from '@/features/auth/auth.api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { registerSchema, type RegisterFormData } from '@/schemas/auth.schema'
 
@@ -34,25 +33,19 @@ function RegisterUser() {
     },
   })
 
-  const registerMutation = useMutation({
-    mutationFn: async (formData: RegisterFormData) => {
-      await api.post('/auth/register', {
+  const registerMutation = useRegister()
+
+  async function onSubmit(formData: RegisterFormData) {
+    setSuccessMessage(null)
+    try {
+      await registerMutation.mutateAsync({
         name: formData.name,
         email: formData.email,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       })
-    },
-    onSuccess: () => {
       setSuccessMessage('Usuário criado com sucesso.')
       reset()
-    },
-  })
-
-  async function onSubmit(formData: RegisterFormData) {
-    setSuccessMessage(null)
-    try {
-      await registerMutation.mutateAsync(formData)
     } catch (error: unknown) {
       setError('root', {
         message: getApiErrorMessage(error, {

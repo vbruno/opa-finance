@@ -5,13 +5,13 @@ import { parseCurrencyInput } from '@/lib/utils'
 const transactionTypes = ['income', 'expense'] as const
 const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/
 
-const optionalString = z.preprocess((value) => {
-  if (typeof value !== 'string') {
-    return value
-  }
-  const trimmed = value.trim()
-  return trimmed === '' ? undefined : trimmed
-}, z.string().optional())
+const optionalString = z
+  .string()
+  .transform((value) => {
+    const trimmed = value.trim()
+    return trimmed === '' ? undefined : trimmed
+  })
+  .optional()
 
 export const transactionCreateSchema = z.object({
   accountId: z.string().min(1, 'Selecione a conta.'),

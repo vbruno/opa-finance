@@ -1,4 +1,4 @@
-import { getToken, logout } from '@/auth/auth.store'
+import { getToken, getUser, logout, setAuth } from '@/auth/auth.store'
 import { router } from '@/router/router'
 
 import { api } from './api'
@@ -86,7 +86,6 @@ api.interceptors.response.use(
         const { accessToken } = response.data
 
         // Atualiza o token no store (sem atualizar user, pois vem do cookie)
-        const { setAuth, getUser } = await import('@/auth/auth.store')
         const user = getUser()
         if (user && accessToken) {
           setAuth(accessToken, user)
