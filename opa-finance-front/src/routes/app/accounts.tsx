@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
@@ -8,8 +7,14 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
+import {
+  useAccounts,
+  useCreateAccount,
+  useDeleteAccount,
+  useUpdateAccount,
+  type Account,
+} from '@/features/accounts/accounts.api'
 import {
   formatCurrencyInput,
   formatCurrencyValue,
@@ -84,7 +89,6 @@ export const Route = createFileRoute('/app/accounts')({
 
 function Accounts() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -96,16 +100,6 @@ function Accounts() {
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
-
-  type Account = {
-    id: string
-    name: string
-    type: string
-    initialBalance: number
-    currentBalance?: number
-    createdAt: string
-    updatedAt: string
-  }
 
   const {
     control,
@@ -150,57 +144,11 @@ function Accounts() {
 
   const confirmEditValue = watchEdit('confirm')
 
-  const accountsQuery = useQuery({
-    queryKey: ['accounts'],
-    queryFn: async () => {
-      const response = await api.get<Account[]>('/accounts')
-      return response.data
-    },
-  })
+  const accountsQuery = useAccounts()
 
-  const createAccountMutation = useMutation({
-    mutationFn: async (formData: AccountCreateFormData) => {
-      const parsedBalance = parseCurrencyInput(formData.currentBalance) ?? 0
-      const response = await api.post<Account>('/accounts', {
-        name: formData.name,
-        type: formData.type,
-        initialBalance: parsedBalance,
-      })
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      setIsCreateOpen(false)
-      reset()
-    },
-  })
+  const createAccountMutation = useCreateAccount()
 
-  const updateAccountMutation = useMutation({
-    mutationFn: async ({
-      id,
-      formData,
-    }: {
-      id: string
-      formData: AccountCreateFormData
-    }) => {
-      const parsedBalance = parseCurrencyInput(formData.currentBalance) ?? 0
-      const response = await api.put<Account>(`/accounts/${id}`, {
-        name: formData.name,
-        type: formData.type,
-        initialBalance: parsedBalance,
-      })
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      setIsEditOpen(false)
-      navigate({
-        search: (prev) => ({ ...prev, id: undefined }),
-        replace: true,
-      })
-      resetEdit()
-    },
-  })
+  const updateAccountMutation = useUpdateAccount()
 
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const accounts = accountsQuery.data ?? []
@@ -278,19 +226,7 @@ function Accounts() {
       ? sortedAccounts.slice((safePage - 1) * pageSize, safePage * pageSize)
       : sortedAccounts
 
-  const deleteAccountMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/accounts/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      navigate({
-        search: (prev) => ({ ...prev, id: undefined }),
-        replace: true,
-      })
-      setDeleteError(null)
-    },
-  })
+  const deleteAccountMutation = useDeleteAccount()
 
   useEffect(() => {
     setDeleteError(null)
@@ -747,7 +683,15 @@ function Accounts() {
               className="mt-6 space-y-4"
               onSubmit={handleSubmit(async (formData) => {
                 try {
-                  await createAccountMutation.mutateAsync(formData)
+                  const parsedBalance =
+                    parseCurrencyInput(formData.currentBalance) ?? 0
+                  await createAccountMutation.mutateAsync({
+                    name: formData.name,
+                    type: formData.type,
+                    initialBalance: parsedBalance,
+                  })
+                  setIsCreateOpen(false)
+                  reset()
                 } catch (error: unknown) {
                   setError('root', {
                     message: getApiErrorMessage(error, {
@@ -991,6 +935,11 @@ function Accounts() {
                       selectedAccount.id,
                     )
                     setIsDeleteConfirmOpen(false)
+                    navigate({
+                      search: (prev) => ({ ...prev, id: undefined }),
+                      replace: true,
+                    })
+                    setDeleteError(null)
                   } catch (error: unknown) {
                     const status = getErrorStatus(error)
                     if (status === 409) {
@@ -1042,10 +991,22 @@ function Accounts() {
               className="mt-6 space-y-4"
               onSubmit={handleEditSubmit(async (formData) => {
                 try {
+                  const parsedBalance =
+                    parseCurrencyInput(formData.currentBalance) ?? 0
                   await updateAccountMutation.mutateAsync({
                     id: selectedAccount.id,
-                    formData,
+                    payload: {
+                      name: formData.name,
+                      type: formData.type,
+                      initialBalance: parsedBalance,
+                    },
                   })
+                  setIsEditOpen(false)
+                  navigate({
+                    search: (prev) => ({ ...prev, id: undefined }),
+                    replace: true,
+                  })
+                  resetEdit()
                 } catch (error: unknown) {
                   setEditError('root', {
                     message: getApiErrorMessage(error, {

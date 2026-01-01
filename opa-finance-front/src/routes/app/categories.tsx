@@ -1,10 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -13,7 +8,18 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import {
+  fetchSubcategories,
+  useCategories,
+  useCreateCategory,
+  useCreateSubcategory,
+  useDeleteCategory,
+  useDeleteSubcategory,
+  useUpdateCategory,
+  useUpdateSubcategory,
+  type Category,
+  type Subcategory,
+} from '@/features/categories/categories.api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   categoryCreateSchema,
@@ -47,7 +53,6 @@ export const Route = createFileRoute('/app/categories')({
 
 function Categories() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -69,44 +74,12 @@ function Categories() {
   const subCreateNameRef = useRef<HTMLInputElement | null>(null)
   const subEditNameRef = useRef<HTMLInputElement | null>(null)
 
-  type Category = {
-    id: string
-    userId: string | null
-    name: string
-    type: 'income' | 'expense'
-    system: boolean
-    color: string | null
-    createdAt: string
-    updatedAt: string
-  }
-
-  type Subcategory = {
-    id: string
-    userId: string
-    categoryId: string
-    name: string
-    color: string | null
-    createdAt: string
-    updatedAt: string
-  }
-
-  const categoriesQuery = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const response = await api.get<Category[]>('/categories')
-      return response.data
-    },
-  })
+  const categoriesQuery = useCategories()
 
   const expandedSubcategoriesQueries = useQueries({
     queries: expandedCategoryIds.map((categoryId) => ({
       queryKey: ['subcategories', categoryId],
-      queryFn: async () => {
-        const response = await api.get<Subcategory[]>(
-          `/categories/${categoryId}/subcategories`,
-        )
-        return response.data
-      },
+      queryFn: () => fetchSubcategories(categoryId),
     })),
   })
 
@@ -139,117 +112,17 @@ function Categories() {
     },
   })
 
-  const createCategoryMutation = useMutation({
-    mutationFn: async (formData: CategoryCreateFormData) => {
-      const response = await api.post<Category>('/categories', {
-        name: formData.name,
-        type: formData.type,
-      })
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] })
-      setIsCreateOpen(false)
-      form.reset()
-    },
-  })
+  const createCategoryMutation = useCreateCategory()
 
-  const updateCategoryMutation = useMutation({
-    mutationFn: async ({
-      id,
-      name,
-    }: {
-      id: string
-      name: string
-    }) => {
-      const response = await api.put<Category>(`/categories/${id}`, { name })
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] })
-      setIsEditOpen(false)
-      setSelectedCategory(null)
-      editForm.reset()
-    },
-  })
+  const updateCategoryMutation = useUpdateCategory()
 
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/categories/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] })
-      setIsDeleteConfirmOpen(false)
-      setSelectedCategory(null)
-      setDeleteError(null)
-    },
-  })
+  const deleteCategoryMutation = useDeleteCategory()
 
-  const createSubcategoryMutation = useMutation({
-    mutationFn: async (formData: SubcategoryCreateFormData) => {
-      if (!subcategoryParent) {
-        throw new Error('Categoria nao selecionada')
-      }
-      const response = await api.post<Subcategory>('/subcategories', {
-        categoryId: subcategoryParent.id,
-        name: formData.name,
-      })
-      return response.data
-    },
-    onSuccess: () => {
-      if (subcategoryParent) {
-        queryClient.invalidateQueries({
-          queryKey: ['subcategories', subcategoryParent.id],
-        })
-      }
-      queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
-      setIsSubCreateOpen(false)
-      subCreateForm.reset()
-    },
-  })
+  const createSubcategoryMutation = useCreateSubcategory()
 
-  const updateSubcategoryMutation = useMutation({
-    mutationFn: async ({
-      id,
-      name,
-    }: {
-      id: string
-      name: string
-    }) => {
-      const response = await api.put<Subcategory>(`/subcategories/${id}`, {
-        name,
-      })
-      return response.data
-    },
-    onSuccess: () => {
-      if (subcategoryParent) {
-        queryClient.invalidateQueries({
-          queryKey: ['subcategories', subcategoryParent.id],
-        })
-      }
-      queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
-      setIsSubEditOpen(false)
-      setSelectedSubcategory(null)
-      subEditForm.reset()
-    },
-  })
+  const updateSubcategoryMutation = useUpdateSubcategory()
 
-  const deleteSubcategoryMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/subcategories/${id}`)
-    },
-    onSuccess: () => {
-      if (subcategoryParent) {
-        queryClient.invalidateQueries({
-          queryKey: ['subcategories', subcategoryParent.id],
-        })
-      }
-      queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
-      setIsSubDeleteConfirmOpen(false)
-      setSelectedSubcategory(null)
-      setSubDeleteError(null)
-    },
-  })
+  const deleteSubcategoryMutation = useDeleteSubcategory()
 
   const categories = categoriesQuery.data ?? []
   const search = Route.useSearch()
@@ -282,10 +155,8 @@ function Categories() {
     queryFn: async () => {
       const entries = await Promise.all(
         userCategories.map(async (category) => {
-          const response = await api.get<Subcategory[]>(
-            `/categories/${category.id}/subcategories`,
-          )
-          return [category.id, response.data] as const
+          const data = await fetchSubcategories(category.id)
+          return [category.id, data] as const
         }),
       )
       return Object.fromEntries(entries) as Record<string, Subcategory[]>
@@ -862,7 +733,12 @@ function Categories() {
               className="mt-6 space-y-4"
               onSubmit={form.handleSubmit(async (formData) => {
                 try {
-                  await createCategoryMutation.mutateAsync(formData)
+                  await createCategoryMutation.mutateAsync({
+                    name: formData.name,
+                    type: formData.type,
+                  })
+                  setIsCreateOpen(false)
+                  form.reset()
                 } catch (error: unknown) {
                   form.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -951,6 +827,9 @@ function Categories() {
                     id: selectedCategory.id,
                     name: formData.name,
                   })
+                  setIsEditOpen(false)
+                  setSelectedCategory(null)
+                  editForm.reset()
                 } catch (error: unknown) {
                   editForm.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -1033,6 +912,9 @@ function Categories() {
                     await deleteCategoryMutation.mutateAsync(
                       selectedCategory.id,
                     )
+                    setIsDeleteConfirmOpen(false)
+                    setSelectedCategory(null)
+                    setDeleteError(null)
                   } catch (error: unknown) {
                     setDeleteError(
                       getApiErrorMessage(error, {
@@ -1073,7 +955,15 @@ function Categories() {
               className="mt-6 space-y-4"
               onSubmit={subCreateForm.handleSubmit(async (formData) => {
                 try {
-                  await createSubcategoryMutation.mutateAsync(formData)
+                  if (!subcategoryParent) {
+                    throw new Error('Categoria nao selecionada')
+                  }
+                  await createSubcategoryMutation.mutateAsync({
+                    categoryId: subcategoryParent.id,
+                    name: formData.name,
+                  })
+                  setIsSubCreateOpen(false)
+                  subCreateForm.reset()
                 } catch (error: unknown) {
                   subCreateForm.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -1168,7 +1058,11 @@ function Categories() {
                   await updateSubcategoryMutation.mutateAsync({
                     id: selectedSubcategory.id,
                     name: formData.name,
+                    categoryId: subcategoryParent.id,
                   })
+                  setIsSubEditOpen(false)
+                  setSelectedSubcategory(null)
+                  subEditForm.reset()
                 } catch (error: unknown) {
                   subEditForm.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -1249,8 +1143,14 @@ function Categories() {
                   setSubDeleteError(null)
                   try {
                     await deleteSubcategoryMutation.mutateAsync(
-                      selectedSubcategory.id,
+                      {
+                        id: selectedSubcategory.id,
+                        categoryId: subcategoryParent.id,
+                      },
                     )
+                    setIsSubDeleteConfirmOpen(false)
+                    setSelectedSubcategory(null)
+                    setSubDeleteError(null)
                   } catch (error: unknown) {
                     setSubDeleteError(
                       getApiErrorMessage(error, {
