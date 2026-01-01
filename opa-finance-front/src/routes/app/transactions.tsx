@@ -25,7 +25,7 @@ import {
   useTransactions,
   useUpdateTransaction,
   type Transaction,
-} from '@/transactions/transactions.api'
+} from '@/features/transactions/transactions.api'
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
