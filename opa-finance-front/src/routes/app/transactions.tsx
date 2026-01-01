@@ -8,11 +8,11 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useAccounts } from '@/features/accounts/accounts.api'
+import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
   useCategories,
-} from '@/features/categories/categories.api'
+} from '@/features/categories'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,
@@ -29,7 +29,7 @@ import {
   useTransactions,
   useUpdateTransaction,
   type Transaction,
-} from '@/features/transactions/transactions.api'
+} from '@/features/transactions'
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({

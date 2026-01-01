@@ -1,4 +1,4 @@
-import { getToken, getUser, logout, setAuth } from '@/features/auth/auth.store'
+import { getToken, getUser, logout, setAuth } from '@/features/auth'
 import { router } from '@/router/router'
 
 import { api } from './api'

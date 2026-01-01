@@ -12,6 +12,11 @@ TypeScript e Tailwind CSS v4.
 - TanStack Router + TanStack Query
 - shadcn/ui
 
+## Arquitetura
+
+- Feature-based architecture: hooks e tipos ficam em `src/features/*`.
+- Rotas (`src/routes/*`) concentram a UI e a orquestracao.
+
 ## Scripts
 
 - `npm run dev` - ambiente de desenvolvimento

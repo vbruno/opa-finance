@@ -19,7 +19,7 @@ import {
   useUpdateSubcategory,
   type Category,
   type Subcategory,
-} from '@/features/categories/categories.api'
+} from '@/features/categories'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   categoryCreateSchema,

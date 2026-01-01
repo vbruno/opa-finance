@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
-import { pingApi } from '@/features/system/health.api'
+import { pingApi } from '@/features/system'
 
 export const Route = createFileRoute('/app/')({
   component: Dashboard,

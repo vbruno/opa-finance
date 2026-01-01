@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useRegister } from '@/features/auth/auth.api'
+import { useRegister } from '@/features/auth'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { registerSchema, type RegisterFormData } from '@/schemas/auth.schema'
 

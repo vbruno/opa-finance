@@ -12,7 +12,7 @@ import {
   useCreateAccount,
   useDeleteAccount,
   useUpdateAccount,
-} from '@/features/accounts/accounts.api'
+} from '@/features/accounts'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,

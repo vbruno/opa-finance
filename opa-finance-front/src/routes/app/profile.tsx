@@ -3,12 +3,12 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import { getUser, updateUser, type User } from '@/features/auth/auth.store'
+import { getUser, updateUser, type User } from '@/features/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useChangePassword } from '@/features/auth/auth.api'
-import { useUpdateProfile } from '@/features/profile/profile.api'
+import { useChangePassword } from '@/features/auth'
+import { useUpdateProfile } from '@/features/profile'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   changePasswordSchema,

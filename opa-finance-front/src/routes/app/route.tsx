@@ -4,7 +4,7 @@ import {
   redirect,
 } from '@tanstack/react-router'
 
-import { isAuthenticated } from '@/features/auth/auth.store'
+import { isAuthenticated } from '@/features/auth'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
 
