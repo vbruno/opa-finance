@@ -68,6 +68,17 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
  - Ordenação:
    - Deve ser feita no backend usando `sort`/`dir` (lista paginada)
 
+### 🔹 Transferências
+- Transferência sempre possui:
+  - conta de origem
+  - conta de destino
+  - valor
+  - data
+- Contas de origem e destino devem ser diferentes
+- Valores sempre positivos
+- Descrição é opcional
+- Cadastro é feito na tela de transações (modal dedicado)
+
 ### 🔹 Alteração de Categoria
 - Ao trocar a categoria:
   - Subcategoria deve ser **resetada automaticamente**

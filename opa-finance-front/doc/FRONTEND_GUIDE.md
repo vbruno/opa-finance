@@ -94,7 +94,8 @@ src/
 │  ├─ categories/         # Hooks + tipos de categorias/subcategorias
 │  ├─ profile/            # Hooks de perfil
 │  ├─ system/             # Health/ping
-│  └─ transactions/       # Hooks + tipos de transações
+│  ├─ transactions/       # Hooks + tipos de transações
+│  └─ transfers/          # Hooks + tipos de transferências
 ├─ routes/
 │  ├─ __root.tsx
 │  ├─ index.tsx           # Landing / redirect inicial
@@ -129,7 +130,9 @@ src/
 │  ├─ user.schema.ts      # Perfil e alteração de senha
 │  ├─ account.schema.ts   # Contas
 │  ├─ category.schema.ts  # Categorias
-│  └─ subcategory.schema.ts # Subcategorias
+│  ├─ subcategory.schema.ts # Subcategorias
+│  ├─ transaction.schema.ts # Transações
+│  └─ transfer.schema.ts  # Transferências
 ├─ routeTree.gen.ts
 ├─ main.tsx
 ```
@@ -203,6 +206,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Subcategoria herda o tipo da categoria
 - Alterar categoria remove subcategoria
 - Valores sempre positivos (tipo define fluxo)
+- Transferências são criadas na tela de transações (modal dedicado)
 
 ---
 
@@ -261,7 +265,7 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Accounts (tabela, filtros/ordenação/paginação na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação e deep link)
 - [x] Categories / Subcategories
 - [x] Transactions (listagem, filtros na URL, ordenação server-side, CRUD, modais)
-- [ ] Transfers
+- [x] Transfers (modal na tela de transacoes, validacao e integracao com API)
 - [ ] Dashboard (dados reais)
 
 ---
@@ -294,5 +298,13 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - Ordenacao server-side via `sort`/`dir` (backend).
 - Busca em descricao opcionalmente inclui notas (checkbox).
 - Modal de detalhes, criacao, edicao e exclusao.
+
+---
+
+## 🧩 Transfers — Notas de Implementação
+
+- Criacao feita na tela de transacoes (modal dedicado).
+- Validacao via Zod (contas diferentes, valor positivo, data valida).
+- Integracao via `src/features/transfers` com invalidacao de `transactions` e `accounts`.
 - Categoria define o tipo da transacao e limpa subcategoria ao trocar.
 - Resposta da API ja inclui `accountName`, `categoryName`, `subcategoryName` (evita N+1).

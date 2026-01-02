@@ -17,6 +17,11 @@ TypeScript e Tailwind CSS v4.
 - Feature-based architecture: hooks e tipos ficam em `src/features/*`.
 - Rotas (`src/routes/*`) concentram a UI e a orquestracao.
 
+## Transfers
+
+- Transferencias sao criadas na tela de transacoes (modal dedicado).
+- Fluxo usa os hooks em `src/features/transfers` e schema em `src/schemas/transfer.schema.ts`.
+
 ## Scripts
 
 - `npm run dev` - ambiente de desenvolvimento
