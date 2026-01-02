@@ -19,14 +19,17 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🧠 Princípios Gerais
 
 ### 1. Frontend NÃO é fonte da verdade
+
 - Backend é sempre a autoridade final
 - Frontend valida para **UX**, não para segurança
 
 ### 2. Regras devem existir em 2 níveis
+
 - **Frontend:** feedback imediato ao usuário
 - **Backend:** validação definitiva
 
 ### 3. Estados devem ser previsíveis
+
 - Evitar lógica escondida em componentes
 - Preferir regras explícitas
 
@@ -35,6 +38,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 💰 Domínio Financeiro — Regras
 
 ### 🔹 Categorias
+
 - Toda transação **deve** possuir categoria
 - Categoria possui:
   - `id`
@@ -46,6 +50,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - **Não** podem ser editadas ou removidas pelo usuário
 
 ### 🔹 Subcategorias
+
 - Subcategoria **depende obrigatoriamente** de uma categoria
 - Subcategoria **herda o tipo da categoria**
 - Não pode existir:
@@ -54,6 +59,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Busca por categoria/subcategoria deve ignorar acentos
 
 ### 🔹 Transações
+
 - Uma transação sempre possui:
   - valor
   - data
@@ -62,13 +68,14 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - se existir, deve pertencer à categoria selecionada
 - Valores **sempre positivos**
   - O tipo (`income | expense`) define o fluxo
- - Filtros da listagem:
-   - Data/conta/categoria/subcategoria/tipo são server-side
-   - Descrição é opcional; pode incluir notas quando o usuário marcar a opção
- - Ordenação:
-   - Deve ser feita no backend usando `sort`/`dir` (lista paginada)
+- Filtros da listagem:
+  - Data/conta/categoria/subcategoria/tipo são server-side
+  - Descrição é opcional; pode incluir notas quando o usuário marcar a opção
+- Ordenação:
+  - Deve ser feita no backend usando `sort`/`dir` (lista paginada)
 
 ### 🔹 Transferências
+
 - Transferência sempre possui:
   - conta de origem
   - conta de destino
@@ -80,6 +87,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Cadastro é feito na tela de transações (modal dedicado)
 
 ### 🔹 Alteração de Categoria
+
 - Ao trocar a categoria:
   - Subcategoria deve ser **resetada automaticamente**
   - Frontend deve limpar o campo
@@ -117,13 +125,15 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🔐 Autenticação & Sessão (Frontend)
 
 ### Situação atual
+
 - Autenticação integrada com backend
 - Access token persistido via `localStorage`
 - Refresh token via cookie httpOnly (com `withCredentials`)
 - Guard de rotas via TanStack Router (`beforeLoad`)
- - Menu do usuário no header com acesso ao perfil e logout
+- Menu do usuário no header com acesso ao perfil e logout
 
 ### Comportamento esperado
+
 - Usuário não autenticado:
   - Não acessa `/app/*`
   - É redirecionado para `/login`
@@ -135,11 +145,13 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - Redireciona para `/login`
 
 ### Perfil (Frontend)
+
 - Usuário pode atualizar o próprio nome
 - Usuário pode alterar a senha (exige senha atual)
 - Email é exibido como somente leitura
 
 ### Criação de usuário (Frontend)
+
 - Rota privada: `/app/register`
 - Acesso direto (não aparece no sidebar)
 
@@ -148,11 +160,13 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🧭 Navegação & Layout
 
 ### Layout `/app`
+
 - Header fixo
 - Sidebar persistente
 - Conteúdo renderizado via `<Outlet />`
 
 ### Sidebar
+
 - Responsável apenas por navegação
 - Não contém lógica de negócio
 - Item ativo baseado na rota atual
@@ -162,15 +176,18 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🔄 Comunicação com API
 
 ### Cliente HTTP
+
 - Toda chamada HTTP deve usar:
   - `src/lib/api.ts`
 - É proibido:
   - Criar instâncias locais de Axios
 
 ### Gerenciamento de dados
+
 - Queries e mutations devem usar TanStack Query
 
 ### Interceptors
+
 - Token anexado automaticamente
 - Erros globais tratados centralmente
 - `401` → tentar refresh e, se falhar, logout + redirecionar para `/login`
@@ -180,6 +197,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🧩 Organização de Código
 
 ### Componentes
+
 - Devem ser:
   - pequenos
   - reutilizáveis
@@ -187,6 +205,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Evitar lógica de negócio pesada em componentes de UI
 
 ### Regras & Validações
+
 - Preferir:
   - helpers
   - hooks
@@ -198,11 +217,13 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 ## 🧪 Validações no Frontend
 
 ### O que validar
+
 - Campos obrigatórios
 - Formato de dados
 - Relações entre campos (ex: categoria ↔ subcategoria)
 
 ### O que NÃO validar
+
 - Autorização
 - Permissões
 - Regras críticas de segurança
