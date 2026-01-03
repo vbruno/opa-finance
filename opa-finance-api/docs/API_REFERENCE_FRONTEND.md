@@ -1202,6 +1202,61 @@ GET /transactions/summary?startDate=2025-01-01&endDate=2025-01-31
 
 ---
 
+### GET `/transactions/top-categories`
+
+Retorna os 5 maiores gastos agrupados por categoria ou subcategoria.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Parameters:**
+
+- `startDate` (string, formato: YYYY-MM-DD) - opcional
+- `endDate` (string, formato: YYYY-MM-DD) - opcional
+- `accountId` (uuid) - opcional
+- `groupBy` ("category" | "subcategory") - opcional, default: `category`
+
+**Exemplo:**
+
+```
+GET /transactions/top-categories?startDate=2025-01-01&endDate=2025-01-31
+```
+
+**Response 200:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Alimentação",
+    "totalAmount": 1200.50,
+    "percentage": 42.5
+  }
+]
+```
+
+**Exemplo (groupBy=subcategory):**
+
+```json
+[
+  {
+    "id": "uuid-sub",
+    "name": "Supermercado",
+    "categoryId": "uuid-cat",
+    "categoryName": "Alimentação",
+    "totalAmount": 800.00,
+    "percentage": 28.3
+  }
+]
+```
+
+**Notas:**
+
+- Se `groupBy=subcategory`, inclui `categoryId` e `categoryName` no item.
+- Retorna no máximo 5 itens, ordenados por maior gasto.
+- O cálculo de `percentage` considera o total de despesas do período filtrado.
+
+---
+
 ## 🔄 Transfers
 
 ### POST `/transfers`

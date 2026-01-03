@@ -14,6 +14,7 @@
 - PostgreSQL  
 - JWT Auth  
 - Zod  
+- Dashboard com top gastos por categoria/subcategoria  
 
 ## Infraestrutura
 - Docker + Portainer  

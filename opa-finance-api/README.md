@@ -172,6 +172,7 @@ Tipos suportados:
 - CRUD completo  
 - paginação  
 - filtros  
+- top gastos (categoria/subcategoria)  
 - dashboard mensal  
 
 ### 🔄 Transfers

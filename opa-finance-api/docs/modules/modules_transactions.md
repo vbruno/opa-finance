@@ -7,6 +7,7 @@
 - Excluir transações
 - Listar transações por filtros
 - Resumo de transações (summary)
+- Top 5 categorias de gasto
 
 ## Regras
 - category_id obrigatório
@@ -21,3 +22,10 @@
 ## Filtros de listagem
 - startDate, endDate, accountId, categoryId, subcategoryId, type, description, notes
   - Observação: busca por description/notes é insensível a acento com extensão `unaccent` habilitada.
+
+## Top gastos (categorias/subcategorias)
+- Agregado por `category` (default) ou `subcategory`
+- Filtros: startDate, endDate, accountId
+- Sempre considera apenas despesas (type = expense)
+- Retorno: id, name, totalAmount, percentage (opcional)
+- Se `groupBy=subcategory`, retorna também categoryId/categoryName

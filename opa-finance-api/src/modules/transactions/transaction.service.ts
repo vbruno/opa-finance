@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, asc, desc, eq, gte, ilike, lte, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, isNotNull, lte, sql, sum } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
 import { TransactionType } from "./transaction.enums";
@@ -8,6 +8,7 @@ import type {
   UpdateTransactionInput,
   ListTransactionsQuery,
   SummaryTransactionsQuery,
+  TopCategoriesQuery,
 } from "./transaction.schemas";
 import {
   NotFoundProblem,
@@ -376,5 +377,95 @@ export class TransactionService {
       expense,
       balance: income - expense,
     };
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                             TOP CATEGORIES                                 */
+  /* -------------------------------------------------------------------------- */
+
+  async topCategories(userId: string, query: TopCategoriesQuery) {
+    const filters = [eq(transactions.userId, userId)];
+
+    if (query.startDate) {
+      filters.push(gte(transactions.date, query.startDate));
+    }
+
+    if (query.endDate) {
+      filters.push(lte(transactions.date, query.endDate));
+    }
+
+    if (query.accountId) {
+      filters.push(eq(transactions.accountId, query.accountId));
+    }
+
+    filters.push(eq(transactions.type, "expense"));
+
+    const groupBy = query.groupBy ?? "category";
+    if (groupBy === "subcategory") {
+      filters.push(isNotNull(transactions.subcategoryId));
+    }
+
+    const [totalRow] = await this.app.db
+      .select({ total: sum(transactions.amount) })
+      .from(transactions)
+      .where(and(...filters));
+
+    const total = Number(totalRow?.total ?? 0);
+    const totalAmount = sql<number>`sum(${transactions.amount})`;
+
+    if (groupBy === "subcategory") {
+      const rows = await this.app.db
+        .select({
+          subcategoryId: transactions.subcategoryId,
+          subcategoryName: subcategories.name,
+          categoryId: categories.id,
+          categoryName: categories.name,
+          totalAmount,
+        })
+        .from(transactions)
+        .innerJoin(subcategories, eq(subcategories.id, transactions.subcategoryId))
+        .innerJoin(categories, eq(categories.id, transactions.categoryId))
+        .where(and(...filters))
+        .groupBy(transactions.subcategoryId, subcategories.name, categories.id, categories.name)
+        .orderBy(desc(totalAmount))
+        .limit(5);
+
+      return rows.map((row) => {
+        const amount = Number(row.totalAmount ?? 0);
+        const percentage = total > 0 ? (amount / total) * 100 : 0;
+        return {
+          id: row.subcategoryId,
+          name: row.subcategoryName,
+          categoryId: row.categoryId,
+          categoryName: row.categoryName,
+          totalAmount: amount,
+          percentage,
+        };
+      });
+    }
+
+    const rows = await this.app.db
+      .select({
+        categoryId: transactions.categoryId,
+        categoryName: categories.name,
+        totalAmount,
+      })
+      .from(transactions)
+      .innerJoin(categories, eq(categories.id, transactions.categoryId))
+      .where(and(...filters))
+      .groupBy(transactions.categoryId, categories.name)
+      .orderBy(desc(totalAmount))
+      .limit(5);
+
+    return rows.map((row) => {
+      const amount = Number(row.totalAmount ?? 0);
+      const percentage = total > 0 ? (amount / total) * 100 : 0;
+      return {
+        id: row.categoryId,
+        name: row.categoryName,
+        totalAmount: amount,
+        percentage,
+      };
+    });
   }
 }

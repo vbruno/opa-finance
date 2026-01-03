@@ -25,3 +25,4 @@ Permitir que o usuário visualize onde está gastando e identificar oportunidade
 - Transações
 - Transferências entre contas
 - Dashboard
+- Top 5 gastos por categoria/subcategoria

@@ -121,3 +121,24 @@ export const summaryTransactionsQuerySchema = z.object({
 });
 
 export type SummaryTransactionsQuery = z.infer<typeof summaryTransactionsQuerySchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                    TOP CATEGORIES (QUERY)                                  */
+/* -------------------------------------------------------------------------- */
+
+export const topCategoriesQuerySchema = z.object({
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inicial inválida")
+    .optional(),
+
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data final inválida")
+    .optional(),
+
+  accountId: z.uuid().optional(),
+  groupBy: z.enum(["category", "subcategory"]).default("category"),
+});
+
+export type TopCategoriesQuery = z.infer<typeof topCategoriesQuerySchema>;

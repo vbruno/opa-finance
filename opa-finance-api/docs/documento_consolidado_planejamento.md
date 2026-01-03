@@ -78,6 +78,7 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 - Total de despesas
 - Saldo
 - Resumo mensal
+- Top 5 gastos por categoria ou subcategoria
 
 ---
 
@@ -131,6 +132,7 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 - initial_balance
 - color
 - icon
+- is_primary
 - created_at
 - updated_at
 
@@ -138,6 +140,9 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 
 - Pertence a um usuário
 - Não pode ser removida se houver transações
+- Primeira conta criada é principal
+- Sempre deve existir conta principal
+- Conta principal não pode ser removida
 
 ### CATEGORIES
 
@@ -191,6 +196,7 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 - `category_id` é obrigatório
 - `subcategory_id` opcional
 - Transferências geram duas transações
+- Endpoint de top gastos por categoria/subcategoria (Top 5)
 
 ---
 
