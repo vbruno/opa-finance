@@ -158,18 +158,22 @@ export class AccountService {
   async delete(id: string, userId: string) {
     const current = await this.getOne(id, userId);
 
-    const tx = await this.app.db.select().from(transactions).where(eq(transactions.accountId, id));
-
-    if (tx.length > 0) {
+    if (current.isPrimary === true) {
       throw new ConflictProblem(
-        "Conta possui transações e não pode ser removida.",
+        "A conta principal não pode ser removida. Defina outra conta como principal antes.",
         `/accounts/${id}`,
       );
     }
 
-    if (current.isPrimary === true) {
+    const [tx] = await this.app.db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.accountId, id))
+      .limit(1);
+
+    if (tx) {
       throw new ConflictProblem(
-        "A conta principal não pode ser removida. Defina outra conta como principal antes.",
+        "Conta possui transações e não pode ser removida.",
         `/accounts/${id}`,
       );
     }

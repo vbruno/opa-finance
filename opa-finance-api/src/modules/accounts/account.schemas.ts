@@ -13,7 +13,10 @@ export const createAccountSchema = z.object({
     message: "Tipo de conta inválido.",
   }),
 
-  initialBalance: z.coerce.number().default(0),
+  initialBalance: z.coerce
+    .number()
+    .min(0, { message: "Saldo inicial não pode ser negativo." })
+    .default(0),
 
   // Aceita string OU null
   color: z.string().nullable().optional(),
