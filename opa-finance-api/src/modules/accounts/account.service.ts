@@ -1,5 +1,5 @@
 // src/modules/accounts/account.service.ts
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import type { CreateAccountInput, UpdateAccountInput } from "./account.schemas";
@@ -11,19 +11,48 @@ import { accounts, transactions } from "@/db/schema";
 export class AccountService {
   constructor(private app: FastifyInstance) {}
 
+  private handlePrimaryConflict(error: unknown, path: string) {
+    if (typeof error === "object" && error !== null && "code" in error) {
+      if ((error as { code?: string }).code === "23505") {
+        throw new ConflictProblem("Já existe uma conta principal para este usuário.", path);
+      }
+    }
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                                   CREATE                                   */
   /* -------------------------------------------------------------------------- */
   async create(userId: string, data: CreateAccountInput) {
-    const [account] = await this.app.db
-      .insert(accounts)
-      .values({ ...data, userId })
-      .returning();
+    try {
+      const account = await this.app.db.transaction(async (tx) => {
+        const [currentPrimary] = await tx
+          .select({ id: accounts.id })
+          .from(accounts)
+          .where(and(eq(accounts.userId, userId), eq(accounts.isPrimary, true)))
+          .limit(1);
 
-    return {
-      ...account,
-      initialBalance: Number(account.initialBalance),
-    };
+        const shouldBePrimary = data.isPrimary === true || !currentPrimary;
+
+        if (shouldBePrimary) {
+          await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
+        }
+
+        const [created] = await tx
+          .insert(accounts)
+          .values({ ...data, isPrimary: shouldBePrimary, userId })
+          .returning();
+
+        return created;
+      });
+
+      return {
+        ...account,
+        initialBalance: Number(account.initialBalance),
+      };
+    } catch (error) {
+      this.handlePrimaryConflict(error, "/accounts");
+      throw error;
+    }
   }
 
   /* -------------------------------------------------------------------------- */
@@ -65,31 +94,82 @@ export class AccountService {
   /*                                  UPDATE                                    */
   /* -------------------------------------------------------------------------- */
   async update(id: string, userId: string, data: UpdateAccountInput) {
-    await this.getOne(id, userId); // já valida 404 e 403
+    const current = await this.getOne(id, userId); // já valida 404 e 403
 
-    const [updated] = await this.app.db
-      .update(accounts)
-      .set(data)
-      .where(eq(accounts.id, id))
-      .returning();
+    try {
+      const updated = await this.app.db.transaction(async (tx) => {
+        if (data.isPrimary === false && current.isPrimary === true) {
+          throw new ConflictProblem(
+            "A conta principal não pode ser desmarcada sem definir outra conta principal.",
+            `/accounts/${id}`,
+          );
+        }
 
-    return {
-      ...updated,
-      initialBalance: Number(updated.initialBalance),
-    };
+        if (data.isPrimary === true) {
+          await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
+        }
+
+        const [row] = await tx.update(accounts).set(data).where(eq(accounts.id, id)).returning();
+        return row;
+      });
+
+      return {
+        ...updated,
+        initialBalance: Number(updated.initialBalance),
+      };
+    } catch (error) {
+      this.handlePrimaryConflict(error, `/accounts/${id}`);
+      throw error;
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                               SET PRIMARY                                  */
+  /* -------------------------------------------------------------------------- */
+  async setPrimary(id: string, userId: string) {
+    await this.getOne(id, userId);
+
+    try {
+      const updated = await this.app.db.transaction(async (tx) => {
+        await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
+
+        const [row] = await tx
+          .update(accounts)
+          .set({ isPrimary: true })
+          .where(eq(accounts.id, id))
+          .returning();
+
+        return row;
+      });
+
+      return {
+        ...updated,
+        initialBalance: Number(updated.initialBalance),
+      };
+    } catch (error) {
+      this.handlePrimaryConflict(error, `/accounts/${id}/primary`);
+      throw error;
+    }
   }
 
   /* -------------------------------------------------------------------------- */
   /*                                  DELETE                                    */
   /* -------------------------------------------------------------------------- */
   async delete(id: string, userId: string) {
-    await this.getOne(id, userId);
+    const current = await this.getOne(id, userId);
 
     const tx = await this.app.db.select().from(transactions).where(eq(transactions.accountId, id));
 
     if (tx.length > 0) {
       throw new ConflictProblem(
         "Conta possui transações e não pode ser removida.",
+        `/accounts/${id}`,
+      );
+    }
+
+    if (current.isPrimary === true) {
+      throw new ConflictProblem(
+        "A conta principal não pode ser removida. Defina outra conta como principal antes.",
         `/accounts/${id}`,
       );
     }

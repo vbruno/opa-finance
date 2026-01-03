@@ -60,6 +60,107 @@ describe("PUT /accounts/:id", () => {
     expect(body.name).toBe("Conta Alterada");
   });
 
+  it("deve trocar a conta principal ao atualizar isPrimary", async () => {
+    const token = await registerAndLogin();
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta A", type: "cash", isPrimary: true },
+    });
+
+    const second = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta B", type: "checking_account" },
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/accounts/${second.json().id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { isPrimary: true },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().isPrimary).toBe(true);
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const accounts = list.json();
+    const primaryAccounts = accounts.filter((acc: any) => acc.isPrimary === true);
+
+    expect(primaryAccounts.length).toBe(1);
+    expect(primaryAccounts[0].id).toBe(second.json().id);
+  });
+
+  it("não deve permitir desmarcar a única conta principal", async () => {
+    const token = await registerAndLogin();
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Unica", type: "cash" },
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/accounts/${created.json().id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { isPrimary: false },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().title).toBe("Conflict");
+  });
+
+  it("deve definir conta principal via endpoint dedicado", async () => {
+    const token = await registerAndLogin();
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta A", type: "cash" },
+    });
+
+    const second = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta B", type: "checking_account" },
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/accounts/${second.json().id}/primary`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().isPrimary).toBe(true);
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const accounts = list.json();
+    const primaryAccounts = accounts.filter((acc: any) => acc.isPrimary === true);
+
+    expect(primaryAccounts.length).toBe(1);
+    expect(primaryAccounts[0].id).toBe(second.json().id);
+    expect(primaryAccounts[0].id).not.toBe(first.json().id);
+  });
+
   it("não deve atualizar conta de outro usuário", async () => {
     const tokenA = await registerAndLogin("userA@test.com");
     const tokenB = await registerAndLogin("userB@test.com");

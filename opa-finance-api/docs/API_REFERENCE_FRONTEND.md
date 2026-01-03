@@ -442,6 +442,7 @@ Cria uma nova conta.
   "name": "Conta Corrente",
   "type": "checking_account",
   "initialBalance": 1000,
+  "isPrimary": true, // opcional
   "color": "#3B82F6", // opcional
   "icon": "wallet" // opcional
 }
@@ -464,12 +465,17 @@ Cria uma nova conta.
   "name": "Conta Corrente",
   "type": "checking_account",
   "initialBalance": 1000,
+  "isPrimary": false,
   "color": "#3B82F6",
   "icon": "wallet",
   "createdAt": "2025-01-15T10:30:00.000Z",
   "updatedAt": "2025-01-15T10:30:00.000Z"
 }
 ```
+
+**Notas:**
+
+- A primeira conta criada é marcada como principal automaticamente.
 
 ---
 
@@ -489,6 +495,7 @@ Lista todas as contas do usuário.
     "name": "Conta Corrente",
     "type": "checking_account",
     "initialBalance": 1000,
+    "isPrimary": false,
     "color": "#3B82F6",
     "icon": "wallet",
     "createdAt": "2025-01-15T10:30:00.000Z",
@@ -514,6 +521,7 @@ Obtém uma conta específica.
   "name": "Conta Corrente",
   "type": "checking_account",
   "initialBalance": 1000,
+  "isPrimary": false,
   "color": "#3B82F6",
   "icon": "wallet",
   "createdAt": "2025-01-15T10:30:00.000Z",
@@ -541,6 +549,7 @@ Atualiza uma conta.
   "name": "Conta Corrente Principal", // opcional
   "type": "checking_account", // opcional
   "initialBalance": 1500, // opcional
+  "isPrimary": true, // opcional
   "color": "#10B981", // opcional
   "icon": "bank" // opcional
 }
@@ -555,6 +564,7 @@ Atualiza uma conta.
   "name": "Conta Corrente Principal",
   "type": "checking_account",
   "initialBalance": 1500,
+  "isPrimary": true,
   "color": "#10B981",
   "icon": "bank",
   "createdAt": "2025-01-15T10:30:00.000Z",
@@ -566,6 +576,7 @@ Atualiza uma conta.
 
 - `403` - Conta não pertence ao usuário
 - `404` - Conta não encontrada
+- `409` - Não é permitido deixar o usuário sem conta principal
 
 ---
 
@@ -588,6 +599,38 @@ Deleta uma conta.
 - `403` - Conta não pertence ao usuário
 - `404` - Conta não encontrada
 - `409` - Conta possui transações e não pode ser removida
+- `409` - Conta principal não pode ser removida (defina outra como principal)
+
+---
+
+### PUT `/accounts/:id/primary`
+
+Define uma conta como principal (desmarca a anterior automaticamente).
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Response 200:**
+
+```json
+{
+  "id": "uuid",
+  "userId": "uuid",
+  "name": "Conta Corrente",
+  "type": "checking_account",
+  "initialBalance": 1000,
+  "isPrimary": true,
+  "color": "#3B82F6",
+  "icon": "wallet",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "updatedAt": "2025-01-15T10:30:00.000Z"
+}
+```
+
+**Erros:**
+
+- `403` - Conta não pertence ao usuário
+- `404` - Conta não encontrada
+- `409` - Não foi possível definir conta principal
 
 ---
 

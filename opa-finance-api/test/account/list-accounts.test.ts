@@ -70,6 +70,7 @@ describe("GET /accounts", () => {
 
     expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBe(2);
+    expect(body.every((acc: any) => typeof acc.isPrimary === "boolean")).toBe(true);
   });
 
   it("não deve listar contas de outro usuário", async () => {

@@ -18,6 +18,8 @@ export const createAccountSchema = z.object({
   // Aceita string OU null
   color: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
+
+  isPrimary: z.boolean().optional().default(false),
 });
 
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
@@ -40,6 +42,8 @@ export const updateAccountSchema = z
     // Mesma correção aqui:
     color: z.string().nullable().optional(),
     icon: z.string().nullable().optional(),
+
+    isPrimary: z.boolean().optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Pelo menos um campo deve ser atualizado.",

@@ -64,6 +64,15 @@ describe("DELETE /accounts/:id", () => {
 
     const account = created.json();
 
+    const second = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Secundaria", type: "checking_account", isPrimary: true },
+    });
+
+    expect(second.statusCode).toBe(201);
+
     const response = await app.inject({
       method: "DELETE",
       url: `/accounts/${account.id}`,
@@ -85,6 +94,15 @@ describe("DELETE /accounts/:id", () => {
     });
 
     const account = created.json();
+
+    const second = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Secundaria", type: "checking_account", isPrimary: true },
+    });
+
+    expect(second.statusCode).toBe(201);
 
     // categoria necessária
     const [category] = await db
@@ -120,6 +138,34 @@ describe("DELETE /accounts/:id", () => {
     expect(body.detail).toContain("transações");
   });
 
+  it("não deve permitir remover a conta principal", async () => {
+    const { token } = await registerAndLogin();
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta A", type: "cash" },
+    });
+
+    const second = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta B", type: "checking_account" },
+    });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/accounts/${first.json().id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().title).toBe("Conflict");
+    expect(response.json().detail).toContain("conta principal");
+  });
+
   it("deve retornar 404 para conta inexistente", async () => {
     const { token } = await registerAndLogin();
 
@@ -135,5 +181,26 @@ describe("DELETE /accounts/:id", () => {
     expect(body.title).toBe("Not Found");
     expect(body.status).toBe(404);
     expect(body.detail).toBe("Conta não encontrada.");
+  });
+
+  it("não deve permitir remover a única conta principal", async () => {
+    const { token } = await registerAndLogin();
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Unica", type: "cash" },
+    });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/accounts/${created.json().id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().title).toBe("Conflict");
+    expect(response.json().detail).toContain("conta principal");
   });
 });

@@ -40,6 +40,14 @@ export async function accountRoutes(app: FastifyInstance) {
   });
 
   /* -------------------------------------------------------------------------- */
+  /*                                SET PRIMARY                                 */
+  /* -------------------------------------------------------------------------- */
+  app.put("/accounts/:id/primary", { preHandler: [app.authenticate] }, async (req) => {
+    const { id } = accountParamsSchema.parse(req.params);
+    return await service.setPrimary(id, req.user.sub);
+  });
+
+  /* -------------------------------------------------------------------------- */
   /*                                   DELETE                                   */
   /* -------------------------------------------------------------------------- */
   app.delete("/accounts/:id", { preHandler: [app.authenticate] }, async (req) => {
