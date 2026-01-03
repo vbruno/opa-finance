@@ -51,6 +51,21 @@ export type TransactionsQueryParams = {
   dir?: 'asc' | 'desc'
 }
 
+export type TransactionsSummary = {
+  income: number
+  expense: number
+  balance: number
+}
+
+export type TransactionsSummaryQueryParams = {
+  startDate?: string
+  endDate?: string
+  accountId?: string
+  categoryId?: string
+  subcategoryId?: string
+  type?: TransactionType
+}
+
 export type TransactionCreatePayload = {
   accountId: string
   categoryId: string
@@ -75,6 +90,7 @@ export type TransactionUpdatePayload = {
 
 const transactionsKey = ['transactions']
 const transactionKey = (id: string) => ['transaction', id]
+const transactionsSummaryKey = ['transactions-summary']
 
 export function useTransactions(params: TransactionsQueryParams) {
   return useQuery({
@@ -85,6 +101,21 @@ export function useTransactions(params: TransactionsQueryParams) {
         {
           params,
         },
+      )
+      return response.data
+    },
+  })
+}
+
+export function useTransactionsSummary(
+  params: TransactionsSummaryQueryParams,
+) {
+  return useQuery({
+    queryKey: [...transactionsSummaryKey, params],
+    queryFn: async () => {
+      const response = await api.get<TransactionsSummary>(
+        '/transactions/summary',
+        { params },
       )
       return response.data
     },
