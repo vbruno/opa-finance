@@ -9,7 +9,7 @@
 - user_id  
 - name  
 - type ("cash", "checking_account", "savings_account", "credit_card", "investment")  
-- initial_balance  
+- initial_balance (interno, default 0)  
 - color  
 - icon  
 - timestamps  

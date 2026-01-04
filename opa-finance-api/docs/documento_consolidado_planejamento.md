@@ -129,7 +129,6 @@ Permitir que o usuário tenha **clareza total sobre sua vida financeira**, ident
 - user_id
 - name
 - type
-- initial_balance
 - color
 - icon
 - is_primary

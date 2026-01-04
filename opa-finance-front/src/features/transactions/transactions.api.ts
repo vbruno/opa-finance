@@ -180,6 +180,9 @@ export function useCreateTransaction() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionsKey })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
+      queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
     },
   })
 }
@@ -201,6 +204,9 @@ export function useUpdateTransaction() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: transactionsKey })
       queryClient.invalidateQueries({ queryKey: transactionKey(variables.id) })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
+      queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
     },
   })
 }
@@ -215,6 +221,9 @@ export function useDeleteTransaction() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: transactionsKey })
       queryClient.invalidateQueries({ queryKey: transactionKey(id) })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
+      queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
     },
   })
 }

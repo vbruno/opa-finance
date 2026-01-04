@@ -6,8 +6,7 @@ export type Account = {
   id: string
   name: string
   type: string
-  initialBalance: number
-  currentBalance?: number
+  currentBalance: number
   isPrimary?: boolean
   createdAt: string
   updatedAt: string
@@ -16,7 +15,6 @@ export type Account = {
 export type AccountPayload = {
   name: string
   type: string
-  initialBalance: number
 }
 
 const accountsKey = ['accounts']
@@ -26,7 +24,14 @@ export function useAccounts() {
     queryKey: accountsKey,
     queryFn: async () => {
       const response = await api.get<Account[]>('/accounts')
-      return response.data
+      return response.data.map((account) => ({
+        ...account,
+        currentBalance:
+          account.currentBalance === undefined ||
+          account.currentBalance === null
+            ? 0
+            : Number(account.currentBalance),
+      }))
     },
   })
 }

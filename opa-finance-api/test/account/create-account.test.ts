@@ -54,7 +54,6 @@ describe.sequential("POST /accounts", () => {
       payload: {
         name: "Carteira",
         type: "cash",
-        initialBalance: 100,
       },
     });
 
@@ -64,8 +63,7 @@ describe.sequential("POST /accounts", () => {
     expect(body.name).toBe("Carteira");
     expect(body.type).toBe("cash");
 
-    // agora o valor volta como number — ajuste do teste
-    expect(body.initialBalance).toBe(100);
+    expect(body.currentBalance).toBe(0);
     expect(body.isPrimary).toBe(true);
   });
 
@@ -158,27 +156,6 @@ describe.sequential("POST /accounts", () => {
     expect(body.title).toBe("Validation Error");
     expect(body.status).toBe(400);
     expect(body.detail).toContain("Nome é obrigatório");
-  });
-
-  it("deve falhar ao enviar saldo inicial negativo", async () => {
-    const token = await registerAndLogin();
-
-    const response = await app.inject({
-      method: "POST",
-      url: "/accounts",
-      headers: { Authorization: `Bearer ${token}` },
-      payload: {
-        name: "Conta Negativa",
-        type: "cash",
-        initialBalance: -1,
-      },
-    });
-
-    expect(response.statusCode).toBe(400);
-
-    const body = response.json();
-    expect(body.title).toBe("Validation Error");
-    expect(body.detail).toContain("Saldo inicial não pode ser negativo");
   });
 
   it("deve retornar 401 se não enviar token", async () => {

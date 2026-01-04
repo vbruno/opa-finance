@@ -441,7 +441,6 @@ Cria uma nova conta.
 {
   "name": "Conta Corrente",
   "type": "checking_account",
-  "initialBalance": 1000,
   "isPrimary": true, // opcional
   "color": "#3B82F6", // opcional
   "icon": "wallet" // opcional
@@ -464,7 +463,7 @@ Cria uma nova conta.
   "userId": "uuid",
   "name": "Conta Corrente",
   "type": "checking_account",
-  "initialBalance": 1000,
+  "currentBalance": 0,
   "isPrimary": false,
   "color": "#3B82F6",
   "icon": "wallet",
@@ -476,6 +475,7 @@ Cria uma nova conta.
 **Notas:**
 
 - A primeira conta criada é marcada como principal automaticamente.
+- O saldo da conta inicia em 0. Para adicionar saldo, crie uma transação.
 
 ---
 
@@ -494,7 +494,6 @@ Lista todas as contas do usuário.
     "userId": "uuid",
     "name": "Conta Corrente",
     "type": "checking_account",
-    "initialBalance": 1000,
     "currentBalance": 1250.50,
     "isPrimary": false,
     "color": "#3B82F6",
@@ -521,7 +520,6 @@ Obtém uma conta específica.
   "userId": "uuid",
   "name": "Conta Corrente",
   "type": "checking_account",
-  "initialBalance": 1000,
   "currentBalance": 1250.50,
   "isPrimary": false,
   "color": "#3B82F6",
@@ -550,7 +548,6 @@ Atualiza uma conta.
 {
   "name": "Conta Corrente Principal", // opcional
   "type": "checking_account", // opcional
-  "initialBalance": 1500, // opcional
   "isPrimary": true, // opcional
   "color": "#10B981", // opcional
   "icon": "bank" // opcional
@@ -565,7 +562,7 @@ Atualiza uma conta.
   "userId": "uuid",
   "name": "Conta Corrente Principal",
   "type": "checking_account",
-  "initialBalance": 1500,
+  "currentBalance": 1250.50,
   "isPrimary": true,
   "color": "#10B981",
   "icon": "bank",
@@ -619,7 +616,7 @@ Define uma conta como principal (desmarca a anterior automaticamente).
   "userId": "uuid",
   "name": "Conta Corrente",
   "type": "checking_account",
-  "initialBalance": 1000,
+  "currentBalance": 1250.50,
   "isPrimary": true,
   "color": "#3B82F6",
   "icon": "wallet",
@@ -1379,7 +1376,7 @@ Categorias de sistema têm:
 O saldo de uma conta é calculado como:
 
 ```
-saldo = initialBalance + soma(transactions.amount)
+saldo = soma(transactions.amount)
 ```
 
 Onde:
@@ -1422,8 +1419,7 @@ const accountRes = await fetch('/accounts', {
   },
   body: JSON.stringify({
     name: 'Conta Corrente',
-    type: 'checking_account',
-    initialBalance: 1000
+    type: 'checking_account'
   })
 });
 const account = await accountRes.json();

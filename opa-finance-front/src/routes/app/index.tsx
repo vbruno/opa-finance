@@ -485,12 +485,9 @@ function Dashboard() {
         </div>
 
         <div className="rounded-lg border bg-background p-4">
-          <div>
-            <h2 className="text-lg font-semibold">Contas</h2>
-            <p className="text-sm text-muted-foreground">
-              Saldo atual por conta.
-            </p>
-          </div>
+            <div>
+              <h2 className="text-lg font-semibold">Contas</h2>
+            </div>
 
           <div className="mt-4 space-y-3">
             {accountsQuery.isLoading && (
@@ -510,14 +507,21 @@ function Dashboard() {
                   Nenhuma conta cadastrada.
                 </p>
               )}
-            {visibleAccounts.map((account) => (
-              <div
+            {visibleAccounts.map((account) => {
+              const isSelected = account.id === effectiveAccountId
+              const displayBalance = account.currentBalance ?? 0
+
+              return (
+              <button
                 key={account.id}
+                type="button"
+                onClick={() => handleAccountChange(account.id)}
                 className={
-                  account.id === effectiveAccountId
-                    ? 'flex items-center justify-between rounded-md border border-primary/60 bg-primary/5 p-3'
-                    : 'flex items-center justify-between rounded-md border p-3'
+                  isSelected
+                    ? 'flex w-full cursor-pointer items-center justify-between rounded-md border border-primary/60 bg-primary/5 p-3 text-left'
+                    : 'flex w-full cursor-pointer items-center justify-between rounded-md border p-3 text-left hover:bg-muted/40'
                 }
+                aria-pressed={isSelected}
               >
                 <div>
                   <p className="font-medium">{account.name}</p>
@@ -530,13 +534,20 @@ function Dashboard() {
                     )}
                   </p>
                 </div>
-                <p className="font-semibold">
-                  {formatCurrencyValue(
-                    account.currentBalance ?? account.initialBalance ?? 0,
-                  )}
+                <p
+                  className={
+                    displayBalance < 0
+                      ? 'font-semibold text-rose-600'
+                      : displayBalance > 0
+                      ? 'font-semibold text-emerald-600'
+                      : 'font-semibold text-muted-foreground'
+                  }
+                >
+                  {formatCurrencyValue(displayBalance)}
                 </p>
-              </div>
-            ))}
+              </button>
+              )
+            })}
           </div>
         </div>
       </div>

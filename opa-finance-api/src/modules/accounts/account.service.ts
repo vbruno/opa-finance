@@ -12,7 +12,7 @@ export class AccountService {
   constructor(private app: FastifyInstance) {}
 
   private buildCurrentBalanceExpr() {
-    return sql<number>`(${accounts.initialBalance} + coalesce(sum(case
+    return sql<number>`(coalesce(sum(case
       when ${transactions.type} = 'income' then ${transactions.amount}
       when ${transactions.type} = 'expense' then -${transactions.amount}
       else 0 end), 0))`;
@@ -61,15 +61,16 @@ export class AccountService {
 
         const [created] = await tx
           .insert(accounts)
-          .values({ ...data, isPrimary: shouldBePrimary, userId })
+          .values({ ...data, initialBalance: 0, isPrimary: shouldBePrimary, userId })
           .returning();
 
         return created;
       });
 
+      const { initialBalance: _initialBalance, ...rest } = account;
       return {
-        ...account,
-        initialBalance: Number(account.initialBalance),
+        ...rest,
+        currentBalance: 0,
       };
     } catch (error) {
       this.handlePrimaryConflict(error, "/accounts");
@@ -95,11 +96,13 @@ export class AccountService {
       .where(eq(accounts.userId, userId))
       .groupBy(...this.accountGroupByColumns());
 
-    return rows.map((row) => ({
-      ...row.account,
-      initialBalance: Number(row.account.initialBalance),
-      currentBalance: Number(row.currentBalance),
-    }));
+    return rows.map((row) => {
+      const { initialBalance: _initialBalance, ...rest } = row.account;
+      return {
+        ...rest,
+        currentBalance: Number(row.currentBalance),
+      };
+    });
   }
 
   /* -------------------------------------------------------------------------- */
@@ -128,9 +131,9 @@ export class AccountService {
       throw new ForbiddenProblem("Você não tem acesso a esta conta.", `/accounts/${id}`);
     }
 
+    const { initialBalance: _initialBalance, ...rest } = row.account;
     return {
-      ...row.account,
-      initialBalance: Number(row.account.initialBalance),
+      ...rest,
       currentBalance: Number(row.currentBalance),
     };
   }
@@ -158,10 +161,7 @@ export class AccountService {
         return row;
       });
 
-      return {
-        ...updated,
-        initialBalance: Number(updated.initialBalance),
-      };
+      return await this.getOne(id, userId);
     } catch (error) {
       this.handlePrimaryConflict(error, `/accounts/${id}`);
       throw error;
@@ -187,10 +187,7 @@ export class AccountService {
         return row;
       });
 
-      return {
-        ...updated,
-        initialBalance: Number(updated.initialBalance),
-      };
+      return await this.getOne(id, userId);
     } catch (error) {
       this.handlePrimaryConflict(error, `/accounts/${id}/primary`);
       throw error;

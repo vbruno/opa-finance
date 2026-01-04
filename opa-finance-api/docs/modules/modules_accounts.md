@@ -9,6 +9,7 @@
 
 ## Regras
 - Saldo calculado automaticamente
+- Conta sempre inicia com saldo 0
 - Não excluir conta com transações
 - Não excluir conta principal (marcar outra como principal antes)
 - Tipos suportados: cash, checking_account, savings_account, credit_card, investment
@@ -17,4 +18,4 @@
 - Deve existir sempre uma conta principal enquanto houver contas
 
 ## Campos
-- name, type, initial_balance, color, icon, isPrimary, currentBalance (calculado)
+- name, type, color, icon, isPrimary, currentBalance (calculado)

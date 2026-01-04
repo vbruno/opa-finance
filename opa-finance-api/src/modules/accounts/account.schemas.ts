@@ -13,11 +13,6 @@ export const createAccountSchema = z.object({
     message: "Tipo de conta inválido.",
   }),
 
-  initialBalance: z.coerce
-    .number()
-    .min(0, { message: "Saldo inicial não pode ser negativo." })
-    .default(0),
-
   // Aceita string OU null
   color: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
@@ -36,11 +31,6 @@ export const updateAccountSchema = z
     name: z.string().min(1, { message: "Nome é obrigatório." }).optional(),
 
     type: z.enum(accountTypes, { message: "Tipo de conta inválido." }).optional(),
-
-    initialBalance: z.coerce
-      .number()
-      .min(0, { message: "Saldo inicial não pode ser negativo." })
-      .optional(),
 
     // Mesma correção aqui:
     color: z.string().nullable().optional(),

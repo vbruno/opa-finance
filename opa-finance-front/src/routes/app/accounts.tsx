@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -14,14 +14,12 @@ import {
   useUpdateAccount,
 } from '@/features/accounts'
 import { getApiErrorMessage } from '@/lib/apiError'
-import {
-  formatCurrencyInput,
-  formatCurrencyValue,
-  parseCurrencyInput,
-} from '@/lib/utils'
+import { formatCurrencyValue } from '@/lib/utils'
 import {
   accountCreateSchema,
+  accountUpdateSchema,
   type AccountCreateFormData,
+  type AccountUpdateFormData,
 } from '@/schemas/account.schema'
 
 export const Route = createFileRoute('/app/accounts')({
@@ -107,7 +105,6 @@ function Accounts() {
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
 
   const {
-    control,
     register,
     handleSubmit,
     reset,
@@ -119,7 +116,6 @@ function Accounts() {
     defaultValues: {
       name: '',
       type: undefined,
-      currentBalance: '',
       confirm: false,
     },
   })
@@ -127,7 +123,6 @@ function Accounts() {
   const confirmValue = watch('confirm')
 
   const {
-    control: editControl,
     register: editRegister,
     handleSubmit: handleEditSubmit,
     reset: resetEdit,
@@ -137,12 +132,11 @@ function Accounts() {
       errors: editErrors,
       isSubmitting: isEditSubmitting,
     },
-  } = useForm<AccountCreateFormData>({
-    resolver: zodResolver(accountCreateSchema),
+  } = useForm<AccountUpdateFormData>({
+    resolver: zodResolver(accountUpdateSchema),
     defaultValues: {
       name: '',
       type: undefined,
-      currentBalance: '',
       confirm: false,
     },
   })
@@ -159,6 +153,8 @@ function Accounts() {
 
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const accounts = accountsQuery.data ?? []
+  const isRefreshingAccounts =
+    accountsQuery.isFetching && !accountsQuery.isLoading
   const search = Route.useSearch()
   const searchTerm = search.q ?? ''
   const [searchDraft, setSearchDraft] = useState(searchTerm)
@@ -195,8 +191,8 @@ function Accounts() {
     const directionMultiplier = sortDirection === 'asc' ? 1 : -1
 
     if (sortKey === 'balance') {
-      const balanceA = a.currentBalance ?? a.initialBalance ?? 0
-      const balanceB = b.currentBalance ?? b.initialBalance ?? 0
+      const balanceA = a.currentBalance ?? 0
+      const balanceB = b.currentBalance ?? 0
       return (balanceA - balanceB) * directionMultiplier
     }
 
@@ -383,6 +379,11 @@ function Accounts() {
           <p className="text-sm text-muted-foreground">
             Gerencie suas contas e acompanhe os saldos atuais.
           </p>
+          {isRefreshingAccounts && (
+            <p className="text-xs text-muted-foreground">
+              Atualizando saldos...
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -443,11 +444,11 @@ function Accounts() {
               }
             >
               <option value="">Todos</option>
-              <option value="checking_account">Conta Corrente</option>
-              <option value="savings_account">Poupança</option>
               <option value="credit_card">Cartão de Crédito</option>
-              <option value="investment">Investimento</option>
+              <option value="checking_account">Conta Corrente</option>
               <option value="cash">Dinheiro</option>
+              <option value="investment">Investimento</option>
+              <option value="savings_account">Poupança</option>
             </select>
             <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
               <svg
@@ -510,7 +511,11 @@ function Accounts() {
                   <SortIcon isActive={sortKey === 'type'} direction={sortDirection} />
                 </button>
               </th>
-              <th className="w-[1%] px-4 py-3 text-right whitespace-nowrap">
+              <th
+                className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${
+                  isRefreshingAccounts ? 'text-emerald-600' : ''
+                }`}
+              >
                 <button
                   className="inline-flex items-center gap-2 text-right"
                   type="button"
@@ -544,8 +549,7 @@ function Accounts() {
             {!accountsQuery.isLoading &&
               !accountsQuery.isError &&
               paginatedAccounts.map((account) => {
-                const displayBalance =
-                  account.currentBalance ?? account.initialBalance ?? 0
+                const displayBalance = account.currentBalance ?? 0
                 return (
                   <tr
                     key={account.id}
@@ -690,12 +694,9 @@ function Accounts() {
               className="mt-6 space-y-4"
               onSubmit={handleSubmit(async (formData) => {
                 try {
-                  const parsedBalance =
-                    parseCurrencyInput(formData.currentBalance) ?? 0
                   await createAccountMutation.mutateAsync({
                     name: formData.name,
                     type: formData.type,
-                    initialBalance: parsedBalance,
                   })
                   setIsCreateOpen(false)
                   reset()
@@ -729,57 +730,26 @@ function Accounts() {
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="account-type">Tipo</Label>
-                  <select
-                    id="account-type"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!errors.type}
-                    {...register('type')}
-                  >
-                    <option value="">Selecione</option>
-                    <option value="checking_account">Conta Corrente</option>
-                    <option value="savings_account">Poupança</option>
-                    <option value="credit_card">Cartão de Crédito</option>
-                    <option value="investment">Investimento</option>
-                    <option value="cash">Dinheiro</option>
-                  </select>
-                  {errors.type && (
-                    <p className="text-sm text-destructive">
-                      {errors.type.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="account-balance">Saldo atual</Label>
-                  <Controller
-                    control={control}
-                    name="currentBalance"
-                    render={({ field }) => (
-                      <Input
-                        id="account-balance"
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="$ 0,00"
-                        value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            formatCurrencyInput(event.target.value),
-                          )
-                        }
-                        className="h-10"
-                        aria-invalid={!!errors.currentBalance}
-                      />
-                    )}
-                  />
-                  {errors.currentBalance && (
-                    <p className="text-sm text-destructive">
-                      {errors.currentBalance.message}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-type">Tipo</Label>
+                <select
+                  id="account-type"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  aria-invalid={!!errors.type}
+                  {...register('type')}
+                >
+                  <option value="">Selecione</option>
+                  <option value="credit_card">Cartão de Crédito</option>
+                  <option value="checking_account">Conta Corrente</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="investment">Investimento</option>
+                  <option value="savings_account">Poupança</option>
+                </select>
+                {errors.type && (
+                  <p className="text-sm text-destructive">
+                    {errors.type.message}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-2">
@@ -789,7 +759,7 @@ function Accounts() {
                     className="h-4 w-4 accent-primary"
                     {...register('confirm')}
                   />
-                  Confirmo que os dados estao corretos
+                  Confirmo que os dados estão corretos
                 </label>
                 <Button type="submit" disabled={!confirmValue || isSubmitting}>
                   {isSubmitting || createAccountMutation.isPending
@@ -847,9 +817,7 @@ function Accounts() {
                 <span className="text-muted-foreground">Saldo atual</span>
                 <span className="font-semibold">
                   {`$ ${formatCurrencyValue(
-                    selectedAccount.currentBalance ??
-                    selectedAccount.initialBalance ??
-                    0,
+                    selectedAccount.currentBalance ?? 0,
                   )}`}
                 </span>
               </div>
@@ -876,14 +844,9 @@ function Accounts() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    const displayBalance =
-                      selectedAccount.currentBalance ??
-                      selectedAccount.initialBalance ??
-                      0
                     resetEdit({
                       name: selectedAccount.name,
                       type: selectedAccount.type,
-                      currentBalance: `$ ${formatCurrencyValue(displayBalance)}`,
                       confirm: false,
                     })
                     setIsEditOpen(true)
@@ -1001,14 +964,11 @@ function Accounts() {
               className="mt-6 space-y-4"
               onSubmit={handleEditSubmit(async (formData) => {
                 try {
-                  const parsedBalance =
-                    parseCurrencyInput(formData.currentBalance) ?? 0
                   await updateAccountMutation.mutateAsync({
                     id: selectedAccount.id,
                     payload: {
                       name: formData.name,
                       type: formData.type,
-                      initialBalance: parsedBalance,
                     },
                   })
                   setIsEditOpen(false)
@@ -1047,57 +1007,26 @@ function Accounts() {
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-account-type">Tipo</Label>
-                  <select
-                    id="edit-account-type"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!editErrors.type}
-                    {...editRegister('type')}
-                  >
-                    <option value="">Selecione</option>
-                    <option value="checking_account">Conta Corrente</option>
-                    <option value="savings_account">Poupança</option>
-                    <option value="credit_card">Cartão de Crédito</option>
-                    <option value="investment">Investimento</option>
-                    <option value="cash">Dinheiro</option>
-                  </select>
-                  {editErrors.type && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.type.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-account-balance">Saldo atual</Label>
-                  <Controller
-                    control={editControl}
-                    name="currentBalance"
-                    render={({ field }) => (
-                      <Input
-                        id="edit-account-balance"
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="$ 0,00"
-                        value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            formatCurrencyInput(event.target.value),
-                          )
-                        }
-                        className="h-10"
-                        aria-invalid={!!editErrors.currentBalance}
-                      />
-                    )}
-                  />
-                  {editErrors.currentBalance && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.currentBalance.message}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-account-type">Tipo</Label>
+                <select
+                  id="edit-account-type"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  aria-invalid={!!editErrors.type}
+                  {...editRegister('type')}
+                >
+                  <option value="">Selecione</option>
+                  <option value="credit_card">Cartão de Crédito</option>
+                  <option value="checking_account">Conta Corrente</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="investment">Investimento</option>
+                  <option value="savings_account">Poupança</option>
+                </select>
+                {editErrors.type && (
+                  <p className="text-sm text-destructive">
+                    {editErrors.type.message}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-2">
@@ -1107,7 +1036,7 @@ function Accounts() {
                     className="h-4 w-4 accent-primary"
                     {...editRegister('confirm')}
                   />
-                  Confirmo que os dados estao corretos
+                  Confirmo que os dados estão corretos
                 </label>
                 <Button
                   type="submit"
