@@ -44,6 +44,7 @@ async function seed() {
       name: "Dinheiro",
       type: "cash",
       initialBalance: "150",
+      isPrimary: true,
     })
     .returning();
 
@@ -54,6 +55,7 @@ async function seed() {
       name: "Conta Corrente",
       type: "checking_account",
       initialBalance: "2500",
+      isPrimary: false,
     })
     .returning();
 
@@ -64,6 +66,7 @@ async function seed() {
       name: "Cartão de Crédito",
       type: "credit_card",
       initialBalance: "0",
+      isPrimary: false,
     })
     .returning();
 
