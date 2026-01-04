@@ -17,4 +17,4 @@
 - Deve existir sempre uma conta principal enquanto houver contas
 
 ## Campos
-- name, type, initial_balance, color, icon, isPrimary
+- name, type, initial_balance, color, icon, isPrimary, currentBalance (calculado)

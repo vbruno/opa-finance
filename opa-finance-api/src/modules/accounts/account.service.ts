@@ -1,5 +1,5 @@
 // src/modules/accounts/account.service.ts
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import type { CreateAccountInput, UpdateAccountInput } from "./account.schemas";
@@ -10,6 +10,28 @@ import { accounts, transactions } from "@/db/schema";
 
 export class AccountService {
   constructor(private app: FastifyInstance) {}
+
+  private buildCurrentBalanceExpr() {
+    return sql<number>`(${accounts.initialBalance} + coalesce(sum(case
+      when ${transactions.type} = 'income' then ${transactions.amount}
+      when ${transactions.type} = 'expense' then -${transactions.amount}
+      else 0 end), 0))`;
+  }
+
+  private accountGroupByColumns() {
+    return [
+      accounts.id,
+      accounts.userId,
+      accounts.name,
+      accounts.type,
+      accounts.initialBalance,
+      accounts.color,
+      accounts.icon,
+      accounts.isPrimary,
+      accounts.createdAt,
+      accounts.updatedAt,
+    ];
+  }
 
   private handlePrimaryConflict(error: unknown, path: string) {
     if (typeof error === "object" && error !== null && "code" in error) {
@@ -59,14 +81,24 @@ export class AccountService {
   /*                                    LIST                                    */
   /* -------------------------------------------------------------------------- */
   async list(userId: string) {
-    const rows: (typeof accounts.$inferSelect)[] = await this.app.db
-      .select()
+    const currentBalance = this.buildCurrentBalanceExpr();
+    const rows = await this.app.db
+      .select({
+        account: accounts,
+        currentBalance,
+      })
       .from(accounts)
-      .where(eq(accounts.userId, userId));
+      .leftJoin(
+        transactions,
+        and(eq(transactions.accountId, accounts.id), eq(transactions.userId, accounts.userId)),
+      )
+      .where(eq(accounts.userId, userId))
+      .groupBy(...this.accountGroupByColumns());
 
-    return rows.map((acc) => ({
-      ...acc,
-      initialBalance: Number(acc.initialBalance),
+    return rows.map((row) => ({
+      ...row.account,
+      initialBalance: Number(row.account.initialBalance),
+      currentBalance: Number(row.currentBalance),
     }));
   }
 
@@ -74,19 +106,32 @@ export class AccountService {
   /*                                  GET ONE                                   */
   /* -------------------------------------------------------------------------- */
   async getOne(id: string, userId: string) {
-    const [account] = await this.app.db.select().from(accounts).where(eq(accounts.id, id));
+    const currentBalance = this.buildCurrentBalanceExpr();
+    const [row] = await this.app.db
+      .select({
+        account: accounts,
+        currentBalance,
+      })
+      .from(accounts)
+      .leftJoin(
+        transactions,
+        and(eq(transactions.accountId, accounts.id), eq(transactions.userId, accounts.userId)),
+      )
+      .where(eq(accounts.id, id))
+      .groupBy(...this.accountGroupByColumns());
 
-    if (!account) {
+    if (!row?.account) {
       throw new NotFoundProblem("Conta não encontrada.", `/accounts/${id}`);
     }
 
-    if (account.userId !== userId) {
+    if (row.account.userId !== userId) {
       throw new ForbiddenProblem("Você não tem acesso a esta conta.", `/accounts/${id}`);
     }
 
     return {
-      ...account,
-      initialBalance: Number(account.initialBalance),
+      ...row.account,
+      initialBalance: Number(row.account.initialBalance),
+      currentBalance: Number(row.currentBalance),
     };
   }
 
