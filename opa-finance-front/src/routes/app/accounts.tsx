@@ -174,8 +174,8 @@ function Accounts() {
   const accountTypeLabels: Record<string, string> = {
     cash: 'Dinheiro',
     checking_account: 'Conta Corrente',
-    savings_account: 'Poupanca',
-    credit_card: 'Cartao de Credito',
+    savings_account: 'Poupança',
+    credit_card: 'Cartão de Crédito',
     investment: 'Investimento',
   }
   const hasActiveFilters = searchTerm.trim() !== '' || typeFilter !== ''
@@ -444,8 +444,8 @@ function Accounts() {
             >
               <option value="">Todos</option>
               <option value="checking_account">Conta Corrente</option>
-              <option value="savings_account">Poupanca</option>
-              <option value="credit_card">Cartao de Credito</option>
+              <option value="savings_account">Poupança</option>
+              <option value="credit_card">Cartão de Crédito</option>
               <option value="investment">Investimento</option>
               <option value="cash">Dinheiro</option>
             </select>
@@ -681,7 +681,7 @@ function Accounts() {
               <div>
                 <h3 className="text-lg font-semibold">Criar nova conta</h3>
                 <p className="text-sm text-muted-foreground">
-                  Preencha os dados basicos para adicionar uma conta.
+                  Preencha os dados básicos para adicionar uma conta.
                 </p>
               </div>
             </div>
@@ -740,8 +740,8 @@ function Accounts() {
                   >
                     <option value="">Selecione</option>
                     <option value="checking_account">Conta Corrente</option>
-                    <option value="savings_account">Poupanca</option>
-                    <option value="credit_card">Cartao de Credito</option>
+                    <option value="savings_account">Poupança</option>
+                    <option value="credit_card">Cartão de Crédito</option>
                     <option value="investment">Investimento</option>
                     <option value="cash">Dinheiro</option>
                   </select>
@@ -915,12 +915,12 @@ function Accounts() {
           >
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">
-                Confirmar exclusao
+                Confirmar exclusão
               </h3>
               <p className="text-sm text-muted-foreground">
                 Tem certeza que deseja excluir a conta{' '}
                 <span className="font-medium">{selectedAccount.name}</span>?
-                Essa acao nao pode ser desfeita.
+                Essa ação não pode ser desfeita.
               </p>
             </div>
             {deleteBlockedReason && (
@@ -954,7 +954,7 @@ function Accounts() {
                     const status = getErrorStatus(error)
                     if (status === 409) {
                       setDeleteBlockedReason(
-                        'Conta possui transacoes e nao pode ser removida.',
+                        'Conta possui transações e não pode ser removida.',
                       )
                     } else {
                       setDeleteError(
@@ -970,7 +970,7 @@ function Accounts() {
               >
                 {deleteAccountMutation.isPending
                   ? 'Excluindo...'
-                  : 'Confirmar exclusao'}
+                  : 'Confirmar exclusão'}
               </Button>
             </div>
           </div>
@@ -993,7 +993,7 @@ function Accounts() {
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">Editar conta</h3>
               <p className="text-sm text-muted-foreground">
-                Atualize as informacoes da conta selecionada.
+                Atualize as informações da conta selecionada.
               </p>
             </div>
 
@@ -1058,8 +1058,8 @@ function Accounts() {
                   >
                     <option value="">Selecione</option>
                     <option value="checking_account">Conta Corrente</option>
-                    <option value="savings_account">Poupanca</option>
-                    <option value="credit_card">Cartao de Credito</option>
+                    <option value="savings_account">Poupança</option>
+                    <option value="credit_card">Cartão de Crédito</option>
                     <option value="investment">Investimento</option>
                     <option value="cash">Dinheiro</option>
                   </select>
@@ -1115,7 +1115,7 @@ function Accounts() {
                 >
                   {isEditSubmitting || updateAccountMutation.isPending
                     ? 'Salvando...'
-                    : 'Salvar alteracoes'}
+                    : 'Salvar alterações'}
                 </Button>
               </div>
               {editErrors.confirm && (

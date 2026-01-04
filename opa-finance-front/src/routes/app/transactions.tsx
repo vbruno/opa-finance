@@ -565,7 +565,7 @@ function Transactions() {
             Nova transferencia
           </Button>
           <Button onClick={() => setIsCreateOpen(true)}>
-            Nova transacao
+            Nova transação
           </Button>
         </div>
       </div>
@@ -576,7 +576,7 @@ function Transactions() {
           <div className="flex flex-1 items-center gap-3">
             <Input
               id="filter-description"
-              placeholder="Buscar por descricao"
+              placeholder="Buscar por descrição"
               value={descriptionDraft}
               onChange={(event) => setDescriptionDraft(event.target.value)}
             />
@@ -625,7 +625,7 @@ function Transactions() {
                 title={
                   descriptionFilter
                     ? undefined
-                    : 'Informe uma descricao para buscar nas notas'
+                    : 'Informe uma descrição para buscar nas notas'
                 }
               >
                 <input
@@ -800,7 +800,7 @@ function Transactions() {
                   type="button"
                   onClick={() => handleSort('description')}
                 >
-                  Descricao
+                  Descrição
                   <SortIcon
                     isActive={sortKey === 'description'}
                     direction={sortDirection}
@@ -882,7 +882,7 @@ function Transactions() {
             {!transactionsQuery.isLoading && transactions.length === 0 && (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
-                  Nenhuma transacao encontrada.
+                  Nenhuma transação encontrada.
                 </td>
               </tr>
             )}
@@ -904,7 +904,7 @@ function Transactions() {
                       {transaction.description ||
                         transaction.categoryName ||
                         categoryMap.get(transaction.categoryId) ||
-                        'Sem descricao'}
+                        'Sem descrição'}
                     </span>
                     {transaction.notes && (
                       <span
@@ -984,9 +984,9 @@ function Transactions() {
           />
           <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
             <div>
-              <h3 className="text-lg font-semibold">Nova transacao</h3>
+              <h3 className="text-lg font-semibold">Nova transação</h3>
               <p className="text-sm text-muted-foreground">
-                Preencha os dados para registrar uma nova transacao.
+                Preencha os dados para registrar uma nova transação.
               </p>
             </div>
 
@@ -1013,7 +1013,7 @@ function Transactions() {
                   setError('root', {
                     message: getApiErrorMessage(error, {
                       defaultMessage:
-                        'Erro ao criar transacao. Tente novamente.',
+                        'Erro ao criar transação. Tente novamente.',
                     }),
                   })
                 }
@@ -1158,7 +1158,7 @@ function Transactions() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="transaction-description">Descricao</Label>
+                <Label htmlFor="transaction-description">Descrição</Label>
                 <Input
                   id="transaction-description"
                   placeholder="Ex: Supermercado"
@@ -1350,7 +1350,7 @@ function Transactions() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="transfer-description">Descricao</Label>
+                <Label htmlFor="transfer-description">Descrição</Label>
                 <Input
                   id="transfer-description"
                   placeholder="Opcional"
@@ -1403,9 +1403,9 @@ function Transactions() {
             tabIndex={-1}
           >
             <div className="space-y-1">
-              <h3 className="text-lg font-semibold">Detalhes da transacao</h3>
+              <h3 className="text-lg font-semibold">Detalhes da transação</h3>
               <p className="text-sm text-muted-foreground">
-                Informacoes da transacao selecionada.
+                Informações da transação selecionada.
               </p>
             </div>
 
@@ -1419,11 +1419,11 @@ function Transactions() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Descricao</span>
+                <span className="text-muted-foreground">Descrição</span>
                 <span className="font-medium">
                   {selectedTransaction.description ||
                     categoryMap.get(selectedTransaction.categoryId) ||
-                    'Sem descricao'}
+                    'Sem descrição'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -1509,9 +1509,9 @@ function Transactions() {
           />
           <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
             <div>
-              <h3 className="text-lg font-semibold">Editar transacao</h3>
+              <h3 className="text-lg font-semibold">Editar transação</h3>
               <p className="text-sm text-muted-foreground">
-                Atualize os dados da transacao selecionada.
+                Atualize os dados da transação selecionada.
               </p>
             </div>
 
@@ -1541,7 +1541,7 @@ function Transactions() {
                   setEditError('root', {
                     message: getApiErrorMessage(error, {
                       defaultMessage:
-                        'Erro ao atualizar transacao. Tente novamente.',
+                        'Erro ao atualizar transação. Tente novamente.',
                     }),
                   })
                 }
@@ -1687,7 +1687,7 @@ function Transactions() {
 
               <div className="space-y-2">
                 <Label htmlFor="transaction-edit-description">
-                  Descricao
+                  Descrição
                 </Label>
                 <Input
                   id="transaction-edit-description"
@@ -1756,7 +1756,7 @@ function Transactions() {
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Confirmar exclusao</h3>
               <p className="text-sm text-muted-foreground">
-                Tem certeza que deseja excluir esta transacao? Essa acao nao
+                Tem certeza que deseja excluir esta transação? Essa ação não
                 pode ser desfeita.
               </p>
             </div>
@@ -1787,7 +1787,7 @@ function Transactions() {
                     setDeleteError(
                       getApiErrorMessage(error, {
                         defaultMessage:
-                          'Erro ao excluir transacao. Tente novamente.',
+                          'Erro ao excluir transação. Tente novamente.',
                       }),
                     )
                   }

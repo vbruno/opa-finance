@@ -2,10 +2,9 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import clsx from 'clsx'
 
 const navItems = [
-  { to: '/app', label: 'Dashboard' },
-  { to: '/app/accounts', label: 'Accounts' },
-  { to: '/app/categories', label: 'Categories' },
-  { to: '/app/transactions', label: 'Transactions' },
+  { to: '/app/accounts', label: 'Contas' },
+  { to: '/app/categories', label: 'Categorias' },
+  { to: '/app/transactions', label: 'Transacoes' },
 ]
 
 export function Sidebar() {

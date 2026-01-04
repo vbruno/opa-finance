@@ -759,7 +759,7 @@ function Categories() {
                 <Label htmlFor="category-name">Nome</Label>
                 <Input
                   id="category-name"
-                  placeholder="Ex: Alimentacao"
+                  placeholder="Ex: Alimentação"
                   className="h-10"
                   aria-invalid={!!form.formState.errors.name}
                   {...createNameField}
@@ -853,7 +853,7 @@ function Categories() {
                 <Label htmlFor="category-edit-name">Nome</Label>
                 <Input
                   id="category-edit-name"
-                  placeholder="Ex: Alimentacao"
+                  placeholder="Ex: Alimentação"
                   className="h-10"
                   aria-invalid={!!editForm.formState.errors.name}
                   {...editNameField}
@@ -968,7 +968,7 @@ function Categories() {
               onSubmit={subCreateForm.handleSubmit(async (formData) => {
                 try {
                   if (!subcategoryParent) {
-                    throw new Error('Categoria nao selecionada')
+                    throw new Error('Categoria não selecionada')
                   }
                   await createSubcategoryMutation.mutateAsync({
                     categoryId: subcategoryParent.id,

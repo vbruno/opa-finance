@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { getUser, logout } from '@/features/auth'
@@ -17,7 +17,9 @@ export function Header() {
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-4">
-      <h1 className="font-bold">Opa Finance</h1>
+      <Link to="/app" className="font-bold">
+        Opa Finance
+      </Link>
 
       <div className="flex items-center gap-3">
         <Button variant="outline" onClick={() => setIsMenuOpen(true)}>
