@@ -398,92 +398,90 @@ function Accounts() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4">
-        <div className="flex-1">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">
-            Buscar
-          </label>
-          <Input
-            type="text"
-            placeholder="Buscar por nome..."
-            className="mt-2 h-10"
-            value={searchDraft}
-            onChange={(event) => setSearchDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') {
-                return
-              }
-              const trimmedValue = event.currentTarget.value.trim()
-              setSearchDraft(event.currentTarget.value)
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  q: trimmedValue ? trimmedValue : undefined,
-                }),
-                replace: false,
-              })
-            }}
-          />
-        </div>
-        <div className="w-full sm:w-56">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">
-            Tipo
-          </label>
-          <div className="relative mt-2">
-            <select
-              className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
-              value={typeFilter}
-              onChange={(event) =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    type: event.target.value || undefined,
-                  }),
-                  replace: false,
-                })
-              }
-            >
-              <option value="">Todos</option>
-              <option value="credit_card">Cartão de Crédito</option>
-              <option value="checking_account">Conta Corrente</option>
-              <option value="cash">Dinheiro</option>
-              <option value="investment">Investimento</option>
-              <option value="savings_account">Poupança</option>
-            </select>
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-              <svg
-                viewBox="0 0 16 16"
-                className="h-4 w-4"
-                aria-hidden="true"
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <h3 className="text-base font-semibold">Filtros</h3>
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+            <div className="min-w-[220px] flex-1">
+              <Input
+                type="text"
+                placeholder="Buscar por nome..."
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') {
+                    return
+                  }
+                  const trimmedValue = event.currentTarget.value.trim()
+                  setSearchDraft(event.currentTarget.value)
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      q: trimmedValue ? trimmedValue : undefined,
+                    }),
+                    replace: false,
+                  })
+                }}
+              />
+            </div>
+            <div className="w-full sm:w-56">
+              <div className="relative">
+                <select
+                  className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
+                  value={typeFilter}
+                  onChange={(event) =>
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        type: event.target.value || undefined,
+                      }),
+                      replace: false,
+                    })
+                  }
+                >
+                  <option value="">Todos</option>
+                  <option value="credit_card">Cartão de Crédito</option>
+                  <option value="checking_account">Conta Corrente</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="investment">Investimento</option>
+                  <option value="savings_account">Poupança</option>
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+                  <svg
+                    viewBox="0 0 16 16"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 6l4 4 4-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div className="flex h-10 items-end">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={!hasActiveFilters}
+                aria-label="Limpar filtros"
+                className="h-10 w-10"
+                onClick={() => {
+                  navigate({
+                    search: () => ({}),
+                    replace: false,
+                  })
+                }}
               >
-                <path
-                  d="M4 6l4 4 4-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
+                x
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex h-10 items-end">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={!hasActiveFilters}
-            aria-label="Limpar filtros"
-            className="h-10 w-10"
-            onClick={() => {
-              navigate({
-                search: () => ({}),
-                replace: false,
-              })
-            }}
-          >
-            x
-          </Button>
         </div>
       </div>
 
@@ -564,7 +562,15 @@ function Accounts() {
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {accountTypeLabels[account.type] ?? account.type}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
+                    <td
+                      className={
+                        displayBalance < 0
+                          ? 'px-4 py-3 text-right font-semibold whitespace-nowrap text-rose-600'
+                          : displayBalance > 0
+                          ? 'px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
+                          : 'px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
+                      }
+                    >
                       {`$ ${formatCurrencyValue(displayBalance)}`}
                     </td>
                   </tr>

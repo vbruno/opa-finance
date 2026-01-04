@@ -69,6 +69,9 @@ export const Route = createFileRoute('/app/transactions')({
     includeNotes: z
       .preprocess(
         (value) => {
+          if (typeof value === 'boolean') {
+            return value
+          }
           if (value === 'true' || value === '1') {
             return true
           }
@@ -77,7 +80,24 @@ export const Route = createFileRoute('/app/transactions')({
           }
           return undefined
         },
-        z.boolean(),
+        z.boolean().optional(),
+      )
+      .optional(),
+    notesOnly: z
+      .preprocess(
+        (value) => {
+          if (typeof value === 'boolean') {
+            return value
+          }
+          if (value === 'true' || value === '1') {
+            return true
+          }
+          if (value === 'false' || value === '0') {
+            return false
+          }
+          return undefined
+        },
+        z.boolean().optional(),
       )
       .optional(),
     sort: z
@@ -158,6 +178,7 @@ function Transactions() {
   const subcategoryFilter = search.subcategoryId ?? ''
   const descriptionFilter = search.description ?? ''
   const includeNotes = search.includeNotes ?? false
+  const notesOnly = search.notesOnly ?? false
   const sortKey = search.sort ?? null
   const sortDirection = search.dir ?? 'desc'
   const startDateFilter = search.startDate ?? ''
@@ -169,6 +190,7 @@ function Transactions() {
     subcategoryFilter ||
     descriptionFilter ||
     includeNotes ||
+    notesOnly ||
     startDateFilter ||
     endDateFilter
   const hasHiddenFilters =
@@ -177,12 +199,14 @@ function Transactions() {
     categoryFilter ||
     subcategoryFilter ||
     includeNotes ||
+    notesOnly ||
     startDateFilter ||
     endDateFilter
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
   const [descriptionDraft, setDescriptionDraft] =
     useState(descriptionFilter)
   const debouncedDescription = useDebouncedValue(descriptionDraft, 300)
+  const canSearchNotes = descriptionDraft.trim().length > 0
 
   const transactionsQuery = useTransactions({
     page,
@@ -191,8 +215,11 @@ function Transactions() {
     accountId: accountFilter || undefined,
     categoryId: categoryFilter || undefined,
     subcategoryId: subcategoryFilter || undefined,
-    description: descriptionFilter || undefined,
-    notes: includeNotes && descriptionFilter ? descriptionFilter : undefined,
+    description: notesOnly ? undefined : descriptionFilter || undefined,
+    notes:
+      (includeNotes || notesOnly) && descriptionFilter
+        ? descriptionFilter
+        : undefined,
     sort: sortKey || undefined,
     dir: sortKey ? sortDirection : undefined,
     startDate: startDateFilter || undefined,
@@ -555,7 +582,7 @@ function Transactions() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold">Transacoes</h2>
+          <h2 className="text-xl font-bold">Transações</h2>
           <p className="text-sm text-muted-foreground">
             Acompanhe receitas e despesas registradas nas contas.
           </p>
@@ -578,6 +605,7 @@ function Transactions() {
               id="filter-description"
               placeholder="Buscar por descrição"
               value={descriptionDraft}
+              className="bg-background dark:bg-muted/50"
               onChange={(event) => setDescriptionDraft(event.target.value)}
             />
             <div className="flex items-center gap-2">
@@ -597,6 +625,7 @@ function Transactions() {
                         subcategoryId: undefined,
                         description: undefined,
                         includeNotes: undefined,
+                        notesOnly: undefined,
                         startDate: undefined,
                         endDate: undefined,
                       }),
@@ -607,7 +636,7 @@ function Transactions() {
                 </Button>
               )}
               <Button
-                variant="outline"
+                variant="default"
                 onClick={() => setIsFilterExpanded((prev) => !prev)}
               >
                 {isFilterExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -620,32 +649,55 @@ function Transactions() {
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <div className="space-y-2 lg:col-span-3">
               <Label htmlFor="filter-include-notes">Busca</Label>
-              <label
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-                title={
-                  descriptionFilter
-                    ? undefined
-                    : 'Informe uma descrição para buscar nas notas'
-                }
-              >
-                <input
-                  id="filter-include-notes"
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={includeNotes}
-                  disabled={!descriptionFilter}
-                  onChange={(event) =>
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        includeNotes: event.target.checked ? true : undefined,
-                        page: 1,
-                      }),
-                    })
+              <div className="flex flex-wrap items-center gap-4">
+                <label
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                  title={
+                    canSearchNotes
+                      ? undefined
+                      : 'Informe uma descrição para buscar nas notas'
                   }
-                />
-                Buscar nas notas
-              </label>
+                >
+                  <input
+                    id="filter-include-notes"
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={includeNotes}
+                    disabled={!canSearchNotes}
+                    onChange={(event) =>
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          includeNotes: event.target.checked ? true : undefined,
+                          notesOnly: event.target.checked ? prev.notesOnly : undefined,
+                          page: 1,
+                        }),
+                      })
+                    }
+                  />
+                  Buscar nas notas
+                </label>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    id="filter-notes-only"
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={notesOnly}
+                    disabled={!canSearchNotes}
+                    onChange={(event) =>
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          notesOnly: event.target.checked ? true : undefined,
+                          includeNotes: event.target.checked ? true : prev.includeNotes,
+                          page: 1,
+                        }),
+                      })
+                    }
+                  />
+                  Somente notas
+                </label>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-start-date">Data inicial</Label>
@@ -653,6 +705,7 @@ function Transactions() {
                 id="filter-start-date"
                 type="date"
                 value={startDateFilter}
+                className="bg-background dark:bg-muted/50"
                 onChange={(event) =>
                   navigate({
                     search: (prev) => ({
@@ -670,6 +723,7 @@ function Transactions() {
                 id="filter-end-date"
                 type="date"
                 value={endDateFilter}
+                className="bg-background dark:bg-muted/50"
                 onChange={(event) =>
                   navigate({
                     search: (prev) => ({
@@ -685,7 +739,7 @@ function Transactions() {
               <Label htmlFor="filter-type">Tipo</Label>
               <select
                 id="filter-type"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
                 value={typeFilter}
                 onChange={(event) =>
                   navigate({
@@ -706,7 +760,7 @@ function Transactions() {
               <Label htmlFor="filter-account">Conta</Label>
               <select
                 id="filter-account"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
                 value={accountFilter}
                 onChange={(event) =>
                   navigate({
@@ -730,7 +784,7 @@ function Transactions() {
               <Label htmlFor="filter-category">Categoria</Label>
               <select
                 id="filter-category"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
                 value={categoryFilter}
                 onChange={(event) =>
                   navigate({
@@ -755,7 +809,7 @@ function Transactions() {
               <Label htmlFor="filter-subcategory">Subcategoria</Label>
               <select
                 id="filter-subcategory"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
                 value={subcategoryFilter}
                 onChange={(event) =>
                   navigate({
@@ -846,9 +900,9 @@ function Transactions() {
                   />
                 </button>
               </th>
-              <th className="px-4 py-3">
+              <th className="px-4 py-3 text-center">
                 <button
-                  className="inline-flex items-center gap-2 text-left"
+                  className="inline-flex items-center gap-2 text-center"
                   type="button"
                   onClick={() => handleSort('type')}
                 >
@@ -875,7 +929,7 @@ function Transactions() {
             {transactionsQuery.isLoading && (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
-                  Carregando transacoes...
+                  Carregando transações...
                 </td>
               </tr>
             )}
@@ -931,10 +985,26 @@ function Transactions() {
                     ? transaction.subcategoryName || '-'
                     : '-'}
                 </td>
-                <td className="px-4 py-3">
-                  {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                <td className="px-4 py-3 text-center">
+                  <span
+                    className={
+                      transaction.type === 'income'
+                        ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
+                        : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
+                    }
+                  >
+                    {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-right font-medium">
+                <td
+                  className={
+                    transaction.type === 'income'
+                      ? 'px-4 py-3 text-right font-medium text-emerald-600'
+                      : transaction.type === 'expense'
+                      ? 'px-4 py-3 text-right font-medium text-rose-600'
+                      : 'px-4 py-3 text-right font-medium text-muted-foreground'
+                  }
+                >
                   {formatCurrencyValue(transaction.amount)}
                 </td>
               </tr>

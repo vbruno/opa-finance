@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -397,93 +398,93 @@ function Categories() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4">
-        <div className="flex-1">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">
-            Buscar
-          </label>
-          <Input
-            type="text"
-            placeholder="Buscar por nome..."
-            className="mt-2 h-10"
-            value={searchTerm}
-            onChange={(event) =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  q: event.target.value.trim() ? event.target.value : undefined,
-                }),
-                replace: true,
-              })
-            }
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') {
-                return
-              }
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  q: event.currentTarget.value.trim()
-                    ? event.currentTarget.value
-                    : undefined,
-                }),
-                replace: false,
-              })
-            }}
-          />
-        </div>
-        <div className="w-full sm:w-56">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">
-            Tipo
-          </label>
-          <div className="relative mt-2">
-            <select
-              className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
-              value={typeFilter}
-              onChange={(event) =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    type: event.target.value || undefined,
-                  }),
-                  replace: false,
-                })
-              }
-            >
-              <option value="">Todos</option>
-              <option value="income">Receita</option>
-              <option value="expense">Despesa</option>
-            </select>
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-              <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
-                <path
-                  d="M4 6l4 4 4-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <h3 className="text-base font-semibold">Filtros</h3>
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+            <div className="min-w-[220px] flex-1">
+              <Input
+                type="text"
+                placeholder="Buscar por nome..."
+                value={searchTerm}
+                onChange={(event) =>
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      q: event.target.value.trim()
+                        ? event.target.value
+                        : undefined,
+                    }),
+                    replace: true,
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') {
+                    return
+                  }
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      q: event.currentTarget.value.trim()
+                        ? event.currentTarget.value
+                        : undefined,
+                    }),
+                    replace: false,
+                  })
+                }}
+              />
+            </div>
+            <div className="w-full sm:w-56">
+              <div className="relative">
+                <select
+                  className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
+                  value={typeFilter}
+                  onChange={(event) =>
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        type: event.target.value || undefined,
+                      }),
+                      replace: false,
+                    })
+                  }
+                >
+                  <option value="">Todos</option>
+                  <option value="income">Receita</option>
+                  <option value="expense">Despesa</option>
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+                  <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      d="M4 6l4 4 4-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div className="flex h-10 items-end">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={!hasActiveFilters}
+                aria-label="Limpar filtros"
+                className="h-10 w-10"
+                onClick={() => {
+                  navigate({
+                    search: () => ({}),
+                    replace: false,
+                  })
+                }}
+              >
+                x
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex h-10 items-end">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={!hasActiveFilters}
-            aria-label="Limpar filtros"
-            className="h-10 w-10"
-            onClick={() => {
-              navigate({
-                search: () => ({}),
-                replace: false,
-              })
-            }}
-          >
-            x
-          </Button>
         </div>
       </div>
 
@@ -493,14 +494,13 @@ function Categories() {
             <tr>
               <th className="px-4 py-3">Categoria</th>
               <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
-              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Origem</th>
-              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Acoes</th>
+              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Ações</th>
             </tr>
           </thead>
           <tbody>
             {categoriesQuery.isLoading && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center">
+                <td colSpan={3} className="px-4 py-10 text-center">
                   <p className="text-sm text-muted-foreground">
                     Carregando categorias...
                   </p>
@@ -509,7 +509,7 @@ function Categories() {
             )}
             {errorMessage && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center">
+                <td colSpan={3} className="px-4 py-10 text-center">
                   <p className="text-sm text-destructive">{errorMessage}</p>
                 </td>
               </tr>
@@ -523,7 +523,7 @@ function Categories() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          className="flex h-6 w-6 items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40"
+                          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30"
                           aria-label={
                             expandedCategoryIds.includes(category.id)
                               ? 'Ocultar subcategorias'
@@ -562,45 +562,46 @@ function Categories() {
                         {category.name}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {typeLabels[category.type]}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      <span
-                        className={
-                          category.system
-                            ? 'rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700'
-                            : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700'
-                        }
-                      >
-                        {category.system ? 'Sistema' : 'Usuario'}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={
+                              category.type === 'income'
+                                ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
+                                : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
+                            }
+                          >
+                        {typeLabels[category.type]}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <Button
-                          size="sm"
-                          variant="outline"
+                          size="icon-sm"
+                          variant="secondary"
+                          className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
                           disabled={category.system}
+                          aria-label="Editar categoria"
                           onClick={() => {
                             setSelectedCategory(category)
                             editForm.reset({ name: category.name })
                             setIsEditOpen(true)
                           }}
                         >
-                          Editar
+                          <Pencil className="size-5" />
                         </Button>
                         <Button
-                          size="sm"
-                          variant="outline"
+                          size="icon-sm"
+                          variant="destructive"
+                          className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
                           disabled={category.system}
+                          aria-label="Excluir categoria"
                           onClick={() => {
                             setSelectedCategory(category)
                             setDeleteError(null)
                             setIsDeleteConfirmOpen(true)
                           }}
                         >
-                          Excluir
+                          <Trash2 className="size-5" />
                         </Button>
                       </div>
                     </td>
@@ -609,14 +610,14 @@ function Categories() {
                     <>
                       {expandedQueriesById[category.id]?.isLoading && (
                         <tr className="border-t">
-                          <td colSpan={4} className="px-4 py-3 text-sm text-muted-foreground">
+                          <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
                             Carregando subcategorias...
                           </td>
                         </tr>
                       )}
                       {expandedQueriesById[category.id]?.isError && (
                         <tr className="border-t">
-                          <td colSpan={4} className="px-4 py-3 text-sm text-destructive">
+                          <td colSpan={3} className="px-4 py-3 text-sm text-destructive">
                             Erro ao carregar subcategorias. Tente novamente.
                           </td>
                         </tr>
@@ -630,19 +631,24 @@ function Categories() {
                                 <span className="text-muted-foreground">—</span>{' '}
                                 {subcategory.name}
                               </td>
-                              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                                {typeLabels[category.type]}
-                              </td>
-                              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                                  Subcategoria
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span
+                                  className={
+                                    category.type === 'income'
+                                      ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
+                                      : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
+                                  }
+                                >
+                                  {typeLabels[category.type]}
                                 </span>
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                   <Button
-                                    size="sm"
-                                    variant="outline"
+                                    size="icon-sm"
+                                    variant="secondary"
+                                    className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
+                                    aria-label="Editar subcategoria"
                                     onClick={() => {
                                       setSubcategoryParent(category)
                                       setSelectedSubcategory(subcategory)
@@ -650,11 +656,13 @@ function Categories() {
                                       setIsSubEditOpen(true)
                                     }}
                                   >
-                                    Editar
+                                    <Pencil className="size-5" />
                                   </Button>
                                   <Button
-                                    size="sm"
-                                    variant="outline"
+                                    size="icon-sm"
+                                    variant="destructive"
+                                    className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
+                                    aria-label="Excluir subcategoria"
                                     onClick={() => {
                                       setSubcategoryParent(category)
                                       setSelectedSubcategory(subcategory)
@@ -662,7 +670,7 @@ function Categories() {
                                       setIsSubDeleteConfirmOpen(true)
                                     }}
                                   >
-                                    Excluir
+                                    <Trash2 className="size-5" />
                                   </Button>
                                 </div>
                               </td>
@@ -674,7 +682,7 @@ function Categories() {
                         (expandedQueriesById[category.id]?.data ?? [])
                           .length === 0 && (
                           <tr className="border-t">
-                            <td colSpan={4} className="px-4 py-3 text-sm text-muted-foreground">
+                            <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
                               Nenhuma subcategoria cadastrada.
                             </td>
                           </tr>
@@ -687,7 +695,7 @@ function Categories() {
               !errorMessage &&
               filteredCategories.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center">
+                  <td colSpan={3} className="px-4 py-10 text-center">
                     <div className="space-y-2">
                       {userCategories.length === 0 ? (
                         <>
