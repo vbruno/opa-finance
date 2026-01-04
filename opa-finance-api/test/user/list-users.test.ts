@@ -81,7 +81,8 @@ describe("GET /users", () => {
 
     expect(body).toHaveProperty("data");
     expect(Array.isArray(body.data)).toBe(true);
-    expect(body.data.length).toBe(2);
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].email).toBe("bruno@example.com");
 
     // passwordHash não pode aparecer
     for (const u of body.data) {
@@ -89,20 +90,8 @@ describe("GET /users", () => {
     }
   });
 
-  it("deve aplicar filtro por nome", async () => {
+  it("deve respeitar filtro por nome apenas no próprio usuário", async () => {
     const accessToken = await createAndLogin("Bruno", "bruno@example.com");
-
-    await app.inject({
-      method: "POST",
-      url: "/auth/register",
-      headers: { "Content-Type": "application/json" },
-      payload: {
-        name: "Fernanda",
-        email: "fernanda@example.com",
-        password: "Aa123456!",
-        confirmPassword: "Aa123456!",
-      },
-    });
 
     const response = await app.inject({
       method: "GET",
@@ -114,24 +103,11 @@ describe("GET /users", () => {
 
     const { data } = response.json();
 
-    expect(data.length).toBe(1);
-    expect(data[0].name).toBe("Fernanda");
+    expect(data.length).toBe(0);
   });
 
-  it("deve aplicar filtro por email", async () => {
+  it("deve respeitar filtro por email apenas no próprio usuário", async () => {
     const accessToken = await createAndLogin("Bruno", "bruno@example.com");
-
-    await app.inject({
-      method: "POST",
-      url: "/auth/register",
-      headers: { "Content-Type": "application/json" },
-      payload: {
-        name: "Carlos",
-        email: "carlos@example.com",
-        password: "Aa123456!",
-        confirmPassword: "Aa123456!",
-      },
-    });
 
     const response = await app.inject({
       method: "GET",
@@ -143,8 +119,7 @@ describe("GET /users", () => {
 
     const { data } = response.json();
 
-    expect(data.length).toBe(1);
-    expect(data[0].email).toBe("carlos@example.com");
+    expect(data.length).toBe(0);
   });
 
   it("deve retornar 401 sem token", async () => {

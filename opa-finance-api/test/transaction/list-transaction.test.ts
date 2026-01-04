@@ -214,6 +214,20 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
     expect(data[0].amount).toBe(80);
   });
 
+  it("deve retornar 403 ao filtrar por accountId de outro usuário", async () => {
+    const userA = await seedBasicData();
+    const userB = await seedBasicData();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions?accountId=${userB.account.id}`,
+      headers: { Authorization: `Bearer ${userA.token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().detail).toBe("Acesso negado à conta.");
+  });
+
   /* -------------------------------------------------------------------------- */
   /* 4) Filtrar por categoryId + type                                           */
   /* -------------------------------------------------------------------------- */

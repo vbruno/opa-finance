@@ -230,6 +230,43 @@ describe("PUT /transactions/:id", () => {
     expect(body.detail).toBe("Acesso negado à transação.");
   });
 
+  it("deve retornar 403 ao tentar mover para conta de outro usuário", async () => {
+    const userA = await createBaseTransaction();
+
+    const { token: tokenB } = await registerAndLogin(app, db, "other@test.com", "User B");
+
+    const accountRes = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: {
+        Authorization: `Bearer ${tokenB}`,
+        "Content-Type": "application/json",
+      },
+      payload: {
+        name: "Conta B",
+        type: "cash",
+        initialBalance: 0,
+      },
+    });
+    expect(accountRes.statusCode).toBe(201);
+    const accountB = accountRes.json();
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/transactions/${userA.transaction.id}`,
+      headers: {
+        Authorization: `Bearer ${userA.token}`,
+        "Content-Type": "application/json",
+      },
+      payload: {
+        accountId: accountB.id,
+      },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().detail).toBe("Acesso negado à conta.");
+  });
+
   /* ------------------------------------------------------------------------ */
   /*                    409 - SUBCATEGORIA NÃO PERTENCE À CATEGORIA           */
   /* ------------------------------------------------------------------------ */

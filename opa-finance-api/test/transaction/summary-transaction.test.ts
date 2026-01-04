@@ -173,6 +173,20 @@ describe("GET /transactions/summary", () => {
     });
   });
 
+  it("deve retornar 403 ao usar accountId de outro usuário", async () => {
+    const userA = await seedBasicData();
+    const userB = await seedBasicData();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions/summary?accountId=${userB.account.id}`,
+      headers: { Authorization: `Bearer ${userA.token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().detail).toBe("Acesso negado à conta.");
+  });
+
   it("deve retornar zeros quando não houver transações", async () => {
     const { token } = await seedBasicData();
 

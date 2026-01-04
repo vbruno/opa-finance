@@ -150,6 +150,10 @@ export class TransactionService {
 
     const filters = [eq(transactions.userId, userId)];
 
+    if (query.accountId) {
+      await this.validateAccount(userId, query.accountId);
+    }
+
     if (query.startDate) filters.push(gte(transactions.date, query.startDate));
     if (query.endDate) filters.push(lte(transactions.date, query.endDate));
     if (query.accountId) filters.push(eq(transactions.accountId, query.accountId));
@@ -279,6 +283,10 @@ export class TransactionService {
     let newCategory = null;
     let newSubcategory = null;
 
+    if (data.accountId) {
+      await this.validateAccount(userId, data.accountId);
+    }
+
     if (data.categoryId) {
       newCategory = await this.validateCategory(userId, data.categoryId);
     }
@@ -350,6 +358,10 @@ export class TransactionService {
   async summary(userId: string, query: SummaryTransactionsQuery) {
     const filters = [eq(transactions.userId, userId)];
 
+    if (query.accountId) {
+      await this.validateAccount(userId, query.accountId);
+    }
+
     if (query.startDate) {
       filters.push(gte(transactions.date, query.startDate));
     }
@@ -400,6 +412,10 @@ export class TransactionService {
 
   async topCategories(userId: string, query: TopCategoriesQuery) {
     const filters = [eq(transactions.userId, userId)];
+
+    if (query.accountId) {
+      await this.validateAccount(userId, query.accountId);
+    }
 
     if (query.startDate) {
       filters.push(gte(transactions.date, query.startDate));

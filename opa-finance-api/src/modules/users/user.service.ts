@@ -19,12 +19,16 @@ export class UserService {
   constructor(private app: FastifyInstance) {}
 
   /* ---------------------------------- GET ONE --------------------------------- */
-  async getOne(params: GetUserParams) {
+  async getOne(params: GetUserParams, authUserId: string) {
     const result = await this.app.db.select().from(users).where(eq(users.id, params.id));
     const [user] = result as UserRow[];
 
     if (!user) {
       throw new NotFoundProblem("Usuário não encontrado.", `/users/${params.id}`);
+    }
+
+    if (user.id !== authUserId) {
+      throw new ForbiddenProblem("Você não pode acessar este usuário.", `/users/${params.id}`);
     }
 
     const { passwordHash, ...publicUser } = user;
@@ -33,31 +37,31 @@ export class UserService {
   }
 
   /* ---------------------------------- LIST ----------------------------------- */
-  async list(query: ListUsersQuery) {
+  async list(query: ListUsersQuery, authUserId: string) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-    const offset = (page - 1) * limit;
 
-    const filters = [];
+    const result = await this.app.db.select().from(users).where(eq(users.id, authUserId));
+    const [user] = result as UserRow[];
 
-    if (query.name) filters.push(ilike(users.name, `%${query.name}%`));
-    if (query.email) filters.push(ilike(users.email, `%${query.email}%`));
+    if (!user) {
+      throw new NotFoundProblem("Usuário não encontrado.", `/users/${authUserId}`);
+    }
 
-    const result = await this.app.db
-      .select()
-      .from(users)
-      .where(filters.length > 0 ? and(...filters) : undefined)
-      .limit(limit)
-      .offset(offset);
+    if (query.name) {
+      const matches = user.name.toLowerCase().includes(query.name.toLowerCase());
+      if (!matches) return { data: [], page, limit };
+    }
 
-    const rows = result as UserRow[];
+    if (query.email) {
+      const matches = user.email.toLowerCase().includes(query.email.toLowerCase());
+      if (!matches) return { data: [], page, limit };
+    }
 
-    const sanitized = rows.map(({ passwordHash, ...u }) => {
-      void passwordHash;
-      return u;
-    });
+    const { passwordHash, ...publicUser } = user;
+    void passwordHash;
 
-    return { data: sanitized, page, limit };
+    return { data: [publicUser], page, limit };
   }
 
   /* ---------------------------------- UPDATE ---------------------------------- */

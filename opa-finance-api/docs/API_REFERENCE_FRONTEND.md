@@ -322,7 +322,7 @@ Redefine senha usando token de reset.
 
 ### GET `/users`
 
-Lista usuários (com paginação).
+Retorna o usuário autenticado (sem listar outros usuários).
 
 **Headers:** `Authorization: Bearer {token}`
 
@@ -330,6 +330,8 @@ Lista usuários (com paginação).
 
 - `page` (number, default: 1)
 - `limit` (number, default: 10)
+- `name` (string, filtro aplicado apenas ao próprio usuário)
+- `email` (string, filtro aplicado apenas ao próprio usuário)
 
 **Response 200:**
 
@@ -345,7 +347,6 @@ Lista usuários (com paginação).
   ],
   "page": 1,
   "limit": 10,
-  "total": 1
 }
 ```
 
@@ -370,6 +371,7 @@ Obtém um usuário específico.
 
 **Erros:**
 
+- `403` - Apenas o próprio usuário pode acessar
 - `404` - Usuário não encontrado
 
 ---

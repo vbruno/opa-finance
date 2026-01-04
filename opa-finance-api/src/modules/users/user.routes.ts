@@ -17,13 +17,13 @@ export async function userRoutes(app: FastifyInstance) {
   /* ---------------------------------- LIST ---------------------------------- */
   app.get("/users", { preHandler: [app.authenticate] }, async (req) => {
     const query = listUsersQuerySchema.parse(req.query);
-    return service.list(query);
+    return service.list(query, req.user.sub);
   });
 
   /* ---------------------------------- GET ONE -------------------------------- */
   app.get("/users/:id", { preHandler: [app.authenticate] }, async (req) => {
     const params = getUserParamsSchema.parse(req.params);
-    return service.getOne(params);
+    return service.getOne(params, req.user.sub);
   });
 
   /* ---------------------------------- UPDATE --------------------------------- */

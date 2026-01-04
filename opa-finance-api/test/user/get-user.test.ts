@@ -116,6 +116,58 @@ describe.sequential("GET /users/:id", () => {
     expect(body.detail).toBe("Usuário não encontrado.");
   });
 
+  it("deve retornar 403 ao tentar acessar outro usuário", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        name: "User A",
+        email: "a@example.com",
+        password: "Aa123456!",
+        confirmPassword: "Aa123456!",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        name: "User B",
+        email: "b@example.com",
+        password: "Aa123456!",
+        confirmPassword: "Aa123456!",
+      },
+    });
+
+    const [userA] = await db.select().from(users).where(eq(users.email, "a@example.com"));
+    const [userB] = await db.select().from(users).where(eq(users.email, "b@example.com"));
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        email: "a@example.com",
+        password: "Aa123456!",
+      },
+    });
+
+    const { accessToken } = login.json();
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/users/${userB.id}`,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().detail).toBe("Você não pode acessar este usuário.");
+  });
+
   it("deve retornar 401 sem token", async () => {
     const response = await app.inject({
       method: "GET",

@@ -175,6 +175,20 @@ describe("GET /transactions/top-categories", () => {
     expect(body[2].totalAmount).toBe(50);
   });
 
+  it("deve retornar 403 ao usar accountId de outro usuário", async () => {
+    const userA = await seedBasicData();
+    const userB = await seedBasicData();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions/top-categories?accountId=${userB.account.id}`,
+      headers: { Authorization: `Bearer ${userA.token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().detail).toBe("Acesso negado à conta.");
+  });
+
   it("deve validar datas com o mesmo formato do summary", async () => {
     const { token } = await seedBasicData();
 
