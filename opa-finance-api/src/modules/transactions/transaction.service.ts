@@ -159,7 +159,23 @@ export class TransactionService {
     const useUnaccent =
       (query.description || query.notes) ? await this.hasUnaccent() : false;
 
-    if (query.description) {
+    if (query.description && query.notes) {
+      if (useUnaccent) {
+        filters.push(
+          sql`(
+            unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})
+            OR unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})
+          )`,
+        );
+      } else {
+        filters.push(
+          sql`(
+            ${transactions.description} ILIKE ${`%${query.description}%`}
+            OR ${transactions.notes} ILIKE ${`%${query.notes}%`}
+          )`,
+        );
+      }
+    } else if (query.description) {
       if (useUnaccent) {
         filters.push(
           sql`unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})`,
@@ -167,8 +183,7 @@ export class TransactionService {
       } else {
         filters.push(ilike(transactions.description, `%${query.description}%`));
       }
-    }
-    if (query.notes) {
+    } else if (query.notes) {
       if (useUnaccent) {
         filters.push(sql`unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})`);
       } else {
