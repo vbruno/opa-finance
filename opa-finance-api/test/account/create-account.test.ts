@@ -31,7 +31,7 @@ async function registerAndLogin() {
   return login.json().accessToken as string;
 }
 
-describe("POST /accounts", () => {
+describe.sequential("POST /accounts", () => {
   beforeEach(async () => {
     const built = await buildTestApp();
     app = built.app;

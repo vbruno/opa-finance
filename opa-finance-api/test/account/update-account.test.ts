@@ -25,7 +25,7 @@ async function registerAndLogin(email = "user@test.com") {
   return login.json().accessToken;
 }
 
-describe("PUT /accounts/:id", () => {
+describe.sequential("PUT /accounts/:id", () => {
   beforeEach(async () => {
     const built = await buildTestApp();
     app = built.app;

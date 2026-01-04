@@ -32,7 +32,7 @@ async function registerAndLogin(name: string, email: string) {
   return login.json().accessToken;
 }
 
-describe("GET /accounts/:id", () => {
+describe.sequential("GET /accounts/:id", () => {
   beforeEach(async () => {
     const built = await buildTestApp();
     app = built.app;

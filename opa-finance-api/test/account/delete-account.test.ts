@@ -39,7 +39,7 @@ async function registerAndLogin() {
   return { token: accessToken, userId: user.id };
 }
 
-describe("DELETE /accounts/:id", () => {
+describe.sequential("DELETE /accounts/:id", () => {
   beforeEach(async () => {
     const built = await buildTestApp();
     app = built.app;
