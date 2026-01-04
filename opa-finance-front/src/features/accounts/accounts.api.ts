@@ -8,6 +8,7 @@ export type Account = {
   type: string
   initialBalance: number
   currentBalance?: number
+  isPrimary?: boolean
   createdAt: string
   updatedAt: string
 }

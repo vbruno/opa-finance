@@ -401,14 +401,17 @@ export class TransactionService {
     filters.push(eq(transactions.type, "expense"));
 
     const groupBy = query.groupBy ?? "category";
+    const totalFilters = [...filters];
+    const groupFilters = [...filters];
+
     if (groupBy === "subcategory") {
-      filters.push(isNotNull(transactions.subcategoryId));
+      groupFilters.push(isNotNull(transactions.subcategoryId));
     }
 
     const [totalRow] = await this.app.db
       .select({ total: sum(transactions.amount) })
       .from(transactions)
-      .where(and(...filters));
+      .where(and(...totalFilters));
 
     const total = Number(totalRow?.total ?? 0);
     const totalAmount = sql<number>`sum(${transactions.amount})`;
@@ -425,7 +428,7 @@ export class TransactionService {
         .from(transactions)
         .innerJoin(subcategories, eq(subcategories.id, transactions.subcategoryId))
         .innerJoin(categories, eq(categories.id, transactions.categoryId))
-        .where(and(...filters))
+        .where(and(...groupFilters))
         .groupBy(transactions.subcategoryId, subcategories.name, categories.id, categories.name)
         .orderBy(desc(totalAmount))
         .limit(5);
@@ -452,7 +455,7 @@ export class TransactionService {
       })
       .from(transactions)
       .innerJoin(categories, eq(categories.id, transactions.categoryId))
-      .where(and(...filters))
+      .where(and(...groupFilters))
       .groupBy(transactions.categoryId, categories.name)
       .orderBy(desc(totalAmount))
       .limit(5);

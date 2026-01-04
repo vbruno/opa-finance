@@ -57,6 +57,17 @@ export type TransactionsSummary = {
   balance: number
 }
 
+export type TopCategoriesGroupBy = 'category' | 'subcategory'
+
+export type TopCategory = {
+  id: string
+  name: string
+  totalAmount: number
+  percentage: number
+  categoryId?: string
+  categoryName?: string
+}
+
 export type TransactionsSummaryQueryParams = {
   startDate?: string
   endDate?: string
@@ -64,6 +75,13 @@ export type TransactionsSummaryQueryParams = {
   categoryId?: string
   subcategoryId?: string
   type?: TransactionType
+}
+
+export type TopCategoriesQueryParams = {
+  startDate?: string
+  endDate?: string
+  accountId?: string
+  groupBy?: TopCategoriesGroupBy
 }
 
 export type TransactionCreatePayload = {
@@ -91,6 +109,7 @@ export type TransactionUpdatePayload = {
 const transactionsKey = ['transactions']
 const transactionKey = (id: string) => ['transaction', id]
 const transactionsSummaryKey = ['transactions-summary']
+const transactionsTopCategoriesKey = ['transactions-top-categories']
 
 export function useTransactions(params: TransactionsQueryParams) {
   return useQuery({
@@ -115,6 +134,21 @@ export function useTransactionsSummary(
     queryFn: async () => {
       const response = await api.get<TransactionsSummary>(
         '/transactions/summary',
+        { params },
+      )
+      return response.data
+    },
+  })
+}
+
+export function useTransactionsTopCategories(
+  params: TopCategoriesQueryParams,
+) {
+  return useQuery({
+    queryKey: [...transactionsTopCategoriesKey, params],
+    queryFn: async () => {
+      const response = await api.get<TopCategory[]>(
+        '/transactions/top-categories',
         { params },
       )
       return response.data
