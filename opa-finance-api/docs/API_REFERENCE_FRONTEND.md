@@ -1202,6 +1202,11 @@ GET /transactions/summary?startDate=2025-01-01&endDate=2025-01-31
 }
 ```
 
+**Erros:**
+
+- `403` - Conta não pertence ao usuário
+- `404` - Conta não encontrada
+
 ---
 
 ### GET `/transactions/top-categories`
@@ -1235,6 +1240,11 @@ GET /transactions/top-categories?startDate=2025-01-01&endDate=2025-01-31
   }
 ]
 ```
+
+**Erros:**
+
+- `403` - Conta não pertence ao usuário
+- `404` - Conta não encontrada
 
 **Exemplo (groupBy=subcategory):**
 

@@ -60,7 +60,6 @@ function Dashboard() {
   const search = Route.useSearch()
   const period = search.period ?? 'month'
   const accountParam = search.accountId
-  const accountFilter = accountParam === 'all' ? '' : accountParam ?? ''
   const customStartDate = search.startDate ?? ''
   const customEndDate = search.endDate ?? ''
   const [groupBy, setGroupBy] = useState<'category' | 'subcategory'>(
@@ -78,31 +77,52 @@ function Dashboard() {
   const accounts = accountsQuery.data ?? []
   const primaryAccount =
     accounts.find((account) => account.isPrimary) ?? accounts[0]
-  const effectiveAccountId =
-    accountParam && accountParam !== 'all'
-      ? accountParam
-      : primaryAccount?.id || ''
+  const isAccountParamAll = accountParam === 'all'
+  const isAccountParamValid = accountParam
+    ? accounts.some((account) => account.id === accountParam)
+    : false
+  const resolvedAccountId =
+    !accountParam || isAccountParamAll
+      ? primaryAccount?.id
+      : isAccountParamValid
+        ? accountParam
+        : primaryAccount?.id
+  const effectiveAccountId = isAccountParamAll
+    ? ''
+    : resolvedAccountId || ''
+  const canQueryAccount =
+    accountsQuery.isSuccess &&
+    (isAccountParamAll || Boolean(resolvedAccountId))
 
-  const summaryQuery = useTransactionsSummary({
-    startDate,
-    endDate,
-    accountId: accountParam === 'all' ? undefined : effectiveAccountId || undefined,
-  })
-  const transactionsQuery = useTransactions({
-    page: 1,
-    limit: 5,
-    startDate,
-    endDate,
-    accountId: accountParam === 'all' ? undefined : effectiveAccountId || undefined,
-    sort: 'date',
-    dir: 'desc',
-  })
-  const topCategoriesQuery = useTransactionsTopCategories({
-    startDate,
-    endDate,
-    accountId: accountParam === 'all' ? undefined : effectiveAccountId || undefined,
-    groupBy,
-  })
+  const summaryQuery = useTransactionsSummary(
+    {
+      startDate,
+      endDate,
+      accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+    },
+    { enabled: canQueryAccount },
+  )
+  const transactionsQuery = useTransactions(
+    {
+      page: 1,
+      limit: 5,
+      startDate,
+      endDate,
+      accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      sort: 'date',
+      dir: 'desc',
+    },
+    { enabled: canQueryAccount },
+  )
+  const topCategoriesQuery = useTransactionsTopCategories(
+    {
+      startDate,
+      endDate,
+      accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      groupBy,
+    },
+    { enabled: canQueryAccount },
+  )
 
   const visibleAccounts = [...accounts].sort((a, b) => {
     const aPrimary = a.isPrimary ? 1 : 0
@@ -131,6 +151,13 @@ function Dashboard() {
     credit_card: 'Cartão de Crédito',
     investment: 'Investimento',
   }
+  const showSummarySkeleton =
+    accountsQuery.isLoading || (canQueryAccount && summaryQuery.isLoading)
+  const showTransactionsSkeleton =
+    accountsQuery.isLoading || (canQueryAccount && transactionsQuery.isLoading)
+  const showTopCategoriesSkeleton =
+    accountsQuery.isLoading || (canQueryAccount && topCategoriesQuery.isLoading)
+  const showAccountsSkeleton = accountsQuery.isLoading
 
   useEffect(() => {
     if (accountParam === undefined && primaryAccount?.id) {
@@ -239,9 +266,9 @@ function Dashboard() {
               id="account"
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
               value={
-                accountParam === 'all'
+                isAccountParamAll
                   ? 'all'
-                  : accountParam ?? primaryAccount?.id ?? ''
+                  : resolvedAccountId ?? primaryAccount?.id ?? ''
               }
               onChange={(event) => handleAccountChange(event.target.value)}
             >
@@ -284,30 +311,44 @@ function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border bg-background p-4">
-          <p className="text-sm text-muted-foreground">Receitas</p>
-          <p className="mt-2 text-2xl font-semibold text-emerald-600">
-            <span className="sensitive">
-              {summary ? formatCurrencyValue(summary.income) : '--'}
-            </span>
-          </p>
-        </div>
-        <div className="rounded-lg border bg-background p-4">
-          <p className="text-sm text-muted-foreground">Despesas</p>
-          <p className="mt-2 text-2xl font-semibold text-rose-600">
-            <span className="sensitive">
-              {summary ? formatCurrencyValue(summary.expense) : '--'}
-            </span>
-          </p>
-        </div>
-        <div className="rounded-lg border bg-background p-4">
-          <p className="text-sm text-muted-foreground">Saldo</p>
-          <p className="mt-2 text-2xl font-semibold">
-            <span className="sensitive">
-              {summary ? formatCurrencyValue(summary.balance) : '--'}
-            </span>
-          </p>
-        </div>
+        {showSummarySkeleton ? (
+          Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={`summary-skeleton-${index}`}
+              className="animate-pulse rounded-lg border bg-background p-4"
+            >
+              <div className="h-4 w-20 rounded bg-muted/60" />
+              <div className="mt-3 h-7 w-28 rounded bg-muted/60" />
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="rounded-lg border bg-background p-4">
+              <p className="text-sm text-muted-foreground">Receitas</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-600">
+                <span className="sensitive">
+                  {summary ? formatCurrencyValue(summary.income) : '--'}
+                </span>
+              </p>
+            </div>
+            <div className="rounded-lg border bg-background p-4">
+              <p className="text-sm text-muted-foreground">Despesas</p>
+              <p className="mt-2 text-2xl font-semibold text-rose-600">
+                <span className="sensitive">
+                  {summary ? formatCurrencyValue(summary.expense) : '--'}
+                </span>
+              </p>
+            </div>
+            <div className="rounded-lg border bg-background p-4">
+              <p className="text-sm text-muted-foreground">Saldo</p>
+              <p className="mt-2 text-2xl font-semibold">
+                <span className="sensitive">
+                  {summary ? formatCurrencyValue(summary.balance) : '--'}
+                </span>
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {summaryError && (
@@ -351,24 +392,36 @@ function Dashboard() {
 
             {isTransactionsOpen && (
               <div className="mt-4 space-y-3">
-                {transactionsQuery.isLoading && (
-                  <p className="text-sm text-muted-foreground">
-                  Carregando transações...
-                  </p>
-                )}
+                {showTransactionsSkeleton &&
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={`transactions-skeleton-${index}`}
+                      className="flex items-center justify-between rounded-md border px-3 py-2 animate-pulse"
+                    >
+                      <div className="space-y-2">
+                        <div className="h-4 w-32 rounded bg-muted/60" />
+                        <div className="h-3 w-24 rounded bg-muted/60" />
+                      </div>
+                      <div className="space-y-2 text-right">
+                        <div className="h-4 w-20 rounded bg-muted/60" />
+                        <div className="h-3 w-16 rounded bg-muted/60" />
+                      </div>
+                    </div>
+                  ))}
                 {transactionsError && (
                   <p className="text-sm text-destructive">
                     {transactionsError}
                   </p>
                 )}
-                {!transactionsQuery.isLoading &&
+                {!showTransactionsSkeleton &&
                   !transactionsError &&
                   recentTransactions.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                     Nenhuma transação encontrada no período.
                     </p>
                   )}
-                {recentTransactions.map((transaction) => (
+                {!showTransactionsSkeleton &&
+                  recentTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
                   className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
@@ -454,24 +507,39 @@ function Dashboard() {
 
             {isTopCategoriesOpen && (
               <div className="mt-4 space-y-3">
-                {topCategoriesQuery.isLoading && (
-                  <p className="text-sm text-muted-foreground">
-                    Carregando top gastos...
-                  </p>
-                )}
+                {showTopCategoriesSkeleton &&
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={`top-categories-skeleton-${index}`}
+                      className="space-y-2 animate-pulse"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <div className="h-4 w-32 rounded bg-muted/60" />
+                          <div className="h-3 w-20 rounded bg-muted/60" />
+                        </div>
+                        <div className="space-y-2 text-right">
+                          <div className="h-4 w-20 rounded bg-muted/60" />
+                          <div className="h-3 w-12 rounded bg-muted/60" />
+                        </div>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted/60" />
+                    </div>
+                  ))}
                 {topCategoriesError && (
                   <p className="text-sm text-destructive">
                     {topCategoriesError}
                   </p>
                 )}
-                {!topCategoriesQuery.isLoading &&
+                {!showTopCategoriesSkeleton &&
                   !topCategoriesError &&
                   (topCategoriesQuery.data?.length ?? 0) === 0 && (
                     <p className="text-sm text-muted-foreground">
                       Nenhum gasto encontrado no período.
                     </p>
                   )}
-                {(topCategoriesQuery.data ?? []).map((item) => (
+                {!showTopCategoriesSkeleton &&
+                  (topCategoriesQuery.data ?? []).map((item) => (
                   <div key={item.id} className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <div>
@@ -512,24 +580,33 @@ function Dashboard() {
             </div>
 
           <div className="mt-4 space-y-3">
-            {accountsQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">
-                Carregando contas...
-              </p>
-            )}
+            {showAccountsSkeleton &&
+              Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`accounts-skeleton-${index}`}
+                  className="flex items-center justify-between rounded-md border p-3 animate-pulse"
+                >
+                  <div className="space-y-2">
+                    <div className="h-4 w-28 rounded bg-muted/60" />
+                    <div className="h-3 w-20 rounded bg-muted/60" />
+                  </div>
+                  <div className="h-4 w-16 rounded bg-muted/60" />
+                </div>
+              ))}
             {accountsQuery.isError && (
               <p className="text-sm text-destructive">
                 {getApiErrorMessage(accountsQuery.error)}
               </p>
             )}
-            {!accountsQuery.isLoading &&
+            {!showAccountsSkeleton &&
               !accountsQuery.isError &&
               visibleAccounts.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   Nenhuma conta cadastrada.
                 </p>
               )}
-            {visibleAccounts.map((account) => {
+            {!showAccountsSkeleton &&
+              visibleAccounts.map((account) => {
               const isSelected = account.id === effectiveAccountId
               const displayBalance = account.currentBalance ?? 0
 

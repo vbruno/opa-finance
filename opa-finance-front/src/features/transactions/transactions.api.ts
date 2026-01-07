@@ -111,7 +111,10 @@ const transactionKey = (id: string) => ['transaction', id]
 const transactionsSummaryKey = ['transactions-summary']
 const transactionsTopCategoriesKey = ['transactions-top-categories']
 
-export function useTransactions(params: TransactionsQueryParams) {
+export function useTransactions(
+  params: TransactionsQueryParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: [...transactionsKey, params],
     queryFn: async () => {
@@ -123,11 +126,13 @@ export function useTransactions(params: TransactionsQueryParams) {
       )
       return response.data
     },
+    enabled: options?.enabled,
   })
 }
 
 export function useTransactionsSummary(
   params: TransactionsSummaryQueryParams,
+  options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: [...transactionsSummaryKey, params],
@@ -138,11 +143,13 @@ export function useTransactionsSummary(
       )
       return response.data
     },
+    enabled: options?.enabled,
   })
 }
 
 export function useTransactionsTopCategories(
   params: TopCategoriesQueryParams,
+  options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: [...transactionsTopCategoriesKey, params],
@@ -153,6 +160,7 @@ export function useTransactionsTopCategories(
       )
       return response.data
     },
+    enabled: options?.enabled,
   })
 }
 

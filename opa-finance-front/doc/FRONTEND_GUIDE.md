@@ -192,6 +192,11 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - TanStack Query com `QueryClientProvider` no `main.tsx`
 - Queries/mutations centralizadas em hooks por feature (`src/features/*`)
 
+## ⏳ Estados de Loading
+
+- Dashboard usa skeletons para KPIs, últimas transações, top categorias e contas.
+- Skeletons são exibidos até as queries estarem habilitadas e concluírem.
+
 ## 🧠 Estado Global (padrão)
 
 - Usar Zustand apenas quando o estado for realmente compartilhado entre telas/fluxos.
