@@ -13,6 +13,14 @@ import {
   fetchSubcategories,
   useCategories,
 } from '@/features/categories'
+import {
+  useCreateTransaction,
+  useDeleteTransaction,
+  useTransactions,
+  useUpdateTransaction,
+  type Transaction,
+} from '@/features/transactions'
+import { useCreateTransfer } from '@/features/transfers'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,
@@ -27,14 +35,6 @@ import {
   transferCreateSchema,
   type TransferCreateFormData,
 } from '@/schemas/transfer.schema'
-import {
-  useCreateTransaction,
-  useDeleteTransaction,
-  useTransactions,
-  useUpdateTransaction,
-  type Transaction,
-} from '@/features/transactions'
-import { useCreateTransfer } from '@/features/transfers'
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
@@ -166,6 +166,7 @@ function Transactions() {
   const editAmountRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
+  const selectAllRef = useRef<HTMLInputElement | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
@@ -207,6 +208,7 @@ function Transactions() {
     useState(descriptionFilter)
   const debouncedDescription = useDebouncedValue(descriptionDraft, 300)
   const canSearchNotes = descriptionDraft.trim().length > 0
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
 
   const transactionsQuery = useTransactions({
     page,
@@ -322,6 +324,27 @@ function Transactions() {
   const limit = transactionsQuery.data?.limit ?? 20
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
+  const selectedTransactions = transactions.filter((transaction) =>
+    selectedIds.has(transaction.id),
+  )
+  const selectedCount = selectedTransactions.length
+  const allSelected =
+    transactions.length > 0 && selectedCount === transactions.length
+  const hasSelection = selectedCount > 0
+  const selectedTotal = selectedTransactions.reduce((acc, transaction) => {
+    const signedAmount =
+      transaction.type === 'income'
+        ? transaction.amount
+        : -transaction.amount
+    return acc + signedAmount
+  }, 0)
+  const selectedAverage =
+    selectedCount >= 1 ? selectedTotal / selectedCount : 0
+  const amountTone = (value: number) => {
+    if (value > 0) return 'text-emerald-600'
+    if (value < 0) return 'text-rose-600'
+    return 'text-muted-foreground'
+  }
 
   const accountMap = new Map(
     (accountsQuery.data ?? []).map((account) => [account.id, account.name]),
@@ -541,6 +564,30 @@ function Transactions() {
       })
     }
   }, [navigate, page, totalPages])
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) {
+        return prev
+      }
+      const idsOnPage = new Set(transactions.map((transaction) => transaction.id))
+      const next = new Set<string>()
+      prev.forEach((id) => {
+        if (idsOnPage.has(id)) {
+          next.add(id)
+        }
+      })
+      return next
+    })
+  }, [transactions])
+
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return
+    }
+    selectAllRef.current.indeterminate =
+      hasSelection && !allSelected
+  }, [allSelected, hasSelection])
 
   useEffect(() => {
     if (sortKey) {
@@ -834,10 +881,54 @@ function Transactions() {
         )}
       </div>
 
+      {selectedCount >= 2 && (
+        <div className="rounded-lg border bg-card px-4 py-2 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="font-medium">
+              Selecionadas: {selectedCount}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-5 text-right">
+              <div>
+                Média:{' '}
+                <span className={`font-semibold ${amountTone(selectedAverage)}`}>
+                  {formatCurrencyValue(selectedAverage)}
+                </span>
+              </div>
+              <div>
+                Soma:{' '}
+                <span className={`font-semibold ${amountTone(selectedTotal)}`}>
+                  {formatCurrencyValue(selectedTotal)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
+              <th className="w-12 px-4 py-3 text-center">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer"
+                  checked={allSelected}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      setSelectedIds(
+                        new Set(
+                          transactions.map((transaction) => transaction.id),
+                        ),
+                      )
+                      return
+                    }
+                    setSelectedIds(new Set())
+                  }}
+                  aria-label="Selecionar todas as transações"
+                />
+              </th>
               <th className="px-4 py-3">
                 <button
                   className="inline-flex items-center gap-2 text-left"
@@ -928,14 +1019,14 @@ function Transactions() {
           <tbody>
             {transactionsQuery.isLoading && (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
                   Carregando transações...
                 </td>
               </tr>
             )}
             {!transactionsQuery.isLoading && transactions.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
                   Nenhuma transação encontrada.
                 </td>
               </tr>
@@ -949,6 +1040,26 @@ function Transactions() {
                   setSelectedTransaction(transaction)
                 }}
               >
+                <td className="px-4 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer"
+                    checked={selectedIds.has(transaction.id)}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev)
+                        if (event.target.checked) {
+                          next.add(transaction.id)
+                        } else {
+                          next.delete(transaction.id)
+                        }
+                        return next
+                      })
+                    }}
+                    aria-label="Selecionar transação"
+                  />
+                </td>
                 <td className="px-4 py-3">
                   {dateFormatter.format(new Date(transaction.date))}
                 </td>
@@ -1001,8 +1112,8 @@ function Transactions() {
                     transaction.type === 'income'
                       ? 'sensitive px-4 py-3 text-right font-medium text-emerald-600'
                       : transaction.type === 'expense'
-                      ? 'sensitive px-4 py-3 text-right font-medium text-rose-600'
-                      : 'sensitive px-4 py-3 text-right font-medium text-muted-foreground'
+                        ? 'sensitive px-4 py-3 text-right font-medium text-rose-600'
+                        : 'sensitive px-4 py-3 text-right font-medium text-muted-foreground'
                   }
                 >
                   {formatCurrencyValue(transaction.amount)}

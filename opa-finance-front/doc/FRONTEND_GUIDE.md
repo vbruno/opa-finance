@@ -197,6 +197,12 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Dashboard usa skeletons para KPIs, últimas transações, top categorias e contas.
 - Skeletons são exibidos até as queries estarem habilitadas e concluírem.
 
+## 🧮 Seleção de Transações
+
+- A tabela de transações permite selecionar linhas para calcular soma e média.
+- O resumo aparece acima da tabela quando há 2+ linhas selecionadas.
+- Cálculo considera valores com sinal (receitas positivas, despesas negativas).
+
 ## 🧠 Estado Global (padrão)
 
 - Usar Zustand apenas quando o estado for realmente compartilhado entre telas/fluxos.
