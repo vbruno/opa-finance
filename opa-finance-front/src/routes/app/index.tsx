@@ -143,6 +143,22 @@ function Dashboard() {
     }
   }, [accountParam, navigate, primaryAccount?.id])
 
+  useEffect(() => {
+    if (!accountParam || accountParam === 'all') {
+      return
+    }
+    const hasAccount = accounts.some((account) => account.id === accountParam)
+    if (!hasAccount) {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          accountId: primaryAccount?.id ?? undefined,
+        }),
+        replace: true,
+      })
+    }
+  }, [accountParam, accounts, navigate, primaryAccount?.id])
+
   function handlePeriodChange(value: string) {
     if (value === 'custom') {
       navigate({
@@ -271,19 +287,25 @@ function Dashboard() {
         <div className="rounded-lg border bg-background p-4">
           <p className="text-sm text-muted-foreground">Receitas</p>
           <p className="mt-2 text-2xl font-semibold text-emerald-600">
-            {summary ? formatCurrencyValue(summary.income) : '--'}
+            <span className="sensitive">
+              {summary ? formatCurrencyValue(summary.income) : '--'}
+            </span>
           </p>
         </div>
         <div className="rounded-lg border bg-background p-4">
           <p className="text-sm text-muted-foreground">Despesas</p>
           <p className="mt-2 text-2xl font-semibold text-rose-600">
-            {summary ? formatCurrencyValue(summary.expense) : '--'}
+            <span className="sensitive">
+              {summary ? formatCurrencyValue(summary.expense) : '--'}
+            </span>
           </p>
         </div>
         <div className="rounded-lg border bg-background p-4">
           <p className="text-sm text-muted-foreground">Saldo</p>
           <p className="mt-2 text-2xl font-semibold">
-            {summary ? formatCurrencyValue(summary.balance) : '--'}
+            <span className="sensitive">
+              {summary ? formatCurrencyValue(summary.balance) : '--'}
+            </span>
           </p>
         </div>
       </div>
@@ -365,8 +387,8 @@ function Dashboard() {
                     <span
                       className={
                         transaction.type === 'income'
-                          ? 'font-semibold text-emerald-600'
-                          : 'font-semibold text-rose-600'
+                          ? 'sensitive font-semibold text-emerald-600'
+                          : 'sensitive font-semibold text-rose-600'
                       }
                     >
                       {transaction.type === 'income' ? '+' : '-'}{' '}
@@ -461,12 +483,12 @@ function Dashboard() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">
-                          {formatCurrencyValue(item.totalAmount)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.percentage.toFixed(1)}%
-                        </p>
+                      <p className="sensitive font-medium">
+                        {formatCurrencyValue(item.totalAmount)}
+                      </p>
+                      <p className="sensitive text-xs text-muted-foreground">
+                        {item.percentage.toFixed(1)}%
+                      </p>
                       </div>
                     </div>
                     <div className="h-2 w-full rounded-full bg-muted">
@@ -537,10 +559,10 @@ function Dashboard() {
                 <p
                   className={
                     displayBalance < 0
-                      ? 'font-semibold text-rose-600'
+                      ? 'sensitive font-semibold text-rose-600'
                       : displayBalance > 0
-                      ? 'font-semibold text-emerald-600'
-                      : 'font-semibold text-muted-foreground'
+                      ? 'sensitive font-semibold text-emerald-600'
+                      : 'sensitive font-semibold text-muted-foreground'
                   }
                 >
                   {formatCurrencyValue(displayBalance)}

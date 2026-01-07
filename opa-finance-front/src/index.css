@@ -121,3 +121,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+.hide-sensitive .sensitive {
+  filter: blur(6px);
+  user-select: none;
+}

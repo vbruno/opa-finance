@@ -1,5 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { getUser, logout } from '@/features/auth'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
@@ -9,6 +10,35 @@ export function Header() {
   const navigate = useNavigate()
   const user = getUser()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSensitiveHidden, setIsSensitiveHidden] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const stored = localStorage.getItem('opa-finance:hideSensitive')
+    const shouldHide = stored === 'true'
+    setIsSensitiveHidden(shouldHide)
+    document.documentElement.classList.toggle(
+      'hide-sensitive',
+      shouldHide,
+    )
+  }, [])
+
+  function handleToggleSensitive() {
+    const nextValue = !isSensitiveHidden
+    setIsSensitiveHidden(nextValue)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        'opa-finance:hideSensitive',
+        nextValue ? 'true' : 'false',
+      )
+    }
+    document.documentElement.classList.toggle(
+      'hide-sensitive',
+      nextValue,
+    )
+  }
 
   function handleLogout() {
     logout()
@@ -24,6 +54,22 @@ export function Header() {
       <div className="flex items-center gap-3">
         <Button variant="outline" onClick={() => setIsMenuOpen(true)}>
           {user?.name ?? 'Conta'}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={
+            isSensitiveHidden
+              ? 'Mostrar valores'
+              : 'Ocultar valores'
+          }
+          onClick={handleToggleSensitive}
+        >
+          {isSensitiveHidden ? (
+            <Eye className="size-4" />
+          ) : (
+            <EyeOff className="size-4" />
+          )}
         </Button>
         <ThemeToggle />
       </div>

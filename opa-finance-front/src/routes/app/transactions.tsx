@@ -999,10 +999,10 @@ function Transactions() {
                 <td
                   className={
                     transaction.type === 'income'
-                      ? 'px-4 py-3 text-right font-medium text-emerald-600'
+                      ? 'sensitive px-4 py-3 text-right font-medium text-emerald-600'
                       : transaction.type === 'expense'
-                      ? 'px-4 py-3 text-right font-medium text-rose-600'
-                      : 'px-4 py-3 text-right font-medium text-muted-foreground'
+                      ? 'sensitive px-4 py-3 text-right font-medium text-rose-600'
+                      : 'sensitive px-4 py-3 text-right font-medium text-muted-foreground'
                   }
                 >
                   {formatCurrencyValue(transaction.amount)}
@@ -1530,7 +1530,7 @@ function Transactions() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Valor</span>
-                <span className="font-semibold">
+                <span className="sensitive font-semibold">
                   {formatCurrencyValue(selectedTransaction.amount)}
                 </span>
               </div>

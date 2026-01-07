@@ -565,10 +565,10 @@ function Accounts() {
                     <td
                       className={
                         displayBalance < 0
-                          ? 'px-4 py-3 text-right font-semibold whitespace-nowrap text-rose-600'
+                          ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-rose-600'
                           : displayBalance > 0
-                          ? 'px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
-                          : 'px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
+                          ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
+                          : 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
                       }
                     >
                       {`$ ${formatCurrencyValue(displayBalance)}`}
@@ -821,7 +821,7 @@ function Accounts() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Saldo atual</span>
-                <span className="font-semibold">
+                <span className="sensitive font-semibold">
                   {`$ ${formatCurrencyValue(
                     selectedAccount.currentBalance ?? 0,
                   )}`}
