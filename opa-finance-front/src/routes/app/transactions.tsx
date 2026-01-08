@@ -650,7 +650,7 @@ function Transactions() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
-            Nova transferencia
+            Nova transferência
           </Button>
           <Button onClick={() => setIsCreateOpen(true)}>
             Nova transação
@@ -1487,7 +1487,7 @@ function Transactions() {
           />
           <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
             <div>
-              <h3 className="text-lg font-semibold">Nova transferencia</h3>
+              <h3 className="text-lg font-semibold">Nova transferência</h3>
               <p className="text-sm text-muted-foreground">
                 Informe as contas de origem e destino.
               </p>
@@ -1512,7 +1512,7 @@ function Transactions() {
                   transferForm.setError('root', {
                     message: getApiErrorMessage(error, {
                       defaultMessage:
-                        'Erro ao criar transferencia. Tente novamente.',
+                        'Erro ao criar transferência. Tente novamente.',
                     }),
                   })
                 }
