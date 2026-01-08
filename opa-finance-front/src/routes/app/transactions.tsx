@@ -50,6 +50,18 @@ export const Route = createFileRoute('/app/transactions')({
         z.number().int().min(1),
       )
       .optional(),
+    limit: z
+      .preprocess(
+        (value) => {
+          const parsed = Number(value)
+          if (!Number.isFinite(parsed) || parsed < 1) {
+            return undefined
+          }
+          return Math.floor(parsed)
+        },
+        z.number().int().min(1).max(100),
+      )
+      .optional(),
     type: z
       .preprocess(
         (value) => {
@@ -173,6 +185,7 @@ function Transactions() {
 
   const search = Route.useSearch()
   const page = search.page ?? 1
+  const limit = search.limit ?? 10
   const typeFilter = search.type ?? ''
   const accountFilter = search.accountId ?? ''
   const categoryFilter = search.categoryId ?? ''
@@ -212,7 +225,7 @@ function Transactions() {
 
   const transactionsQuery = useTransactions({
     page,
-    limit: 20,
+    limit,
     type: typeFilter || undefined,
     accountId: accountFilter || undefined,
     categoryId: categoryFilter || undefined,
@@ -321,7 +334,6 @@ function Transactions() {
 
   const transactions = transactionsQuery.data?.data ?? []
   const total = transactionsQuery.data?.total ?? 0
-  const limit = transactionsQuery.data?.limit ?? 20
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const selectedTransactions = transactions.filter((transaction) =>
@@ -345,6 +357,7 @@ function Transactions() {
     if (value < 0) return 'text-rose-600'
     return 'text-muted-foreground'
   }
+  const paginationItems = buildPaginationItems(page, totalPages)
 
   const accountMap = new Map(
     (accountsQuery.data ?? []).map((account) => [account.id, account.name]),
@@ -644,10 +657,10 @@ function Transactions() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <h3 className="text-base font-semibold">Filtros</h3>
-          <div className="flex flex-1 items-center gap-3">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <h3 className="text-sm font-semibold">Filtros</h3>
+          <div className="flex flex-1 items-center gap-2">
             <Input
               id="filter-description"
               placeholder="Buscar por descrição"
@@ -655,10 +668,11 @@ function Transactions() {
               className="bg-background dark:bg-muted/50"
               onChange={(event) => setDescriptionDraft(event.target.value)}
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {hasActiveFilters && (
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => {
                     isClearingDescription.current = true
                     setDescriptionDraft('')
@@ -684,6 +698,7 @@ function Transactions() {
               )}
               <Button
                 variant="default"
+                size="sm"
                 onClick={() => setIsFilterExpanded((prev) => !prev)}
               >
                 {isFilterExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -906,127 +921,134 @@ function Transactions() {
       )}
 
       <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="w-12 px-4 py-3 text-center">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  className="h-4 w-4 cursor-pointer"
-                  checked={allSelected}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      setSelectedIds(
-                        new Set(
-                          transactions.map((transaction) => transaction.id),
-                        ),
-                      )
-                      return
-                    }
-                    setSelectedIds(new Set())
-                  }}
-                  aria-label="Selecionar todas as transações"
-                />
-              </th>
-              <th className="px-4 py-3">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('date')}
-                >
-                  Data
-                  <SortIcon isActive={sortKey === 'date'} direction={sortDirection} />
-                </button>
-              </th>
-              <th className="px-4 py-3">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('description')}
-                >
-                  Descrição
-                  <SortIcon
-                    isActive={sortKey === 'description'}
-                    direction={sortDirection}
-                  />
-                </button>
-              </th>
-              <th className="px-4 py-3">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('account')}
-                >
-                  Conta
-                  <SortIcon
-                    isActive={sortKey === 'account'}
-                    direction={sortDirection}
-                  />
-                </button>
-              </th>
-              <th className="px-4 py-3">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('category')}
-                >
-                  Categoria
-                  <SortIcon
-                    isActive={sortKey === 'category'}
-                    direction={sortDirection}
-                  />
-                </button>
-              </th>
-              <th className="px-4 py-3">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('subcategory')}
-                >
-                  Subcategoria
-                  <SortIcon
-                    isActive={sortKey === 'subcategory'}
-                    direction={sortDirection}
-                  />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-center">
-                <button
-                  className="inline-flex items-center gap-2 text-center"
-                  type="button"
-                  onClick={() => handleSort('type')}
-                >
-                  Tipo
-                  <SortIcon isActive={sortKey === 'type'} direction={sortDirection} />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-right">
-                <button
-                  className="inline-flex items-center gap-2 text-right"
-                  type="button"
-                  onClick={() => handleSort('amount')}
-                >
-                  Valor
-                  <SortIcon
-                    isActive={sortKey === 'amount'}
-                    direction={sortDirection}
-                  />
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactionsQuery.isLoading && (
+        <div className="max-h-[520px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
+                <th className="w-12 px-4 py-2 text-center">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer"
+                    checked={allSelected}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        setSelectedIds(
+                          new Set(
+                            transactions.map((transaction) => transaction.id),
+                          ),
+                        )
+                        return
+                      }
+                      setSelectedIds(new Set())
+                    }}
+                    aria-label="Selecionar todas as transações"
+                  />
+                </th>
+                <th className="px-4 py-2">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('date')}
+                  >
+                    Data
+                    <SortIcon
+                      isActive={sortKey === 'date'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="px-4 py-2">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('description')}
+                  >
+                    Descrição
+                    <SortIcon
+                      isActive={sortKey === 'description'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="px-4 py-2">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('account')}
+                  >
+                    Conta
+                    <SortIcon
+                      isActive={sortKey === 'account'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="px-4 py-2">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('category')}
+                  >
+                    Categoria
+                    <SortIcon
+                      isActive={sortKey === 'category'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="px-4 py-2">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('subcategory')}
+                  >
+                    Subcategoria
+                    <SortIcon
+                      isActive={sortKey === 'subcategory'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="px-4 py-2 text-center">
+                  <button
+                    className="inline-flex items-center gap-2 text-center"
+                    type="button"
+                    onClick={() => handleSort('type')}
+                  >
+                    Tipo
+                    <SortIcon
+                      isActive={sortKey === 'type'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="px-4 py-2 text-right">
+                  <button
+                    className="inline-flex items-center gap-2 text-right"
+                    type="button"
+                    onClick={() => handleSort('amount')}
+                  >
+                    Valor
+                    <SortIcon
+                      isActive={sortKey === 'amount'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactionsQuery.isLoading && (
+                <tr>
+                <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
                   Carregando transações...
                 </td>
               </tr>
             )}
             {!transactionsQuery.isLoading && transactions.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
+                <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
                   Nenhuma transação encontrada.
                 </td>
               </tr>
@@ -1035,127 +1057,182 @@ function Transactions() {
               <tr
                 key={transaction.id}
                 className="cursor-pointer border-t hover:bg-muted/30"
-                onClick={() => {
-                  setDeleteError(null)
-                  setSelectedTransaction(transaction)
-                }}
-              >
-                <td className="px-4 py-3 text-center">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 cursor-pointer"
-                    checked={selectedIds.has(transaction.id)}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev)
-                        if (event.target.checked) {
-                          next.add(transaction.id)
-                        } else {
-                          next.delete(transaction.id)
-                        }
-                        return next
-                      })
-                    }}
-                    aria-label="Selecionar transação"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  {dateFormatter.format(new Date(transaction.date))}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {transaction.description ||
-                        transaction.categoryName ||
-                        categoryMap.get(transaction.categoryId) ||
-                        'Sem descrição'}
-                    </span>
-                    {transaction.notes && (
-                      <span
-                        className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
-                        title={transaction.notes}
-                      >
-                        Notas
+                  onClick={() => {
+                    setDeleteError(null)
+                    setSelectedTransaction(transaction)
+                  }}
+                >
+                  <td className="px-4 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 cursor-pointer"
+                      checked={selectedIds.has(transaction.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev)
+                          if (event.target.checked) {
+                            next.add(transaction.id)
+                          } else {
+                            next.delete(transaction.id)
+                          }
+                          return next
+                        })
+                      }}
+                      aria-label="Selecionar transação"
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    {dateFormatter.format(new Date(transaction.date))}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {transaction.description ||
+                          transaction.categoryName ||
+                          categoryMap.get(transaction.categoryId) ||
+                          'Sem descrição'}
                       </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {transaction.accountName ||
-                    accountMap.get(transaction.accountId) ||
-                    '-'}
-                </td>
-                <td className="px-4 py-3">
-                  {transaction.categoryName ||
-                    categoryMap.get(transaction.categoryId) ||
-                    '-'}
-                </td>
-                <td className="px-4 py-3">
-                  {transaction.subcategoryId
-                    ? transaction.subcategoryName || '-'
-                    : '-'}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span
+                      {transaction.notes && (
+                        <span
+                          className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                          title={transaction.notes}
+                        >
+                          Notas
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2">
+                    {transaction.accountName ||
+                      accountMap.get(transaction.accountId) ||
+                      '-'}
+                  </td>
+                  <td className="px-4 py-2">
+                    {transaction.categoryName ||
+                      categoryMap.get(transaction.categoryId) ||
+                      '-'}
+                  </td>
+                  <td className="px-4 py-2">
+                    {transaction.subcategoryId
+                      ? transaction.subcategoryName || '-'
+                      : '-'}
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <span
+                      className={
+                        transaction.type === 'income'
+                          ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
+                          : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
+                      }
+                    >
+                      {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                    </span>
+                  </td>
+                  <td
                     className={
                       transaction.type === 'income'
-                        ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
-                        : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
+                        ? 'sensitive px-4 py-2 text-right font-medium text-emerald-600'
+                        : transaction.type === 'expense'
+                          ? 'sensitive px-4 py-2 text-right font-medium text-rose-600'
+                          : 'sensitive px-4 py-2 text-right font-medium text-muted-foreground'
                     }
                   >
-                    {transaction.type === 'income' ? 'Receita' : 'Despesa'}
-                  </span>
-                </td>
-                <td
-                  className={
-                    transaction.type === 'income'
-                      ? 'sensitive px-4 py-3 text-right font-medium text-emerald-600'
-                      : transaction.type === 'expense'
-                        ? 'sensitive px-4 py-3 text-right font-medium text-rose-600'
-                        : 'sensitive px-4 py-3 text-right font-medium text-muted-foreground'
+                    {formatCurrencyValue(transaction.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
+          <span className="text-muted-foreground">
+            Página {page} de {totalPages}
+          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Linhas</span>
+              <select
+                className="h-7 rounded-md border bg-background px-2 text-xs"
+                value={limit}
+                onChange={(event) =>
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      limit: Number(event.target.value),
+                      page: 1,
+                    }),
+                  })
+                }
+              >
+                {[10, 20, 30, 50].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 1}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: Math.max(1, page - 1),
+                  }),
+                })
+              }
+            >
+              Anterior
+            </Button>
+            {paginationItems.map((item, index) =>
+              item === '...' ? (
+                <span
+                  key={`pagination-ellipsis-${index}`}
+                  className="px-1 text-muted-foreground"
+                >
+                  ...
+                </span>
+              ) : (
+                <Button
+                  key={`pagination-page-${item}`}
+                  variant={item === page ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() =>
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        page: item,
+                      }),
+                    })
                   }
                 >
-                  {formatCurrencyValue(transaction.amount)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            disabled={page === 1}
-            onClick={() =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  page: Math.max(1, page - 1),
-                }),
-              })
-            }
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            disabled={page === totalPages}
-            onClick={() =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  page: Math.min(totalPages, page + 1),
-                }),
-              })
-            }
-          >
-            Proxima
-          </Button>
+                  {item}
+                </Button>
+              ),
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === totalPages}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: Math.min(totalPages, page + 1),
+                  }),
+                })
+              }
+            >
+              Proxima
+            </Button>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1982,6 +2059,42 @@ function Transactions() {
       )}
     </div>
   )
+}
+
+function buildPaginationItems(current: number, total: number) {
+  if (total <= 1) {
+    return [1]
+  }
+
+  const items: Array<number | '...'> = []
+  const add = (value: number | '...') => items.push(value)
+  const siblings = 1
+
+  const showLeftEllipsis = current > 2 + siblings
+  const showRightEllipsis = current < total - (1 + siblings)
+
+  add(1)
+
+  if (showLeftEllipsis) {
+    add('...')
+  }
+
+  const start = Math.max(2, current - siblings)
+  const end = Math.min(total - 1, current + siblings)
+
+  for (let page = start; page <= end; page += 1) {
+    add(page)
+  }
+
+  if (showRightEllipsis) {
+    add('...')
+  }
+
+  if (total > 1) {
+    add(total)
+  }
+
+  return items
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
