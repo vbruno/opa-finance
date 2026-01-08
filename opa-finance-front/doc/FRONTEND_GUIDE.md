@@ -202,6 +202,8 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - A tabela de transações permite selecionar linhas para calcular soma e média.
 - O resumo aparece acima da tabela quando há 2+ linhas selecionadas.
 - Cálculo considera valores com sinal (receitas positivas, despesas negativas).
+- Soma e média podem ser clicadas para copiar o valor formatado.
+- Ao copiar, um feedback "Copiado!" aparece temporariamente.
 
 ## 🧠 Estado Global (padrão)
 

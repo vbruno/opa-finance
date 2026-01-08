@@ -174,12 +174,16 @@ function Transactions() {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
+    null,
+  )
   const createAmountRef = useRef<HTMLInputElement | null>(null)
   const transferAmountRef = useRef<HTMLInputElement | null>(null)
   const editAmountRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
   const selectAllRef = useRef<HTMLInputElement | null>(null)
+  const copyTimeoutRef = useRef<number | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
@@ -540,6 +544,36 @@ function Transactions() {
   useEffect(() => {
     setDescriptionDraft(descriptionFilter)
   }, [descriptionFilter])
+
+  const handleCopyValue = async (
+    value: number,
+    label: 'average' | 'total',
+  ) => {
+    const formatted = formatCurrencyValue(value)
+    if (!navigator?.clipboard?.writeText) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(formatted)
+      setCopiedValue(label)
+      if (copyTimeoutRef.current) {
+        window.clearTimeout(copyTimeoutRef.current)
+      }
+      copyTimeoutRef.current = window.setTimeout(() => {
+        setCopiedValue(null)
+      }, 1500)
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        window.clearTimeout(copyTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (debouncedDescription === descriptionFilter) {
@@ -907,22 +941,52 @@ function Transactions() {
               <div>
                 Média:{' '}
                 <span
-                  className={`sensitive font-semibold ${amountTone(
+                  className={`sensitive cursor-pointer font-semibold ${amountTone(
                     selectedAverage,
                   )}`}
+                  role="button"
+                  tabIndex={0}
+                  title="Clique para copiar"
+                  onClick={() => handleCopyValue(selectedAverage, 'average')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      handleCopyValue(selectedAverage, 'average')
+                    }
+                  }}
                 >
                   {formatCurrencyValue(selectedAverage)}
                 </span>
+                {copiedValue === 'average' && (
+                  <span className="ml-2 text-[11px] text-muted-foreground">
+                    Copiado!
+                  </span>
+                )}
               </div>
               <div>
                 Soma:{' '}
                 <span
-                  className={`sensitive font-semibold ${amountTone(
+                  className={`sensitive cursor-pointer font-semibold ${amountTone(
                     selectedTotal,
                   )}`}
+                  role="button"
+                  tabIndex={0}
+                  title="Clique para copiar"
+                  onClick={() => handleCopyValue(selectedTotal, 'total')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      handleCopyValue(selectedTotal, 'total')
+                    }
+                  }}
                 >
                   {formatCurrencyValue(selectedTotal)}
                 </span>
+                {copiedValue === 'total' && (
+                  <span className="ml-2 text-[11px] text-muted-foreground">
+                    Copiado!
+                  </span>
+                )}
               </div>
             </div>
           </div>
