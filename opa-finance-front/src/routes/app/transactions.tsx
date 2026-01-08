@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -905,13 +906,21 @@ function Transactions() {
             <div className="flex flex-wrap items-center justify-end gap-5 text-right">
               <div>
                 Média:{' '}
-                <span className={`font-semibold ${amountTone(selectedAverage)}`}>
+                <span
+                  className={`sensitive font-semibold ${amountTone(
+                    selectedAverage,
+                  )}`}
+                >
                   {formatCurrencyValue(selectedAverage)}
                 </span>
               </div>
               <div>
                 Soma:{' '}
-                <span className={`font-semibold ${amountTone(selectedTotal)}`}>
+                <span
+                  className={`sensitive font-semibold ${amountTone(
+                    selectedTotal,
+                  )}`}
+                >
                   {formatCurrencyValue(selectedTotal)}
                 </span>
               </div>
@@ -1150,28 +1159,26 @@ function Transactions() {
             Página {page} de {totalPages}
           </span>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Linhas</span>
-              <select
-                className="h-7 rounded-md border bg-background px-2 text-xs"
-                value={limit}
-                onChange={(event) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      limit: Number(event.target.value),
-                      page: 1,
-                    }),
-                  })
-                }
-              >
-                {[10, 20, 30, 50].map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              className="h-8 rounded-md border bg-background px-2 text-xs dark:border-muted/80"
+              value={limit}
+              onChange={(event) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    limit: Number(event.target.value),
+                    page: 1,
+                  }),
+                })
+              }
+              aria-label="Quantidade de linhas"
+            >
+              {[10, 20, 30, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
             <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
@@ -1185,8 +1192,9 @@ function Transactions() {
                   }),
                 })
               }
+              aria-label="Página anterior"
             >
-              Anterior
+              <ChevronLeft className="h-4 w-4" />
             </Button>
             {paginationItems.map((item, index) =>
               item === '...' ? (
@@ -1226,8 +1234,9 @@ function Transactions() {
                   }),
                 })
               }
+              aria-label="Próxima página"
             >
-              Proxima
+              <ChevronRight className="h-4 w-4" />
             </Button>
             </div>
           </div>
