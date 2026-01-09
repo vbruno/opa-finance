@@ -184,6 +184,8 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - React Hook Form + Zod (resolver)
 - Erros de API em `errors.root`
 - Validação de campo em tempo real via schema
+- No modal de nova transação, data inicia no dia atual e a conta principal é pré-selecionada.
+- No modal de transferência, data inicia no dia atual e a conta de origem começa na conta principal.
 
 ---
 
@@ -204,6 +206,8 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Cálculo considera valores com sinal (receitas positivas, despesas negativas).
 - Soma e média podem ser clicadas para copiar o valor formatado.
 - Ao copiar, um feedback "Copiado!" aparece temporariamente.
+- Atalho: `N` abre o modal de nova transação (quando não estiver digitando em inputs).
+- No modal de transação, use `Alt + 1..7` para focar rapidamente os campos (conta, categoria, subcategoria, data, valor, descrição, notas).
 
 ## 🧠 Estado Global (padrão)
 

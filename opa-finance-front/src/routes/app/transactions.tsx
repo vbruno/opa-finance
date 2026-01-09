@@ -258,6 +258,7 @@ function Transactions() {
     register,
     handleSubmit,
     reset,
+    getValues,
     watch,
     setError,
     setValue,
@@ -314,9 +315,13 @@ function Transactions() {
   })
 
   const createCategoryId = watch('categoryId')
+  const createType = watch('type')
   const editCategoryId = watchEdit('categoryId')
+  const editType = watchEdit('type')
   const categories = categoriesQuery.data ?? []
   const availableCategories = categories.filter((category) => !category.system)
+  const primaryAccountId =
+    (accountsQuery.data ?? []).find((account) => account.isPrimary)?.id ?? ''
 
   const createCategory = categories.find(
     (category) => category.id === createCategoryId,
@@ -361,6 +366,13 @@ function Transactions() {
     if (value > 0) return 'text-emerald-600'
     if (value < 0) return 'text-rose-600'
     return 'text-muted-foreground'
+  }
+
+  const handleDateFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+    }
   }
   const paginationItems = buildPaginationItems(page, totalPages)
 
@@ -464,21 +476,101 @@ function Transactions() {
 
   useEffect(() => {
     if (isCreateOpen) {
+      setValue('date', formatDateInput(new Date()))
+      const currentAccountId = getValues('accountId')
+      if (!currentAccountId && primaryAccountId) {
+        setValue('accountId', primaryAccountId)
+      }
       createAmountRef.current?.focus()
     }
-  }, [isCreateOpen])
+  }, [getValues, isCreateOpen, primaryAccountId, setValue])
 
   useEffect(() => {
     if (isTransferOpen) {
+      transferForm.setValue('date', formatDateInput(new Date()))
+      const currentFromAccountId = transferForm.getValues('fromAccountId')
+      if (!currentFromAccountId && primaryAccountId) {
+        transferForm.setValue('fromAccountId', primaryAccountId)
+      }
       transferAmountRef.current?.focus()
     }
-  }, [isTransferOpen])
+  }, [isTransferOpen, primaryAccountId, transferForm])
 
   useEffect(() => {
     if (isEditOpen) {
       editAmountRef.current?.focus()
     }
   }, [isEditOpen])
+
+  useEffect(() => {
+    if (!isCreateOpen && !isEditOpen) {
+      return
+    }
+
+    const focusField = (id: string) => {
+      const element = document.getElementById(id) as HTMLElement | null
+      element?.focus()
+    }
+
+    const fieldMap = isEditOpen
+      ? {
+          Digit1: 'transaction-edit-account',
+          Digit2: 'transaction-edit-category',
+          Digit3: 'transaction-edit-subcategory',
+          Digit4: 'transaction-edit-date',
+          Digit5: 'transaction-edit-amount',
+          Digit6: 'transaction-edit-description',
+          Digit7: 'transaction-edit-notes',
+          Numpad1: 'transaction-edit-account',
+          Numpad2: 'transaction-edit-category',
+          Numpad3: 'transaction-edit-subcategory',
+          Numpad4: 'transaction-edit-date',
+          Numpad5: 'transaction-edit-amount',
+          Numpad6: 'transaction-edit-description',
+          Numpad7: 'transaction-edit-notes',
+        }
+      : {
+          Digit1: 'transaction-account',
+          Digit2: 'transaction-category',
+          Digit3: 'transaction-subcategory',
+          Digit4: 'transaction-date',
+          Digit5: 'transaction-amount',
+          Digit6: 'transaction-description',
+          Digit7: 'transaction-notes',
+          Numpad1: 'transaction-account',
+          Numpad2: 'transaction-category',
+          Numpad3: 'transaction-subcategory',
+          Numpad4: 'transaction-date',
+          Numpad5: 'transaction-amount',
+          Numpad6: 'transaction-description',
+          Numpad7: 'transaction-notes',
+        }
+
+    const handleModalShortcut = (event: KeyboardEvent) => {
+      if (!event.altKey || event.metaKey || event.ctrlKey) {
+        return
+      }
+      const keyLookup =
+        event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
+        event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
+        event.code === 'Digit7' || event.code === 'Numpad1' || event.code === 'Numpad2' ||
+        event.code === 'Numpad3' || event.code === 'Numpad4' || event.code === 'Numpad5' ||
+        event.code === 'Numpad6' || event.code === 'Numpad7'
+          ? event.code
+          : event.key
+      const fieldId = fieldMap[keyLookup as keyof typeof fieldMap]
+      if (!fieldId) {
+        return
+      }
+      event.preventDefault()
+      focusField(fieldId)
+    }
+
+    window.addEventListener('keydown', handleModalShortcut, true)
+    return () => {
+      window.removeEventListener('keydown', handleModalShortcut, true)
+    }
+  }, [isCreateOpen, isEditOpen])
 
   useEffect(() => {
     if (isDeleteConfirmOpen) {
@@ -540,6 +632,36 @@ function Transactions() {
     isDeleteConfirmOpen,
     selectedTransaction,
   ])
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey) {
+        return
+      }
+      const key = event.key?.toLowerCase()
+      const keyCode = (event as KeyboardEvent & { keyCode?: number }).keyCode
+      if (key !== 'n' && event.code !== 'KeyN' && keyCode !== 78) {
+        return
+      }
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toLowerCase()
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+      event.preventDefault()
+      setIsCreateOpen(true)
+    }
+
+    window.addEventListener('keydown', handleShortcut, true)
+    return () => {
+      window.removeEventListener('keydown', handleShortcut, true)
+    }
+  }, [])
 
   useEffect(() => {
     setDescriptionDraft(descriptionFilter)
@@ -686,7 +808,7 @@ function Transactions() {
           <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
             Nova transferência
           </Button>
-          <Button onClick={() => setIsCreateOpen(true)}>
+          <Button onClick={() => setIsCreateOpen(true)} title="Atalho: N">
             Nova transação
           </Button>
         </div>
@@ -1380,6 +1502,7 @@ function Transactions() {
                     type="date"
                     className="h-10"
                     aria-invalid={!!errors.date}
+                    onFocus={handleDateFocus}
                     {...register('date')}
                   />
                   {errors.date && (
@@ -1442,13 +1565,21 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transaction-type">Tipo</Label>
+                  <input type="hidden" {...register('type')} />
                   <Input
                     id="transaction-type"
-                    className="h-10"
+                    className="h-10 cursor-not-allowed bg-muted/30"
                     readOnly
-                    placeholder="Selecione uma categoria"
+                    tabIndex={-1}
+                    placeholder="Receita/Despesa"
                     aria-invalid={!!errors.type}
-                    {...register('type')}
+                    value={
+                      createType === 'income'
+                        ? 'Receita'
+                        : createType === 'expense'
+                          ? 'Despesa'
+                          : ''
+                    }
                   />
                   {errors.type && (
                     <p className="text-sm text-destructive">
@@ -1640,6 +1771,7 @@ function Transactions() {
                     type="date"
                     className="h-10"
                     aria-invalid={!!transferForm.formState.errors.date}
+                    onFocus={handleDateFocus}
                     {...transferForm.register('date')}
                   />
                   {transferForm.formState.errors.date && (
@@ -1908,6 +2040,7 @@ function Transactions() {
                     type="date"
                     className="h-10"
                     aria-invalid={!!editErrors.date}
+                    onFocus={handleDateFocus}
                     {...editRegister('date')}
                   />
                   {editErrors.date && (
@@ -1970,13 +2103,21 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transaction-edit-type">Tipo</Label>
+                  <input type="hidden" {...editRegister('type')} />
                   <Input
                     id="transaction-edit-type"
-                    className="h-10"
+                    className="h-10 cursor-not-allowed bg-muted/30"
                     readOnly
-                    placeholder="Selecione uma categoria"
+                    tabIndex={-1}
+                    placeholder="Receita/Despesa"
                     aria-invalid={!!editErrors.type}
-                    {...editRegister('type')}
+                    value={
+                      editType === 'income'
+                        ? 'Receita'
+                        : editType === 'expense'
+                          ? 'Despesa'
+                          : ''
+                    }
                   />
                   {editErrors.type && (
                     <p className="text-sm text-destructive">
@@ -2168,6 +2309,13 @@ function buildPaginationItems(current: number, total: number) {
   }
 
   return items
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
