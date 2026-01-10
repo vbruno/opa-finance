@@ -142,3 +142,15 @@ export const topCategoriesQuerySchema = z.object({
 });
 
 export type TopCategoriesQuery = z.infer<typeof topCategoriesQuerySchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                 TRANSACTION DESCRIPTIONS (QUERY)                           */
+/* -------------------------------------------------------------------------- */
+
+export const transactionDescriptionsQuerySchema = z.object({
+  accountId: z.uuid({ message: "ID da conta inválido." }),
+  q: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+});
+
+export type TransactionDescriptionsQuery = z.infer<typeof transactionDescriptionsQuerySchema>;

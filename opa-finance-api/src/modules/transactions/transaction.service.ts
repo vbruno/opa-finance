@@ -9,6 +9,7 @@ import type {
   ListTransactionsQuery,
   SummaryTransactionsQuery,
   TopCategoriesQuery,
+  TransactionDescriptionsQuery,
 } from "./transaction.schemas";
 import {
   NotFoundProblem,
@@ -501,5 +502,64 @@ export class TransactionService {
         percentage,
       };
     });
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                           TRANSACTION DESCRIPTIONS                         */
+  /* -------------------------------------------------------------------------- */
+
+  async descriptions(userId: string, query: TransactionDescriptionsQuery) {
+    await this.validateAccount(userId, query.accountId);
+
+    const useUnaccent = query.q ? await this.hasUnaccent() : false;
+    const term = query.q ?? "";
+    const keyExpr = useUnaccent
+      ? sql`lower(unaccent(${transactions.description}))`
+      : sql`lower(${transactions.description})`;
+
+    const filterExprs = [
+      sql`${transactions.userId} = ${userId}`,
+      sql`${transactions.accountId} = ${query.accountId}`,
+      sql`${transactions.description} is not null`,
+      sql`btrim(${transactions.description}) <> ''`,
+    ];
+
+    if (term) {
+      const like = `%${term}%`;
+      filterExprs.push(
+        useUnaccent
+          ? sql`unaccent(${transactions.description}) ILIKE unaccent(${like})`
+          : sql`${transactions.description} ILIKE ${like}`,
+      );
+    }
+
+    const whereClause = sql.join(filterExprs, sql` and `);
+
+    const rows = await this.app.db.execute(
+      sql`
+        with filtered as (
+          select ${transactions.description} as description,
+                 ${transactions.date} as date,
+                 ${keyExpr} as key
+            from ${transactions}
+           where ${whereClause}
+        ),
+        dedup as (
+          select distinct on (key) description, date
+            from filtered
+           order by key, date desc
+        )
+        select description
+          from dedup
+         order by date desc
+         limit ${query.limit}
+      `,
+    );
+
+    const items = (rows as { rows?: { description: string | null }[] }).rows ?? [];
+
+    return {
+      items: items.map((row) => row.description).filter((desc): desc is string => !!desc),
+    };
   }
 }

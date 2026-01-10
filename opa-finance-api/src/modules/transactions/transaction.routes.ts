@@ -8,6 +8,7 @@ import {
   listTransactionsQuerySchema,
   summaryTransactionsQuerySchema,
   topCategoriesQuerySchema,
+  transactionDescriptionsQuerySchema,
 } from "./transaction.schemas";
 
 import { TransactionService } from "./transaction.service";
@@ -57,5 +58,11 @@ export async function transactionRoutes(app: FastifyInstance) {
   app.get("/transactions/top-categories", { preHandler: [app.authenticate] }, async (req) => {
     const query = topCategoriesQuerySchema.parse(req.query);
     return await service.topCategories(req.user.sub, query);
+  });
+
+  /* TRANSACTION DESCRIPTIONS */
+  app.get("/transactions/descriptions", { preHandler: [app.authenticate] }, async (req) => {
+    const query = transactionDescriptionsQuerySchema.parse(req.query);
+    return await service.descriptions(req.user.sub, query);
   });
 }

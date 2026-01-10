@@ -29,3 +29,8 @@
 - Sempre considera apenas despesas (type = expense)
 - Retorno: id, name, totalAmount, percentage (opcional)
 - Se `groupBy=subcategory`, retorna também categoryId/categoryName
+
+## Autocomplete de descrições
+- Endpoint para retornar descrições únicas usadas pelo usuário
+- Filtros: accountId (obrigatório), q (opcional), limit (default 5, max 20)
+- Distinct case-insensitive e ordenado pela data mais recente

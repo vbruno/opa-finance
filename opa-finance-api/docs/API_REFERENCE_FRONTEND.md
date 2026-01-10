@@ -1269,6 +1269,40 @@ GET /transactions/top-categories?startDate=2025-01-01&endDate=2025-01-31
 
 ---
 
+### GET `/transactions/descriptions`
+
+Retorna descrições únicas usadas pelo usuário para autocomplete.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Parameters:**
+
+- `accountId` (uuid, obrigatório)
+- `q` (string, opcional) - termo parcial
+- `limit` (number, opcional, default: 5, max: 20)
+
+**Exemplo:**
+
+```
+GET /transactions/descriptions?accountId=uuid&q=super&limit=5
+```
+
+**Response 200:**
+
+```json
+{
+  "items": ["Ônibus", "Supermercado", "Academia"]
+}
+```
+
+**Erros:**
+
+- `400` - Validação falhou
+- `403` - Conta não pertence ao usuário
+- `404` - Conta não encontrada
+
+---
+
 ## 🔄 Transfers
 
 ### POST `/transfers`
