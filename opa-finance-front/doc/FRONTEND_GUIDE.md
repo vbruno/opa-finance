@@ -186,7 +186,9 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Validação de campo em tempo real via schema
 - No modal de nova transação, data inicia no dia atual e a conta principal é pré-selecionada.
 - No modal de transferência, data inicia no dia atual e a conta de origem começa na conta principal.
+- No modal de nova/editar transação, o foco inicia em Descrição e a navegação por Tab segue: Descrição → Notas → Valor → Categoria → Subcategoria → Data → Conta.
 - O campo de descrição da nova transação usa `/transactions/descriptions` para sugerir até 5 descrições da conta atual (preenche apenas a descrição), enviando `q` quando há espaço no texto ou após 1s sem digitação, e refinando sem acentos no front.
+- No autocomplete de descrição, use setas ↑/↓ para navegar, Enter para selecionar e Esc para fechar.
 
 ---
 

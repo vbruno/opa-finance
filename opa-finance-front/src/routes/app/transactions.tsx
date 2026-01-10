@@ -181,6 +181,7 @@ function Transactions() {
   const [isDescriptionSuggestionsOpen, setIsDescriptionSuggestionsOpen] =
     useState(false)
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
   const transferAmountRef = useRef<HTMLInputElement | null>(null)
   const editAmountRef = useRef<HTMLInputElement | null>(null)
@@ -388,6 +389,9 @@ function Transactions() {
     )
     return filtered.slice(0, 5)
   })()
+  useEffect(() => {
+    setActiveSuggestionIndex(0)
+  }, [descriptionSuggestions.length, isDescriptionSuggestionsOpen])
 
   const transactions = transactionsQuery.data?.data ?? []
   const total = transactionsQuery.data?.total ?? 0
@@ -528,7 +532,7 @@ function Transactions() {
       if (!currentAccountId && primaryAccountId) {
         setValue('accountId', primaryAccountId)
       }
-      createAmountRef.current?.focus()
+      descriptionInputRef.current?.focus()
     }
   }, [getValues, isCreateOpen, primaryAccountId, setValue])
 
@@ -545,7 +549,10 @@ function Transactions() {
 
   useEffect(() => {
     if (isEditOpen) {
-      editAmountRef.current?.focus()
+      const editDescriptionInput = document.getElementById(
+        'transaction-edit-description',
+      ) as HTMLInputElement | null
+      editDescriptionInput?.focus()
     }
   }, [isEditOpen])
 
@@ -1526,6 +1533,7 @@ function Transactions() {
                     id="transaction-account"
                     className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     aria-invalid={!!errors.accountId}
+                    tabIndex={7}
                     {...register('accountId')}
                   >
                     <option value="">Selecione</option>
@@ -1550,6 +1558,7 @@ function Transactions() {
                     className="h-10"
                     aria-invalid={!!errors.date}
                     onFocus={handleDateFocus}
+                    tabIndex={6}
                     {...register('date')}
                   />
                   {errors.date && (
@@ -1567,6 +1576,7 @@ function Transactions() {
                     id="transaction-category"
                     className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     aria-invalid={!!errors.categoryId}
+                    tabIndex={4}
                     {...register('categoryId')}
                   >
                     <option value="">Selecione</option>
@@ -1591,6 +1601,7 @@ function Transactions() {
                     aria-invalid={!!errors.subcategoryId}
                     {...register('subcategoryId')}
                     disabled={!createCategoryId}
+                    tabIndex={5}
                   >
                     <option value="">Sem subcategoria</option>
                     {(createSubcategoriesQuery.data ?? []).map(
@@ -1655,6 +1666,7 @@ function Transactions() {
                           )
                         }
                         aria-invalid={!!errors.amount}
+                        tabIndex={3}
                       />
                     )}
                   />
@@ -1686,11 +1698,11 @@ function Transactions() {
                           setIsDescriptionFocused(true)
                           setIsDescriptionSuggestionsOpen(true)
                         }}
-                    onBlur={(event) => {
-                      descriptionRegister.onBlur(event)
-                      setIsDescriptionFocused(false)
-                      setIsDescriptionSuggestionsOpen(false)
-                    }}
+                        onBlur={(event) => {
+                          descriptionRegister.onBlur(event)
+                          setIsDescriptionFocused(false)
+                          setIsDescriptionSuggestionsOpen(false)
+                        }}
                         onChange={(event) => {
                           descriptionRegister.onChange(event)
                           if (
@@ -1700,51 +1712,94 @@ function Transactions() {
                             setIsDescriptionSuggestionsOpen(true)
                           }
                         }}
+                        onKeyDown={(event) => {
+                          if (!isDescriptionSuggestionsOpen) {
+                            return
+                          }
+                          if (event.key === 'ArrowDown') {
+                            event.preventDefault()
+                            setActiveSuggestionIndex((prev) =>
+                              Math.min(
+                                prev + 1,
+                                Math.max(0, descriptionSuggestions.length - 1),
+                              ),
+                            )
+                          }
+                          if (event.key === 'ArrowUp') {
+                            event.preventDefault()
+                            setActiveSuggestionIndex((prev) =>
+                              Math.max(prev - 1, 0),
+                            )
+                          }
+                          if (event.key === 'Enter') {
+                            if (descriptionSuggestions.length === 0) {
+                              return
+                            }
+                            event.preventDefault()
+                            const selected =
+                              descriptionSuggestions[activeSuggestionIndex]
+                            if (!selected) {
+                              return
+                            }
+                            setValue('description', selected, {
+                              shouldDirty: true,
+                              shouldTouch: true,
+                            })
+                            setIsDescriptionSuggestionsOpen(false)
+                          }
+                          if (event.key === 'Escape') {
+                            setIsDescriptionSuggestionsOpen(false)
+                          }
+                        }}
                         autoComplete="off"
+                        tabIndex={1}
                       />
-                  {isDescriptionSuggestionsOpen && (
-                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
-                      {filteredDescriptionSuggestionsQuery.isLoading ||
-                      baseDescriptionSuggestionsQuery.isLoading ? (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">
-                          {shouldFilterSuggestions
-                            ? 'Buscando sugestões...'
-                            : 'Carregando sugestões...'}
-                        </div>
-                      ) : filteredDescriptionSuggestionsQuery.isError ||
-                        baseDescriptionSuggestionsQuery.isError ? (
-                        <div className="px-3 py-2 text-sm text-destructive">
-                          Erro ao carregar sugestões.
-                        </div>
-                      ) : descriptionSuggestions.length > 0 ? (
-                        descriptionSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted/40"
-                            onMouseDown={(event) => {
-                              event.preventDefault()
-                              setValue('description', suggestion, {
-                                shouldDirty: true,
-                                shouldTouch: true,
-                              })
-                              setIsDescriptionSuggestionsOpen(false)
-                              window.requestAnimationFrame(() => {
-                                descriptionInputRef.current?.focus()
-                              })
-                            }}
-                          >
-                            {suggestion}
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">
-                          Nenhuma sugestão encontrada.
+                      {isDescriptionSuggestionsOpen && (
+                        <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
+                          {filteredDescriptionSuggestionsQuery.isLoading ||
+                            baseDescriptionSuggestionsQuery.isLoading ? (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">
+                              {shouldFilterSuggestions
+                                ? 'Buscando sugestões...'
+                                : 'Carregando sugestões...'}
+                            </div>
+                          ) : filteredDescriptionSuggestionsQuery.isError ||
+                            baseDescriptionSuggestionsQuery.isError ? (
+                            <div className="px-3 py-2 text-sm text-destructive">
+                              Erro ao carregar sugestões.
+                            </div>
+                          ) : descriptionSuggestions.length > 0 ? (
+                            descriptionSuggestions.map((suggestion) => (
+                              <button
+                                key={suggestion}
+                                type="button"
+                                className={`flex w-full items-center px-3 py-2 text-left text-sm ${suggestion === descriptionSuggestions[activeSuggestionIndex]
+                                  ? 'bg-muted/60'
+                                  : 'hover:bg-muted/40'
+                                  }`}
+                                onMouseDown={(event) => {
+                                  event.preventDefault()
+                                  setValue('description', suggestion, {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                  })
+                                  setIsDescriptionSuggestionsOpen(false)
+                                  window.requestAnimationFrame(() => {
+                                    descriptionInputRef.current?.focus()
+                                  })
+                                }}
+                              >
+                                {suggestion}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">
+                              Nenhuma sugestão encontrada.
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
                   )
                 })()}
                 {errors.description && (
@@ -1761,6 +1816,7 @@ function Transactions() {
                   placeholder="Opcional"
                   className="h-10"
                   aria-invalid={!!errors.notes}
+                  tabIndex={2}
                   {...register('notes')}
                 />
                 {errors.notes && (
@@ -2136,6 +2192,7 @@ function Transactions() {
                     id="transaction-edit-account"
                     className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     aria-invalid={!!editErrors.accountId}
+                    tabIndex={7}
                     {...editRegister('accountId')}
                   >
                     <option value="">Selecione</option>
@@ -2160,6 +2217,7 @@ function Transactions() {
                     className="h-10"
                     aria-invalid={!!editErrors.date}
                     onFocus={handleDateFocus}
+                    tabIndex={6}
                     {...editRegister('date')}
                   />
                   {editErrors.date && (
@@ -2177,6 +2235,7 @@ function Transactions() {
                     id="transaction-edit-category"
                     className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     aria-invalid={!!editErrors.categoryId}
+                    tabIndex={4}
                     {...editRegister('categoryId')}
                   >
                     <option value="">Selecione</option>
@@ -2203,6 +2262,7 @@ function Transactions() {
                     aria-invalid={!!editErrors.subcategoryId}
                     {...editRegister('subcategoryId')}
                     disabled={!editCategoryId}
+                    tabIndex={5}
                   >
                     <option value="">Sem subcategoria</option>
                     {(editSubcategoriesQuery.data ?? []).map((subcategory) => (
@@ -2265,6 +2325,7 @@ function Transactions() {
                           )
                         }
                         aria-invalid={!!editErrors.amount}
+                        tabIndex={3}
                       />
                     )}
                   />
@@ -2285,6 +2346,7 @@ function Transactions() {
                   placeholder="Ex: Supermercado"
                   className="h-10"
                   aria-invalid={!!editErrors.description}
+                  tabIndex={1}
                   {...editRegister('description')}
                 />
                 {editErrors.description && (
@@ -2301,6 +2363,7 @@ function Transactions() {
                   placeholder="Opcional"
                   className="h-10"
                   aria-invalid={!!editErrors.notes}
+                  tabIndex={2}
                   {...editRegister('notes')}
                 />
                 {editErrors.notes && (
