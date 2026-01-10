@@ -96,8 +96,8 @@ describe("GET /transactions/descriptions", () => {
     const body = res.json();
 
     expect(body.items.length).toBe(2);
-    expect(body.items[0]).toBe("supermercado");
-    expect(body.items[1]).toBe("Ônibus");
+    expect(body.items[0]).toBe("Ônibus");
+    expect(body.items[1]).toBe("supermercado");
   });
 
   it("deve respeitar filtro por accountId do usuário", async () => {

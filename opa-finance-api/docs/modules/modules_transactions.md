@@ -33,4 +33,4 @@
 ## Autocomplete de descrições
 - Endpoint para retornar descrições únicas usadas pelo usuário
 - Filtros: accountId (obrigatório), q (opcional), limit (default 5, max 20)
-- Distinct case-insensitive e ordenado pela data mais recente
+- Distinct case-insensitive e ordenado pela criação mais recente

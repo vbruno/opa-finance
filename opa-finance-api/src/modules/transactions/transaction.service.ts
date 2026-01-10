@@ -31,7 +31,9 @@ export class TransactionService {
       const result = await this.app.db.execute(
         sql`select 1 from pg_extension where extname = 'unaccent'`,
       );
-      const rows = (result as { rows?: unknown[] }).rows ?? [];
+      const rows = Array.isArray(result)
+        ? result
+        : ((result as { rows?: unknown[] }).rows ?? []);
       this.unaccentAvailable = rows.length > 0;
     } catch {
       this.unaccentAvailable = false;
@@ -511,9 +513,10 @@ export class TransactionService {
   async descriptions(userId: string, query: TransactionDescriptionsQuery) {
     await this.validateAccount(userId, query.accountId);
 
-    const useUnaccent = query.q ? await this.hasUnaccent() : false;
+    const unaccentAvailable = await this.hasUnaccent();
+    const useUnaccent = unaccentAvailable && query.q ? true : false;
     const term = query.q ?? "";
-    const keyExpr = useUnaccent
+    const keyExpr = unaccentAvailable
       ? sql`lower(unaccent(${transactions.description}))`
       : sql`lower(${transactions.description})`;
 
@@ -539,19 +542,19 @@ export class TransactionService {
       sql`
         with filtered as (
           select ${transactions.description} as description,
-                 ${transactions.date} as date,
+                 ${transactions.createdAt} as created_at,
                  ${keyExpr} as key
             from ${transactions}
            where ${whereClause}
         ),
         dedup as (
-          select distinct on (key) description, date
+          select distinct on (key) description, created_at
             from filtered
-           order by key, date desc
+           order by key, created_at desc
         )
         select description
           from dedup
-         order by date desc
+         order by created_at desc
          limit ${query.limit}
       `,
     );

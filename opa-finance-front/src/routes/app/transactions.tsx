@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import {
 import {
   useCreateTransaction,
   useDeleteTransaction,
+  useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
   type Transaction,
@@ -328,7 +329,7 @@ function Transactions() {
   const availableCategories = categories.filter((category) => !category.system)
   const primaryAccountId =
     (accountsQuery.data ?? []).find((account) => account.isPrimary)?.id ?? ''
-  const debouncedCreateDescription = useDebouncedValue(createDescription, 350)
+  const debouncedCreateDescription = useDebouncedValue(createDescription, 1000)
 
   const createCategory = categories.find(
     (category) => category.id === createCategoryId,
@@ -351,51 +352,42 @@ function Transactions() {
 
   const suggestionsQueryText = debouncedCreateDescription
   const trimmedSuggestionsQueryText = suggestionsQueryText.trim()
-  const shouldFilterSuggestions = /\s/.test(suggestionsQueryText)
-  const descriptionSuggestionsQuery = useTransactions(
+  const shouldFilterSuggestions =
+    /\s/.test(suggestionsQueryText) || trimmedSuggestionsQueryText.length > 0
+  const baseDescriptionSuggestionsQuery = useTransactionDescriptions(
     {
-      page: 1,
-      limit: 50,
-      accountId: createAccountId || undefined,
-      description: shouldFilterSuggestions
-        ? trimmedSuggestionsQueryText
-        : undefined,
-      sort: 'date',
-      dir: 'desc',
+      accountId: createAccountId || '',
+      limit: 20,
     },
     {
       enabled: Boolean(isCreateOpen && createAccountId),
     },
   )
-  const descriptionSuggestions = useMemo(() => {
-    const query = normalizeText(trimmedSuggestionsQueryText)
-    const shouldFilter = shouldFilterSuggestions && query.length > 0
-    const rows = descriptionSuggestionsQuery.data?.data ?? []
-    const suggestions: string[] = []
-    const seen = new Set<string>()
-    for (const row of rows) {
-      const description = row.description?.trim()
-      if (!description) {
-        continue
-      }
-      if (shouldFilter) {
-        const candidate = normalizeText(description)
-        if (!candidate.includes(query)) {
-          continue
-        }
-      }
-      const key = description.toLowerCase()
-      if (seen.has(key)) {
-        continue
-      }
-      seen.add(key)
-      suggestions.push(description)
-      if (suggestions.length >= 5) {
-        break
-      }
+  const filteredDescriptionSuggestionsQuery = useTransactionDescriptions(
+    {
+      accountId: createAccountId || '',
+      q: shouldFilterSuggestions ? trimmedSuggestionsQueryText : undefined,
+      limit: 20,
+    },
+    {
+      enabled: Boolean(isCreateOpen && createAccountId && shouldFilterSuggestions),
+    },
+  )
+  const descriptionSuggestions = (() => {
+    const baseItems = baseDescriptionSuggestionsQuery.data?.items ?? []
+    const filteredItems = filteredDescriptionSuggestionsQuery.data?.items ?? []
+    if (!shouldFilterSuggestions) {
+      return baseItems.slice(0, 5)
     }
-    return suggestions
-  }, [debouncedCreateDescription, descriptionSuggestionsQuery.data])
+    if (filteredItems.length > 0) {
+      return filteredItems.slice(0, 5)
+    }
+    const query = normalizeText(trimmedSuggestionsQueryText)
+    const filtered = baseItems.filter((item) =>
+      normalizeText(item).includes(query),
+    )
+    return filtered.slice(0, 5)
+  })()
 
   const transactions = transactionsQuery.data?.data ?? []
   const total = transactionsQuery.data?.total ?? 0
@@ -569,37 +561,37 @@ function Transactions() {
 
     const fieldMap = isEditOpen
       ? {
-          Digit1: 'transaction-edit-account',
-          Digit2: 'transaction-edit-category',
-          Digit3: 'transaction-edit-subcategory',
-          Digit4: 'transaction-edit-date',
-          Digit5: 'transaction-edit-amount',
-          Digit6: 'transaction-edit-description',
-          Digit7: 'transaction-edit-notes',
-          Numpad1: 'transaction-edit-account',
-          Numpad2: 'transaction-edit-category',
-          Numpad3: 'transaction-edit-subcategory',
-          Numpad4: 'transaction-edit-date',
-          Numpad5: 'transaction-edit-amount',
-          Numpad6: 'transaction-edit-description',
-          Numpad7: 'transaction-edit-notes',
-        }
+        Digit1: 'transaction-edit-account',
+        Digit2: 'transaction-edit-category',
+        Digit3: 'transaction-edit-subcategory',
+        Digit4: 'transaction-edit-date',
+        Digit5: 'transaction-edit-amount',
+        Digit6: 'transaction-edit-description',
+        Digit7: 'transaction-edit-notes',
+        Numpad1: 'transaction-edit-account',
+        Numpad2: 'transaction-edit-category',
+        Numpad3: 'transaction-edit-subcategory',
+        Numpad4: 'transaction-edit-date',
+        Numpad5: 'transaction-edit-amount',
+        Numpad6: 'transaction-edit-description',
+        Numpad7: 'transaction-edit-notes',
+      }
       : {
-          Digit1: 'transaction-account',
-          Digit2: 'transaction-category',
-          Digit3: 'transaction-subcategory',
-          Digit4: 'transaction-date',
-          Digit5: 'transaction-amount',
-          Digit6: 'transaction-description',
-          Digit7: 'transaction-notes',
-          Numpad1: 'transaction-account',
-          Numpad2: 'transaction-category',
-          Numpad3: 'transaction-subcategory',
-          Numpad4: 'transaction-date',
-          Numpad5: 'transaction-amount',
-          Numpad6: 'transaction-description',
-          Numpad7: 'transaction-notes',
-        }
+        Digit1: 'transaction-account',
+        Digit2: 'transaction-category',
+        Digit3: 'transaction-subcategory',
+        Digit4: 'transaction-date',
+        Digit5: 'transaction-amount',
+        Digit6: 'transaction-description',
+        Digit7: 'transaction-notes',
+        Numpad1: 'transaction-account',
+        Numpad2: 'transaction-category',
+        Numpad3: 'transaction-subcategory',
+        Numpad4: 'transaction-date',
+        Numpad5: 'transaction-amount',
+        Numpad6: 'transaction-description',
+        Numpad7: 'transaction-notes',
+      }
 
     const handleModalShortcut = (event: KeyboardEvent) => {
       if (!event.altKey || event.metaKey || event.ctrlKey) {
@@ -607,10 +599,10 @@ function Transactions() {
       }
       const keyLookup =
         event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
-        event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
-        event.code === 'Digit7' || event.code === 'Numpad1' || event.code === 'Numpad2' ||
-        event.code === 'Numpad3' || event.code === 'Numpad4' || event.code === 'Numpad5' ||
-        event.code === 'Numpad6' || event.code === 'Numpad7'
+          event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
+          event.code === 'Digit7' || event.code === 'Numpad1' || event.code === 'Numpad2' ||
+          event.code === 'Numpad3' || event.code === 'Numpad4' || event.code === 'Numpad5' ||
+          event.code === 'Numpad6' || event.code === 'Numpad7'
           ? event.code
           : event.key
       const fieldId = fieldMap[keyLookup as keyof typeof fieldMap]
@@ -1291,22 +1283,22 @@ function Transactions() {
             <tbody>
               {transactionsQuery.isLoading && (
                 <tr>
-                <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                  Carregando transações...
-                </td>
-              </tr>
-            )}
-            {!transactionsQuery.isLoading && transactions.length === 0 && (
-              <tr>
-                <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                  Nenhuma transação encontrada.
-                </td>
-              </tr>
-            )}
-            {transactions.map((transaction) => (
-              <tr
-                key={transaction.id}
-                className="cursor-pointer border-t hover:bg-muted/30"
+                  <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                    Carregando transações...
+                  </td>
+                </tr>
+              )}
+              {!transactionsQuery.isLoading && transactions.length === 0 && (
+                <tr>
+                  <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                    Nenhuma transação encontrada.
+                  </td>
+                </tr>
+              )}
+              {transactions.map((transaction) => (
+                <tr
+                  key={transaction.id}
+                  className="cursor-pointer border-t hover:bg-muted/30"
                   onClick={() => {
                     setDeleteError(null)
                     setSelectedTransaction(transaction)
@@ -1421,64 +1413,64 @@ function Transactions() {
               ))}
             </select>
             <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 1}
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    page: Math.max(1, page - 1),
-                  }),
-                })
-              }
-              aria-label="Página anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            {paginationItems.map((item, index) =>
-              item === '...' ? (
-                <span
-                  key={`pagination-ellipsis-${index}`}
-                  className="px-1 text-muted-foreground"
-                >
-                  ...
-                </span>
-              ) : (
-                <Button
-                  key={`pagination-page-${item}`}
-                  variant={item === page ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() =>
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        page: item,
-                      }),
-                    })
-                  }
-                >
-                  {item}
-                </Button>
-              ),
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === totalPages}
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    page: Math.min(totalPages, page + 1),
-                  }),
-                })
-              }
-              aria-label="Próxima página"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() =>
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      page: Math.max(1, page - 1),
+                    }),
+                  })
+                }
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {paginationItems.map((item, index) =>
+                item === '...' ? (
+                  <span
+                    key={`pagination-ellipsis-${index}`}
+                    className="px-1 text-muted-foreground"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <Button
+                    key={`pagination-page-${item}`}
+                    variant={item === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() =>
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          page: item,
+                        }),
+                      })
+                    }
+                  >
+                    {item}
+                  </Button>
+                ),
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === totalPages}
+                onClick={() =>
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      page: Math.min(totalPages, page + 1),
+                    }),
+                  })
+                }
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -1679,43 +1671,53 @@ function Transactions() {
                 {(() => {
                   const descriptionRegister = register('description')
                   return (
-                <div className="relative">
-                  <Input
-                    id="transaction-description"
-                    placeholder="Ex: Supermercado"
-                    className="h-10"
-                    aria-invalid={!!errors.description}
-                    {...descriptionRegister}
-                    ref={(element) => {
-                      descriptionRegister.ref(element)
-                      descriptionInputRef.current = element
-                    }}
-                    onFocus={() => {
-                      setIsDescriptionFocused(true)
-                      if (createDescription.includes(' ')) {
-                        setIsDescriptionSuggestionsOpen(true)
-                      }
-                    }}
-                    onBlur={() => {
-                      descriptionRegister.onBlur()
+                    <div className="relative">
+                      <Input
+                        id="transaction-description"
+                        placeholder="Ex: Supermercado"
+                        className="h-10"
+                        aria-invalid={!!errors.description}
+                        {...descriptionRegister}
+                        ref={(element) => {
+                          descriptionRegister.ref(element)
+                          descriptionInputRef.current = element
+                        }}
+                        onFocus={() => {
+                          setIsDescriptionFocused(true)
+                          setIsDescriptionSuggestionsOpen(true)
+                        }}
+                    onBlur={(event) => {
+                      descriptionRegister.onBlur(event)
                       setIsDescriptionFocused(false)
                       setIsDescriptionSuggestionsOpen(false)
                     }}
-                    onChange={(event) => {
-                      descriptionRegister.onChange(event)
-                      if (
-                        isDescriptionFocused &&
-                        event.target.value.includes(' ')
-                      ) {
-                        setIsDescriptionSuggestionsOpen(true)
-                      }
-                    }}
-                    autoComplete="off"
-                  />
-                  {isDescriptionSuggestionsOpen &&
-                    descriptionSuggestions.length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
-                        {descriptionSuggestions.map((suggestion) => (
+                        onChange={(event) => {
+                          descriptionRegister.onChange(event)
+                          if (
+                            isDescriptionFocused &&
+                            event.target.value.includes(' ')
+                          ) {
+                            setIsDescriptionSuggestionsOpen(true)
+                          }
+                        }}
+                        autoComplete="off"
+                      />
+                  {isDescriptionSuggestionsOpen && (
+                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
+                      {filteredDescriptionSuggestionsQuery.isLoading ||
+                      baseDescriptionSuggestionsQuery.isLoading ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          {shouldFilterSuggestions
+                            ? 'Buscando sugestões...'
+                            : 'Carregando sugestões...'}
+                        </div>
+                      ) : filteredDescriptionSuggestionsQuery.isError ||
+                        baseDescriptionSuggestionsQuery.isError ? (
+                        <div className="px-3 py-2 text-sm text-destructive">
+                          Erro ao carregar sugestões.
+                        </div>
+                      ) : descriptionSuggestions.length > 0 ? (
+                        descriptionSuggestions.map((suggestion) => (
                           <button
                             key={suggestion}
                             type="button"
@@ -1734,9 +1736,14 @@ function Transactions() {
                           >
                             {suggestion}
                           </button>
-                        ))}
-                      </div>
-                    )}
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          Nenhuma sugestão encontrada.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                   )
                 })()}

@@ -1295,6 +1295,10 @@ GET /transactions/descriptions?accountId=uuid&q=super&limit=5
 }
 ```
 
+**Notas:**
+
+- As descrições são únicas (case-insensitive) e ordenadas pela criação mais recente.
+
 **Erros:**
 
 - `400` - Validação falhou
