@@ -186,6 +186,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Validação de campo em tempo real via schema
 - No modal de nova transação, data inicia no dia atual e a conta principal é pré-selecionada.
 - No modal de transferência, data inicia no dia atual e a conta de origem começa na conta principal.
+- O campo de descrição da nova transação sugere até 5 descrições anteriores da conta atual (preenche apenas a descrição), e filtra sem acentos quando há espaço no texto.
 
 ---
 
