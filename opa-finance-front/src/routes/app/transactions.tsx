@@ -931,6 +931,34 @@ function Transactions() {
     setIsCreateOpen(true)
   }
 
+  const handleOpenRepeatTransfer = (transaction: Transaction) => {
+    if (!transaction.transferId) {
+      return
+    }
+    const relatedTransfer = transactions.find(
+      (item) =>
+        item.transferId === transaction.transferId &&
+        item.id !== transaction.id,
+    )
+    const isExpense = transaction.type === 'expense'
+    const fromAccountId = isExpense
+      ? transaction.accountId
+      : relatedTransfer?.accountId ?? ''
+    const toAccountId = isExpense
+      ? relatedTransfer?.accountId ?? ''
+      : transaction.accountId
+
+    transferForm.reset({
+      fromAccountId,
+      toAccountId,
+      amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+      date: formatDateInput(new Date()),
+      description: transaction.description ?? '',
+    })
+    setSelectedTransaction(null)
+    setIsTransferOpen(true)
+  }
+
   const handleOpenDelete = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
     setDeleteError(null)
@@ -2245,7 +2273,14 @@ function Transactions() {
 
             <div className="mt-6 flex items-center justify-end">
               <div className="flex flex-wrap items-center gap-3">
-                {!selectedTransaction.transferId && (
+                {selectedTransaction.transferId ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleOpenRepeatTransfer(selectedTransaction)}
+                  >
+                    Repetir
+                  </Button>
+                ) : (
                   <Button
                     variant="outline"
                     onClick={() => handleOpenDuplicate(selectedTransaction)}
