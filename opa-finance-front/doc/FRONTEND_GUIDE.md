@@ -188,7 +188,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - No modal de transferência, data inicia no dia atual e a conta de origem começa na conta principal.
 - No modal de nova/editar transação, o foco inicia em Descrição e a navegação por Tab segue: Descrição → Notas → Valor → Categoria → Subcategoria → Data → Conta.
 - Na barra de resumo da seleção (2+ itens), existe botão para excluir em massa com confirmação.
-- Exclusão de transações que são transferências remove origem e destino quando ambos estão carregados na lista atual.
+- Exclusão de transações de transferência é tratada no backend (remove origem e destino), sem seleção automática no front.
 - O campo de descrição da nova transação usa `/transactions/descriptions` para sugerir até 5 descrições da conta atual (preenche apenas a descrição), enviando `q` quando há espaço no texto ou após 1s sem digitação, e refinando sem acentos no front.
 - No autocomplete de descrição, use setas ↑/↓ para navegar, Enter para selecionar e Esc para fechar.
 

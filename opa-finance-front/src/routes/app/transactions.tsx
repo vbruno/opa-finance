@@ -431,6 +431,21 @@ function Transactions() {
       .map((item) => item.id)
   }
 
+  const buildBulkDeleteIds = (items: Transaction[]) => {
+    const ids = new Set<string>()
+    const seenTransfers = new Set<string>()
+    items.forEach((transaction) => {
+      if (transaction.transferId) {
+        if (seenTransfers.has(transaction.transferId)) {
+          return
+        }
+        seenTransfers.add(transaction.transferId)
+      }
+      ids.add(transaction.id)
+    })
+    return Array.from(ids)
+  }
+
   const handleDateFocus = (event: React.FocusEvent<HTMLInputElement>) => {
     const input = event.currentTarget
     if (typeof input.showPicker === 'function') {
@@ -537,6 +552,37 @@ function Transactions() {
     isDeleteConfirmOpen,
     isBulkDeleteOpen,
     selectedTransaction,
+  ])
+
+  useEffect(() => {
+    const hasOpenModal =
+      isCreateOpen ||
+      isTransferOpen ||
+      isEditOpen ||
+      isDeleteConfirmOpen ||
+      isBulkDeleteOpen ||
+      !!selectedTransaction
+    if (hasOpenModal || selectedIds.size === 0) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+      setSelectedIds(new Set())
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [
+    isCreateOpen,
+    isTransferOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    isBulkDeleteOpen,
+    selectedTransaction,
+    selectedIds.size,
   ])
 
   useEffect(() => {
@@ -1348,30 +1394,49 @@ function Transactions() {
                     setSelectedTransaction(transaction)
                   }}
                 >
-                  <td className="px-4 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 cursor-pointer"
-                      checked={selectedIds.has(transaction.id)}
-                      onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
+                  <td
+                    className="cursor-pointer px-4 py-2 text-center"
+                    onClick={(event) => {
+                      event.stopPropagation()
                       setSelectedIds((prev) => {
                         const next = new Set(prev)
-                        const transferIds = getTransferRelatedIds(
-                          transaction.transferId,
-                        )
-                        if (event.target.checked) {
-                          next.add(transaction.id)
-                          transferIds.forEach((id) => next.add(id))
-                        } else {
+                        if (next.has(transaction.id)) {
                           next.delete(transaction.id)
-                          transferIds.forEach((id) => next.delete(id))
+                        } else {
+                          next.add(transaction.id)
                         }
                         return next
                       })
                     }}
-                      aria-label="Selecionar transação"
-                    />
+                    onMouseDown={(event) => event.stopPropagation()}
+                  >
+                    <label
+                      htmlFor={`transaction-select-${transaction.id}`}
+                      className="flex h-full w-full cursor-pointer items-center justify-center rounded-md p-1.5 hover:bg-muted/40"
+                      onClick={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        id={`transaction-select-${transaction.id}`}
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer"
+                        checked={selectedIds.has(transaction.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onChange={(event) => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev)
+                            if (event.target.checked) {
+                              next.add(transaction.id)
+                            } else {
+                              next.delete(transaction.id)
+                            }
+                            return next
+                          })
+                        }}
+                        aria-label="Selecionar transação"
+                      />
+                    </label>
                   </td>
                   <td className="px-4 py-2">
                     {dateFormatter.format(new Date(transaction.date))}
@@ -2472,19 +2537,10 @@ function Transactions() {
               </Button>
               <Button
                 variant="destructive"
-                    onClick={async () => {
+                onClick={async () => {
                   try {
-                    const ids = new Set<string>()
-                    ids.add(selectedTransaction.id)
-                    if (selectedTransaction.transferId) {
-                      getTransferRelatedIds(selectedTransaction.transferId).forEach(
-                        (id) => ids.add(id),
-                      )
-                    }
-                    await Promise.all(
-                      Array.from(ids).map((id) =>
-                        deleteTransactionMutation.mutateAsync(id),
-                      ),
+                    await deleteTransactionMutation.mutateAsync(
+                      selectedTransaction.id,
                     )
                     setIsDeleteConfirmOpen(false)
                     setSelectedTransaction(null)
@@ -2541,16 +2597,7 @@ function Transactions() {
               <Button
                 variant="destructive"
                 onClick={async () => {
-                  const ids = new Set<string>()
-                  selectedTransactions.forEach((transaction) => {
-                    ids.add(transaction.id)
-                    if (transaction.transferId) {
-                      getTransferRelatedIds(transaction.transferId).forEach(
-                        (id) => ids.add(id),
-                      )
-                    }
-                  })
-                  const idsArray = Array.from(ids)
+                  const idsArray = buildBulkDeleteIds(selectedTransactions)
                   if (idsArray.length === 0) {
                     setIsBulkDeleteOpen(false)
                     return
