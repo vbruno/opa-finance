@@ -191,8 +191,6 @@ function Transactions() {
   const [transferEditContext, setTransferEditContext] = useState<{
     expenseId: string
     incomeId: string
-    expenseCategoryId: string
-    incomeCategoryId: string
   } | null>(null)
   const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
     null,
@@ -1085,8 +1083,6 @@ function Transactions() {
       setTransferEditContext({
         expenseId: expenseTransaction.id,
         incomeId: incomeTransaction.id,
-        expenseCategoryId: expenseTransaction.categoryId,
-        incomeCategoryId: incomeTransaction.categoryId,
       })
 
       transferForm.reset({
@@ -2194,8 +2190,6 @@ function Transactions() {
                         id: transferEditContext.expenseId,
                         payload: {
                           accountId: formData.fromAccountId,
-                          categoryId: transferEditContext.expenseCategoryId,
-                          type: 'expense',
                           amount: parsedAmount,
                           date: formData.date,
                           description: formData.description?.trim() || null,
@@ -2205,8 +2199,6 @@ function Transactions() {
                         id: transferEditContext.incomeId,
                         payload: {
                           accountId: formData.toAccountId,
-                          categoryId: transferEditContext.incomeCategoryId,
-                          type: 'income',
                           amount: parsedAmount,
                           date: formData.date,
                           description: formData.description?.trim() || null,

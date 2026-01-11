@@ -1151,6 +1151,7 @@ Atualiza uma transação.
 **Notas:**
 
 - Se a transação pertencer a uma transferência, a atualização aplica-se às duas transações vinculadas.
+- Em transferências, não é permitido alterar categoria/tipo e as contas devem permanecer diferentes.
 
 ---
 

@@ -344,6 +344,136 @@ describe("PUT /transactions/:id", () => {
     expect(updated[1].description).toBe("Transferência editada");
   });
 
+  it("não deve permitir atualizar transferência com contas iguais", async () => {
+    const { token, user } = await registerAndLogin(
+      app,
+      db,
+      "transfer-accounts@test.com",
+      "User TA",
+    );
+
+    await db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const [fromAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Origem",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "0",
+      })
+      .returning();
+
+    const [toAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Destino",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "0",
+      })
+      .returning();
+
+    const transferRes = await app.inject({
+      method: "POST",
+      url: "/transfers",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: 120,
+        date: "2025-02-10",
+        description: "Transferência teste",
+      },
+    });
+
+    const transferBody = transferRes.json();
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/transactions/${transferBody.fromAccount.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: toAccount.id,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.title).toBe("Validation Error");
+    expect(body.detail).toBe("As contas precisam ser diferentes.");
+  });
+
+  it("não deve permitir alterar categoria ou tipo em transferência", async () => {
+    const { token, user } = await registerAndLogin(
+      app,
+      db,
+      "transfer-category@test.com",
+      "User TC",
+    );
+
+    await db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const [fromAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta X",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "0",
+      })
+      .returning();
+
+    const [toAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Y",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "0",
+      })
+      .returning();
+
+    const transferRes = await app.inject({
+      method: "POST",
+      url: "/transfers",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: 80,
+        date: "2025-02-12",
+        description: "Transferência categoria",
+      },
+    });
+
+    const transferBody = transferRes.json();
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/transactions/${transferBody.fromAccount.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        type: "income",
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.title).toBe("Validation Error");
+    expect(body.detail).toBe("Não é permitido alterar categoria ou tipo em transferências.");
+  });
+
   /* ------------------------------------------------------------------------ */
   /*                    409 - SUBCATEGORIA NÃO PERTENCE À CATEGORIA           */
   /* ------------------------------------------------------------------------ */

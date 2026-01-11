@@ -284,6 +284,13 @@ export class TransactionService {
     const tx = await this.getOne(id, userId);
 
     if (tx.transferId) {
+      if (data.categoryId || data.subcategoryId || data.type) {
+        throw new ValidationProblem(
+          "Não é permitido alterar categoria ou tipo em transferências.",
+          `/transactions/${id}`,
+        );
+      }
+
       if (data.accountId) {
         await this.validateAccount(userId, data.accountId);
       }
@@ -292,6 +299,14 @@ export class TransactionService {
         .select()
         .from(transactions)
         .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
+
+      const counterpart = related.find((row) => row.id !== tx.id);
+      if (data.accountId && counterpart && data.accountId === counterpart.accountId) {
+        throw new ValidationProblem(
+          "As contas precisam ser diferentes.",
+          `/transactions/${id}`,
+        );
+      }
 
       const updates = {
         amount: data.amount?.toString() ?? tx.amount,
