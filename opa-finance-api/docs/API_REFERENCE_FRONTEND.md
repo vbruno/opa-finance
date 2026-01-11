@@ -1148,6 +1148,10 @@ Atualiza uma transação.
 - `404` - Transação não encontrada
 - `409` - Subcategoria não pertence à categoria
 
+**Notas:**
+
+- Se a transação pertencer a uma transferência, a atualização aplica-se às duas transações vinculadas.
+
 ---
 
 ### DELETE `/transactions/:id`

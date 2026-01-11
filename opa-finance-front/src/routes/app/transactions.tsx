@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -20,9 +20,11 @@ import {
   useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
+  type TransactionsListResponse,
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
+import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   formatCurrencyInput,
@@ -176,8 +178,22 @@ function Transactions() {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [repeatTransferError, setRepeatTransferError] = useState<string | null>(
+    null,
+  )
+  const [transferEditError, setTransferEditError] = useState<string | null>(
+    null,
+  )
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [isRepeatTransferLoading, setIsRepeatTransferLoading] = useState(false)
+  const [isEditTransferLoading, setIsEditTransferLoading] = useState(false)
+  const [transferEditContext, setTransferEditContext] = useState<{
+    expenseId: string
+    incomeId: string
+    expenseCategoryId: string
+    incomeCategoryId: string
+  } | null>(null)
   const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
     null,
   )
@@ -598,14 +614,16 @@ function Transactions() {
 
   useEffect(() => {
     if (isTransferOpen) {
-      transferForm.setValue('date', formatDateInput(new Date()))
-      const currentFromAccountId = transferForm.getValues('fromAccountId')
-      if (!currentFromAccountId && primaryAccountId) {
-        transferForm.setValue('fromAccountId', primaryAccountId)
+      if (!transferEditContext) {
+        transferForm.setValue('date', formatDateInput(new Date()))
+        const currentFromAccountId = transferForm.getValues('fromAccountId')
+        if (!currentFromAccountId && primaryAccountId) {
+          transferForm.setValue('fromAccountId', primaryAccountId)
+        }
       }
       transferAmountRef.current?.focus()
     }
-  }, [isTransferOpen, primaryAccountId, transferForm])
+  }, [isTransferOpen, primaryAccountId, transferEditContext, transferForm])
 
   useEffect(() => {
     if (isEditOpen) {
@@ -931,32 +949,165 @@ function Transactions() {
     setIsCreateOpen(true)
   }
 
-  const handleOpenRepeatTransfer = (transaction: Transaction) => {
+  const handleCloseTransferModal = () => {
+    setIsTransferOpen(false)
+    setTransferEditContext(null)
+    setTransferEditError(null)
+    transferForm.reset()
+  }
+
+  const handleSwapTransferAccounts = () => {
+    const fromAccountId = transferForm.getValues('fromAccountId')
+    const toAccountId = transferForm.getValues('toAccountId')
+    transferForm.setValue('fromAccountId', toAccountId)
+    transferForm.setValue('toAccountId', fromAccountId)
+  }
+
+  const findTransferCounterpart = async (transaction: Transaction) => {
     if (!transaction.transferId) {
-      return
+      return null
     }
-    const relatedTransfer = transactions.find(
+    const localMatch = transactions.find(
       (item) =>
         item.transferId === transaction.transferId &&
         item.id !== transaction.id,
     )
-    const isExpense = transaction.type === 'expense'
-    const fromAccountId = isExpense
-      ? transaction.accountId
-      : relatedTransfer?.accountId ?? ''
-    const toAccountId = isExpense
-      ? relatedTransfer?.accountId ?? ''
-      : transaction.accountId
+    if (localMatch) {
+      return localMatch
+    }
+    const limit = 100
+    let page = 1
+    let totalPages = 1
 
-    transferForm.reset({
-      fromAccountId,
-      toAccountId,
-      amount: `$ ${formatCurrencyValue(transaction.amount)}`,
-      date: formatDateInput(new Date()),
-      description: transaction.description ?? '',
-    })
-    setSelectedTransaction(null)
-    setIsTransferOpen(true)
+    while (page <= totalPages) {
+      const response = await api.get<TransactionsListResponse>(
+        '/transactions',
+        {
+          params: {
+            page,
+            limit,
+            startDate: transaction.date,
+            endDate: transaction.date,
+          },
+        },
+      )
+      const result = response.data
+      totalPages = Math.max(1, Math.ceil(result.total / result.limit))
+      const match = result.data.find(
+        (item) =>
+          item.transferId === transaction.transferId &&
+          item.id !== transaction.id,
+      )
+      if (match) {
+        return match
+      }
+      page += 1
+    }
+
+    return null
+  }
+
+  const handleOpenRepeatTransfer = async (transaction: Transaction) => {
+    if (!transaction.transferId) {
+      return
+    }
+    if (isRepeatTransferLoading) {
+      return
+    }
+    setTransferEditContext(null)
+    setRepeatTransferError(null)
+    setIsRepeatTransferLoading(true)
+    try {
+      const relatedTransfer = await findTransferCounterpart(transaction)
+      if (!relatedTransfer) {
+        setRepeatTransferError(
+          'Não foi possível localizar a outra conta da transferência.',
+        )
+        return
+      }
+      const isExpense = transaction.type === 'expense'
+      const fromAccountId = isExpense
+        ? transaction.accountId
+        : relatedTransfer.accountId
+      const toAccountId = isExpense
+        ? relatedTransfer.accountId
+        : transaction.accountId
+
+      if (!fromAccountId || !toAccountId) {
+        setRepeatTransferError(
+          'Não foi possível definir as contas da transferência.',
+        )
+        return
+      }
+
+      transferForm.reset({
+        fromAccountId,
+        toAccountId,
+        amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+        date: formatDateInput(new Date()),
+        description: transaction.description ?? '',
+      })
+      setSelectedTransaction(null)
+      setIsTransferOpen(true)
+    } catch (error: unknown) {
+      setRepeatTransferError(
+        getApiErrorMessage(error, {
+          defaultMessage:
+            'Erro ao carregar os dados da transferência. Tente novamente.',
+        }),
+      )
+    } finally {
+      setIsRepeatTransferLoading(false)
+    }
+  }
+
+  const handleOpenEditTransfer = async (transaction: Transaction) => {
+    if (!transaction.transferId) {
+      return
+    }
+    if (isEditTransferLoading) {
+      return
+    }
+    setTransferEditError(null)
+    setIsEditTransferLoading(true)
+    try {
+      const relatedTransfer = await findTransferCounterpart(transaction)
+      if (!relatedTransfer) {
+        setTransferEditError(
+          'Não foi possível localizar a outra conta da transferência.',
+        )
+        return
+      }
+      const isExpense = transaction.type === 'expense'
+      const expenseTransaction = isExpense ? transaction : relatedTransfer
+      const incomeTransaction = isExpense ? relatedTransfer : transaction
+
+      setTransferEditContext({
+        expenseId: expenseTransaction.id,
+        incomeId: incomeTransaction.id,
+        expenseCategoryId: expenseTransaction.categoryId,
+        incomeCategoryId: incomeTransaction.categoryId,
+      })
+
+      transferForm.reset({
+        fromAccountId: expenseTransaction.accountId,
+        toAccountId: incomeTransaction.accountId,
+        amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+        date: transaction.date,
+        description: transaction.description ?? '',
+      })
+      setSelectedTransaction(null)
+      setIsTransferOpen(true)
+    } catch (error: unknown) {
+      setTransferEditError(
+        getApiErrorMessage(error, {
+          defaultMessage:
+            'Erro ao carregar os dados da transferência. Tente novamente.',
+        }),
+      )
+    } finally {
+      setIsEditTransferLoading(false)
+    }
   }
 
   const handleOpenDelete = (transaction: Transaction) => {
@@ -975,7 +1126,14 @@ function Transactions() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTransferEditContext(null)
+              setTransferEditError(null)
+              setIsTransferOpen(true)
+            }}
+          >
             Nova transferência
           </Button>
           <Button onClick={() => setIsCreateOpen(true)} title="Atalho: N">
@@ -1437,6 +1595,8 @@ function Transactions() {
                   className="cursor-pointer border-t hover:bg-muted/30"
                   onClick={() => {
                     setDeleteError(null)
+                    setRepeatTransferError(null)
+                    setTransferEditError(null)
                     setSelectedTransaction(transaction)
                   }}
                 >
@@ -2006,13 +2166,19 @@ function Transactions() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
             className="fixed inset-0"
-            onClick={() => setIsTransferOpen(false)}
+            onClick={handleCloseTransferModal}
           />
           <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
             <div>
-              <h3 className="text-lg font-semibold">Nova transferência</h3>
+              <h3 className="text-lg font-semibold">
+                {transferEditContext
+                  ? 'Editar transferência'
+                  : 'Nova transferência'}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Informe as contas de origem e destino.
+                {transferEditContext
+                  ? 'Atualize os dados da transferência selecionada.'
+                  : 'Informe as contas de origem e destino.'}
               </p>
             </div>
 
@@ -2022,26 +2188,54 @@ function Transactions() {
                 try {
                   const parsedAmount =
                     parseCurrencyInput(formData.amount) ?? 0
-                  await createTransferMutation.mutateAsync({
-                    fromAccountId: formData.fromAccountId,
-                    toAccountId: formData.toAccountId,
-                    amount: parsedAmount,
-                    date: formData.date,
-                    description: formData.description?.trim() || null,
-                  })
-                  setIsTransferOpen(false)
-                  transferForm.reset()
+                  if (transferEditContext) {
+                    await Promise.all([
+                      updateTransactionMutation.mutateAsync({
+                        id: transferEditContext.expenseId,
+                        payload: {
+                          accountId: formData.fromAccountId,
+                          categoryId: transferEditContext.expenseCategoryId,
+                          type: 'expense',
+                          amount: parsedAmount,
+                          date: formData.date,
+                          description: formData.description?.trim() || null,
+                        },
+                      }),
+                      updateTransactionMutation.mutateAsync({
+                        id: transferEditContext.incomeId,
+                        payload: {
+                          accountId: formData.toAccountId,
+                          categoryId: transferEditContext.incomeCategoryId,
+                          type: 'income',
+                          amount: parsedAmount,
+                          date: formData.date,
+                          description: formData.description?.trim() || null,
+                        },
+                      }),
+                    ])
+                  } else {
+                    await createTransferMutation.mutateAsync({
+                      fromAccountId: formData.fromAccountId,
+                      toAccountId: formData.toAccountId,
+                      amount: parsedAmount,
+                      date: formData.date,
+                      description: formData.description?.trim() || null,
+                    })
+                  }
+                  handleCloseTransferModal()
                 } catch (error: unknown) {
                   transferForm.setError('root', {
                     message: getApiErrorMessage(error, {
                       defaultMessage:
-                        'Erro ao criar transferência. Tente novamente.',
+                        transferEditContext
+                          ? 'Erro ao atualizar transferência. Tente novamente.'
+                          : 'Erro ao criar transferência. Tente novamente.',
                     }),
                   })
                 }
               })}
             >
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
                 <div className="space-y-2">
                   <Label htmlFor="transfer-from-account">Conta de origem</Label>
                   <select
@@ -2064,6 +2258,20 @@ function Transactions() {
                       {transferForm.formState.errors.fromAccountId.message}
                     </p>
                   )}
+                </div>
+
+                <div className="flex items-center justify-center sm:pb-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    title="Inverter contas"
+                    aria-label="Inverter contas"
+                    onClick={handleSwapTransferAccounts}
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
@@ -2166,7 +2374,7 @@ function Transactions() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsTransferOpen(false)}
+                  onClick={handleCloseTransferModal}
                 >
                   Cancelar
                 </Button>
@@ -2174,7 +2382,7 @@ function Transactions() {
                   type="submit"
                   disabled={transferForm.formState.isSubmitting}
                 >
-                  Transferir
+                  {transferEditContext ? 'Salvar' : 'Transferir'}
                 </Button>
               </div>
             </form>
@@ -2272,35 +2480,65 @@ function Transactions() {
             </div>
 
             <div className="mt-6 flex items-center justify-end">
-              <div className="flex flex-wrap items-center gap-3">
-                {selectedTransaction.transferId ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOpenRepeatTransfer(selectedTransaction)}
-                  >
-                    Repetir
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOpenDuplicate(selectedTransaction)}
-                  >
-                    Duplicar
-                  </Button>
+              <div className="flex w-full flex-col items-end gap-3">
+                {repeatTransferError && (
+                  <p className="text-sm text-destructive">
+                    {repeatTransferError}
+                  </p>
                 )}
-                <Button
-                  variant="outline"
-                  autoFocus
-                  onClick={() => handleOpenEdit(selectedTransaction)}
-                >
-                  Editar
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => handleOpenDelete(selectedTransaction)}
-                >
-                  Excluir
-                </Button>
+                {transferEditError && (
+                  <p className="text-sm text-destructive">
+                    {transferEditError}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  {selectedTransaction.transferId ? (
+                    <Button
+                      variant="outline"
+                      disabled={isRepeatTransferLoading}
+                      aria-busy={isRepeatTransferLoading}
+                      onClick={() =>
+                        handleOpenRepeatTransfer(selectedTransaction)
+                      }
+                    >
+                      {isRepeatTransferLoading ? 'Carregando...' : 'Repetir'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOpenDuplicate(selectedTransaction)}
+                    >
+                      Duplicar
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    autoFocus
+                    disabled={
+                      selectedTransaction.transferId && isEditTransferLoading
+                    }
+                    aria-busy={
+                      selectedTransaction.transferId && isEditTransferLoading
+                    }
+                    onClick={() => {
+                      if (selectedTransaction.transferId) {
+                        handleOpenEditTransfer(selectedTransaction)
+                      } else {
+                        handleOpenEdit(selectedTransaction)
+                      }
+                    }}
+                  >
+                    {selectedTransaction.transferId && isEditTransferLoading
+                      ? 'Carregando...'
+                      : 'Editar'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleOpenDelete(selectedTransaction)}
+                  >
+                    Excluir
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

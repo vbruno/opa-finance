@@ -283,6 +283,54 @@ export class TransactionService {
   async update(id: string, userId: string, data: UpdateTransactionInput) {
     const tx = await this.getOne(id, userId);
 
+    if (tx.transferId) {
+      if (data.accountId) {
+        await this.validateAccount(userId, data.accountId);
+      }
+
+      const related = await this.app.db
+        .select()
+        .from(transactions)
+        .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
+
+      const updates = {
+        amount: data.amount?.toString() ?? tx.amount,
+        date: data.date ?? tx.date,
+        description: data.description ?? tx.description,
+        notes: data.notes ?? tx.notes,
+        updatedAt: new Date(),
+      };
+
+      const rowsToUpdate = related.length > 0 ? related : [tx];
+
+      const updatedRows = await this.app.db.transaction(async (db) => {
+        const results = [];
+        for (const row of rowsToUpdate) {
+          const [updated] = await db
+            .update(transactions)
+            .set({
+              ...updates,
+              accountId: row.id === tx.id && data.accountId ? data.accountId : row.accountId,
+              categoryId: row.categoryId,
+              subcategoryId: row.subcategoryId,
+              type: row.type,
+            })
+            .where(eq(transactions.id, row.id))
+            .returning();
+          results.push(updated);
+        }
+        return results;
+      });
+
+      const updatedCurrent =
+        updatedRows.find((row) => row.id === tx.id) ?? updatedRows[0] ?? tx;
+
+      return {
+        ...updatedCurrent,
+        amount: Number(updatedCurrent.amount),
+      };
+    }
+
     let newCategory = null;
     let newSubcategory = null;
 

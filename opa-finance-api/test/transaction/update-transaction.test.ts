@@ -6,6 +6,8 @@ import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
 import type { DB } from "@/core/plugins/drizzle";
+import { eq } from "drizzle-orm";
+import { accounts, categories, transactions } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;
@@ -265,6 +267,81 @@ describe("PUT /transactions/:id", () => {
 
     expect(res.statusCode).toBe(403);
     expect(res.json().detail).toBe("Acesso negado à conta.");
+  });
+
+  it("deve atualizar transferência sem bloquear categoria de sistema", async () => {
+    const { token, user } = await registerAndLogin(app, db, "transfer@test.com", "User T");
+
+    await db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const [fromAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta A",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "0",
+      })
+      .returning();
+
+    const [toAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta B",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "0",
+      })
+      .returning();
+
+    const transferRes = await app.inject({
+      method: "POST",
+      url: "/transfers",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: 200,
+        date: "2025-01-15",
+        description: "Transferência original",
+      },
+    });
+
+    expect(transferRes.statusCode).toBe(201);
+    const transferBody = transferRes.json();
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/transactions/${transferBody.fromAccount.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        amount: 250,
+        date: "2025-01-20",
+        description: "Transferência editada",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().amount).toBe(250);
+    expect(res.json().description).toBe("Transferência editada");
+
+    const updated = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.transferId, transferBody.id));
+
+    expect(updated.length).toBe(2);
+    expect(Number(updated[0].amount)).toBe(250);
+    expect(Number(updated[1].amount)).toBe(250);
+    expect(updated[0].date).toBe("2025-01-20");
+    expect(updated[1].date).toBe("2025-01-20");
+    expect(updated[0].description).toBe("Transferência editada");
+    expect(updated[1].description).toBe("Transferência editada");
   });
 
   /* ------------------------------------------------------------------------ */

@@ -186,13 +186,15 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Validação de campo em tempo real via schema
 - No modal de nova transação, data inicia no dia atual e a conta principal é pré-selecionada.
 - No modal de transferência, data inicia no dia atual e a conta de origem começa na conta principal.
+- No modal de transferência, há um botão para inverter conta de origem/destino.
+- Ao editar uma transferência, o frontend abre o modal de transferência e atualiza os dois lançamentos (origem e destino).
 - No modal de nova/editar transação, o foco inicia em Descrição e a navegação por Tab segue: Descrição → Notas → Valor → Categoria → Subcategoria → Data → Conta.
 - Na barra de resumo da seleção (2+ itens), existe botão para excluir em massa com confirmação.
 - Exclusão de transações de transferência é tratada no backend (remove origem e destino), sem seleção automática no front.
 - O campo de descrição da nova transação usa `/transactions/descriptions` para sugerir até 5 descrições da conta atual (preenche apenas a descrição), enviando `q` quando há espaço no texto ou após 1s sem digitação, e refinando sem acentos no front.
 - No autocomplete de descrição, use setas ↑/↓ para navegar, Enter para selecionar e Esc para fechar.
 - No modal de detalhes, o botão "Duplicar" abre a criação com os dados da transação (exceto transferências) e data atual.
-- Em detalhes de transferências, o botão "Repetir" abre a nova transferência com as contas origem/destino, valor e descrição preenchidos, usando a data atual.
+- Em detalhes de transferências, o botão "Repetir" abre a nova transferência com contas origem/destino, valor e descrição preenchidos, usando a data atual. Se a contraparte não estiver na lista filtrada, o frontend busca a outra ponta pelo mesmo dia para garantir os dados.
 
 ---
 
