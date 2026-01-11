@@ -913,6 +913,24 @@ function Transactions() {
     setIsEditOpen(true)
   }
 
+  const handleOpenDuplicate = (transaction: Transaction) => {
+    if (transaction.transferId) {
+      return
+    }
+    reset({
+      accountId: transaction.accountId,
+      categoryId: transaction.categoryId,
+      subcategoryId: transaction.subcategoryId ?? '',
+      type: transaction.type,
+      amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+      date: formatDateInput(new Date()),
+      description: transaction.description ?? '',
+      notes: transaction.notes ?? '',
+    })
+    setSelectedTransaction(null)
+    setIsCreateOpen(true)
+  }
+
   const handleOpenDelete = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
     setDeleteError(null)
@@ -2227,18 +2245,26 @@ function Transactions() {
 
             <div className="mt-6 flex items-center justify-end">
               <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="destructive"
-                  onClick={() => handleOpenDelete(selectedTransaction)}
-                >
-                  Excluir
-                </Button>
+                {!selectedTransaction.transferId && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleOpenDuplicate(selectedTransaction)}
+                  >
+                    Duplicar
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   autoFocus
                   onClick={() => handleOpenEdit(selectedTransaction)}
                 >
                   Editar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleOpenDelete(selectedTransaction)}
+                >
+                  Excluir
                 </Button>
               </div>
             </div>

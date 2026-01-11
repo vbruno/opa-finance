@@ -191,6 +191,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Exclusão de transações de transferência é tratada no backend (remove origem e destino), sem seleção automática no front.
 - O campo de descrição da nova transação usa `/transactions/descriptions` para sugerir até 5 descrições da conta atual (preenche apenas a descrição), enviando `q` quando há espaço no texto ou após 1s sem digitação, e refinando sem acentos no front.
 - No autocomplete de descrição, use setas ↑/↓ para navegar, Enter para selecionar e Esc para fechar.
+- No modal de detalhes, o botão "Duplicar" abre a criação com os dados da transação (exceto transferências) e data atual.
 
 ---
 
