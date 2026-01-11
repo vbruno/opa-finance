@@ -172,9 +172,12 @@ function Transactions() {
   const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
     null,
   )
@@ -188,6 +191,7 @@ function Transactions() {
   const descriptionInputRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
+  const bulkDeleteModalRef = useRef<HTMLDivElement | null>(null)
   const selectAllRef = useRef<HTMLInputElement | null>(null)
   const copyTimeoutRef = useRef<number | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
@@ -418,6 +422,14 @@ function Transactions() {
     if (value < 0) return 'text-rose-600'
     return 'text-muted-foreground'
   }
+  const getTransferRelatedIds = (transferId: string | null) => {
+    if (!transferId) {
+      return []
+    }
+    return transactions
+      .filter((item) => item.transferId === transferId)
+      .map((item) => item.id)
+  }
 
   const handleDateFocus = (event: React.FocusEvent<HTMLInputElement>) => {
     const input = event.currentTarget
@@ -506,6 +518,7 @@ function Transactions() {
       isTransferOpen ||
       isEditOpen ||
       isDeleteConfirmOpen ||
+      isBulkDeleteOpen ||
       !!selectedTransaction
     if (!hasOpenModal) {
       return
@@ -522,6 +535,7 @@ function Transactions() {
     isTransferOpen,
     isEditOpen,
     isDeleteConfirmOpen,
+    isBulkDeleteOpen,
     selectedTransaction,
   ])
 
@@ -631,10 +645,14 @@ function Transactions() {
       deleteModalRef.current?.focus()
       return
     }
+    if (isBulkDeleteOpen) {
+      bulkDeleteModalRef.current?.focus()
+      return
+    }
     if (selectedTransaction && !isEditOpen) {
       detailModalRef.current?.focus()
     }
-  }, [isDeleteConfirmOpen, isEditOpen, selectedTransaction])
+  }, [isDeleteConfirmOpen, isBulkDeleteOpen, isEditOpen, selectedTransaction])
 
   useEffect(() => {
     const hasOpenModal =
@@ -642,6 +660,7 @@ function Transactions() {
       isTransferOpen ||
       isEditOpen ||
       isDeleteConfirmOpen ||
+      isBulkDeleteOpen ||
       !!selectedTransaction
     if (!hasOpenModal) {
       return
@@ -654,6 +673,10 @@ function Transactions() {
 
       if (isDeleteConfirmOpen) {
         setIsDeleteConfirmOpen(false)
+        return
+      }
+      if (isBulkDeleteOpen) {
+        setIsBulkDeleteOpen(false)
         return
       }
 
@@ -684,6 +707,7 @@ function Transactions() {
     isTransferOpen,
     isEditOpen,
     isDeleteConfirmOpen,
+    isBulkDeleteOpen,
     selectedTransaction,
   ])
 
@@ -1110,8 +1134,21 @@ function Transactions() {
       {selectedCount >= 2 && (
         <div className="rounded-lg border bg-card px-4 py-2 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-medium">
-              Selecionadas: {selectedCount}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setBulkDeleteError(null)
+                  setIsBulkDeleteOpen(true)
+                }}
+                disabled={isBulkDeleting}
+              >
+                Excluir
+              </Button>
+              <div className="font-medium">
+                Selecionadas: {selectedCount}
+              </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-5 text-right">
               <div>
@@ -1317,17 +1354,22 @@ function Transactions() {
                       className="h-4 w-4 cursor-pointer"
                       checked={selectedIds.has(transaction.id)}
                       onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => {
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev)
-                          if (event.target.checked) {
-                            next.add(transaction.id)
-                          } else {
-                            next.delete(transaction.id)
-                          }
-                          return next
-                        })
-                      }}
+                    onChange={(event) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev)
+                        const transferIds = getTransferRelatedIds(
+                          transaction.transferId,
+                        )
+                        if (event.target.checked) {
+                          next.add(transaction.id)
+                          transferIds.forEach((id) => next.add(id))
+                        } else {
+                          next.delete(transaction.id)
+                          transferIds.forEach((id) => next.delete(id))
+                        }
+                        return next
+                      })
+                    }}
                       aria-label="Selecionar transação"
                     />
                   </td>
@@ -2430,10 +2472,19 @@ function Transactions() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={async () => {
+                    onClick={async () => {
                   try {
-                    await deleteTransactionMutation.mutateAsync(
-                      selectedTransaction.id,
+                    const ids = new Set<string>()
+                    ids.add(selectedTransaction.id)
+                    if (selectedTransaction.transferId) {
+                      getTransferRelatedIds(selectedTransaction.transferId).forEach(
+                        (id) => ids.add(id),
+                      )
+                    }
+                    await Promise.all(
+                      Array.from(ids).map((id) =>
+                        deleteTransactionMutation.mutateAsync(id),
+                      ),
                     )
                     setIsDeleteConfirmOpen(false)
                     setSelectedTransaction(null)
@@ -2448,6 +2499,95 @@ function Transactions() {
                 }}
               >
                 Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsBulkDeleteOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+            ref={bulkDeleteModalRef}
+            tabIndex={-1}
+          >
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Confirmar exclusão</h3>
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja excluir {selectedCount} transações
+                selecionadas? Essa ação não pode ser desfeita.
+              </p>
+            </div>
+
+            {bulkDeleteError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {bulkDeleteError}
+              </div>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(false)}
+                disabled={isBulkDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  const ids = new Set<string>()
+                  selectedTransactions.forEach((transaction) => {
+                    ids.add(transaction.id)
+                    if (transaction.transferId) {
+                      getTransferRelatedIds(transaction.transferId).forEach(
+                        (id) => ids.add(id),
+                      )
+                    }
+                  })
+                  const idsArray = Array.from(ids)
+                  if (idsArray.length === 0) {
+                    setIsBulkDeleteOpen(false)
+                    return
+                  }
+                  setIsBulkDeleting(true)
+                  setBulkDeleteError(null)
+                  try {
+                    const results = await Promise.allSettled(
+                      idsArray.map((id) =>
+                        deleteTransactionMutation.mutateAsync(id),
+                      ),
+                    )
+                    const hasError = results.some(
+                      (result) => result.status === 'rejected',
+                    )
+                    if (hasError) {
+                      setBulkDeleteError(
+                        'Erro ao excluir transações. Tente novamente.',
+                      )
+                      return
+                    }
+                    setIsBulkDeleteOpen(false)
+                    setSelectedIds(new Set())
+                  } catch (error: unknown) {
+                    setBulkDeleteError(
+                      getApiErrorMessage(error, {
+                        defaultMessage:
+                          'Erro ao excluir transações. Tente novamente.',
+                      }),
+                    )
+                  } finally {
+                    setIsBulkDeleting(false)
+                  }
+                }}
+                disabled={isBulkDeleting}
+              >
+                {isBulkDeleting ? 'Excluindo...' : 'Excluir'}
               </Button>
             </div>
           </div>
