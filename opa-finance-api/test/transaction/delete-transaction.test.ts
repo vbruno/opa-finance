@@ -2,6 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 
+import { eq } from "drizzle-orm";
 import { registerAndLogin } from "../helpers/auth";
 import { buildTestApp } from "../setup";
 
@@ -121,12 +122,12 @@ describe("DELETE /transactions/:id", () => {
 
     const [fromAccount] = await db
       .insert(accounts)
-      .values({ name: "Conta A", type: "cash", userId: user.id, initialBalance: "0" })
+      .values({ name: "Conta A", type: "cash", userId: user.id })
       .returning();
 
     const [toAccount] = await db
       .insert(accounts)
-      .values({ name: "Conta B", type: "cash", userId: user.id, initialBalance: "0" })
+      .values({ name: "Conta B", type: "cash", userId: user.id })
       .returning();
 
     const transferRes = await app.inject({
@@ -145,9 +146,14 @@ describe("DELETE /transactions/:id", () => {
     expect(transferRes.statusCode).toBe(201);
     const transferBody = transferRes.json();
 
+    const transferTransactions = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.transferId, transferBody.id));
+
     const res = await app.inject({
       method: "DELETE",
-      url: `/transactions/${transferBody.fromAccount.id}`,
+      url: `/transactions/${transferTransactions[0].id}`,
       headers: { Authorization: `Bearer ${token}` },
     });
 
