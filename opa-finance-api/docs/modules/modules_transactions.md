@@ -15,6 +15,7 @@
 - mudar categoria → limpa subcategoria
 - valores entram no saldo da conta
 - transfer_id opcional: vincula transações de transferências (duas transações com mesmo transferId)
+- excluir transação com transfer_id remove as duas transações da transferência
 
 ## Campos
 - amount, type, date, description, notes, transfer_id (opcional)

@@ -1164,6 +1164,11 @@ Deleta uma transação.
 }
 ```
 
+**Notas:**
+
+- Se a transação pertencer a uma transferência, as duas transações serão removidas.
+- Mensagem pode retornar "Transferência removida com sucesso." quando aplicável.
+
 **Erros:**
 
 - `403` - Transação não pertence ao usuário

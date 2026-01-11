@@ -21,6 +21,13 @@ describe("DELETE /transactions/:id", () => {
     await db.delete(categories);
     await db.delete(accounts);
     await db.delete(users);
+
+    await db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
   });
 
   afterEach(async () => {
@@ -107,5 +114,51 @@ describe("DELETE /transactions/:id", () => {
     });
 
     expect(res.statusCode).toBe(403);
+  });
+
+  it("deve remover as duas transações quando for transferência", async () => {
+    const { token, user } = await registerAndLogin(app, db);
+
+    const [fromAccount] = await db
+      .insert(accounts)
+      .values({ name: "Conta A", type: "cash", userId: user.id, initialBalance: "0" })
+      .returning();
+
+    const [toAccount] = await db
+      .insert(accounts)
+      .values({ name: "Conta B", type: "cash", userId: user.id, initialBalance: "0" })
+      .returning();
+
+    const transferRes = await app.inject({
+      method: "POST",
+      url: "/transfers",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: 50,
+        date: "2025-01-15",
+        description: "Transferência teste",
+      },
+    });
+
+    expect(transferRes.statusCode).toBe(201);
+    const transferBody = transferRes.json();
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/transactions/${transferBody.fromAccount.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().message).toBe("Transferência removida com sucesso.");
+
+    const remaining = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.transferId, transferBody.id));
+
+    expect(remaining.length).toBe(0);
   });
 });

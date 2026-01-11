@@ -347,11 +347,30 @@ export class TransactionService {
   /* -------------------------------------------------------------------------- */
 
   async delete(id: string, userId: string) {
-    await this.getOne(id, userId);
+    const tx = await this.getOne(id, userId);
 
-    await this.app.db.delete(transactions).where(eq(transactions.id, id));
+    if (!tx.transferId) {
+      await this.app.db.delete(transactions).where(eq(transactions.id, id));
+      return { message: "Transação removida com sucesso." };
+    }
 
-    return { message: "Transação removida com sucesso." };
+    const related = await this.app.db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
+
+    if (related.length <= 1) {
+      await this.app.db.delete(transactions).where(eq(transactions.id, id));
+      return { message: "Transação removida. Transferência incompleta foi ajustada." };
+    }
+
+    await this.app.db.transaction(async (db) => {
+      await db
+        .delete(transactions)
+        .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
+    });
+
+    return { message: "Transferência removida com sucesso." };
   }
 
   /* -------------------------------------------------------------------------- */
