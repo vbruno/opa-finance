@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UnavailableRouteImport } from './routes/unavailable'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,11 @@ import { Route as AppCategoriesRouteImport } from './routes/app/categories'
 import { Route as AppAccountsRouteImport } from './routes/app/accounts'
 import { Route as AppAccountsIdRouteImport } from './routes/app/accounts/$id'
 
+const UnavailableRoute = UnavailableRouteImport.update({
+  id: '/unavailable',
+  path: '/unavailable',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/unavailable': typeof UnavailableRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/unavailable': typeof UnavailableRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/unavailable': typeof UnavailableRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/login'
+    | '/unavailable'
     | '/app/accounts'
     | '/app/categories'
     | '/app/profile'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/unavailable'
     | '/app/accounts'
     | '/app/categories'
     | '/app/profile'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/login'
+    | '/unavailable'
     | '/app/accounts'
     | '/app/categories'
     | '/app/profile'
@@ -149,10 +161,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  UnavailableRoute: typeof UnavailableRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/unavailable': {
+      id: '/unavailable'
+      path: '/unavailable'
+      fullPath: '/unavailable'
+      preLoaderRoute: typeof UnavailableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  UnavailableRoute: UnavailableRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

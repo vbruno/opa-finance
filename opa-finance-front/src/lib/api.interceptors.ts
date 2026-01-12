@@ -32,6 +32,7 @@ type QueueItem = {
 
 let isRefreshing = false
 let failedQueue: Array<QueueItem> = []
+let isBackendUnavailable = false
 
 const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -46,12 +47,28 @@ const processQueue = (error: unknown, token: string | null = null) => {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (isBackendUnavailable) {
+      isBackendUnavailable = false
+    }
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
     const originalUrl = String(originalRequest?.url || '')
     const isAuthEndpoint =
       originalUrl.includes('/auth/login') || originalUrl.includes('/auth/refresh')
+
+    if (!error.response) {
+      if (!isBackendUnavailable) {
+        isBackendUnavailable = true
+        logout()
+        if (router.state.location.pathname !== '/unavailable') {
+          router.navigate({ to: '/unavailable' })
+        }
+      }
+      return Promise.reject(error)
+    }
 
     // Se for 401 e não for uma tentativa de refresh
     if (

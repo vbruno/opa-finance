@@ -167,6 +167,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Refresh token via cookie httpOnly (com `withCredentials`)
 - Endpoint `/auth/me` para hidratar dados do usuário
 - Interceptor para anexar token e renovar em `401`
+- Em falha de conexão com o backend (sem resposta), o frontend faz logout e redireciona para `/unavailable`, com opção de verificar o status do servidor.
 - Guard de rotas usando `beforeLoad`
 - Rotas públicas: `/`, `/login`
 - Rotas protegidas: `/app/*`
