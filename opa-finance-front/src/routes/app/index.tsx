@@ -71,8 +71,8 @@ function Dashboard() {
   const customStartDate = search.startDate ?? ''
   const customEndDate = search.endDate ?? ''
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(true)
-  const [isTopExpensesOpen, setIsTopExpensesOpen] = useState(true)
-  const [isTopIncomeOpen, setIsTopIncomeOpen] = useState(true)
+  const [isTopExpensesOpen, setIsTopExpensesOpen] = useState(false)
+  const [isTopIncomeOpen, setIsTopIncomeOpen] = useState(false)
   const [expenseGroupBy, setExpenseGroupBy] = useState<'category' | 'subcategory'>(
     'category',
   )
