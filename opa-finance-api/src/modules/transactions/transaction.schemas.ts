@@ -138,6 +138,7 @@ export const topCategoriesQuerySchema = z.object({
     .optional(),
 
   accountId: z.uuid().optional(),
+  type: z.enum(transactionTypes).optional(),
   groupBy: z.enum(["category", "subcategory"]).default("category"),
 });
 

@@ -514,7 +514,8 @@ export class TransactionService {
       filters.push(eq(transactions.accountId, query.accountId));
     }
 
-    filters.push(eq(transactions.type, "expense"));
+    const typeFilter = query.type ?? "expense";
+    filters.push(eq(transactions.type, typeFilter));
 
     const groupBy = query.groupBy ?? "category";
     const totalFilters = [...filters];

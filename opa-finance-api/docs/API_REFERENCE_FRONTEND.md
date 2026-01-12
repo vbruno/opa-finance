@@ -1230,6 +1230,7 @@ Retorna os 5 maiores gastos agrupados por categoria ou subcategoria.
 - `startDate` (string, formato: YYYY-MM-DD) - opcional
 - `endDate` (string, formato: YYYY-MM-DD) - opcional
 - `accountId` (uuid) - opcional
+- `type` ("income" | "expense") - opcional, default: `expense`
 - `groupBy` ("category" | "subcategory") - opcional, default: `category`
 
 **Exemplo:**
