@@ -521,10 +521,6 @@ export class TransactionService {
     const totalFilters = [...filters];
     const groupFilters = [...filters];
 
-    if (groupBy === "subcategory") {
-      groupFilters.push(isNotNull(transactions.subcategoryId));
-    }
-
     const [totalRow] = await this.app.db
       .select({ total: sum(transactions.amount) })
       .from(transactions)
@@ -545,17 +541,50 @@ export class TransactionService {
         .from(transactions)
         .innerJoin(subcategories, eq(subcategories.id, transactions.subcategoryId))
         .innerJoin(categories, eq(categories.id, transactions.categoryId))
-        .where(and(...groupFilters))
+        .where(and(...groupFilters, isNotNull(transactions.subcategoryId)))
         .groupBy(transactions.subcategoryId, subcategories.name, categories.id, categories.name)
         .orderBy(desc(totalAmount))
         .limit(5);
 
-      return rows.map((row) => {
+      const fallbackRows = await this.app.db
+        .select({
+          categoryId: transactions.categoryId,
+          categoryName: categories.name,
+          totalAmount,
+        })
+        .from(transactions)
+        .innerJoin(categories, eq(categories.id, transactions.categoryId))
+        .where(and(...groupFilters, sql`${transactions.subcategoryId} is null`))
+        .groupBy(transactions.categoryId, categories.name)
+        .orderBy(desc(totalAmount))
+        .limit(5);
+
+      const combined = [
+        ...rows.map((row) => ({
+          id: row.subcategoryId,
+          name: row.subcategoryName,
+          categoryId: row.categoryId,
+          categoryName: row.categoryName,
+          totalAmount: row.totalAmount,
+        })),
+        ...fallbackRows.map((row) => ({
+          id: row.categoryId,
+          name: row.categoryName,
+          categoryId: row.categoryId,
+          categoryName: row.categoryName,
+          totalAmount: row.totalAmount,
+        })),
+      ]
+        .filter((row) => row.name)
+        .sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount))
+        .slice(0, 5);
+
+      return combined.map((row) => {
         const amount = Number(row.totalAmount ?? 0);
         const percentage = total > 0 ? (amount / total) * 100 : 0;
         return {
-          id: row.subcategoryId,
-          name: row.subcategoryName,
+          id: row.id,
+          name: row.name,
           categoryId: row.categoryId,
           categoryName: row.categoryName,
           totalAmount: amount,
