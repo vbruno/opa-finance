@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import {
   useTransactions,
   useTransactionsTopCategories,
   useTransactionsSummary,
+  type Transaction,
 } from '@/features/transactions'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
@@ -67,6 +68,14 @@ function Dashboard() {
   )
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(true)
   const [isTopCategoriesOpen, setIsTopCategoriesOpen] = useState(true)
+  const [selectedTopCategory, setSelectedTopCategory] = useState<{
+    id: string
+    name: string
+    groupBy: 'category' | 'subcategory'
+  } | null>(null)
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null)
+  const detailModalRef = useRef<HTMLDivElement | null>(null)
   const { startDate, endDate } = getDateRange(
     period,
     customStartDate,
@@ -133,6 +142,9 @@ function Dashboard() {
     return a.name.localeCompare(b.name)
   })
   const recentTransactions = transactionsQuery.data?.data ?? []
+  const topCategoryItems = (topCategoriesQuery.data ?? []).filter(
+    (item) => item.name !== 'Transferência',
+  )
   const summary = summaryQuery.data
   const summaryError = summaryQuery.isError
     ? getApiErrorMessage(summaryQuery.error)
@@ -151,6 +163,30 @@ function Dashboard() {
     credit_card: 'Cartão de Crédito',
     investment: 'Investimento',
   }
+  const accountMap = new Map(
+    accounts.map((account) => [account.id, account.name]),
+  )
+
+  const topCategoryTransactionsQuery = useTransactions(
+    {
+      page: 1,
+      limit: 5,
+      startDate,
+      endDate,
+      accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      categoryId:
+        selectedTopCategory?.groupBy === 'category'
+          ? selectedTopCategory.id
+          : undefined,
+      subcategoryId:
+        selectedTopCategory?.groupBy === 'subcategory'
+          ? selectedTopCategory.id
+          : undefined,
+      sort: 'date',
+      dir: 'desc',
+    },
+    { enabled: canQueryAccount && Boolean(selectedTopCategory) },
+  )
   const showSummarySkeleton =
     accountsQuery.isLoading || (canQueryAccount && summaryQuery.isLoading)
   const showTransactionsSkeleton =
@@ -185,6 +221,46 @@ function Dashboard() {
       })
     }
   }, [accountParam, accounts, navigate, primaryAccount?.id])
+
+  useEffect(() => {
+    if (selectedTransaction) {
+      detailModalRef.current?.focus()
+    }
+  }, [selectedTransaction])
+
+  useEffect(() => {
+    if (!selectedTopCategory && !selectedTransaction) {
+      return
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+      if (selectedTransaction) {
+        setSelectedTransaction(null)
+        return
+      }
+      if (selectedTopCategory) {
+        setSelectedTopCategory(null)
+      }
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [selectedTopCategory, selectedTransaction])
+
+  useEffect(() => {
+    if (!selectedTransaction) {
+      return
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+      setSelectedTransaction(null)
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [selectedTransaction])
 
   function handlePeriodChange(value: string) {
     if (value === 'custom') {
@@ -417,42 +493,44 @@ function Dashboard() {
                   !transactionsError &&
                   recentTransactions.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                    Nenhuma transação encontrada no período.
+                      Nenhuma transação encontrada no período.
                     </p>
                   )}
                 {!showTransactionsSkeleton &&
                   recentTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">
-                        {transaction.description || 'Sem descrição'}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {transaction.subcategoryName ||
-                        transaction.categoryName ||
-                        'Sem categoria'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-right">
-                    <span
-                      className={
-                        transaction.type === 'income'
-                          ? 'sensitive font-semibold text-emerald-600'
-                          : 'sensitive font-semibold text-rose-600'
-                      }
+                    <button
+                      key={transaction.id}
+                      type="button"
+                      className="flex w-full cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40"
+                      onClick={() => setSelectedTransaction(transaction)}
                     >
-                      {transaction.type === 'income' ? '+' : '-'}{' '}
-                      {formatCurrencyValue(transaction.amount)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {dateFormatter.format(new Date(transaction.date))}
-                    </span>
-                  </div>
-                </div>
-                ))}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {transaction.description || 'Sem descrição'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {transaction.subcategoryName ||
+                            transaction.categoryName ||
+                            'Sem categoria'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-right">
+                        <span
+                          className={
+                            transaction.type === 'income'
+                              ? 'sensitive font-semibold text-emerald-600'
+                              : 'sensitive font-semibold text-rose-600'
+                          }
+                        >
+                          {transaction.type === 'income' ? '+' : '-'}{' '}
+                          {formatCurrencyValue(transaction.amount)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {dateFormatter.format(new Date(transaction.date))}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
               </div>
             )}
           </div>
@@ -533,42 +611,53 @@ function Dashboard() {
                 )}
                 {!showTopCategoriesSkeleton &&
                   !topCategoriesError &&
-                  (topCategoriesQuery.data?.length ?? 0) === 0 && (
+                  topCategoryItems.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       Nenhum gasto encontrado no período.
                     </p>
                   )}
                 {!showTopCategoriesSkeleton &&
-                  (topCategoriesQuery.data ?? []).map((item) => (
-                  <div key={item.id} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        {item.categoryName && (
-                          <p className="text-xs text-muted-foreground">
-                            {item.categoryName}
+                  topCategoryItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="w-full space-y-2 rounded-md border border-transparent p-2 text-left transition hover:border-muted hover:bg-muted/30"
+                      onClick={() =>
+                        setSelectedTopCategory({
+                          id: item.id,
+                          name: item.name,
+                          groupBy,
+                        })
+                      }
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          {item.categoryName && (
+                            <p className="text-xs text-muted-foreground">
+                              {item.categoryName}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="sensitive font-medium">
+                            {formatCurrencyValue(item.totalAmount)}
                           </p>
-                        )}
+                          <p className="sensitive text-xs text-muted-foreground">
+                            {item.percentage.toFixed(1)}%
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                      <p className="sensitive font-medium">
-                        {formatCurrencyValue(item.totalAmount)}
-                      </p>
-                      <p className="sensitive text-xs text-muted-foreground">
-                        {item.percentage.toFixed(1)}%
-                      </p>
+                      <div className="h-2 w-full rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{
+                            width: `${Math.min(item.percentage, 100)}%`,
+                          }}
+                        />
                       </div>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{
-                          width: `${Math.min(item.percentage, 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  ))}
               </div>
             )}
           </div>
@@ -650,6 +739,197 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {selectedTopCategory && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setSelectedTopCategory(null)}
+          />
+          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  Últimos lançamentos
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {selectedTopCategory.name}
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  to="/app/transactions"
+                  search={{
+                    page: 1,
+                    accountId: isAccountParamAll ? undefined : resolvedAccountId,
+                    startDate,
+                    endDate,
+                    categoryId:
+                      selectedTopCategory.groupBy === 'category'
+                        ? selectedTopCategory.id
+                        : undefined,
+                    subcategoryId:
+                      selectedTopCategory.groupBy === 'subcategory'
+                        ? selectedTopCategory.id
+                        : undefined,
+                  }}
+                >
+                  Ver todas
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {topCategoryTransactionsQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">
+                  Carregando lançamentos...
+                </p>
+              )}
+              {topCategoryTransactionsQuery.isError && (
+                <p className="text-sm text-destructive">
+                  {getApiErrorMessage(topCategoryTransactionsQuery.error)}
+                </p>
+              )}
+              {!topCategoryTransactionsQuery.isLoading &&
+                !topCategoryTransactionsQuery.isError &&
+                (topCategoryTransactionsQuery.data?.data ?? []).filter(
+                  (transaction) =>
+                    transaction.categoryName !== 'Transferência',
+                ).length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma transação encontrada no período.
+                  </p>
+                )}
+              {!topCategoryTransactionsQuery.isLoading &&
+                !topCategoryTransactionsQuery.isError &&
+                (topCategoryTransactionsQuery.data?.data ?? [])
+                  .filter(
+                    (transaction) =>
+                      transaction.categoryName !== 'Transferência',
+                  )
+                  .map((transaction) => (
+                    <button
+                      key={transaction.id}
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40"
+                      onClick={() => setSelectedTransaction(transaction)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {transaction.description || 'Sem descrição'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-right">
+                        <span
+                          className={
+                            transaction.type === 'income'
+                              ? 'sensitive font-semibold text-emerald-600'
+                              : 'sensitive font-semibold text-rose-600'
+                          }
+                        >
+                          {transaction.type === 'income' ? '+' : '-'}{' '}
+                          {formatCurrencyValue(transaction.amount)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {dateFormatter.format(new Date(transaction.date))}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setSelectedTransaction(null)}
+          />
+          <div
+            className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
+            ref={detailModalRef}
+            tabIndex={-1}
+          >
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Detalhes da transação</h3>
+              <p className="text-sm text-muted-foreground">
+                Informações da transação selecionada.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Data</span>
+                <span className="font-medium">
+                  {dateFormatter.format(
+                    new Date(selectedTransaction.date),
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Descrição</span>
+                <span className="font-medium">
+                  {selectedTransaction.description || 'Sem descrição'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Conta</span>
+                <span className="font-medium">
+                  {selectedTransaction.accountName ||
+                    accountMap.get(selectedTransaction.accountId) ||
+                    '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Categoria</span>
+                <span className="font-medium">
+                  {selectedTransaction.categoryName || '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Subcategoria</span>
+                <span className="font-medium">
+                  {selectedTransaction.subcategoryId
+                    ? selectedTransaction.subcategoryName || '-'
+                    : '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tipo</span>
+                <span className="font-medium">
+                  {selectedTransaction.type === 'income'
+                    ? 'Receita'
+                    : 'Despesa'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Valor</span>
+                <span className="sensitive font-semibold">
+                  {formatCurrencyValue(selectedTransaction.amount)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Notas</span>
+                <span className="font-medium">
+                  {selectedTransaction.notes || 'Sem notas'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Criada em</span>
+                <span className="font-medium">
+                  {selectedTransaction.createdAt
+                    ? dateFormatter.format(
+                        new Date(selectedTransaction.createdAt),
+                      )
+                    : '-'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
