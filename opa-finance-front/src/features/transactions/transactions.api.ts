@@ -81,6 +81,7 @@ export type TopCategoriesQueryParams = {
   startDate?: string
   endDate?: string
   accountId?: string
+  type?: TransactionType
   groupBy?: TopCategoriesGroupBy
 }
 

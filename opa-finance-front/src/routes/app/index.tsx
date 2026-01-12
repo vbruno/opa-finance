@@ -1,4 +1,11 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Banknote,
+  List,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
@@ -63,15 +70,20 @@ function Dashboard() {
   const accountParam = search.accountId
   const customStartDate = search.startDate ?? ''
   const customEndDate = search.endDate ?? ''
-  const [groupBy, setGroupBy] = useState<'category' | 'subcategory'>(
+  const [isTransactionsOpen, setIsTransactionsOpen] = useState(true)
+  const [isTopExpensesOpen, setIsTopExpensesOpen] = useState(true)
+  const [isTopIncomeOpen, setIsTopIncomeOpen] = useState(true)
+  const [expenseGroupBy, setExpenseGroupBy] = useState<'category' | 'subcategory'>(
     'category',
   )
-  const [isTransactionsOpen, setIsTransactionsOpen] = useState(true)
-  const [isTopCategoriesOpen, setIsTopCategoriesOpen] = useState(true)
+  const [incomeGroupBy, setIncomeGroupBy] = useState<'category' | 'subcategory'>(
+    'category',
+  )
   const [selectedTopCategory, setSelectedTopCategory] = useState<{
     id: string
     name: string
     groupBy: 'category' | 'subcategory'
+    type: 'income' | 'expense'
   } | null>(null)
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
@@ -123,12 +135,23 @@ function Dashboard() {
     },
     { enabled: canQueryAccount },
   )
-  const topCategoriesQuery = useTransactionsTopCategories(
+  const topExpensesQuery = useTransactionsTopCategories(
     {
       startDate,
       endDate,
       accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
-      groupBy,
+      type: 'expense',
+      groupBy: expenseGroupBy,
+    },
+    { enabled: canQueryAccount },
+  )
+  const topIncomeQuery = useTransactionsTopCategories(
+    {
+      startDate,
+      endDate,
+      accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      type: 'income',
+      groupBy: incomeGroupBy,
     },
     { enabled: canQueryAccount },
   )
@@ -142,9 +165,8 @@ function Dashboard() {
     return a.name.localeCompare(b.name)
   })
   const recentTransactions = transactionsQuery.data?.data ?? []
-  const topCategoryItems = (topCategoriesQuery.data ?? []).filter(
-    (item) => item.name !== 'Transferência',
-  )
+  const topExpenseItems = topExpensesQuery.data ?? []
+  const topIncomeItems = topIncomeQuery.data ?? []
   const summary = summaryQuery.data
   const summaryError = summaryQuery.isError
     ? getApiErrorMessage(summaryQuery.error)
@@ -152,8 +174,11 @@ function Dashboard() {
   const transactionsError = transactionsQuery.isError
     ? getApiErrorMessage(transactionsQuery.error)
     : null
-  const topCategoriesError = topCategoriesQuery.isError
-    ? getApiErrorMessage(topCategoriesQuery.error)
+  const topExpensesError = topExpensesQuery.isError
+    ? getApiErrorMessage(topExpensesQuery.error)
+    : null
+  const topIncomeError = topIncomeQuery.isError
+    ? getApiErrorMessage(topIncomeQuery.error)
     : null
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const accountTypeLabels: Record<string, string> = {
@@ -182,6 +207,7 @@ function Dashboard() {
         selectedTopCategory?.groupBy === 'subcategory'
           ? selectedTopCategory.id
           : undefined,
+      type: selectedTopCategory?.type,
       sort: 'date',
       dir: 'desc',
     },
@@ -191,8 +217,10 @@ function Dashboard() {
     accountsQuery.isLoading || (canQueryAccount && summaryQuery.isLoading)
   const showTransactionsSkeleton =
     accountsQuery.isLoading || (canQueryAccount && transactionsQuery.isLoading)
-  const showTopCategoriesSkeleton =
-    accountsQuery.isLoading || (canQueryAccount && topCategoriesQuery.isLoading)
+  const showTopExpensesSkeleton =
+    accountsQuery.isLoading || (canQueryAccount && topExpensesQuery.isLoading)
+  const showTopIncomeSkeleton =
+    accountsQuery.isLoading || (canQueryAccount && topIncomeQuery.isLoading)
   const showAccountsSkeleton = accountsQuery.isLoading
 
   useEffect(() => {
@@ -400,7 +428,10 @@ function Dashboard() {
         ) : (
           <>
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Receitas</p>
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                Receitas
+              </p>
               <p className="mt-2 text-2xl font-semibold text-emerald-600">
                 <span className="sensitive">
                   {summary ? formatCurrencyValue(summary.income) : '--'}
@@ -408,7 +439,10 @@ function Dashboard() {
               </p>
             </div>
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Despesas</p>
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <ArrowDownRight className="h-4 w-4 text-rose-500" />
+                Despesas
+              </p>
               <p className="mt-2 text-2xl font-semibold text-rose-600">
                 <span className="sensitive">
                   {summary ? formatCurrencyValue(summary.expense) : '--'}
@@ -416,7 +450,10 @@ function Dashboard() {
               </p>
             </div>
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Saldo</p>
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                Saldo
+              </p>
               <p className="mt-2 text-2xl font-semibold">
                 <span className="sensitive">
                   {summary ? formatCurrencyValue(summary.balance) : '--'}
@@ -451,12 +488,10 @@ function Dashboard() {
                   {isTransactionsOpen ? '-' : '+'}
                 </Button>
                 <div>
-                  <h2 className="text-lg font-semibold">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <List className="h-6 w-6 text-muted-foreground" />
                     Últimas transações
                   </h2>
-                  <p className="text-sm text-muted-foreground">
-                    As 5 transações mais recentes no período.
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -541,35 +576,31 @@ function Dashboard() {
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  onClick={() => setIsTopCategoriesOpen((prev) => !prev)}
+                  onClick={() => setIsTopExpensesOpen((prev) => !prev)}
                   aria-label={
-                    isTopCategoriesOpen
-                      ? 'Recolher top categorias'
-                      : 'Expandir top categorias'
+                    isTopExpensesOpen
+                      ? 'Recolher top despesas'
+                      : 'Expandir top despesas'
                   }
                 >
-                  {isTopCategoriesOpen ? '-' : '+'}
+                  {isTopExpensesOpen ? '-' : '+'}
                 </Button>
                 <div>
-                  <h2 className="text-lg font-semibold">
-                    Top 5 Categorias
+                  <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <ArrowDownRight className="h-6 w-6 text-rose-500" />
+                    Top 5 Despesas
                   </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {groupBy === 'subcategory'
-                      ? 'Subcategorias com mais gastos.'
-                      : 'Categorias com mais gastos.'}
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {isTopCategoriesOpen && (
+                {isTopExpensesOpen && (
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
                       className="size-4 rounded border"
-                      checked={groupBy === 'subcategory'}
+                      checked={expenseGroupBy === 'subcategory'}
                       onChange={(event) =>
-                        setGroupBy(
+                        setExpenseGroupBy(
                           event.target.checked ? 'subcategory' : 'category',
                         )
                       }
@@ -583,12 +614,12 @@ function Dashboard() {
               </div>
             </div>
 
-            {isTopCategoriesOpen && (
+            {isTopExpensesOpen && (
               <div className="mt-4 space-y-3">
-                {showTopCategoriesSkeleton &&
+                {showTopExpensesSkeleton &&
                   Array.from({ length: 3 }).map((_, index) => (
                     <div
-                      key={`top-categories-skeleton-${index}`}
+                      key={`top-expenses-skeleton-${index}`}
                       className="space-y-2 animate-pulse"
                     >
                       <div className="flex items-center justify-between">
@@ -604,20 +635,20 @@ function Dashboard() {
                       <div className="h-2 w-full rounded-full bg-muted/60" />
                     </div>
                   ))}
-                {topCategoriesError && (
+                {topExpensesError && (
                   <p className="text-sm text-destructive">
-                    {topCategoriesError}
+                    {topExpensesError}
                   </p>
                 )}
-                {!showTopCategoriesSkeleton &&
-                  !topCategoriesError &&
-                  topCategoryItems.length === 0 && (
+                {!showTopExpensesSkeleton &&
+                  !topExpensesError &&
+                  topExpenseItems.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       Nenhum gasto encontrado no período.
                     </p>
                   )}
-                {!showTopCategoriesSkeleton &&
-                  topCategoryItems.map((item) => (
+                {!showTopExpensesSkeleton &&
+                  topExpenseItems.map((item) => (
                     <button
                       key={item.id}
                       type="button"
@@ -626,7 +657,132 @@ function Dashboard() {
                         setSelectedTopCategory({
                           id: item.id,
                           name: item.name,
-                          groupBy,
+                          groupBy: expenseGroupBy,
+                          type: 'expense',
+                        })
+                      }
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          {item.categoryName && (
+                            <p className="text-xs text-muted-foreground">
+                              {item.categoryName}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="sensitive font-medium">
+                            {formatCurrencyValue(item.totalAmount)}
+                          </p>
+                          <p className="sensitive text-xs text-muted-foreground">
+                            {item.percentage.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{
+                            width: `${Math.min(item.percentage, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border bg-background p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setIsTopIncomeOpen((prev) => !prev)}
+                  aria-label={
+                    isTopIncomeOpen
+                      ? 'Recolher top receitas'
+                      : 'Expandir top receitas'
+                  }
+                >
+                  {isTopIncomeOpen ? '-' : '+'}
+                </Button>
+                <div>
+                  <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <ArrowUpRight className="h-6 w-6 text-emerald-500" />
+                    Top 5 Receitas
+                  </h2>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isTopIncomeOpen && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border"
+                      checked={incomeGroupBy === 'subcategory'}
+                      onChange={(event) =>
+                        setIncomeGroupBy(
+                          event.target.checked ? 'subcategory' : 'category',
+                        )
+                      }
+                    />
+                    Subcategoria
+                  </label>
+                )}
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/app/categories">Ver todas</Link>
+                </Button>
+              </div>
+            </div>
+
+            {isTopIncomeOpen && (
+              <div className="mt-4 space-y-3">
+                {showTopIncomeSkeleton &&
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={`top-income-skeleton-${index}`}
+                      className="space-y-2 animate-pulse"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <div className="h-4 w-32 rounded bg-muted/60" />
+                          <div className="h-3 w-20 rounded bg-muted/60" />
+                        </div>
+                        <div className="space-y-2 text-right">
+                          <div className="h-4 w-20 rounded bg-muted/60" />
+                          <div className="h-3 w-12 rounded bg-muted/60" />
+                        </div>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted/60" />
+                    </div>
+                  ))}
+                {topIncomeError && (
+                  <p className="text-sm text-destructive">
+                    {topIncomeError}
+                  </p>
+                )}
+                {!showTopIncomeSkeleton &&
+                  !topIncomeError &&
+                  topIncomeItems.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma receita encontrada no período.
+                    </p>
+                  )}
+                {!showTopIncomeSkeleton &&
+                  topIncomeItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="w-full space-y-2 rounded-md border border-transparent p-2 text-left transition hover:border-muted hover:bg-muted/30"
+                      onClick={() =>
+                        setSelectedTopCategory({
+                          id: item.id,
+                          name: item.name,
+                          groupBy: incomeGroupBy,
+                          type: 'income',
                         })
                       }
                     >
@@ -664,9 +820,12 @@ function Dashboard() {
         </div>
 
         <div className="rounded-lg border bg-background p-4">
-            <div>
-              <h2 className="text-lg font-semibold">Contas</h2>
-            </div>
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Banknote className="h-6 w-6 text-muted-foreground" />
+              Contas
+            </h2>
+          </div>
 
           <div className="mt-4 space-y-3">
             {showAccountsSkeleton &&
@@ -757,23 +916,24 @@ function Dashboard() {
                 </p>
               </div>
               <Button asChild variant="outline" size="sm">
-                <Link
-                  to="/app/transactions"
-                  search={{
-                    page: 1,
-                    accountId: isAccountParamAll ? undefined : resolvedAccountId,
-                    startDate,
-                    endDate,
-                    categoryId:
-                      selectedTopCategory.groupBy === 'category'
-                        ? selectedTopCategory.id
-                        : undefined,
-                    subcategoryId:
-                      selectedTopCategory.groupBy === 'subcategory'
-                        ? selectedTopCategory.id
-                        : undefined,
-                  }}
-                >
+                  <Link
+                    to="/app/transactions"
+                    search={{
+                      page: 1,
+                      accountId: isAccountParamAll ? undefined : resolvedAccountId,
+                      startDate,
+                      endDate,
+                      categoryId:
+                        selectedTopCategory.groupBy === 'category'
+                          ? selectedTopCategory.id
+                          : undefined,
+                      subcategoryId:
+                        selectedTopCategory.groupBy === 'subcategory'
+                          ? selectedTopCategory.id
+                          : undefined,
+                      type: selectedTopCategory.type,
+                    }}
+                  >
                   Ver todas
                 </Link>
               </Button>
@@ -792,22 +952,16 @@ function Dashboard() {
               )}
               {!topCategoryTransactionsQuery.isLoading &&
                 !topCategoryTransactionsQuery.isError &&
-                (topCategoryTransactionsQuery.data?.data ?? []).filter(
-                  (transaction) =>
-                    transaction.categoryName !== 'Transferência',
-                ).length === 0 && (
+                (topCategoryTransactionsQuery.data?.data ?? []).length ===
+                  0 && (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma transação encontrada no período.
                   </p>
                 )}
               {!topCategoryTransactionsQuery.isLoading &&
                 !topCategoryTransactionsQuery.isError &&
-                (topCategoryTransactionsQuery.data?.data ?? [])
-                  .filter(
-                    (transaction) =>
-                      transaction.categoryName !== 'Transferência',
-                  )
-                  .map((transaction) => (
+                (topCategoryTransactionsQuery.data?.data ?? []).map(
+                  (transaction) => (
                     <button
                       key={transaction.id}
                       type="button"
@@ -835,7 +989,8 @@ function Dashboard() {
                         </span>
                       </div>
                     </button>
-                  ))}
+                  ),
+                )}
             </div>
           </div>
         </div>

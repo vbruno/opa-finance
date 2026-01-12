@@ -208,7 +208,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 
 - Dashboard usa skeletons para KPIs, últimas transações, top categorias e contas.
 - No dashboard, as últimas transações abrem um modal de detalhes ao clicar.
-- No dashboard, o Top 5 permite abrir um modal com os 5 últimos lançamentos da categoria/subcategoria (sem transferências), com acesso ao detalhe e link para ver todas.
+- No dashboard, há blocos "Top 5 Despesas" e "Top 5 Receitas" com filtro por categoria/subcategoria; cada item abre modal com os 5 últimos lançamentos, com acesso ao detalhe e link para ver todas.
 - Skeletons são exibidos até as queries estarem habilitadas e concluírem.
 
 ## 🧮 Seleção de Transações
