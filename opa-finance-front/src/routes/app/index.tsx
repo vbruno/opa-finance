@@ -653,14 +653,20 @@ function Dashboard() {
                       key={item.id}
                       type="button"
                       className="w-full space-y-2 rounded-md border border-transparent p-2 text-left transition hover:border-muted hover:bg-muted/30"
-                      onClick={() =>
+                      onClick={() => {
+                        const isFallbackCategory =
+                          expenseGroupBy === 'subcategory' &&
+                          item.categoryName &&
+                          item.name === item.categoryName
                         setSelectedTopCategory({
                           id: item.id,
                           name: item.name,
-                          groupBy: expenseGroupBy,
+                          groupBy: isFallbackCategory
+                            ? 'category'
+                            : expenseGroupBy,
                           type: 'expense',
                         })
-                      }
+                      }}
                     >
                       <div className="flex items-center justify-between text-sm">
                         <div>
@@ -777,14 +783,20 @@ function Dashboard() {
                       key={item.id}
                       type="button"
                       className="w-full space-y-2 rounded-md border border-transparent p-2 text-left transition hover:border-muted hover:bg-muted/30"
-                      onClick={() =>
+                      onClick={() => {
+                        const isFallbackCategory =
+                          incomeGroupBy === 'subcategory' &&
+                          item.categoryName &&
+                          item.name === item.categoryName
                         setSelectedTopCategory({
                           id: item.id,
                           name: item.name,
-                          groupBy: incomeGroupBy,
+                          groupBy: isFallbackCategory
+                            ? 'category'
+                            : incomeGroupBy,
                           type: 'income',
                         })
-                      }
+                      }}
                     >
                       <div className="flex items-center justify-between text-sm">
                         <div>
