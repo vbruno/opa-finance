@@ -183,6 +183,10 @@ function Accounts() {
     const matchesType = typeFilter ? account.type === typeFilter : true
     return matchesName && matchesType
   })
+  const totalFilteredBalance = filteredAccounts.reduce(
+    (total, account) => total + (account.currentBalance ?? 0),
+    0,
+  )
   const sortedAccounts = [...filteredAccounts].sort((a, b) => {
     if (!sortKey) {
       return 0
@@ -510,9 +514,8 @@ function Accounts() {
                 </button>
               </th>
               <th
-                className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${
-                  isRefreshingAccounts ? 'text-emerald-600' : ''
-                }`}
+                className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${isRefreshingAccounts ? 'text-emerald-600' : ''
+                  }`}
               >
                 <button
                   className="inline-flex items-center gap-2 text-right"
@@ -567,8 +570,8 @@ function Accounts() {
                         displayBalance < 0
                           ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-rose-600'
                           : displayBalance > 0
-                          ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
-                          : 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
+                            ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
+                            : 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
                       }
                     >
                       {`$ ${formatCurrencyValue(displayBalance)}`}
@@ -607,6 +610,29 @@ function Accounts() {
                 </tr>
               )}
           </tbody>
+          <tfoot className="bg-muted/20 text-sm">
+            <tr className="border-t">
+              <td className="px-4 py-3"></td>
+              <td className="px-4 py-3 text-right font-semibold text-muted-foreground">
+                Total
+              </td>
+              <td
+                className={
+                  accountsQuery.isLoading || accountsQuery.isError
+                    ? 'px-4 py-3 text-right font-semibold text-muted-foreground'
+                    : totalFilteredBalance < 0
+                      ? 'sensitive px-4 py-3 text-right font-semibold text-rose-600'
+                      : totalFilteredBalance > 0
+                        ? 'sensitive px-4 py-3 text-right font-semibold text-emerald-600'
+                        : 'sensitive px-4 py-3 text-right font-semibold text-muted-foreground'
+                }
+              >
+                {accountsQuery.isLoading || accountsQuery.isError
+                  ? '--'
+                  : `$ ${formatCurrencyValue(totalFilteredBalance)}`}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
