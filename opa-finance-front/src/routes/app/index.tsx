@@ -191,6 +191,10 @@ function Dashboard() {
   const accountMap = new Map(
     accounts.map((account) => [account.id, account.name]),
   )
+  const totalAccountsBalance = visibleAccounts.reduce(
+    (total, account) => total + (account.currentBalance ?? 0),
+    0,
+  )
 
   const topCategoryTransactionsQuery = useTransactions(
     {
@@ -832,11 +836,26 @@ function Dashboard() {
         </div>
 
         <div className="rounded-lg border bg-background p-4">
-          <div>
+          <div className="grid grid-cols-[1fr_auto] items-center gap-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <Banknote className="h-6 w-6 text-muted-foreground" />
               Contas
             </h2>
+            <p
+              className={
+                showAccountsSkeleton
+                  ? 'text-base font-semibold text-muted-foreground text-right'
+                  : totalAccountsBalance < 0
+                    ? 'sensitive text-base font-semibold text-rose-600 text-right pr-3'
+                    : totalAccountsBalance > 0
+                      ? 'sensitive text-base font-semibold text-emerald-600 text-right pr-3'
+                      : 'sensitive text-base font-semibold text-muted-foreground text-right pr-3'
+              }
+            >
+              {showAccountsSkeleton
+                ? '--'
+                : formatCurrencyValue(totalAccountsBalance)}
+            </p>
           </div>
 
           <div className="mt-4 space-y-3">
@@ -867,46 +886,46 @@ function Dashboard() {
               )}
             {!showAccountsSkeleton &&
               visibleAccounts.map((account) => {
-              const isSelected = account.id === effectiveAccountId
-              const displayBalance = account.currentBalance ?? 0
+                const isSelected = account.id === effectiveAccountId
+                const displayBalance = account.currentBalance ?? 0
 
-              return (
-              <button
-                key={account.id}
-                type="button"
-                onClick={() => handleAccountChange(account.id)}
-                className={
-                  isSelected
-                    ? 'flex w-full cursor-pointer items-center justify-between rounded-md border border-primary/60 bg-primary/5 p-3 text-left'
-                    : 'flex w-full cursor-pointer items-center justify-between rounded-md border p-3 text-left hover:bg-muted/40'
-                }
-                aria-pressed={isSelected}
-              >
-                <div>
-                  <p className="font-medium">{account.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {accountTypeLabels[account.type] ?? account.type}
-                    {account.isPrimary && (
-                      <span className="ml-2 rounded-full border px-2 py-0.5 text-xs">
-                        Principal
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <p
-                  className={
-                    displayBalance < 0
-                      ? 'sensitive font-semibold text-rose-600'
-                      : displayBalance > 0
-                      ? 'sensitive font-semibold text-emerald-600'
-                      : 'sensitive font-semibold text-muted-foreground'
-                  }
-                >
-                  {formatCurrencyValue(displayBalance)}
-                </p>
-              </button>
-              )
-            })}
+                return (
+                  <button
+                    key={account.id}
+                    type="button"
+                    onClick={() => handleAccountChange(account.id)}
+                    className={
+                      isSelected
+                        ? 'flex w-full cursor-pointer items-center justify-between rounded-md border border-primary/60 bg-primary/5 p-3 text-left'
+                        : 'flex w-full cursor-pointer items-center justify-between rounded-md border p-3 text-left hover:bg-muted/40'
+                    }
+                    aria-pressed={isSelected}
+                  >
+                    <div>
+                      <p className="font-medium">{account.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {accountTypeLabels[account.type] ?? account.type}
+                        {account.isPrimary && (
+                          <span className="ml-2 rounded-full border px-2 py-0.5 text-xs">
+                            Principal
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <p
+                      className={
+                        displayBalance < 0
+                          ? 'sensitive font-semibold text-rose-600'
+                          : displayBalance > 0
+                            ? 'sensitive font-semibold text-emerald-600'
+                            : 'sensitive font-semibold text-muted-foreground'
+                      }
+                    >
+                      {formatCurrencyValue(displayBalance)}
+                    </p>
+                  </button>
+                )
+              })}
           </div>
         </div>
       </div>
@@ -928,24 +947,24 @@ function Dashboard() {
                 </p>
               </div>
               <Button asChild variant="outline" size="sm">
-                  <Link
-                    to="/app/transactions"
-                    search={{
-                      page: 1,
-                      accountId: isAccountParamAll ? undefined : resolvedAccountId,
-                      startDate,
-                      endDate,
-                      categoryId:
-                        selectedTopCategory.groupBy === 'category'
-                          ? selectedTopCategory.id
-                          : undefined,
-                      subcategoryId:
-                        selectedTopCategory.groupBy === 'subcategory'
-                          ? selectedTopCategory.id
-                          : undefined,
-                      type: selectedTopCategory.type,
-                    }}
-                  >
+                <Link
+                  to="/app/transactions"
+                  search={{
+                    page: 1,
+                    accountId: isAccountParamAll ? undefined : resolvedAccountId,
+                    startDate,
+                    endDate,
+                    categoryId:
+                      selectedTopCategory.groupBy === 'category'
+                        ? selectedTopCategory.id
+                        : undefined,
+                    subcategoryId:
+                      selectedTopCategory.groupBy === 'subcategory'
+                        ? selectedTopCategory.id
+                        : undefined,
+                    type: selectedTopCategory.type,
+                  }}
+                >
                   Ver todas
                 </Link>
               </Button>
@@ -965,7 +984,7 @@ function Dashboard() {
               {!topCategoryTransactionsQuery.isLoading &&
                 !topCategoryTransactionsQuery.isError &&
                 (topCategoryTransactionsQuery.data?.data ?? []).length ===
-                  0 && (
+                0 && (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma transação encontrada no período.
                   </p>
@@ -1088,8 +1107,8 @@ function Dashboard() {
                 <span className="font-medium">
                   {selectedTransaction.createdAt
                     ? dateFormatter.format(
-                        new Date(selectedTransaction.createdAt),
-                      )
+                      new Date(selectedTransaction.createdAt),
+                    )
                     : '-'}
                 </span>
               </div>
