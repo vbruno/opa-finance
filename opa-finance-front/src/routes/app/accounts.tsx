@@ -648,13 +648,24 @@ function Accounts() {
                     }
                   >
                     <td
-                      className="px-3 py-3"
-                      onClick={(event) => event.stopPropagation()}
+                      className="cursor-pointer px-3 py-3"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setSelectedAccountIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(account.id)) {
+                            next.delete(account.id)
+                          } else {
+                            next.add(account.id)
+                          }
+                          return next
+                        })
+                      }}
                       onMouseDown={(event) => event.stopPropagation()}
                     >
                       <input
                         type="checkbox"
-                        className="h-4 w-4"
+                        className="h-4 w-4 cursor-pointer"
                         checked={selectedAccountIds.has(account.id)}
                         onChange={(event) => {
                           setSelectedAccountIds((prev) => {
