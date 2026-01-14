@@ -361,6 +361,18 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
     expect(data[0].amount).toBe(120);
   });
 
+  it("deve retornar erro ao usar amountOp com amountMin/amountMax", async () => {
+    const { token } = await seedBasicData();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/transactions?amount=100&amountOp=gt&amountMin=50&amountMax=150",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
   it("deve combinar amount com accountId", async () => {
     const { token, account, incomeCat } = await seedBasicData();
 

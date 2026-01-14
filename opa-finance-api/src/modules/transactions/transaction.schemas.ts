@@ -102,6 +102,13 @@ export const listTransactionsQuerySchema = z
     },
   )
   .refine(
+    (data) => !data.amountOp || (data.amountMin === undefined && data.amountMax === undefined),
+    {
+      message: "amountOp não pode ser usado junto com amountMin/amountMax.",
+      path: ["amountOp"],
+    },
+  )
+  .refine(
     (data) =>
       data.amountMin === undefined ||
       data.amountMax === undefined ||
