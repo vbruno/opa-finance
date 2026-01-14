@@ -209,6 +209,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Dashboard usa skeletons para KPIs, últimas transações, top categorias e contas.
 - No bloco de contas do dashboard, há um totalizador com a soma das contas listadas.
 - Na tela de contas, o rodapé da tabela exibe o total dos saldos das contas filtradas.
+- Na tela de contas, é possível selecionar contas; se 1+ selecionadas, o rodapé mostra "Parcial" com a soma das selecionadas e o contador de selecionadas.
 - No dashboard, as últimas transações abrem um modal de detalhes ao clicar.
 - No dashboard, "Top 5 Despesas" e "Top 5 Receitas" iniciam recolhidos; cada item abre modal com os 5 últimos lançamentos, com acesso ao detalhe e link para ver todas.
 - Skeletons são exibidos até as queries estarem habilitadas e concluírem.

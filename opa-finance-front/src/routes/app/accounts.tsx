@@ -99,10 +99,14 @@ function Accounts() {
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
   )
+  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
+    new Set(),
+  )
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
+  const selectAllRef = useRef<HTMLInputElement | null>(null)
 
   const {
     register,
@@ -232,6 +236,21 @@ function Accounts() {
     sortedAccounts.length > pageSize
       ? sortedAccounts.slice((safePage - 1) * pageSize, safePage * pageSize)
       : sortedAccounts
+  const selectedAccounts = filteredAccounts.filter((account) =>
+    selectedAccountIds.has(account.id),
+  )
+  const selectedCount = selectedAccounts.length
+  const selectedTotal = selectedAccounts.reduce(
+    (total, account) => total + (account.currentBalance ?? 0),
+    0,
+  )
+  const pageIds = paginatedAccounts.map((account) => account.id)
+  const selectedOnPageCount = pageIds.filter((id) =>
+    selectedAccountIds.has(id),
+  ).length
+  const allSelectedOnPage =
+    pageIds.length > 0 && selectedOnPageCount === pageIds.length
+  const hasSelectionOnPage = selectedOnPageCount > 0
 
   const deleteAccountMutation = useDeleteAccount()
 
@@ -285,6 +304,53 @@ function Accounts() {
   useEffect(() => {
     setSearchDraft(searchTerm)
   }, [searchTerm])
+
+  useEffect(() => {
+    setSelectedAccountIds(new Set())
+  }, [normalizedSearch, typeFilter])
+
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return
+    }
+    selectAllRef.current.indeterminate =
+      hasSelectionOnPage && !allSelectedOnPage
+  }, [allSelectedOnPage, hasSelectionOnPage])
+
+  useEffect(() => {
+    setSelectedAccountIds((prev) => {
+      if (prev.size === 0) {
+        return prev
+      }
+      const validIds = new Set(accounts.map((account) => account.id))
+      const next = new Set([...prev].filter((id) => validIds.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [accounts])
+
+  useEffect(() => {
+    const hasOpenModal =
+      isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedAccount
+    if (hasOpenModal || selectedAccountIds.size === 0) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+      setSelectedAccountIds(new Set())
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [
+    isCreateOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    selectedAccount,
+    selectedAccountIds.size,
+  ])
 
   useEffect(() => {
     if (debouncedSearch === searchTerm) {
@@ -493,6 +559,26 @@ function Accounts() {
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
+              <th className="w-[1%] px-3 py-3">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={allSelectedOnPage}
+                  onChange={(event) => {
+                    setSelectedAccountIds((prev) => {
+                      const next = new Set(prev)
+                      if (event.target.checked) {
+                        pageIds.forEach((id) => next.add(id))
+                      } else {
+                        pageIds.forEach((id) => next.delete(id))
+                      }
+                      return next
+                    })
+                  }}
+                  aria-label="Selecionar todas as contas da página"
+                />
+              </th>
               <th className="px-4 py-3">
                 <button
                   className="inline-flex items-center gap-2 text-left"
@@ -531,7 +617,7 @@ function Accounts() {
           <tbody>
             {accountsQuery.isLoading && (
               <tr>
-                <td colSpan={3} className="px-4 py-10 text-center">
+                <td colSpan={4} className="px-4 py-10 text-center">
                   <p className="text-sm text-muted-foreground">
                     Carregando contas...
                   </p>
@@ -540,7 +626,7 @@ function Accounts() {
             )}
             {accountsQuery.isError && (
               <tr>
-                <td colSpan={3} className="px-4 py-10 text-center">
+                <td colSpan={4} className="px-4 py-10 text-center">
                   <p className="text-sm text-destructive">
                     Erro ao carregar contas. Tente novamente.
                   </p>
@@ -561,8 +647,31 @@ function Accounts() {
                       })
                     }
                   >
+                    <td
+                      className="px-3 py-3"
+                      onClick={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={selectedAccountIds.has(account.id)}
+                        onChange={(event) => {
+                          setSelectedAccountIds((prev) => {
+                            const next = new Set(prev)
+                            if (event.target.checked) {
+                              next.add(account.id)
+                            } else {
+                              next.delete(account.id)
+                            }
+                            return next
+                          })
+                        }}
+                        aria-label={`Selecionar conta ${account.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium">{account.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                    <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap">
                       {accountTypeLabels[account.type] ?? account.type}
                     </td>
                     <td
@@ -583,7 +692,7 @@ function Accounts() {
               !accountsQuery.isError &&
               sortedAccounts.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-10 text-center">
+                  <td colSpan={4} className="px-4 py-10 text-center">
                     <div className="space-y-2">
                       {accounts.length === 0 ? (
                         <>
@@ -613,23 +722,30 @@ function Accounts() {
           <tfoot className="bg-muted/20 text-sm">
             <tr className="border-t">
               <td className="px-4 py-3"></td>
-              <td className="px-4 py-3 text-right font-semibold text-muted-foreground">
-                Total
+              <td className="px-3 py-3 font-semibold text-muted-foreground">
+                {selectedCount >= 1 ? `${selectedCount} selecionadas` : ''}
+              </td>
+              <td className="px-4 py-3 text-center font-semibold text-muted-foreground">
+                {selectedCount >= 1 ? 'Parcial' : 'Total'}
               </td>
               <td
                 className={
                   accountsQuery.isLoading || accountsQuery.isError
                     ? 'px-4 py-3 text-right font-semibold text-muted-foreground'
-                    : totalFilteredBalance < 0
+                    : (selectedCount >= 1 ? selectedTotal : totalFilteredBalance) < 0
                       ? 'sensitive px-4 py-3 text-right font-semibold text-rose-600'
-                      : totalFilteredBalance > 0
+                      : (selectedCount >= 1 ? selectedTotal : totalFilteredBalance) > 0
                         ? 'sensitive px-4 py-3 text-right font-semibold text-emerald-600'
                         : 'sensitive px-4 py-3 text-right font-semibold text-muted-foreground'
                 }
               >
                 {accountsQuery.isLoading || accountsQuery.isError
                   ? '--'
-                  : `$ ${formatCurrencyValue(totalFilteredBalance)}`}
+                  : `$ ${formatCurrencyValue(
+                    selectedCount >= 1
+                      ? selectedTotal
+                      : totalFilteredBalance,
+                  )}`}
               </td>
             </tr>
           </tfoot>
