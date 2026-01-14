@@ -214,6 +214,203 @@ describe.sequential("GET /transactions (filtros + paginação)", () => {
     expect(data[0].amount).toBe(80);
   });
 
+  it("deve filtrar por amount exato", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 50,
+        date: "2025-01-01",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 100,
+        date: "2025-01-02",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions?amount=100`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = res.json().data;
+    expect(data.length).toBe(1);
+    expect(data[0].amount).toBe(100);
+  });
+
+  it("deve filtrar por amountOp (gt e lte)", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 50,
+        date: "2025-01-01",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 200,
+        date: "2025-01-02",
+      },
+    });
+
+    const resGt = await app.inject({
+      method: "GET",
+      url: `/transactions?amount=100&amountOp=gt`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(resGt.statusCode).toBe(200);
+    const gtData = resGt.json().data;
+    expect(gtData.length).toBe(1);
+    expect(gtData[0].amount).toBe(200);
+
+    const resLte = await app.inject({
+      method: "GET",
+      url: `/transactions?amount=50&amountOp=lte`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(resLte.statusCode).toBe(200);
+    const lteData = resLte.json().data;
+    expect(lteData.length).toBe(1);
+    expect(lteData[0].amount).toBe(50);
+  });
+
+  it("deve filtrar por intervalo amountMin/amountMax", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 80,
+        date: "2025-01-01",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 120,
+        date: "2025-01-02",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 220,
+        date: "2025-01-03",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions?amountMin=100&amountMax=200`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = res.json().data;
+    expect(data.length).toBe(1);
+    expect(data[0].amount).toBe(120);
+  });
+
+  it("deve combinar amount com accountId", async () => {
+    const { token, account, incomeCat } = await seedBasicData();
+
+    const acc2 = (
+      await app.inject({
+        method: "POST",
+        url: "/accounts",
+        headers: { Authorization: `Bearer ${token}` },
+        payload: { name: "Conta 2", type: "cash" },
+      })
+    ).json();
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 100,
+        date: "2025-01-01",
+      },
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: acc2.id,
+        categoryId: incomeCat.id,
+        type: "income",
+        amount: 100,
+        date: "2025-01-02",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/transactions?accountId=${acc2.id}&amount=100`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = res.json().data;
+    expect(data.length).toBe(1);
+    expect(data[0].accountId).toBe(acc2.id);
+  });
+
   it("deve retornar 403 ao filtrar por accountId de outro usuário", async () => {
     const userA = await seedBasicData();
     const userB = await seedBasicData();

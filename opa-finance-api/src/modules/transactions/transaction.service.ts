@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, asc, desc, eq, gte, ilike, isNotNull, lte, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, isNotNull, lt, lte, sql, sum } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
 import { TransactionType } from "./transaction.enums";
@@ -163,6 +163,31 @@ export class TransactionService {
     if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
     if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
     if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
+
+    if (query.amountOp && query.amount !== undefined) {
+      const amountValue = query.amount.toString();
+      switch (query.amountOp) {
+        case "gt":
+          filters.push(gt(transactions.amount, amountValue));
+          break;
+        case "gte":
+          filters.push(gte(transactions.amount, amountValue));
+          break;
+        case "lt":
+          filters.push(lt(transactions.amount, amountValue));
+          break;
+        case "lte":
+          filters.push(lte(transactions.amount, amountValue));
+          break;
+      }
+    } else if (query.amountMin !== undefined && query.amountMax !== undefined) {
+      const minValue = query.amountMin.toString();
+      const maxValue = query.amountMax.toString();
+      filters.push(gte(transactions.amount, minValue));
+      filters.push(lte(transactions.amount, maxValue));
+    } else if (query.amount !== undefined) {
+      filters.push(eq(transactions.amount, query.amount.toString()));
+    }
     const useUnaccent =
       (query.description || query.notes) ? await this.hasUnaccent() : false;
 

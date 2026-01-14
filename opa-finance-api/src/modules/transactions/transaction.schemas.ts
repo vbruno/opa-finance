@@ -78,11 +78,39 @@ export const listTransactionsQuerySchema = z
     dir: z.enum(["asc", "desc"]).optional(),
     description: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
+
+    amount: z.coerce.number().optional(),
+    amountOp: z.enum(["gt", "gte", "lt", "lte"]).optional(),
+    amountMin: z.coerce.number().optional(),
+    amountMax: z.coerce.number().optional(),
   })
   .refine((data) => !data.startDate || !data.endDate || data.startDate <= data.endDate, {
     message: "Data inicial não pode ser maior que a data final",
     path: ["startDate"],
-  });
+  })
+  .refine((data) => !data.amountOp || data.amount !== undefined, {
+    message: "amountOp requer o parâmetro amount.",
+    path: ["amountOp"],
+  })
+  .refine(
+    (data) =>
+      (data.amountMin === undefined && data.amountMax === undefined) ||
+      (data.amountMin !== undefined && data.amountMax !== undefined),
+    {
+      message: "amountMin e amountMax devem ser enviados juntos.",
+      path: ["amountMin"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.amountMin === undefined ||
+      data.amountMax === undefined ||
+      data.amountMin <= data.amountMax,
+    {
+      message: "amountMin não pode ser maior que amountMax.",
+      path: ["amountMin"],
+    },
+  );
 
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;
 

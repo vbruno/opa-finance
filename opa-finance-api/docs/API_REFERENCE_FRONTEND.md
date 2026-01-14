@@ -1022,6 +1022,10 @@ Lista transações com filtros e paginação.
 - `categoryId` (uuid) - opcional
 - `subcategoryId` (uuid) - opcional
 - `type` ("income" | "expense") - opcional
+- `amount` (number) - opcional
+- `amountOp` ("gt" | "gte" | "lt" | "lte") - opcional (requer `amount`)
+- `amountMin` (number) - opcional
+- `amountMax` (number) - opcional
 - `description` (string, busca parcial) - opcional
 - `notes` (string, busca parcial) - opcional
   - Quando `description` e `notes` são informados, a API faz busca **OR** entre os dois campos.
@@ -1066,6 +1070,7 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
 
 - `accountName`, `categoryName` e `subcategoryName` sao retornados via join.
 - `subcategoryName` pode ser `null` quando a transacao nao tiver subcategoria.
+- `amountMin` e `amountMax` devem ser enviados juntos e são inclusivos.
 
 ---
 
