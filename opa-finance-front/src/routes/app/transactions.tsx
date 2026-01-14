@@ -116,6 +116,24 @@ export const Route = createFileRoute('/app/transactions')({
         z.boolean().optional(),
       )
       .optional(),
+    amountMode: z
+      .preprocess(
+        (value) => {
+          if (typeof value === 'boolean') {
+            return value
+          }
+          if (value === 'true' || value === '1') {
+            return true
+          }
+          if (value === 'false' || value === '0') {
+            return false
+          }
+          return undefined
+        },
+        z.boolean().optional(),
+      )
+      .optional(),
+    amount: z.string().optional(),
     sort: z
       .preprocess(
         (value) => {
@@ -215,6 +233,7 @@ function Transactions() {
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
+  const isClearingAmount = useRef(false)
 
   const search = Route.useSearch()
   const page = search.page ?? 1
@@ -226,6 +245,8 @@ function Transactions() {
   const descriptionFilter = search.description ?? ''
   const includeNotes = search.includeNotes ?? false
   const notesOnly = search.notesOnly ?? false
+  const amountMode = search.amountMode ?? false
+  const amountFilter = search.amount ?? ''
   const sortKey = search.sort ?? null
   const sortDirection = search.dir ?? 'desc'
   const startDateFilter = search.startDate ?? ''
@@ -238,6 +259,8 @@ function Transactions() {
     descriptionFilter ||
     includeNotes ||
     notesOnly ||
+    amountMode ||
+    amountFilter ||
     startDateFilter ||
     endDateFilter
   const hasHiddenFilters =
@@ -247,32 +270,58 @@ function Transactions() {
     subcategoryFilter ||
     includeNotes ||
     notesOnly ||
+    amountMode ||
+    amountFilter ||
     startDateFilter ||
     endDateFilter
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
   const [descriptionDraft, setDescriptionDraft] =
     useState(descriptionFilter)
+  const [amountDraft, setAmountDraft] = useState(amountFilter)
   const debouncedDescription = useDebouncedValue(descriptionDraft, 500)
-  const canSearchNotes = descriptionDraft.trim().length > 0
+  const debouncedAmount = useDebouncedValue(amountDraft, 500)
+  const canSearchNotes =
+    !amountMode && descriptionDraft.trim().length > 0
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const parsedAmountFilter = amountMode
+    ? parseAmountFilter(amountFilter)
+    : null
+  const isAmountFilterInvalid =
+    amountMode && amountFilter.trim().length > 0 && !parsedAmountFilter
+  const amountFilterErrorMessage = isAmountFilterInvalid
+    ? 'Filtro por valor aceita apenas números ou expressões válidas.'
+    : ''
 
-  const transactionsQuery = useTransactions({
-    page,
-    limit,
-    type: typeFilter || undefined,
-    accountId: accountFilter || undefined,
-    categoryId: categoryFilter || undefined,
-    subcategoryId: subcategoryFilter || undefined,
-    description: notesOnly ? undefined : descriptionFilter || undefined,
-    notes:
-      (includeNotes || notesOnly) && descriptionFilter
-        ? descriptionFilter
-        : undefined,
-    sort: sortKey || undefined,
-    dir: sortKey ? sortDirection : undefined,
-    startDate: startDateFilter || undefined,
-    endDate: endDateFilter || undefined,
-  })
+  const transactionsQuery = useTransactions(
+    {
+      page,
+      limit,
+      type: typeFilter || undefined,
+      accountId: accountFilter || undefined,
+      categoryId: categoryFilter || undefined,
+      subcategoryId: subcategoryFilter || undefined,
+      description: amountMode
+        ? undefined
+        : notesOnly
+          ? undefined
+          : descriptionFilter || undefined,
+      notes:
+        !amountMode && (includeNotes || notesOnly) && descriptionFilter
+          ? descriptionFilter
+          : undefined,
+      amount: parsedAmountFilter?.amount,
+      amountMin: parsedAmountFilter?.amountMin,
+      amountMax: parsedAmountFilter?.amountMax,
+      amountOp: parsedAmountFilter?.amountOp,
+      sort: sortKey || undefined,
+      dir: sortKey ? sortDirection : undefined,
+      startDate: startDateFilter || undefined,
+      endDate: endDateFilter || undefined,
+    },
+    {
+      enabled: !isAmountFilterInvalid,
+    },
+  )
   const createTransactionMutation = useCreateTransaction()
   const createTransferMutation = useCreateTransfer()
   const updateTransactionMutation = useUpdateTransaction()
@@ -415,8 +464,9 @@ function Transactions() {
     setActiveSuggestionIndex(0)
   }, [descriptionSuggestions.length, isDescriptionSuggestionsOpen])
 
-  const transactions = transactionsQuery.data?.data ?? []
-  const total = transactionsQuery.data?.total ?? 0
+  const rawTransactions = transactionsQuery.data?.data ?? []
+  const transactions = isAmountFilterInvalid ? [] : rawTransactions
+  const total = isAmountFilterInvalid ? 0 : transactionsQuery.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const selectedTransactions = transactions.filter((transaction) =>
@@ -481,7 +531,9 @@ function Transactions() {
 
   const handleClearFilters = () => {
     isClearingDescription.current = true
+    isClearingAmount.current = true
     setDescriptionDraft('')
+    setAmountDraft('')
     navigate({
       search: (prev) => ({
         ...prev,
@@ -493,6 +545,8 @@ function Transactions() {
         description: undefined,
         includeNotes: undefined,
         notesOnly: undefined,
+        amountMode: undefined,
+        amount: undefined,
         startDate: undefined,
         endDate: undefined,
       }),
@@ -838,6 +892,9 @@ function Transactions() {
   useEffect(() => {
     setDescriptionDraft(descriptionFilter)
   }, [descriptionFilter])
+  useEffect(() => {
+    setAmountDraft(amountFilter)
+  }, [amountFilter])
 
   const handleCopyValue = async (
     value: number,
@@ -894,6 +951,9 @@ function Transactions() {
   }
 
   useEffect(() => {
+    if (amountMode) {
+      return
+    }
     if (debouncedDescription === descriptionFilter) {
       return
     }
@@ -911,7 +971,29 @@ function Transactions() {
       }),
       replace: true,
     })
-  }, [debouncedDescription, descriptionFilter, navigate])
+  }, [amountMode, debouncedDescription, descriptionFilter, navigate])
+
+  useEffect(() => {
+    if (!amountMode) {
+      return
+    }
+    if (debouncedAmount === amountFilter) {
+      return
+    }
+    if (isClearingAmount.current) {
+      isClearingAmount.current = false
+      return
+    }
+    const trimmedValue = debouncedAmount.trim()
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        amount: trimmedValue ? trimmedValue : undefined,
+        page: 1,
+      }),
+      replace: true,
+    })
+  }, [amountMode, debouncedAmount, amountFilter, navigate])
 
   useEffect(() => {
     if (hasHiddenFilters) {
@@ -1200,10 +1282,21 @@ function Transactions() {
           <div className="flex flex-1 items-center gap-2">
             <Input
               id="filter-description"
-              placeholder="Buscar por descrição"
-              value={descriptionDraft}
+              placeholder={
+                amountMode
+                  ? 'Buscar por valor (ex: 123,45 | >100 | 100;200 | =100+20)'
+                  : 'Buscar por descrição'
+              }
+              value={amountMode ? amountDraft : descriptionDraft}
               className="bg-background dark:bg-muted/50"
-              onChange={(event) => setDescriptionDraft(event.target.value)}
+              onChange={(event) => {
+                const nextValue = event.target.value
+                if (amountMode) {
+                  setAmountDraft(nextValue)
+                } else {
+                  setDescriptionDraft(nextValue)
+                }
+              }}
             />
             <div className="flex items-center gap-1.5">
               {hasActiveFilters && (
@@ -1234,9 +1327,11 @@ function Transactions() {
                 <label
                   className="flex items-center gap-2 text-sm text-muted-foreground"
                   title={
-                    canSearchNotes
-                      ? undefined
-                      : 'Informe uma descrição para buscar nas notas'
+                    amountMode
+                      ? 'Desative a busca por valor para usar notas'
+                      : canSearchNotes
+                        ? undefined
+                        : 'Informe uma descrição para buscar nas notas'
                   }
                 >
                   <input
@@ -1244,7 +1339,7 @@ function Transactions() {
                     type="checkbox"
                     className="h-4 w-4"
                     checked={includeNotes}
-                    disabled={!canSearchNotes}
+                    disabled={!canSearchNotes || amountMode}
                     onChange={(event) =>
                       navigate({
                         search: (prev) => ({
@@ -1264,7 +1359,7 @@ function Transactions() {
                     type="checkbox"
                     className="h-4 w-4"
                     checked={notesOnly}
-                    disabled={!canSearchNotes}
+                    disabled={!canSearchNotes || amountMode}
                     onChange={(event) =>
                       navigate({
                         search: (prev) => ({
@@ -1277,6 +1372,32 @@ function Transactions() {
                     }
                   />
                   Somente notas
+                </label>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    id="filter-amount-mode"
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={amountMode}
+                    onChange={(event) =>
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          amountMode: event.target.checked ? true : undefined,
+                          amount: event.target.checked ? prev.amount : undefined,
+                          description: event.target.checked
+                            ? undefined
+                            : prev.description,
+                          includeNotes: event.target.checked
+                            ? undefined
+                            : prev.includeNotes,
+                          notesOnly: event.target.checked ? undefined : prev.notesOnly,
+                          page: 1,
+                        }),
+                      })
+                    }
+                  />
+                  Buscar por valor
                 </label>
               </div>
             </div>
@@ -1616,7 +1737,16 @@ function Transactions() {
                   </td>
                 </tr>
               )}
-              {!transactionsQuery.isLoading && transactions.length === 0 && (
+              {!transactionsQuery.isLoading && isAmountFilterInvalid && (
+                <tr>
+                  <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                    {amountFilterErrorMessage}
+                  </td>
+                </tr>
+              )}
+              {!transactionsQuery.isLoading &&
+                !isAmountFilterInvalid &&
+                transactions.length === 0 && (
                 <tr>
                   <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
                     Nenhuma transação encontrada.
@@ -3005,6 +3135,199 @@ function Transactions() {
       )}
     </div>
   )
+}
+
+type AmountFilterResult = {
+  amount?: number
+  amountMin?: number
+  amountMax?: number
+  amountOp?: 'gt' | 'gte' | 'lt' | 'lte'
+}
+
+function parseAmountFilter(value: string): AmountFilterResult | null {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (trimmed.startsWith('=')) {
+    const expressionValue = evaluateArithmeticExpression(trimmed.slice(1))
+    if (expressionValue === null) {
+      return null
+    }
+    return { amount: expressionValue }
+  }
+
+  if (trimmed.includes(';')) {
+    const parts = trimmed.split(';')
+    if (parts.length !== 2) {
+      return null
+    }
+    const minValue = parseNumberInput(parts[0])
+    const maxValue = parseNumberInput(parts[1])
+    if (minValue === null || maxValue === null) {
+      return null
+    }
+    const min = Math.min(minValue, maxValue)
+    const max = Math.max(minValue, maxValue)
+    return { amountMin: min, amountMax: max }
+  }
+
+  const comparatorMatch = trimmed.match(/^(>=|<=|>|<)\s*(.+)$/)
+  if (comparatorMatch) {
+    const amountValue = parseNumberInput(comparatorMatch[2])
+    if (amountValue === null) {
+      return null
+    }
+    const opMap: Record<string, 'gt' | 'gte' | 'lt' | 'lte'> = {
+      '>': 'gt',
+      '>=': 'gte',
+      '<': 'lt',
+      '<=': 'lte',
+    }
+    return { amountOp: opMap[comparatorMatch[1]], amount: amountValue }
+  }
+
+  const exactValue = parseNumberInput(trimmed)
+  if (exactValue === null) {
+    return null
+  }
+  return { amount: exactValue }
+}
+
+function evaluateArithmeticExpression(value: string): number | null {
+  const tokens = tokenizeExpression(value)
+  if (!tokens || tokens.length === 0) {
+    return null
+  }
+  return evaluateTokens(tokens)
+}
+
+function tokenizeExpression(value: string): Array<number | '+' | '-' | '*' | '/'> | null {
+  const input = value.trim()
+  if (!input) {
+    return null
+  }
+
+  const tokens: Array<number | '+' | '-' | '*' | '/'> = []
+  let index = 0
+  let expectingNumber = true
+
+  while (index < input.length) {
+    const char = input[index]
+    if (char === ' ' || char === '\t') {
+      index += 1
+      continue
+    }
+
+    if (expectingNumber) {
+      const match = input.slice(index).match(/^[+-]?[0-9.,]+/)
+      if (!match) {
+        return null
+      }
+      const parsedNumber = parseNumberInput(match[0])
+      if (parsedNumber === null) {
+        return null
+      }
+      tokens.push(parsedNumber)
+      index += match[0].length
+      expectingNumber = false
+      continue
+    }
+
+    if (char === '+' || char === '-' || char === '*' || char === '/') {
+      tokens.push(char)
+      index += 1
+      expectingNumber = true
+      continue
+    }
+
+    return null
+  }
+
+  if (expectingNumber) {
+    return null
+  }
+
+  return tokens
+}
+
+function evaluateTokens(
+  tokens: Array<number | '+' | '-' | '*' | '/'>,
+): number | null {
+  if (tokens.length % 2 === 0) {
+    return null
+  }
+  if (typeof tokens[0] !== 'number') {
+    return null
+  }
+
+  const values: number[] = [tokens[0]]
+  const operations: Array<'+' | '-'> = []
+
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i]
+    const next = tokens[i + 1]
+    if (typeof op !== 'string' || typeof next !== 'number') {
+      return null
+    }
+    if (op === '*' || op === '/') {
+      const current = values[values.length - 1]
+      if (op === '/' && next === 0) {
+        return null
+      }
+      values[values.length - 1] =
+        op === '*' ? current * next : current / next
+    } else {
+      operations.push(op)
+      values.push(next)
+    }
+  }
+
+  let result = values[0]
+  for (let i = 0; i < operations.length; i += 1) {
+    const next = values[i + 1]
+    result = operations[i] === '+' ? result + next : result - next
+  }
+
+  if (!Number.isFinite(result)) {
+    return null
+  }
+  return result
+}
+
+function parseNumberInput(value: string): number | null {
+  const cleaned = value.replace(/\s+/g, '')
+  if (!cleaned) {
+    return null
+  }
+  if (!/^[+-]?[0-9.,]+$/.test(cleaned)) {
+    return null
+  }
+  const sign = cleaned.startsWith('-') ? -1 : 1
+  const unsigned = cleaned.replace(/^[-+]/, '')
+  if (!/[0-9]/.test(unsigned)) {
+    return null
+  }
+  const lastDot = unsigned.lastIndexOf('.')
+  const lastComma = unsigned.lastIndexOf(',')
+  const decimalIndex = Math.max(lastDot, lastComma)
+  let integerPart = unsigned
+  let fractionalPart = ''
+  if (decimalIndex >= 0) {
+    integerPart = unsigned.slice(0, decimalIndex)
+    fractionalPart = unsigned.slice(decimalIndex + 1)
+  }
+  const integerDigits = integerPart.replace(/[.,]/g, '') || '0'
+  const fractionalDigits = fractionalPart.replace(/[.,]/g, '')
+  const normalized = fractionalDigits
+    ? `${integerDigits}.${fractionalDigits}`
+    : integerDigits
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) {
+    return null
+  }
+  return sign * parsed
 }
 
 function buildPaginationItems(current: number, total: number) {

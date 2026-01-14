@@ -225,6 +225,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Atalho: `N` abre o modal de nova transação (quando não estiver digitando em inputs).
 - No modal de transação, use `Alt + 1..7` para focar rapidamente os campos (conta, categoria, subcategoria, data, valor, descrição, notas).
 - Na tela de transações, pressionar `Esc` com filtros ativos limpa os filtros.
+- Na tela de transações, o filtro "Buscar por valor" usa o input principal e aceita: número exato (`123,45`), comparadores (`>100`, `<= 50`), intervalo com `;` (`100;200`) e expressões aritméticas iniciadas por `=` (`=100+20/2`).
 
 ## 🧠 Estado Global (padrão)
 

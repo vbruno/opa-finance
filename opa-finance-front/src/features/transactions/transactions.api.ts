@@ -40,6 +40,10 @@ export type TransactionsQueryParams = {
   type?: TransactionType
   description?: string
   notes?: string
+  amount?: number
+  amountMin?: number
+  amountMax?: number
+  amountOp?: 'gt' | 'gte' | 'lt' | 'lte'
   sort?:
     | 'date'
     | 'description'
