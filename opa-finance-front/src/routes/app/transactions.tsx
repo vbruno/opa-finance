@@ -195,6 +195,9 @@ function Transactions() {
   const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
     null,
   )
+  const [detailCopiedField, setDetailCopiedField] = useState<
+    'description' | 'amount' | null
+  >(null)
   const [isDescriptionSuggestionsOpen, setIsDescriptionSuggestionsOpen] =
     useState(false)
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
@@ -208,6 +211,7 @@ function Transactions() {
   const bulkDeleteModalRef = useRef<HTMLDivElement | null>(null)
   const selectAllRef = useRef<HTMLInputElement | null>(null)
   const copyTimeoutRef = useRef<number | null>(null)
+  const detailCopyTimeoutRef = useRef<number | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
@@ -474,6 +478,26 @@ function Transactions() {
   const categoryMap = new Map(
     categories.map((category) => [category.id, category.name]),
   )
+
+  const handleClearFilters = () => {
+    isClearingDescription.current = true
+    setDescriptionDraft('')
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        page: 1,
+        type: undefined,
+        accountId: undefined,
+        categoryId: undefined,
+        subcategoryId: undefined,
+        description: undefined,
+        includeNotes: undefined,
+        notesOnly: undefined,
+        startDate: undefined,
+        endDate: undefined,
+      }),
+    })
+  }
   function handleSort(
     nextKey:
       | 'date'
@@ -576,7 +600,7 @@ function Transactions() {
       isDeleteConfirmOpen ||
       isBulkDeleteOpen ||
       !!selectedTransaction
-    if (hasOpenModal || selectedIds.size === 0) {
+    if (hasOpenModal || (!hasActiveFilters && selectedIds.size === 0)) {
       return
     }
 
@@ -584,12 +608,20 @@ function Transactions() {
       if (event.key !== 'Escape') {
         return
       }
-      setSelectedIds(new Set())
+      if (hasActiveFilters) {
+        handleClearFilters()
+        return
+      }
+      if (selectedIds.size > 0) {
+        setSelectedIds(new Set())
+      }
     }
 
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
   }, [
+    handleClearFilters,
+    hasActiveFilters,
     isCreateOpen,
     isTransferOpen,
     isEditOpen,
@@ -834,8 +866,32 @@ function Transactions() {
       if (copyTimeoutRef.current) {
         window.clearTimeout(copyTimeoutRef.current)
       }
+      if (detailCopyTimeoutRef.current) {
+        window.clearTimeout(detailCopyTimeoutRef.current)
+      }
     }
   }, [])
+
+  const handleCopyDetail = async (
+    value: string,
+    field: 'description' | 'amount',
+  ) => {
+    if (!navigator?.clipboard?.writeText) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(value)
+      setDetailCopiedField(field)
+      if (detailCopyTimeoutRef.current) {
+        window.clearTimeout(detailCopyTimeoutRef.current)
+      }
+      detailCopyTimeoutRef.current = window.setTimeout(() => {
+        setDetailCopiedField(null)
+      }, 1500)
+    } catch {
+      // ignore clipboard errors
+    }
+  }
 
   useEffect(() => {
     if (debouncedDescription === descriptionFilter) {
@@ -1154,25 +1210,7 @@ function Transactions() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    isClearingDescription.current = true
-                    setDescriptionDraft('')
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        page: 1,
-                        type: undefined,
-                        accountId: undefined,
-                        categoryId: undefined,
-                        subcategoryId: undefined,
-                        description: undefined,
-                        includeNotes: undefined,
-                        notesOnly: undefined,
-                        startDate: undefined,
-                        endDate: undefined,
-                      }),
-                    })
-                  }}
+                  onClick={handleClearFilters}
                 >
                   Limpar filtros
                 </Button>
@@ -2411,10 +2449,28 @@ function Transactions() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Descrição</span>
-                <span className="font-medium">
-                  {selectedTransaction.description ||
-                    categoryMap.get(selectedTransaction.categoryId) ||
-                    'Sem descrição'}
+                <span className="relative">
+                  <button
+                    type="button"
+                    className="cursor-pointer font-medium hover:underline"
+                    onClick={() =>
+                      handleCopyDetail(
+                        selectedTransaction.description ||
+                          categoryMap.get(selectedTransaction.categoryId) ||
+                          'Sem descrição',
+                        'description',
+                      )
+                    }
+                  >
+                    {selectedTransaction.description ||
+                      categoryMap.get(selectedTransaction.categoryId) ||
+                      'Sem descrição'}
+                  </button>
+                  {detailCopiedField === 'description' && (
+                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                      Copiado!
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -2451,8 +2507,24 @@ function Transactions() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Valor</span>
-                <span className="sensitive font-semibold">
-                  {formatCurrencyValue(selectedTransaction.amount)}
+                <span className="relative">
+                  <button
+                    type="button"
+                    className="sensitive cursor-pointer font-semibold hover:underline"
+                    onClick={() =>
+                      handleCopyDetail(
+                        formatCurrencyValue(selectedTransaction.amount),
+                        'amount',
+                      )
+                    }
+                  >
+                    {formatCurrencyValue(selectedTransaction.amount)}
+                  </button>
+                  {detailCopiedField === 'amount' && (
+                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                      Copiado!
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">

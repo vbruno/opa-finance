@@ -87,7 +87,11 @@ function Dashboard() {
   } | null>(null)
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
+  const [detailCopiedField, setDetailCopiedField] = useState<
+    'description' | 'amount' | null
+  >(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
+  const detailCopyTimeoutRef = useRef<number | null>(null)
   const { startDate, endDate } = getDateRange(
     period,
     customStartDate,
@@ -259,6 +263,35 @@ function Dashboard() {
       detailModalRef.current?.focus()
     }
   }, [selectedTransaction])
+
+  useEffect(() => {
+    return () => {
+      if (detailCopyTimeoutRef.current) {
+        window.clearTimeout(detailCopyTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleCopyDetail = async (
+    value: string,
+    field: 'description' | 'amount',
+  ) => {
+    if (!navigator?.clipboard?.writeText) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(value)
+      setDetailCopiedField(field)
+      if (detailCopyTimeoutRef.current) {
+        window.clearTimeout(detailCopyTimeoutRef.current)
+      }
+      detailCopyTimeoutRef.current = window.setTimeout(() => {
+        setDetailCopiedField(null)
+      }, 1500)
+    } catch {
+      // ignore clipboard errors
+    }
+  }
 
   useEffect(() => {
     if (!selectedTopCategory && !selectedTransaction) {
@@ -1056,8 +1089,24 @@ function Dashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Descrição</span>
-                <span className="font-medium">
-                  {selectedTransaction.description || 'Sem descrição'}
+                <span className="relative">
+                  <button
+                    type="button"
+                    className="cursor-pointer font-medium hover:underline"
+                    onClick={() =>
+                      handleCopyDetail(
+                        selectedTransaction.description || 'Sem descrição',
+                        'description',
+                      )
+                    }
+                  >
+                    {selectedTransaction.description || 'Sem descrição'}
+                  </button>
+                  {detailCopiedField === 'description' && (
+                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                      Copiado!
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -1092,8 +1141,24 @@ function Dashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Valor</span>
-                <span className="sensitive font-semibold">
-                  {formatCurrencyValue(selectedTransaction.amount)}
+                <span className="relative">
+                  <button
+                    type="button"
+                    className="sensitive cursor-pointer font-semibold hover:underline"
+                    onClick={() =>
+                      handleCopyDetail(
+                        formatCurrencyValue(selectedTransaction.amount),
+                        'amount',
+                      )
+                    }
+                  >
+                    {formatCurrencyValue(selectedTransaction.amount)}
+                  </button>
+                  {detailCopiedField === 'amount' && (
+                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                      Copiado!
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
