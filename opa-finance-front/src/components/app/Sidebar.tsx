@@ -12,19 +12,21 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { getUser, logout } from '@/features/auth'
+import { logout } from '@/features/auth'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { Button } from '@/components/ui/button'
 
-const navItems = [
+const appNavItems = [
   { to: '/app/accounts', label: 'Contas', icon: CreditCard },
   { to: '/app/categories', label: 'Categorias', icon: Layers },
   { to: '/app/transactions', label: 'Transações', icon: Receipt },
 ]
 
+const desktopNavItems = [{ to: '/app', label: 'Dashboard', icon: Home }, ...appNavItems]
+
 const mobileNavItems = [
   { to: '/app', label: 'Dashboard', icon: Home },
-  ...navItems,
+  ...appNavItems,
 ]
 
 type SidebarProps = {
@@ -34,10 +36,10 @@ type SidebarProps = {
 
 function SidebarNav({
   onNavigate,
-  items = navItems,
+  items = desktopNavItems,
 }: {
   onNavigate?: () => void
-  items?: typeof navItems
+  items?: typeof appNavItems
 }) {
   const { location } = useRouterState()
 
@@ -69,7 +71,6 @@ function SidebarNav({
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
-  const user = getUser()
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
   const [isSensitiveHidden, setIsSensitiveHidden] = useState(false)
@@ -118,13 +119,67 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      <aside className="hidden w-64 border-r p-4 md:block">
-        <SidebarNav />
+      <aside className="flex w-64 border-r p-4 max-[1023px]:hidden">
+        <div className="flex h-full w-full flex-col">
+          <SidebarNav />
+          <div className="mt-auto border-t pt-4">
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="flex-1"
+                  onClick={toggleTheme}
+                  aria-label={
+                    isDark ? 'Ativar tema claro' : 'Ativar tema escuro'
+                  }
+                >
+                  {isDark ? (
+                    <Sun className="size-4" />
+                  ) : (
+                    <Moon className="size-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="flex-1"
+                  aria-label={
+                    isSensitiveHidden
+                      ? 'Mostrar valores'
+                      : 'Ocultar valores'
+                  }
+                  onClick={handleToggleSensitive}
+                >
+                  {isSensitiveHidden ? (
+                    <Eye className="size-4" />
+                  ) : (
+                    <EyeOff className="size-4" />
+                  )}
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate({ to: '/app/profile' })}
+              >
+                Perfil
+              </Button>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleLogout}
+              >
+                Sair
+              </Button>
+            </div>
+          </div>
+        </div>
       </aside>
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-40 md:hidden"
+          className="fixed inset-0 z-40 min-[1024px]:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Menu de navegação"
