@@ -73,9 +73,9 @@ async function start() {
     return { message: "API funcionando!" };
   });
 
-  await app.listen({ port: Number(env.PORT) });
+  await app.listen({ port: Number(env.PORT), host: env.HOST });
 
-  console.log("🔥 Server rodando na porta", env.PORT);
+  console.log(`🔥 API running on http://${env.HOST}:${env.PORT}`);
 }
 
 start();
