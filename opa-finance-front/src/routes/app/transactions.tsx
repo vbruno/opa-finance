@@ -1,8 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+} from 'lucide-react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEventHandler,
+  type KeyboardEventHandler,
+  type MouseEventHandler,
+} from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -24,6 +36,7 @@ import {
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
@@ -220,6 +233,8 @@ function Transactions() {
     useState(false)
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
   const transferAmountRef = useRef<HTMLInputElement | null>(null)
   const editAmountRef = useRef<HTMLInputElement | null>(null)
@@ -234,6 +249,32 @@ function Transactions() {
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
   const isClearingAmount = useRef(false)
+  const isMobile = useMediaQuery('(max-width: 639px)')
+  const handleMobileDateKeyDown: KeyboardEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    if (isMobile) {
+      event.preventDefault()
+    }
+  }
+  const handleMobileDatePaste: ClipboardEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    if (isMobile) {
+      event.preventDefault()
+    }
+  }
+  const handleMobileDateClick: MouseEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    if (!isMobile) {
+      return
+    }
+    const target = event.currentTarget
+    if (typeof target.showPicker === 'function') {
+      target.showPicker()
+    }
+  }
 
   const search = Route.useSearch()
   const page = search.page ?? 1
@@ -1252,16 +1293,69 @@ function Transactions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold">Transações</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             Acompanhe receitas e despesas registradas nas contas.
           </p>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+          <Button
+            variant={hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'}
+            size="icon"
+            className="h-10 w-10 sm:hidden"
+            aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
+            onClick={() => setIsFiltersOpen((prev) => !prev)}
+          >
+            <SlidersHorizontal className="size-4" />
+          </Button>
+          <div className="relative sm:hidden">
+            <Button
+              variant="default"
+              className="h-10"
+              aria-haspopup="menu"
+              aria-expanded={isCreateMenuOpen}
+              onClick={() => setIsCreateMenuOpen((prev) => !prev)}
+            >
+              Adicionar
+            </Button>
+            {isCreateMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-md border bg-background p-2 shadow-lg">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setIsCreateMenuOpen(false)
+                      setIsCreateOpen(true)
+                    }}
+                  >
+                    Transação
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setIsCreateMenuOpen(false)
+                      setTransferEditContext(null)
+                      setTransferEditError(null)
+                      setIsTransferOpen(true)
+                    }}
+                  >
+                    Transferência
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
           <Button
             variant="outline"
+            className="hidden sm:inline-flex"
             onClick={() => {
               setTransferEditContext(null)
               setTransferEditError(null)
@@ -1270,13 +1364,17 @@ function Transactions() {
           >
             Nova transferência
           </Button>
-          <Button onClick={() => setIsCreateOpen(true)} title="Atalho: N">
+          <Button
+            className="hidden sm:inline-flex"
+            onClick={() => setIsCreateOpen(true)}
+            title="Atalho: N"
+          >
             Nova transação
           </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-3">
+      <div className={`rounded-lg border bg-card p-3 ${isFiltersOpen ? 'block' : 'hidden'} sm:block`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <h3 className="text-sm font-semibold">Filtros</h3>
           <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
@@ -1408,6 +1506,7 @@ function Transactions() {
                 type="date"
                 value={startDateFilter}
                 className="bg-background dark:bg-muted/50"
+                inputMode={isMobile ? 'none' : undefined}
                 onChange={(event) =>
                   navigate({
                     search: (prev) => ({
@@ -1417,6 +1516,9 @@ function Transactions() {
                     }),
                   })
                 }
+                onClick={handleMobileDateClick}
+                onKeyDown={handleMobileDateKeyDown}
+                onPaste={handleMobileDatePaste}
               />
             </div>
             <div className="space-y-2">
@@ -1426,6 +1528,7 @@ function Transactions() {
                 type="date"
                 value={endDateFilter}
                 className="bg-background dark:bg-muted/50"
+                inputMode={isMobile ? 'none' : undefined}
                 onChange={(event) =>
                   navigate({
                     search: (prev) => ({
@@ -1435,6 +1538,9 @@ function Transactions() {
                     }),
                   })
                 }
+                onClick={handleMobileDateClick}
+                onKeyDown={handleMobileDateKeyDown}
+                onPaste={handleMobileDatePaste}
               />
             </div>
             <div className="space-y-2">
@@ -1536,106 +1642,95 @@ function Transactions() {
         )}
       </div>
 
-      {selectedCount >= 2 && (
-        <div className="rounded-lg border bg-card px-4 py-2 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  setBulkDeleteError(null)
-                  setIsBulkDeleteOpen(true)
-                }}
-                disabled={isBulkDeleting}
-              >
-                Excluir
-              </Button>
-              <div className="font-medium">
-                Selecionadas: {selectedCount}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-5 text-right">
-              <div>
-                Média:{' '}
-                <span
-                  className={`sensitive cursor-pointer font-semibold ${amountTone(
-                    selectedAverage,
-                  )}`}
-                  role="button"
-                  tabIndex={0}
-                  title="Clique para copiar"
-                  onClick={() => handleCopyValue(selectedAverage, 'average')}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      handleCopyValue(selectedAverage, 'average')
-                    }
-                  }}
-                >
-                  {formatCurrencyValue(selectedAverage)}
-                </span>
-                {copiedValue === 'average' && (
-                  <span className="ml-2 text-[11px] text-muted-foreground">
-                    Copiado!
-                  </span>
-                )}
-              </div>
-              <div>
-                Soma:{' '}
-                <span
-                  className={`sensitive cursor-pointer font-semibold ${amountTone(
-                    selectedTotal,
-                  )}`}
-                  role="button"
-                  tabIndex={0}
-                  title="Clique para copiar"
-                  onClick={() => handleCopyValue(selectedTotal, 'total')}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      handleCopyValue(selectedTotal, 'total')
-                    }
-                  }}
-                >
-                  {formatCurrencyValue(selectedTotal)}
-                </span>
-                {copiedValue === 'total' && (
-                  <span className="ml-2 text-[11px] text-muted-foreground">
-                    Copiado!
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-3 md:hidden">
-        <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className="h-5 w-5 cursor-pointer"
-              checked={allSelected}
-              onChange={(event) => {
-                if (event.target.checked) {
-                  setSelectedIds(
-                    new Set(transactions.map((transaction) => transaction.id)),
-                  )
-                  return
-                }
-                setSelectedIds(new Set())
-              }}
-              aria-label="Selecionar todas as transações"
-            />
-            <span className="text-muted-foreground">Selecionar página</span>
+        <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-5 w-5 cursor-pointer"
+                checked={allSelected}
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    setSelectedIds(
+                      new Set(transactions.map((transaction) => transaction.id)),
+                    )
+                    return
+                  }
+                  setSelectedIds(new Set())
+                }}
+                aria-label="Selecionar todas as transações"
+              />
+              <span className="text-muted-foreground">
+                {selectedIds.size > 0 ? 'Limpar seleção' : 'Selecionar tudo'}
+              </span>
+            </div>
+            {selectedIds.size > 0 ? (
+              <span className="font-semibold text-muted-foreground">
+                {selectedIds.size}
+              </span>
+            ) : null}
           </div>
-          {selectedIds.size > 0 ? (
-            <span className="font-semibold text-muted-foreground">
-              {selectedIds.size} selecionadas
-            </span>
-          ) : null}
+          {selectedCount >= 2 && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">Média:</span>
+                  <span className="relative">
+                    <span
+                      className={`sensitive cursor-pointer font-semibold ${amountTone(
+                        selectedAverage,
+                      )}`}
+                      role="button"
+                      tabIndex={0}
+                      title="Clique para copiar"
+                      onClick={() => handleCopyValue(selectedAverage, 'average')}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          handleCopyValue(selectedAverage, 'average')
+                        }
+                      }}
+                    >
+                      {formatCurrencyValue(selectedAverage)}
+                    </span>
+                    {copiedValue === 'average' && (
+                      <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                        Copiado!
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">Soma:</span>
+                  <span className="relative">
+                    <span
+                      className={`sensitive cursor-pointer font-semibold ${amountTone(
+                        selectedTotal,
+                      )}`}
+                      role="button"
+                      tabIndex={0}
+                      title="Clique para copiar"
+                      onClick={() => handleCopyValue(selectedTotal, 'total')}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          handleCopyValue(selectedTotal, 'total')
+                        }
+                      }}
+                    >
+                      {formatCurrencyValue(selectedTotal)}
+                    </span>
+                    {copiedValue === 'total' && (
+                      <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                        Copiado!
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {transactionsQuery.isLoading && (
@@ -1770,7 +1865,97 @@ function Transactions() {
             </div>
           )
         })}
+
+        {selectedCount >= 2 && (
+          <Button
+            variant="destructive"
+            className="h-11 w-full"
+            onClick={() => {
+              setBulkDeleteError(null)
+              setIsBulkDeleteOpen(true)
+            }}
+            disabled={isBulkDeleting}
+          >
+            Excluir
+          </Button>
+        )}
       </div>
+
+      {selectedCount >= 2 && (
+        <div className="hidden rounded-lg border bg-card px-4 py-2 text-sm md:block">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setBulkDeleteError(null)
+                  setIsBulkDeleteOpen(true)
+                }}
+                disabled={isBulkDeleting}
+              >
+                Excluir
+              </Button>
+            </div>
+            <div className="flex w-full items-center justify-between gap-4 text-left sm:w-auto sm:justify-end sm:gap-5 sm:text-right">
+              <div>
+                Média:{' '}
+                <span className="relative">
+                  <span
+                    className={`sensitive cursor-pointer font-semibold ${amountTone(
+                      selectedAverage,
+                    )}`}
+                    role="button"
+                    tabIndex={0}
+                    title="Clique para copiar"
+                    onClick={() => handleCopyValue(selectedAverage, 'average')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        handleCopyValue(selectedAverage, 'average')
+                      }
+                    }}
+                  >
+                    {formatCurrencyValue(selectedAverage)}
+                  </span>
+                  {copiedValue === 'average' && (
+                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                      Copiado!
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div>
+                Soma:{' '}
+                <span className="relative">
+                  <span
+                    className={`sensitive cursor-pointer font-semibold ${amountTone(
+                      selectedTotal,
+                    )}`}
+                    role="button"
+                    tabIndex={0}
+                    title="Clique para copiar"
+                    onClick={() => handleCopyValue(selectedTotal, 'total')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        handleCopyValue(selectedTotal, 'total')
+                      }
+                    }}
+                  >
+                    {formatCurrencyValue(selectedTotal)}
+                  </span>
+                  {copiedValue === 'total' && (
+                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                      Copiado!
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!transactionsQuery.isLoading && totalPages > 1 && (
         <div className="mt-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-xs md:hidden">
@@ -1835,354 +2020,354 @@ function Transactions() {
       )}
 
       <div className="hidden md:block">
-      <div className="overflow-x-auto rounded-lg border">
-        <div className="max-h-[520px] overflow-y-auto">
-          <table className="min-w-[900px] w-full text-sm">
-            <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
-              <tr>
-                <th className="w-12 px-4 py-2 text-center">
-                  <input
-                    ref={selectAllRef}
-                    type="checkbox"
-                    className="h-4 w-4 cursor-pointer"
-                    checked={allSelected}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        setSelectedIds(
-                          new Set(
-                            transactions.map((transaction) => transaction.id),
-                          ),
-                        )
-                        return
-                      }
-                      setSelectedIds(new Set())
-                    }}
-                    aria-label="Selecionar todas as transações"
-                  />
-                </th>
-                <th className="px-4 py-2">
-                  <button
-                    className="inline-flex items-center gap-2 text-left"
-                    type="button"
-                    onClick={() => handleSort('date')}
-                  >
-                    Data
-                    <SortIcon
-                      isActive={sortKey === 'date'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-                <th className="px-4 py-2">
-                  <button
-                    className="inline-flex items-center gap-2 text-left"
-                    type="button"
-                    onClick={() => handleSort('description')}
-                  >
-                    Descrição
-                    <SortIcon
-                      isActive={sortKey === 'description'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-                <th className="px-4 py-2">
-                  <button
-                    className="inline-flex items-center gap-2 text-left"
-                    type="button"
-                    onClick={() => handleSort('account')}
-                  >
-                    Conta
-                    <SortIcon
-                      isActive={sortKey === 'account'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-                <th className="px-4 py-2">
-                  <button
-                    className="inline-flex items-center gap-2 text-left"
-                    type="button"
-                    onClick={() => handleSort('category')}
-                  >
-                    Categoria
-                    <SortIcon
-                      isActive={sortKey === 'category'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-                <th className="px-4 py-2">
-                  <button
-                    className="inline-flex items-center gap-2 text-left"
-                    type="button"
-                    onClick={() => handleSort('subcategory')}
-                  >
-                    Subcategoria
-                    <SortIcon
-                      isActive={sortKey === 'subcategory'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-center">
-                  <button
-                    className="inline-flex items-center gap-2 text-center"
-                    type="button"
-                    onClick={() => handleSort('type')}
-                  >
-                    Tipo
-                    <SortIcon
-                      isActive={sortKey === 'type'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-right">
-                  <button
-                    className="inline-flex items-center gap-2 text-right"
-                    type="button"
-                    onClick={() => handleSort('amount')}
-                  >
-                    Valor
-                    <SortIcon
-                      isActive={sortKey === 'amount'}
-                      direction={sortDirection}
-                    />
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactionsQuery.isLoading && (
+        <div className="overflow-x-auto rounded-lg border">
+          <div className="max-h-[520px] overflow-y-auto">
+            <table className="min-w-[900px] w-full text-sm">
+              <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
                 <tr>
-                  <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                    Carregando transações...
-                  </td>
-                </tr>
-              )}
-              {!transactionsQuery.isLoading && isAmountFilterInvalid && (
-                <tr>
-                  <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                    {amountFilterErrorMessage}
-                  </td>
-                </tr>
-              )}
-              {!transactionsQuery.isLoading &&
-                !isAmountFilterInvalid &&
-                transactions.length === 0 && (
-                <tr>
-                  <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                    Nenhuma transação encontrada.
-                  </td>
-                </tr>
-              )}
-              {transactions.map((transaction) => (
-                <tr
-                  key={transaction.id}
-                  className="cursor-pointer border-t hover:bg-muted/30"
-                  onClick={() => {
-                    setDeleteError(null)
-                    setRepeatTransferError(null)
-                    setTransferEditError(null)
-                    setSelectedTransaction(transaction)
-                  }}
-                >
-                  <td
-                    className="cursor-pointer px-4 py-2 text-center"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(transaction.id)) {
-                          next.delete(transaction.id)
-                        } else {
-                          next.add(transaction.id)
+                  <th className="w-12 px-4 py-2 text-center">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      className="h-4 w-4 cursor-pointer"
+                      checked={allSelected}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setSelectedIds(
+                            new Set(
+                              transactions.map((transaction) => transaction.id),
+                            ),
+                          )
+                          return
                         }
-                        return next
-                      })
+                        setSelectedIds(new Set())
+                      }}
+                      aria-label="Selecionar todas as transações"
+                    />
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      className="inline-flex items-center gap-2 text-left"
+                      type="button"
+                      onClick={() => handleSort('date')}
+                    >
+                      Data
+                      <SortIcon
+                        isActive={sortKey === 'date'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      className="inline-flex items-center gap-2 text-left"
+                      type="button"
+                      onClick={() => handleSort('description')}
+                    >
+                      Descrição
+                      <SortIcon
+                        isActive={sortKey === 'description'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      className="inline-flex items-center gap-2 text-left"
+                      type="button"
+                      onClick={() => handleSort('account')}
+                    >
+                      Conta
+                      <SortIcon
+                        isActive={sortKey === 'account'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      className="inline-flex items-center gap-2 text-left"
+                      type="button"
+                      onClick={() => handleSort('category')}
+                    >
+                      Categoria
+                      <SortIcon
+                        isActive={sortKey === 'category'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      className="inline-flex items-center gap-2 text-left"
+                      type="button"
+                      onClick={() => handleSort('subcategory')}
+                    >
+                      Subcategoria
+                      <SortIcon
+                        isActive={sortKey === 'subcategory'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                  <th className="px-4 py-2 text-center">
+                    <button
+                      className="inline-flex items-center gap-2 text-center"
+                      type="button"
+                      onClick={() => handleSort('type')}
+                    >
+                      Tipo
+                      <SortIcon
+                        isActive={sortKey === 'type'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                  <th className="px-4 py-2 text-right">
+                    <button
+                      className="inline-flex items-center gap-2 text-right"
+                      type="button"
+                      onClick={() => handleSort('amount')}
+                    >
+                      Valor
+                      <SortIcon
+                        isActive={sortKey === 'amount'}
+                        direction={sortDirection}
+                      />
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactionsQuery.isLoading && (
+                  <tr>
+                    <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                      Carregando transações...
+                    </td>
+                  </tr>
+                )}
+                {!transactionsQuery.isLoading && isAmountFilterInvalid && (
+                  <tr>
+                    <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                      {amountFilterErrorMessage}
+                    </td>
+                  </tr>
+                )}
+                {!transactionsQuery.isLoading &&
+                  !isAmountFilterInvalid &&
+                  transactions.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                        Nenhuma transação encontrada.
+                      </td>
+                    </tr>
+                  )}
+                {transactions.map((transaction) => (
+                  <tr
+                    key={transaction.id}
+                    className="cursor-pointer border-t hover:bg-muted/30"
+                    onClick={() => {
+                      setDeleteError(null)
+                      setRepeatTransferError(null)
+                      setTransferEditError(null)
+                      setSelectedTransaction(transaction)
                     }}
-                    onMouseDown={(event) => event.stopPropagation()}
                   >
-                    <label
-                      htmlFor={`transaction-select-${transaction.id}`}
-                      className="flex h-full w-full cursor-pointer items-center justify-center rounded-md p-1.5 hover:bg-muted/40"
-                      onClick={(event) => event.stopPropagation()}
+                    <td
+                      className="cursor-pointer px-4 py-2 text-center"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(transaction.id)) {
+                            next.delete(transaction.id)
+                          } else {
+                            next.add(transaction.id)
+                          }
+                          return next
+                        })
+                      }}
                       onMouseDown={(event) => event.stopPropagation()}
                     >
-                      <input
-                        id={`transaction-select-${transaction.id}`}
-                        type="checkbox"
-                        className="h-4 w-4 cursor-pointer"
-                        checked={selectedIds.has(transaction.id)}
+                      <label
+                        htmlFor={`transaction-select-${transaction.id}`}
+                        className="flex h-full w-full cursor-pointer items-center justify-center rounded-md p-1.5 hover:bg-muted/40"
                         onClick={(event) => event.stopPropagation()}
                         onMouseDown={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev)
-                            if (event.target.checked) {
-                              next.add(transaction.id)
-                            } else {
-                              next.delete(transaction.id)
-                            }
-                            return next
-                          })
-                        }}
-                        aria-label="Selecionar transação"
-                      />
-                    </label>
-                  </td>
-                  <td className="px-4 py-2">
-                    {dateFormatter.format(new Date(transaction.date))}
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <span>
-                        {transaction.description ||
-                          transaction.categoryName ||
-                          categoryMap.get(transaction.categoryId) ||
-                          'Sem descrição'}
-                      </span>
-                      {transaction.notes && (
-                        <span
-                          className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
-                          title={transaction.notes}
-                        >
-                          Notas
+                      >
+                        <input
+                          id={`transaction-select-${transaction.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 cursor-pointer"
+                          checked={selectedIds.has(transaction.id)}
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onChange={(event) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev)
+                              if (event.target.checked) {
+                                next.add(transaction.id)
+                              } else {
+                                next.delete(transaction.id)
+                              }
+                              return next
+                            })
+                          }}
+                          aria-label="Selecionar transação"
+                        />
+                      </label>
+                    </td>
+                    <td className="px-4 py-2">
+                      {dateFormatter.format(new Date(transaction.date))}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <span>
+                          {transaction.description ||
+                            transaction.categoryName ||
+                            categoryMap.get(transaction.categoryId) ||
+                            'Sem descrição'}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2">
-                    {transaction.accountName ||
-                      accountMap.get(transaction.accountId) ||
-                      '-'}
-                  </td>
-                  <td className="px-4 py-2">
-                    {transaction.categoryName ||
-                      categoryMap.get(transaction.categoryId) ||
-                      '-'}
-                  </td>
-                  <td className="px-4 py-2">
-                    {transaction.subcategoryId
-                      ? transaction.subcategoryName || '-'
-                      : '-'}
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <span
+                        {transaction.notes && (
+                          <span
+                            className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                            title={transaction.notes}
+                          >
+                            Notas
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2">
+                      {transaction.accountName ||
+                        accountMap.get(transaction.accountId) ||
+                        '-'}
+                    </td>
+                    <td className="px-4 py-2">
+                      {transaction.categoryName ||
+                        categoryMap.get(transaction.categoryId) ||
+                        '-'}
+                    </td>
+                    <td className="px-4 py-2">
+                      {transaction.subcategoryId
+                        ? transaction.subcategoryName || '-'
+                        : '-'}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span
+                        className={
+                          transaction.type === 'income'
+                            ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
+                            : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
+                        }
+                      >
+                        {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                      </span>
+                    </td>
+                    <td
                       className={
                         transaction.type === 'income'
-                          ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
-                          : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
+                          ? 'sensitive px-4 py-2 text-right font-medium text-emerald-600'
+                          : transaction.type === 'expense'
+                            ? 'sensitive px-4 py-2 text-right font-medium text-rose-600'
+                            : 'sensitive px-4 py-2 text-right font-medium text-muted-foreground'
                       }
                     >
-                      {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                      {formatCurrencyValue(transaction.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
+            <span className="text-muted-foreground">
+              Página {page} de {totalPages}
+            </span>
+            <div className="flex items-center gap-3">
+              <select
+                className="h-8 rounded-md border bg-background px-2 text-xs dark:border-muted/80"
+                value={limit}
+                onChange={(event) =>
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      limit: Number(event.target.value),
+                      page: 1,
+                    }),
+                  })
+                }
+                aria-label="Quantidade de linhas"
+              >
+                {[10, 20, 30, 50].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() =>
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        page: Math.max(1, page - 1),
+                      }),
+                    })
+                  }
+                  aria-label="Página anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {paginationItems.map((item, index) =>
+                  item === '...' ? (
+                    <span
+                      key={`pagination-ellipsis-${index}`}
+                      className="px-1 text-muted-foreground"
+                    >
+                      ...
                     </span>
-                  </td>
-                  <td
-                    className={
-                      transaction.type === 'income'
-                        ? 'sensitive px-4 py-2 text-right font-medium text-emerald-600'
-                        : transaction.type === 'expense'
-                          ? 'sensitive px-4 py-2 text-right font-medium text-rose-600'
-                          : 'sensitive px-4 py-2 text-right font-medium text-muted-foreground'
-                    }
-                  >
-                    {formatCurrencyValue(transaction.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
-          <span className="text-muted-foreground">
-            Página {page} de {totalPages}
-          </span>
-          <div className="flex items-center gap-3">
-            <select
-              className="h-8 rounded-md border bg-background px-2 text-xs dark:border-muted/80"
-              value={limit}
-              onChange={(event) =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    limit: Number(event.target.value),
-                    page: 1,
-                  }),
-                })
-              }
-              aria-label="Quantidade de linhas"
-            >
-              {[10, 20, 30, 50].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: Math.max(1, page - 1),
-                    }),
-                  })
-                }
-                aria-label="Página anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {paginationItems.map((item, index) =>
-                item === '...' ? (
-                  <span
-                    key={`pagination-ellipsis-${index}`}
-                    className="px-1 text-muted-foreground"
-                  >
-                    ...
-                  </span>
-                ) : (
-                  <Button
-                    key={`pagination-page-${item}`}
-                    variant={item === page ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() =>
-                      navigate({
-                        search: (prev) => ({
-                          ...prev,
-                          page: item,
-                        }),
-                      })
-                    }
-                  >
-                    {item}
-                  </Button>
-                ),
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === totalPages}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: Math.min(totalPages, page + 1),
-                    }),
-                  })
-                }
-                aria-label="Próxima página"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+                  ) : (
+                    <Button
+                      key={`pagination-page-${item}`}
+                      variant={item === page ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() =>
+                        navigate({
+                          search: (prev) => ({
+                            ...prev,
+                            page: item,
+                          }),
+                        })
+                      }
+                    >
+                      {item}
+                    </Button>
+                  ),
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === totalPages}
+                  onClick={() =>
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        page: Math.min(totalPages, page + 1),
+                      }),
+                    })
+                  }
+                  aria-label="Próxima página"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
 
       {isCreateOpen && (
@@ -2260,8 +2445,12 @@ function Transactions() {
                     className="h-10"
                     aria-invalid={!!errors.date}
                     onFocus={handleDateFocus}
+                    inputMode={isMobile ? 'none' : undefined}
                     tabIndex={6}
                     {...register('date')}
+                    onClick={handleMobileDateClick}
+                    onKeyDown={handleMobileDateKeyDown}
+                    onPaste={handleMobileDatePaste}
                   />
                   {errors.date && (
                     <p className="text-sm text-destructive">
@@ -2698,7 +2887,11 @@ function Transactions() {
                     className="h-10"
                     aria-invalid={!!transferForm.formState.errors.date}
                     onFocus={handleDateFocus}
+                    inputMode={isMobile ? 'none' : undefined}
                     {...transferForm.register('date')}
+                    onClick={handleMobileDateClick}
+                    onKeyDown={handleMobileDateKeyDown}
+                    onPaste={handleMobileDatePaste}
                   />
                   {transferForm.formState.errors.date && (
                     <p className="text-sm text-destructive">
@@ -2818,8 +3011,8 @@ function Transactions() {
                     onClick={() =>
                       handleCopyDetail(
                         selectedTransaction.description ||
-                          categoryMap.get(selectedTransaction.categoryId) ||
-                          'Sem descrição',
+                        categoryMap.get(selectedTransaction.categoryId) ||
+                        'Sem descrição',
                         'description',
                       )
                     }
@@ -3053,8 +3246,12 @@ function Transactions() {
                     className="h-10"
                     aria-invalid={!!editErrors.date}
                     onFocus={handleDateFocus}
+                    inputMode={isMobile ? 'none' : undefined}
                     tabIndex={6}
                     {...editRegister('date')}
+                    onClick={handleMobileDateClick}
+                    onKeyDown={handleMobileDateKeyDown}
+                    onPaste={handleMobileDatePaste}
                   />
                   {editErrors.date && (
                     <p className="text-sm text-destructive">

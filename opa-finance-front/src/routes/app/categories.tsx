@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -65,6 +65,7 @@ function Categories() {
   const [isSubCreateOpen, setIsSubCreateOpen] = useState(false)
   const [isSubEditOpen, setIsSubEditOpen] = useState(false)
   const [isSubDeleteConfirmOpen, setIsSubDeleteConfirmOpen] = useState(false)
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
   const [selectedSubcategory, setSelectedSubcategory] =
     useState<Subcategory | null>(null)
   const [subcategoryParent, setSubcategoryParent] =
@@ -72,6 +73,7 @@ function Categories() {
   const [subDeleteError, setSubDeleteError] = useState<string | null>(null)
   const [hasManualSearchExpandOverride, setHasManualSearchExpandOverride] =
     useState(false)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const subCreateNameRef = useRef<HTMLInputElement | null>(null)
@@ -357,18 +359,82 @@ function Categories() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Categorias</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             Organize suas receitas e despesas por categorias.
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+          <Button
+            variant={hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'}
+            size="icon"
+            className="h-10 w-10 sm:hidden"
+            aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
+            onClick={() => setIsFiltersOpen((prev) => !prev)}
+          >
+            <SlidersHorizontal className="size-4" />
+          </Button>
+          <div className="relative sm:hidden">
+            <Button
+              variant="default"
+              className="h-10"
+              aria-haspopup="menu"
+              aria-expanded={isCreateMenuOpen}
+              onClick={() => setIsCreateMenuOpen((prev) => !prev)}
+            >
+              Criar
+            </Button>
+            {isCreateMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-md border bg-background p-2 shadow-lg">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setIsCreateMenuOpen(false)
+                      form.reset()
+                      setIsCreateOpen(true)
+                    }}
+                  >
+                    Categoria
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    disabled={isMutating || userCategories.length === 0}
+                    onClick={() => {
+                      setIsCreateMenuOpen(false)
+                      if (primaryExpandedCategoryId) {
+                        const parent = categories.find(
+                          (category) => category.id === primaryExpandedCategoryId,
+                        )
+                        if (parent) {
+                          setSubcategoryParent(parent)
+                        }
+                      } else {
+                        setSubcategoryParent(userCategories[0])
+                      }
+                      subCreateForm.reset()
+                      setIsSubCreateOpen(true)
+                    }}
+                  >
+                    Subcategoria
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
           <Button
             variant="outline"
             disabled={isMutating || userCategories.length === 0}
+            className="hidden sm:inline-flex"
             onClick={() => {
               if (primaryExpandedCategoryId) {
                 const parent = categories.find(
@@ -388,6 +454,7 @@ function Categories() {
           </Button>
           <Button
             disabled={isMutating}
+            className="hidden sm:inline-flex"
             onClick={() => {
               form.reset()
               setIsCreateOpen(true)
@@ -398,7 +465,7 @@ function Categories() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
+      <div className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'} sm:block`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -434,55 +501,57 @@ function Categories() {
                 }}
               />
             </div>
-            <div className="w-full sm:w-56">
-              <div className="relative">
-                <select
-                  className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
-                  value={typeFilter}
-                  onChange={(event) =>
+            <div className="flex w-full items-center gap-2 sm:contents">
+              <div className="w-full sm:w-56">
+                <div className="relative">
+                  <select
+                    className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
+                    value={typeFilter}
+                    onChange={(event) =>
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          type: event.target.value || undefined,
+                        }),
+                        replace: false,
+                      })
+                    }
+                  >
+                    <option value="">Todos</option>
+                    <option value="income">Receita</option>
+                    <option value="expense">Despesa</option>
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+                    <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+                      <path
+                        d="M4 6l4 4 4-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+              <div className="flex h-10 items-center sm:w-auto sm:items-end sm:justify-end">
+                <Button
+                  variant='destructive'
+                  size="icon"
+                  disabled={!hasActiveFilters}
+                  aria-label="Limpar filtros"
+                  className="h-10 w-10"
+                  onClick={() => {
                     navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        type: event.target.value || undefined,
-                      }),
+                      search: () => ({}),
                       replace: false,
                     })
-                  }
+                  }}
                 >
-                  <option value="">Todos</option>
-                  <option value="income">Receita</option>
-                  <option value="expense">Despesa</option>
-                </select>
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-                  <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
-                    <path
-                      d="M4 6l4 4 4-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+                  x
+                </Button>
               </div>
-            </div>
-            <div className="flex h-10 w-full items-end justify-end sm:w-auto">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={!hasActiveFilters}
-                aria-label="Limpar filtros"
-                className="h-10 w-10"
-                onClick={() => {
-                  navigate({
-                    search: () => ({}),
-                    replace: false,
-                  })
-                }}
-              >
-                x
-              </Button>
             </div>
           </div>
         </div>
@@ -531,8 +600,8 @@ function Categories() {
                     <svg
                       viewBox="0 0 16 16"
                       className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
-                          ? 'rotate-90'
-                          : ''
+                        ? 'rotate-90'
+                        : ''
                         }`}
                       aria-hidden="true"
                     >
@@ -754,8 +823,8 @@ function Categories() {
                             <svg
                               viewBox="0 0 16 16"
                               className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
-                                  ? 'rotate-90'
-                                  : ''
+                                ? 'rotate-90'
+                                : ''
                                 }`}
                               aria-hidden="true"
                             >

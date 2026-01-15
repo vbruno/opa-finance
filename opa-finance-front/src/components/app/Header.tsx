@@ -63,37 +63,50 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Menu className="size-4" />
           </Button>
         ) : null}
-        <Link to="/app" className="font-bold">
+        <Link to="/app" className="hidden font-bold md:inline-flex">
           Opa Finance
         </Link>
+        <Button
+          type="button"
+          variant="ghost"
+          className="p-0 font-bold text-foreground hover:bg-transparent md:hidden"
+          onClick={onMenuClick}
+        >
+          Opa Finance
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setIsMenuOpen(true)}
-          className="h-8 px-3 text-xs sm:h-9 sm:px-4 sm:text-sm"
-        >
+        <span className="text-sm font-medium text-muted-foreground md:hidden">
           {user?.name ?? 'Conta'}
-        </Button>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label={
-            isSensitiveHidden
-              ? 'Mostrar valores'
-              : 'Ocultar valores'
-          }
-          onClick={handleToggleSensitive}
-          className="h-8 w-8 sm:h-9 sm:w-9"
-        >
-          {isSensitiveHidden ? (
-            <Eye className="size-4" />
-          ) : (
-            <EyeOff className="size-4" />
-          )}
-        </Button>
-        <ThemeToggle />
+        </span>
+        <div className="hidden items-center gap-2 sm:gap-3 md:flex">
+          <Button
+            variant="outline"
+            onClick={() => setIsMenuOpen(true)}
+            className="h-8 px-3 text-xs sm:h-9 sm:px-4 sm:text-sm"
+          >
+            {user?.name ?? 'Conta'}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={
+              isSensitiveHidden
+                ? 'Mostrar valores'
+                : 'Ocultar valores'
+            }
+            onClick={handleToggleSensitive}
+            className="h-8 w-8 sm:h-9 sm:w-9"
+          >
+            {isSensitiveHidden ? (
+              <Eye className="size-4" />
+            ) : (
+              <EyeOff className="size-4" />
+            )}
+          </Button>
+          <ThemeToggle />
+        </div>
       </div>
 
       {isMenuOpen && (

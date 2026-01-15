@@ -6,7 +6,14 @@ import {
   List,
   Wallet,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEventHandler,
+  type KeyboardEventHandler,
+  type MouseEventHandler,
+} from 'react'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -19,6 +26,7 @@ import {
   useTransactionsSummary,
   type Transaction,
 } from '@/features/transactions'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
 
@@ -90,6 +98,7 @@ function Dashboard() {
   const [detailCopiedField, setDetailCopiedField] = useState<
     'description' | 'amount' | null
   >(null)
+  const isMobile = useMediaQuery('(max-width: 639px)')
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const detailCopyTimeoutRef = useRef<number | null>(null)
   const { startDate, endDate } = getDateRange(
@@ -230,6 +239,31 @@ function Dashboard() {
   const showTopIncomeSkeleton =
     accountsQuery.isLoading || (canQueryAccount && topIncomeQuery.isLoading)
   const showAccountsSkeleton = accountsQuery.isLoading
+  const handleMobileDateKeyDown: KeyboardEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    if (isMobile) {
+      event.preventDefault()
+    }
+  }
+  const handleMobileDatePaste: ClipboardEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    if (isMobile) {
+      event.preventDefault()
+    }
+  }
+  const handleMobileDateClick: MouseEventHandler<HTMLInputElement> = (
+    event,
+  ) => {
+    if (!isMobile) {
+      return
+    }
+    const target = event.currentTarget
+    if (typeof target.showPicker === 'function') {
+      target.showPicker()
+    }
+  }
 
   useEffect(() => {
     if (accountParam === undefined && primaryAccount?.id) {
@@ -378,13 +412,13 @@ function Dashboard() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             Visão rápida das suas finanças no período selecionado.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <div className="w-full space-y-1 sm:min-w-[180px] sm:flex-1">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:flex-wrap">
+          <div className="col-span-1 space-y-1 sm:min-w-[180px] sm:flex-1">
             <Label htmlFor="period">Período</Label>
             <select
               id="period"
@@ -401,7 +435,7 @@ function Dashboard() {
             </select>
           </div>
 
-          <div className="w-full space-y-1 sm:min-w-[200px] sm:flex-1">
+          <div className="col-span-1 space-y-1 sm:min-w-[200px] sm:flex-1">
             <Label htmlFor="account">Conta</Label>
             <select
               id="account"
@@ -423,27 +457,35 @@ function Dashboard() {
           </div>
 
           {period === 'custom' && (
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <div className="w-full space-y-1 sm:min-w-[160px] sm:flex-1">
+            <div className="col-span-2 grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:flex-wrap">
+              <div className="col-span-1 space-y-1 sm:min-w-[160px] sm:flex-1">
                 <Label htmlFor="startDate">Início</Label>
                 <Input
                   id="startDate"
                   type="date"
                   value={customStartDate || startDate}
+                  inputMode={isMobile ? 'none' : undefined}
                   onChange={(event) =>
                     handleCustomDateChange('startDate', event.target.value)
                   }
+                  onClick={handleMobileDateClick}
+                  onKeyDown={handleMobileDateKeyDown}
+                  onPaste={handleMobileDatePaste}
                 />
               </div>
-              <div className="w-full space-y-1 sm:min-w-[160px] sm:flex-1">
+              <div className="col-span-1 space-y-1 sm:min-w-[160px] sm:flex-1">
                 <Label htmlFor="endDate">Fim</Label>
                 <Input
                   id="endDate"
                   type="date"
                   value={customEndDate || endDate}
+                  inputMode={isMobile ? 'none' : undefined}
                   onChange={(event) =>
                     handleCustomDateChange('endDate', event.target.value)
                   }
+                  onClick={handleMobileDateClick}
+                  onKeyDown={handleMobileDateKeyDown}
+                  onPaste={handleMobileDatePaste}
                 />
               </div>
             </div>
@@ -451,12 +493,12 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {showSummarySkeleton ? (
           Array.from({ length: 3 }).map((_, index) => (
             <div
               key={`summary-skeleton-${index}`}
-              className="animate-pulse rounded-lg border bg-background p-4"
+              className={`animate-pulse rounded-lg border bg-background p-4 ${index === 2 ? 'col-span-2 sm:col-span-1' : ''}`}
             >
               <div className="h-4 w-20 rounded bg-muted/60" />
               <div className="mt-3 h-7 w-28 rounded bg-muted/60" />
@@ -486,7 +528,7 @@ function Dashboard() {
                 </span>
               </p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="col-span-2 rounded-lg border bg-background p-4 sm:col-span-1">
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4 text-muted-foreground" />
                 Saldo
@@ -573,10 +615,10 @@ function Dashboard() {
                     <button
                       key={transaction.id}
                       type="button"
-                      className="flex w-full cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40"
+                      className="flex w-full cursor-pointer flex-col gap-2 rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
                       onClick={() => setSelectedTransaction(transaction)}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
                         <span className="font-medium">
                           {transaction.description || 'Sem descrição'}
                         </span>
@@ -586,7 +628,7 @@ function Dashboard() {
                             'Sem categoria'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-right">
+                      <div className="flex w-full items-center justify-between gap-3 text-left sm:w-auto sm:justify-end sm:text-right">
                         <span
                           className={
                             transaction.type === 'income'

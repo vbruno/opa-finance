@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
+import { SlidersHorizontal } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -95,6 +96,7 @@ function Accounts() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
@@ -102,6 +104,8 @@ function Accounts() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
     new Set(),
   )
+  const ignoreSearchSyncRef = useRef(false)
+  const ignoreDebouncedSearchRef = useRef(false)
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
@@ -178,7 +182,7 @@ function Accounts() {
     credit_card: 'Cartão de Crédito',
     investment: 'Investimento',
   }
-  const hasActiveFilters = searchTerm.trim() !== '' || typeFilter !== ''
+  const hasActiveFilters = searchDraft.trim() !== '' || typeFilter !== ''
   const normalizedSearch = normalizeSearch(searchTerm)
   const filteredAccounts = accounts.filter((account) => {
     const matchesName = normalizedSearch
@@ -302,6 +306,10 @@ function Accounts() {
   }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedAccount])
 
   useEffect(() => {
+    if (ignoreSearchSyncRef.current) {
+      ignoreSearchSyncRef.current = false
+      return
+    }
     setSearchDraft(searchTerm)
   }, [searchTerm])
 
@@ -353,6 +361,10 @@ function Accounts() {
   ])
 
   useEffect(() => {
+    if (ignoreDebouncedSearchRef.current) {
+      ignoreDebouncedSearchRef.current = false
+      return
+    }
     if (debouncedSearch === searchTerm) {
       return
     }
@@ -443,10 +455,10 @@ function Accounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Contas</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             Gerencie suas contas e acompanhe os saldos atuais.
           </p>
           {isRefreshingAccounts && (
@@ -456,7 +468,16 @@ function Accounts() {
           )}
         </div>
 
-        <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant={hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'}
+            size="icon"
+            className="h-10 w-10 sm:hidden"
+            aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
+            onClick={() => setIsFiltersOpen((prev) => !prev)}
+          >
+            <SlidersHorizontal className="size-4" />
+          </Button>
           <Button
             onClick={() => {
               reset()
@@ -468,7 +489,7 @@ function Accounts() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
+      <div className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'} sm:block`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -494,62 +515,67 @@ function Accounts() {
                 }}
               />
             </div>
-            <div className="w-full sm:w-56">
-              <div className="relative">
-                <select
-                  className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
-                  value={typeFilter}
-                  onChange={(event) =>
+            <div className="flex w-full items-center gap-2 sm:contents">
+              <div className="w-full sm:w-56">
+                <div className="relative">
+                  <select
+                    className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
+                    value={typeFilter}
+                    onChange={(event) =>
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          type: event.target.value || undefined,
+                        }),
+                        replace: false,
+                      })
+                    }
+                  >
+                    <option value="">Todos</option>
+                    <option value="credit_card">Cartão de Crédito</option>
+                    <option value="checking_account">Conta Corrente</option>
+                    <option value="cash">Dinheiro</option>
+                    <option value="investment">Investimento</option>
+                    <option value="savings_account">Poupança</option>
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+                    <svg
+                      viewBox="0 0 16 16"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 6l4 4 4-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+              <div className="flex h-10 items-center sm:w-auto sm:items-end sm:justify-end">
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  disabled={!hasActiveFilters}
+                  aria-label="Limpar filtros"
+                  className="h-10 w-10"
+                  onClick={() => {
+                    ignoreSearchSyncRef.current = true
+                    ignoreDebouncedSearchRef.current = true
+                    setSearchDraft('')
                     navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        type: event.target.value || undefined,
-                      }),
+                      search: () => ({}),
                       replace: false,
                     })
-                  }
+                  }}
                 >
-                  <option value="">Todos</option>
-                  <option value="credit_card">Cartão de Crédito</option>
-                  <option value="checking_account">Conta Corrente</option>
-                  <option value="cash">Dinheiro</option>
-                  <option value="investment">Investimento</option>
-                  <option value="savings_account">Poupança</option>
-                </select>
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-                  <svg
-                    viewBox="0 0 16 16"
-                    className="h-4 w-4"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 6l4 4 4-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+                  x
+                </Button>
               </div>
-            </div>
-            <div className="flex h-10 w-full items-end justify-end sm:w-auto">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={!hasActiveFilters}
-                aria-label="Limpar filtros"
-                className="h-10 w-10"
-                onClick={() => {
-                  navigate({
-                    search: () => ({}),
-                    replace: false,
-                  })
-                }}
-              >
-                x
-              </Button>
             </div>
           </div>
         </div>
@@ -575,11 +601,13 @@ function Accounts() {
               }}
               aria-label="Selecionar todas as contas da página"
             />
-            <span className="text-muted-foreground">Selecionar página</span>
+            <span className="text-muted-foreground">
+              {selectedCount > 0 ? 'Limpar seleção' : 'Selecionar tudo'}
+            </span>
           </div>
           {selectedCount >= 1 ? (
             <span className="font-semibold text-muted-foreground">
-              {selectedCount} selecionadas
+              {selectedCount}
             </span>
           ) : null}
         </div>
@@ -704,8 +732,8 @@ function Accounts() {
                       : totalFilteredBalance) < 0
                       ? 'sensitive font-semibold text-rose-600'
                       : (selectedCount >= 1
-                          ? selectedTotal
-                          : totalFilteredBalance) > 0
+                        ? selectedTotal
+                        : totalFilteredBalance) > 0
                         ? 'sensitive font-semibold text-emerald-600'
                         : 'sensitive font-semibold text-muted-foreground'
                   }
@@ -920,12 +948,12 @@ function Accounts() {
                     accountsQuery.isLoading || accountsQuery.isError
                       ? 'px-4 py-3 text-right font-semibold text-muted-foreground'
                       : (selectedCount >= 1
-                          ? selectedTotal
-                          : totalFilteredBalance) < 0
+                        ? selectedTotal
+                        : totalFilteredBalance) < 0
                         ? 'sensitive px-4 py-3 text-right font-semibold text-rose-600'
                         : (selectedCount >= 1
-                            ? selectedTotal
-                            : totalFilteredBalance) > 0
+                          ? selectedTotal
+                          : totalFilteredBalance) > 0
                           ? 'sensitive px-4 py-3 text-right font-semibold text-emerald-600'
                           : 'sensitive px-4 py-3 text-right font-semibold text-muted-foreground'
                   }
