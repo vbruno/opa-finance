@@ -202,7 +202,10 @@ Crie o arquivo `.env`:
 DATABASE_URL="postgres://user:pass@localhost:5432/finance"
 JWT_SECRET="sua_chave_segura"
 REFRESH_TOKEN_SECRET="outra_chave_segura"
+LOG_LEVEL="info"
 ```
+
+Niveis de log suportados: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`.
 
 ### 4️⃣ Rodar migrations
 ```sh

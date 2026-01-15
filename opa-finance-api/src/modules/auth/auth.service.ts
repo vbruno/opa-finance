@@ -13,6 +13,7 @@ import {
   NotFoundProblem,
   ValidationProblem,
 } from "@/core/errors/problems";
+import { env } from "@/core/config/env";
 
 import type { DB } from "@/core/plugins/drizzle";
 
@@ -80,7 +81,7 @@ export class AuthService {
   }
 
   generateRefreshToken(userId: string) {
-    return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d" });
+    return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d", secret: env.REFRESH_TOKEN_SECRET });
   }
 
   /* -------------------------------------------------------------------------- */

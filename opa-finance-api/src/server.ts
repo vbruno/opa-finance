@@ -18,7 +18,12 @@ config();
 
 async function start() {
   const app = Fastify({
-    logger: false,
+    logger:
+      env.NODE_ENV === "production"
+        ? {
+            level: env.LOG_LEVEL ?? "info",
+          }
+        : false,
   });
 
   // CORS

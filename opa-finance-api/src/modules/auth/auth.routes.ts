@@ -15,6 +15,7 @@ import {
   resetPasswordSchema,
 } from "./password.schemas";
 
+import { env } from "@/core/config/env";
 import { NotFoundProblem, UnauthorizedProblem } from "@/core/errors/problems";
 
 export async function authRoutes(app: FastifyInstance) {
@@ -70,7 +71,10 @@ export async function authRoutes(app: FastifyInstance) {
     let payload: { sub: string };
 
     try {
-      payload = await req.jwtVerify<{ sub: string }>({ onlyCookie: true });
+      payload = await req.jwtVerify<{ sub: string }>({
+        onlyCookie: true,
+        secret: env.REFRESH_TOKEN_SECRET,
+      });
     } catch {
       throw new UnauthorizedProblem("Invalid refresh token", req.url);
     }
@@ -138,10 +142,12 @@ export async function authRoutes(app: FastifyInstance) {
     const { email } = forgotPasswordSchema.parse(req.body);
 
     const result = await service.forgotPassword(email);
+    // TODO: enviar o token por e-mail em producao.
+    const includeToken = env.NODE_ENV !== "production";
 
     return {
       message: "Se o email existir, enviaremos um link de redefinição.",
-      resetToken: result.resetToken,
+      ...(includeToken ? { resetToken: result.resetToken } : {}),
     };
   });
 
