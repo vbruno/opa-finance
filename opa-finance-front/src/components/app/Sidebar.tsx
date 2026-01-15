@@ -119,7 +119,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      <aside className="flex w-64 border-r p-4 max-[1023px]:hidden">
+      <aside className="flex h-full w-64 shrink-0 overflow-y-auto border-r p-4 max-[959px]:hidden">
         <div className="flex h-full w-full flex-col">
           <SidebarNav />
           <div className="mt-auto border-t pt-4">
@@ -179,7 +179,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-40 min-[1024px]:hidden"
+          className="fixed inset-0 z-40 min-[960px]:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Menu de navegação"

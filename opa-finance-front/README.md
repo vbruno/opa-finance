@@ -17,6 +17,14 @@ TypeScript e Tailwind CSS v4.
 - Feature-based architecture: hooks e tipos ficam em `src/features/*`.
 - Rotas (`src/routes/*`) concentram a UI e a orquestracao.
 
+## Responsividade
+
+- Breakpoint principal de desktop: **960px**.
+- Utilitarios customizados em `src/index.css`:
+  - `desktop-only` (exibe apenas >= 960px)
+  - `mobile-only` (exibe apenas < 960px)
+  - `desktop-force-block` (forca bloco no desktop mesmo com `hidden`)
+
 ## Transfers
 
 - Transferencias sao criadas na tela de transacoes (modal dedicado).
@@ -35,7 +43,7 @@ TypeScript e Tailwind CSS v4.
 
 - Tema claro/escuro com tokens em `src/index.css`.
 - `ThemeProvider` aplica classe `dark` no `html` e salva no `localStorage`.
-- Toggle no header e na tela de login.
+- Toggle no sidebar e na tela de login.
 
 ## Documentacao
 

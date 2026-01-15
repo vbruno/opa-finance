@@ -25,13 +25,13 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Menu className="size-4" />
           </Button>
         ) : null}
-        <Link to="/app" className="font-bold max-[1023px]:hidden">
+        <Link to="/app" className="font-bold max-[959px]:hidden">
           Opa Finance
         </Link>
         <Button
           type="button"
           variant="ghost"
-          className="p-0 font-bold text-foreground hover:bg-transparent min-[1024px]:hidden"
+          className="p-0 font-bold text-foreground hover:bg-transparent min-[960px]:hidden"
           onClick={onMenuClick}
         >
           Opa Finance

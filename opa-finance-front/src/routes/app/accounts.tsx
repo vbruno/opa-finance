@@ -458,9 +458,6 @@ function Accounts() {
       <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Contas</h2>
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            Gerencie suas contas e acompanhe os saldos atuais.
-          </p>
           {isRefreshingAccounts && (
             <p className="text-xs text-muted-foreground">
               Atualizando saldos...
@@ -489,7 +486,10 @@ function Accounts() {
         </div>
       </div>
 
-      <div className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'} sm:block`}>
+      <div
+        className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'
+          } desktop-force-block`}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -581,7 +581,7 @@ function Accounts() {
         </div>
       </div>
 
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3 mobile-only">
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
           <div className="flex items-center gap-2">
             <input
@@ -749,7 +749,7 @@ function Accounts() {
           )}
       </div>
 
-      <div className="hidden md:block">
+      <div className="desktop-only">
         <div className="overflow-x-auto rounded-lg border">
           <table className="min-w-[640px] w-full text-left text-sm">
             <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">

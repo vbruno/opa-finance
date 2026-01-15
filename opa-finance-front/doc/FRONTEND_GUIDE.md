@@ -53,7 +53,16 @@ Fornecer uma interface:
 
 - Tokens de cor definidos em `src/index.css` com suporte a `.dark`.
 - `ThemeProvider` aplica a classe `dark` no `html` e sincroniza com `localStorage`.
-- Toggle disponível no header (área privada) e na tela de login.
+- Toggle disponível no sidebar (área privada) e na tela de login.
+
+### Responsividade (Mobile/Desktop)
+
+- Breakpoint principal de desktop: **960px**.
+- Utilitários customizados em `src/index.css`:
+  - `desktop-only` (exibe apenas >= 960px)
+  - `mobile-only` (exibe apenas < 960px)
+  - `desktop-force-block` (força bloco no desktop mesmo com `hidden`)
+- Layout: sidebar fixo no desktop, drawer no mobile; scroll principal fica no conteúdo (`main`).
 
 ### Roteamento & Navegação
 
@@ -67,6 +76,7 @@ Fornecer uma interface:
 ### UI
 
 - shadcn/ui (integrado com Tailwind v4.1)
+- `Select` customizado via Radix em `src/components/ui/select.tsx`.
 
 ### Comunicação & Validação
 
@@ -172,6 +182,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Rotas públicas: `/`, `/login`
 - Rotas protegidas: `/app/*`
 - Menu do usuário no header com acesso ao perfil e logout
+- Menu do usuário fica no sidebar (perfil + logout)
 - Criação de usuário disponível em `/app/register` (rota privada, sem link no sidebar)
 
 ### Próximos ajustes (se necessário)
@@ -190,6 +201,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - No modal de transferência, há um botão para inverter conta de origem/destino.
 - Ao editar uma transferência, o frontend abre o modal de transferência e atualiza os dois lançamentos (origem e destino).
 - No modal de nova/editar transação, o foco inicia em Descrição e a navegação por Tab segue: Descrição → Notas → Valor → Categoria → Subcategoria → Data → Conta.
+- Inputs de data no mobile não permitem digitação manual; clique em qualquer parte do campo abre o datepicker.
 - Na barra de resumo da seleção (2+ itens), existe botão para excluir em massa com confirmação.
 - Exclusão de transações de transferência é tratada no backend (remove origem e destino), sem seleção automática no front.
 - O campo de descrição da nova transação usa `/transactions/descriptions` para sugerir até 5 descrições da conta atual (preenche apenas a descrição), enviando `q` quando há espaço no texto ou após 1s sem digitação, e refinando sem acentos no front.
@@ -222,7 +234,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Cálculo considera valores com sinal (receitas positivas, despesas negativas).
 - Soma e média podem ser clicadas para copiar o valor formatado.
 - Ao copiar, um feedback "Copiado!" aparece temporariamente.
-- Atalho: `N` abre o modal de nova transação (quando não estiver digitando em inputs).
+- Atalho: `N` abre nova transação; `T` abre nova transferência (fora de inputs).
 - No modal de transação, use `Alt + 1..7` para focar rapidamente os campos (conta, categoria, subcategoria, data, valor, descrição, notas).
 - Na tela de transações, pressionar `Esc` com filtros ativos limpa os filtros.
 - Na tela de transações, o filtro "Buscar por valor" usa o input principal e aceita: número exato (`123,45`), comparadores (`>100`, `<= 50`), intervalo com `;` (`100;200`) e expressões aritméticas iniciadas por `=` (`=100+20/2`).
@@ -320,6 +332,8 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - Tela única para categorias e subcategorias com expansão por linha.
 - Categorias de sistema não aparecem na listagem.
 - CRUD de categorias e subcategorias via modais, com validação Zod e mensagens de erro amigáveis.
+- Botão único "Criar" com menu (Categoria/Subcategoria) em todas as larguras.
+- Atalhos: `C` abre criar categoria, `S` abre criar subcategoria (fora de inputs).
 - Busca e filtro por tipo na URL; busca ignora acentos e expande automaticamente categorias com match (com override manual).
 - Subcategorias são carregadas sob demanda por categoria; busca em subcategorias usa debounce (300ms).
 - Busca em contas também usa debounce (300ms) para reduzir chamadas e updates de URL.
@@ -333,6 +347,9 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - Ordenacao server-side via `sort`/`dir` (backend).
 - Busca em descricao opcionalmente inclui notas (checkbox).
 - Modal de detalhes, criacao, edicao e exclusao.
+- Botão "Adicionar" com menu (Transação/Transferência) em todas as larguras.
+- Atalhos: `N` (transação) e `T` (transferência), com indicação no menu.
+- Selects do filtro e modais usam `Select` customizado do shadcn.
 
 ---
 

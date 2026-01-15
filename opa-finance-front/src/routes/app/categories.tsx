@@ -357,14 +357,62 @@ function Categories() {
     isSubDeleteConfirmOpen,
   ])
 
+  function openCategoryCreate() {
+    form.reset()
+    setIsCreateOpen(true)
+  }
+
+  function openSubcategoryCreate() {
+    if (isMutating || userCategories.length === 0) {
+      return
+    }
+    if (primaryExpandedCategoryId) {
+      const parent = categories.find(
+        (category) => category.id === primaryExpandedCategoryId,
+      )
+      if (parent) {
+        setSubcategoryParent(parent)
+      }
+    } else {
+      setSubcategoryParent(userCategories[0])
+    }
+    subCreateForm.reset()
+    setIsSubCreateOpen(true)
+  }
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (event.key === 'c' || event.key === 'C') {
+        event.preventDefault()
+        openCategoryCreate()
+      }
+
+      if (event.key === 's' || event.key === 'S') {
+        event.preventDefault()
+        openSubcategoryCreate()
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [categories, isMutating, primaryExpandedCategoryId, userCategories])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Categorias</h2>
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            Organize suas receitas e despesas por categorias.
-          </p>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
@@ -377,7 +425,7 @@ function Categories() {
           >
             <SlidersHorizontal className="size-4" />
           </Button>
-          <div className="relative sm:hidden">
+          <div className="relative">
             <Button
               variant="default"
               className="h-10"
@@ -397,75 +445,41 @@ function Categories() {
                   <Button
                     variant="ghost"
                     className="w-full justify-start"
+                    title="Atalho: C"
                     onClick={() => {
                       setIsCreateMenuOpen(false)
-                      form.reset()
-                      setIsCreateOpen(true)
+                      openCategoryCreate()
                     }}
                   >
-                    Categoria
+                    <span className="flex flex-1 items-center justify-between">
+                      Categoria
+                    </span>
                   </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start"
                     disabled={isMutating || userCategories.length === 0}
+                    title="Atalho: S"
                     onClick={() => {
                       setIsCreateMenuOpen(false)
-                      if (primaryExpandedCategoryId) {
-                        const parent = categories.find(
-                          (category) => category.id === primaryExpandedCategoryId,
-                        )
-                        if (parent) {
-                          setSubcategoryParent(parent)
-                        }
-                      } else {
-                        setSubcategoryParent(userCategories[0])
-                      }
-                      subCreateForm.reset()
-                      setIsSubCreateOpen(true)
+                      openSubcategoryCreate()
                     }}
                   >
-                    Subcategoria
+                    <span className="flex flex-1 items-center justify-between">
+                      Subcategoria
+                    </span>
                   </Button>
                 </div>
               </>
             )}
           </div>
-          <Button
-            variant="outline"
-            disabled={isMutating || userCategories.length === 0}
-            className="hidden sm:inline-flex"
-            onClick={() => {
-              if (primaryExpandedCategoryId) {
-                const parent = categories.find(
-                  (category) => category.id === primaryExpandedCategoryId,
-                )
-                if (parent) {
-                  setSubcategoryParent(parent)
-                }
-              } else {
-                setSubcategoryParent(userCategories[0])
-              }
-              subCreateForm.reset()
-              setIsSubCreateOpen(true)
-            }}
-          >
-            Nova subcategoria
-          </Button>
-          <Button
-            disabled={isMutating}
-            className="hidden sm:inline-flex"
-            onClick={() => {
-              form.reset()
-              setIsCreateOpen(true)
-            }}
-          >
-            Nova categoria
-          </Button>
         </div>
       </div>
 
-      <div className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'} sm:block`}>
+      <div
+        className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'
+          } desktop-force-block`}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -557,7 +571,7 @@ function Categories() {
         </div>
       </div>
 
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3 mobile-only">
         {categoriesQuery.isLoading && (
           <div className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">
             Carregando categorias...
@@ -766,7 +780,7 @@ function Categories() {
           )}
       </div>
 
-      <div className="hidden md:block">
+      <div className="desktop-only">
         <div className="overflow-x-auto rounded-lg border">
           <table className="min-w-[640px] w-full text-left text-sm">
             <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">

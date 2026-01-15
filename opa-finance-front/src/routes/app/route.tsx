@@ -37,16 +37,16 @@ function AppLayout() {
   }, [isSidebarOpen])
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex h-[100dvh] flex-col">
       <Header onMenuClick={() => setIsSidebarOpen(true)} />
 
-      <div className="flex flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />
 
-        <main className="flex-1 p-4 sm:p-6">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

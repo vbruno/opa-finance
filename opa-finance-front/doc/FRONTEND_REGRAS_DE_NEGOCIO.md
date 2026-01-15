@@ -130,7 +130,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 - Access token persistido via `localStorage`
 - Refresh token via cookie httpOnly (com `withCredentials`)
 - Guard de rotas via TanStack Router (`beforeLoad`)
-- Menu do usuário no header com acesso ao perfil e logout
+- Menu do usuário no sidebar com acesso ao perfil e logout
 
 ### Comportamento esperado
 
@@ -161,7 +161,7 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
 
 ### Layout `/app`
 
-- Header fixo
+- Header no topo do layout
 - Sidebar persistente
 - Conteúdo renderizado via `<Outlet />`
 

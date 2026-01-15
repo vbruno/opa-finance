@@ -126,3 +126,27 @@
   filter: blur(6px);
   user-select: none;
 }
+
+@layer utilities {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block !important;
+  }
+
+  @media (min-width: 960px) {
+    .desktop-only {
+      display: block !important;
+    }
+
+    .mobile-only {
+      display: none !important;
+    }
+
+    .desktop-force-block {
+      display: block !important;
+    }
+  }
+}

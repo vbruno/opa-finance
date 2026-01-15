@@ -907,14 +907,19 @@ function Transactions() {
     selectedTransaction,
   ])
 
+  const openTransactionCreate = () => {
+    setIsCreateOpen(true)
+  }
+
+  const openTransferCreate = () => {
+    setTransferEditContext(null)
+    setTransferEditError(null)
+    setIsTransferOpen(true)
+  }
+
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey) {
-        return
-      }
-      const key = event.key?.toLowerCase()
-      const keyCode = (event as KeyboardEvent & { keyCode?: number }).keyCode
-      if (key !== 'n' && event.code !== 'KeyN' && keyCode !== 78) {
         return
       }
       const target = event.target as HTMLElement | null
@@ -927,15 +932,25 @@ function Transactions() {
       ) {
         return
       }
-      event.preventDefault()
-      setIsCreateOpen(true)
+      const key = event.key?.toLowerCase()
+      const keyCode = (event as KeyboardEvent & { keyCode?: number }).keyCode
+
+      if (key === 'n' || event.code === 'KeyN' || keyCode === 78) {
+        event.preventDefault()
+        openTransactionCreate()
+      }
+
+      if (key === 't' || event.code === 'KeyT' || keyCode === 84) {
+        event.preventDefault()
+        openTransferCreate()
+      }
     }
 
     window.addEventListener('keydown', handleShortcut, true)
     return () => {
       window.removeEventListener('keydown', handleShortcut, true)
     }
-  }, [])
+  }, [openTransactionCreate, openTransferCreate])
 
   useEffect(() => {
     setDescriptionDraft(descriptionFilter)
@@ -1302,10 +1317,7 @@ function Transactions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold">Transações</h2>
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            Acompanhe receitas e despesas registradas nas contas.
-          </p>
+          <h2 className="text-2xl font-bold">Transações</h2>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
           <Button
@@ -1317,7 +1329,7 @@ function Transactions() {
           >
             <SlidersHorizontal className="size-4" />
           </Button>
-          <div className="relative sm:hidden">
+          <div className="relative">
             <Button
               variant="default"
               className="h-10"
@@ -1337,51 +1349,43 @@ function Transactions() {
                   <Button
                     variant="ghost"
                     className="w-full justify-start"
+                    title="Atalho: N"
                     onClick={() => {
                       setIsCreateMenuOpen(false)
-                      setIsCreateOpen(true)
+                      openTransactionCreate()
                     }}
                   >
-                    Transação
+                    <span className="flex flex-1 items-center justify-between">
+                      Transação
+                      <span className="text-xs text-muted-foreground">N</span>
+                    </span>
                   </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start"
+                    title="Atalho: T"
                     onClick={() => {
                       setIsCreateMenuOpen(false)
-                      setTransferEditContext(null)
-                      setTransferEditError(null)
-                      setIsTransferOpen(true)
+                      openTransferCreate()
                     }}
                   >
-                    Transferência
+                    <span className="flex flex-1 items-center justify-between">
+                      Transferência
+                      <span className="text-xs text-muted-foreground">T</span>
+                    </span>
                   </Button>
                 </div>
               </>
             )}
           </div>
-          <Button
-            variant="outline"
-            className="hidden sm:inline-flex"
-            onClick={() => {
-              setTransferEditContext(null)
-              setTransferEditError(null)
-              setIsTransferOpen(true)
-            }}
-          >
-            Nova transferência
-          </Button>
-          <Button
-            className="hidden sm:inline-flex"
-            onClick={() => setIsCreateOpen(true)}
-            title="Atalho: N"
-          >
-            Nova transação
-          </Button>
         </div>
       </div>
 
-      <div className={`rounded-lg border bg-card p-3 ${isFiltersOpen ? 'block' : 'hidden'} sm:block`}>
+      <div
+        className={`rounded-lg border bg-card p-3 ${
+          isFiltersOpen ? 'block' : 'hidden'
+        } desktop-force-block`}
+      >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <h3 className="text-sm font-semibold">Filtros</h3>
           <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
@@ -1673,7 +1677,7 @@ function Transactions() {
         )}
       </div>
 
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3 mobile-only">
         <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -1912,7 +1916,7 @@ function Transactions() {
       </div>
 
       {selectedCount >= 2 && (
-        <div className="hidden rounded-lg border bg-card px-4 py-2 text-sm md:block">
+        <div className="desktop-only rounded-lg border bg-card px-4 py-2 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <Button
@@ -1926,6 +1930,9 @@ function Transactions() {
               >
                 Excluir
               </Button>
+              <span className="text-muted-foreground">
+                {selectedCount} selecionadas
+              </span>
             </div>
             <div className="flex w-full items-center justify-between gap-4 text-left sm:w-auto sm:justify-end sm:gap-5 sm:text-right">
               <div>
@@ -1988,7 +1995,7 @@ function Transactions() {
       )}
 
       {!transactionsQuery.isLoading && totalPages > 1 && (
-        <div className="mt-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-xs md:hidden">
+        <div className="mt-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-xs mobile-only">
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground">
               Página {page} de {totalPages}
@@ -2055,7 +2062,7 @@ function Transactions() {
         </div>
       )}
 
-      <div className="hidden md:block">
+      <div className="desktop-only">
         <div className="overflow-x-auto rounded-lg border">
           <div className="max-h-[520px] overflow-y-auto">
             <table className="min-w-[900px] w-full text-sm">

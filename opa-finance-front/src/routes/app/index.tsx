@@ -409,12 +409,9 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            Visão rápida das suas finanças no período selecionado.
-          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:flex-wrap">
