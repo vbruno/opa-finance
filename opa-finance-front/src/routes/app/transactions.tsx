@@ -3252,10 +3252,12 @@ function Transactions() {
                     className="w-full sm:w-auto"
                     autoFocus
                     disabled={
-                      selectedTransaction.transferId && isEditTransferLoading
+                      Boolean(selectedTransaction.transferId) &&
+                      isEditTransferLoading
                     }
                     aria-busy={
-                      selectedTransaction.transferId && isEditTransferLoading
+                      Boolean(selectedTransaction.transferId) &&
+                      isEditTransferLoading
                     }
                     onClick={() => {
                       if (selectedTransaction.transferId) {
