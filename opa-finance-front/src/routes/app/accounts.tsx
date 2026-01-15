@@ -1052,7 +1052,7 @@ function Accounts() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar nova conta</h3>
@@ -1170,7 +1170,7 @@ function Accounts() {
             }
           />
           <div
-            className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6"
+            className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
             ref={detailModalRef}
             tabIndex={-1}
           >
@@ -1250,7 +1250,7 @@ function Accounts() {
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6"
+            className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
             ref={deleteModalRef}
             tabIndex={-1}
           >
@@ -1332,7 +1332,7 @@ function Accounts() {
               })
             }}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">Editar conta</h3>
               <p className="text-sm text-muted-foreground">

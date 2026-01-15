@@ -21,6 +21,13 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
@@ -1545,98 +1552,122 @@ function Transactions() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-type">Tipo</Label>
-              <select
-                id="filter-type"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
-                value={typeFilter}
-                onChange={(event) =>
+              <Select
+                value={typeFilter ?? 'all'}
+                onValueChange={(value) =>
                   navigate({
                     search: (prev) => ({
                       ...prev,
-                      type: event.target.value || undefined,
+                      type: value === 'all' ? undefined : value,
                       page: 1,
                     }),
                   })
                 }
               >
-                <option value="">Todos</option>
-                <option value="income">Receita</option>
-                <option value="expense">Despesa</option>
-              </select>
+                <SelectTrigger
+                  id="filter-type"
+                  className="h-10 bg-background dark:bg-muted/50"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="income">Receita</SelectItem>
+                  <SelectItem value="expense">Despesa</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-account">Conta</Label>
-              <select
-                id="filter-account"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
-                value={accountFilter}
-                onChange={(event) =>
+              <Select
+                value={accountFilter ?? 'all'}
+                onValueChange={(value) =>
                   navigate({
                     search: (prev) => ({
                       ...prev,
-                      accountId: event.target.value || undefined,
+                      accountId: value === 'all' ? undefined : value,
                       page: 1,
                     }),
                   })
                 }
               >
-                <option value="">Todas</option>
-                {(accountsQuery.data ?? []).map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="filter-account"
+                  className="h-10 bg-background dark:bg-muted/50"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {(accountsQuery.data ?? []).map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-category">Categoria</Label>
-              <select
-                id="filter-category"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
-                value={categoryFilter}
-                onChange={(event) =>
+              <Select
+                value={categoryFilter ?? 'all'}
+                onValueChange={(value) =>
                   navigate({
                     search: (prev) => ({
                       ...prev,
-                      categoryId: event.target.value || undefined,
+                      categoryId: value === 'all' ? undefined : value,
                       subcategoryId: undefined,
                       page: 1,
                     }),
                   })
                 }
               >
-                <option value="">Todas</option>
-                {availableCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="filter-category"
+                  className="h-10 bg-background dark:bg-muted/50"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {availableCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-subcategory">Subcategoria</Label>
-              <select
-                id="filter-subcategory"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm dark:bg-muted/50"
-                value={subcategoryFilter}
-                onChange={(event) =>
+              <Select
+                value={subcategoryFilter ?? 'all'}
+                onValueChange={(value) =>
                   navigate({
                     search: (prev) => ({
                       ...prev,
-                      subcategoryId: event.target.value || undefined,
+                      subcategoryId: value === 'all' ? undefined : value,
                       page: 1,
                     }),
                   })
                 }
                 disabled={!categoryFilter}
               >
-                <option value="">Todas</option>
-                {(filterSubcategoriesQuery.data ?? []).map((subcategory) => (
-                  <option key={subcategory.id} value={subcategory.id}>
-                    {subcategory.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="filter-subcategory"
+                  className="h-10 bg-background dark:bg-muted/50"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {(filterSubcategoriesQuery.data ?? []).map((subcategory) => (
+                    <SelectItem key={subcategory.id} value={subcategory.id}>
+                      {subcategory.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}
@@ -1774,11 +1805,8 @@ function Transactions() {
               }}
             >
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Data</p>
-                  <p className="text-sm font-semibold">
-                    {dateFormatter.format(new Date(transaction.date))}
-                  </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">{description}</span>
                 </div>
                 <input
                   id={`transaction-select-mobile-${transaction.id}`}
@@ -1800,23 +1828,13 @@ function Transactions() {
                   aria-label="Selecionar transação"
                 />
               </div>
-              <div className="mt-2">
-                <p className="text-xs uppercase text-muted-foreground">
-                  Descrição
-                </p>
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span>{description}</span>
-                  {transaction.notes && (
-                    <span
-                      className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
-                      title={transaction.notes}
-                    >
-                      Notas
-                    </span>
-                  )}
-                </div>
-              </div>
               <div className="mt-2 grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase text-muted-foreground">
+                    Data
+                  </span>
+                  <span>{dateFormatter.format(new Date(transaction.date))}</span>
+                </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs uppercase text-muted-foreground">
                     Conta
@@ -1849,18 +1867,30 @@ function Transactions() {
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <span
-                  className={
-                    transaction.type === 'income'
-                      ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
-                      : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
-                  }
-                >
-                  {transaction.type === 'income' ? 'Receita' : 'Despesa'}
-                </span>
-                <span className={`sensitive text-sm font-semibold ${amountClass}`}>
-                  {formatCurrencyValue(transaction.amount)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      transaction.type === 'income'
+                        ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
+                        : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
+                    }
+                  >
+                    {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                  </span>
+                  {transaction.notes && (
+                    <span
+                      className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                      title={transaction.notes}
+                    >
+                      Notas
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`sensitive text-base font-semibold ${amountClass}`}>
+                    {formatCurrencyValue(transaction.amount)}
+                  </span>
+                </div>
               </div>
             </div>
           )
@@ -1963,26 +1993,32 @@ function Transactions() {
             <span className="text-muted-foreground">
               Página {page} de {totalPages}
             </span>
-            <select
-              className="h-9 rounded-md border bg-background px-2 text-xs dark:border-muted/80"
-              value={limit}
-              onChange={(event) =>
+            <Select
+              value={String(limit)}
+              onValueChange={(value) =>
                 navigate({
                   search: (prev) => ({
                     ...prev,
-                    limit: Number(event.target.value),
+                    limit: Number(value),
                     page: 1,
                   }),
                 })
               }
-              aria-label="Quantidade de linhas"
             >
-              {[10, 20, 30, 50].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                className="h-9 w-[84px] bg-background px-2 text-xs dark:border-muted/80"
+                aria-label="Quantidade de linhas"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 30, 50].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2">
             <Button
@@ -2285,26 +2321,32 @@ function Transactions() {
               Página {page} de {totalPages}
             </span>
             <div className="flex items-center gap-3">
-              <select
-                className="h-8 rounded-md border bg-background px-2 text-xs dark:border-muted/80"
-                value={limit}
-                onChange={(event) =>
+              <Select
+                value={String(limit)}
+                onValueChange={(value) =>
                   navigate({
                     search: (prev) => ({
                       ...prev,
-                      limit: Number(event.target.value),
+                      limit: Number(value),
                       page: 1,
                     }),
                   })
                 }
-                aria-label="Quantidade de linhas"
               >
-                {[10, 20, 30, 50].map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  className="h-8 w-[72px] bg-background px-2 text-xs dark:border-muted/80"
+                  aria-label="Quantidade de linhas"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 20, 30, 50].map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
@@ -2376,7 +2418,7 @@ function Transactions() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">Nova transação</h3>
               <p className="text-sm text-muted-foreground">
@@ -2385,7 +2427,7 @@ function Transactions() {
             </div>
 
             <form
-              className="mt-6 space-y-4"
+              className="mt-6 space-y-4 pb-10 sm:pb-0"
               onSubmit={handleSubmit(async (formData) => {
                 try {
                   const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
@@ -2416,20 +2458,32 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transaction-account">Conta</Label>
-                  <select
-                    id="transaction-account"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!errors.accountId}
-                    tabIndex={7}
-                    {...register('accountId')}
-                  >
-                    <option value="">Selecione</option>
-                    {(accountsQuery.data ?? []).map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={control}
+                    name="accountId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="transaction-account"
+                          className="h-10"
+                          aria-invalid={!!errors.accountId}
+                          tabIndex={7}
+                        >
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(accountsQuery.data ?? []).map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {errors.accountId && (
                     <p className="text-sm text-destructive">
                       {errors.accountId.message}
@@ -2463,20 +2517,32 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transaction-category">Categoria</Label>
-                  <select
-                    id="transaction-category"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!errors.categoryId}
-                    tabIndex={4}
-                    {...register('categoryId')}
-                  >
-                    <option value="">Selecione</option>
-                    {availableCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={control}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="transaction-category"
+                          className="h-10"
+                          aria-invalid={!!errors.categoryId}
+                          tabIndex={4}
+                        >
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCategories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {errors.categoryId && (
                     <p className="text-sm text-destructive">
                       {errors.categoryId.message}
@@ -2486,23 +2552,41 @@ function Transactions() {
 
                 <div className="space-y-2">
                   <Label htmlFor="transaction-subcategory">Subcategoria</Label>
-                  <select
-                    id="transaction-subcategory"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!errors.subcategoryId}
-                    {...register('subcategoryId')}
-                    disabled={!createCategoryId}
-                    tabIndex={5}
-                  >
-                    <option value="">Sem subcategoria</option>
-                    {(createSubcategoriesQuery.data ?? []).map(
-                      (subcategory) => (
-                        <option key={subcategory.id} value={subcategory.id}>
-                          {subcategory.name}
-                        </option>
-                      ),
+                  <Controller
+                    control={control}
+                    name="subcategoryId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ? field.value : 'none'}
+                        onValueChange={(value) =>
+                          field.onChange(value === 'none' ? '' : value)
+                        }
+                        disabled={!createCategoryId}
+                      >
+                        <SelectTrigger
+                          id="transaction-subcategory"
+                          className="h-10"
+                          aria-invalid={!!errors.subcategoryId}
+                          tabIndex={5}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem subcategoria</SelectItem>
+                          {(createSubcategoriesQuery.data ?? []).map(
+                            (subcategory) => (
+                              <SelectItem
+                                key={subcategory.id}
+                                value={subcategory.id}
+                              >
+                                {subcategory.name}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
                     )}
-                  </select>
+                  />
                   {errors.subcategoryId && (
                     <p className="text-sm text-destructive">
                       {errors.subcategoryId.message}
@@ -2751,7 +2835,7 @@ function Transactions() {
             className="fixed inset-0"
             onClick={handleCloseTransferModal}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">
                 {transferEditContext
@@ -2817,21 +2901,33 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
                 <div className="space-y-2">
                   <Label htmlFor="transfer-from-account">Conta de origem</Label>
-                  <select
-                    id="transfer-from-account"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={
-                      !!transferForm.formState.errors.fromAccountId
-                    }
-                    {...transferForm.register('fromAccountId')}
-                  >
-                    <option value="">Selecione</option>
-                    {(accountsQuery.data ?? []).map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={transferForm.control}
+                    name="fromAccountId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="transfer-from-account"
+                          className="h-10"
+                          aria-invalid={
+                            !!transferForm.formState.errors.fromAccountId
+                          }
+                        >
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(accountsQuery.data ?? []).map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {transferForm.formState.errors.fromAccountId && (
                     <p className="text-sm text-destructive">
                       {transferForm.formState.errors.fromAccountId.message}
@@ -2855,21 +2951,33 @@ function Transactions() {
 
                 <div className="space-y-2">
                   <Label htmlFor="transfer-to-account">Conta de destino</Label>
-                  <select
-                    id="transfer-to-account"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={
-                      !!transferForm.formState.errors.toAccountId
-                    }
-                    {...transferForm.register('toAccountId')}
-                  >
-                    <option value="">Selecione</option>
-                    {(accountsQuery.data ?? []).map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={transferForm.control}
+                    name="toAccountId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="transfer-to-account"
+                          className="h-10"
+                          aria-invalid={
+                            !!transferForm.formState.errors.toAccountId
+                          }
+                        >
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(accountsQuery.data ?? []).map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {transferForm.formState.errors.toAccountId && (
                     <p className="text-sm text-destructive">
                       {transferForm.formState.errors.toAccountId.message}
@@ -2982,7 +3090,7 @@ function Transactions() {
             onClick={() => setSelectedTransaction(null)}
           />
           <div
-            className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6"
+            className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
             ref={detailModalRef}
             tabIndex={-1}
           >
@@ -3174,7 +3282,7 @@ function Transactions() {
             className="fixed inset-0"
             onClick={() => setIsEditOpen(false)}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">Editar transação</h3>
               <p className="text-sm text-muted-foreground">
@@ -3217,20 +3325,32 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transaction-edit-account">Conta</Label>
-                  <select
-                    id="transaction-edit-account"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!editErrors.accountId}
-                    tabIndex={7}
-                    {...editRegister('accountId')}
-                  >
-                    <option value="">Selecione</option>
-                    {(accountsQuery.data ?? []).map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={editControl}
+                    name="accountId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="transaction-edit-account"
+                          className="h-10"
+                          aria-invalid={!!editErrors.accountId}
+                          tabIndex={7}
+                        >
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(accountsQuery.data ?? []).map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {editErrors.accountId && (
                     <p className="text-sm text-destructive">
                       {editErrors.accountId.message}
@@ -3264,20 +3384,32 @@ function Transactions() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transaction-edit-category">Categoria</Label>
-                  <select
-                    id="transaction-edit-category"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!editErrors.categoryId}
-                    tabIndex={4}
-                    {...editRegister('categoryId')}
-                  >
-                    <option value="">Selecione</option>
-                    {availableCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={editControl}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="transaction-edit-category"
+                          className="h-10"
+                          aria-invalid={!!editErrors.categoryId}
+                          tabIndex={4}
+                        >
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCategories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {editErrors.categoryId && (
                     <p className="text-sm text-destructive">
                       {editErrors.categoryId.message}
@@ -3289,21 +3421,41 @@ function Transactions() {
                   <Label htmlFor="transaction-edit-subcategory">
                     Subcategoria
                   </Label>
-                  <select
-                    id="transaction-edit-subcategory"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    aria-invalid={!!editErrors.subcategoryId}
-                    {...editRegister('subcategoryId')}
-                    disabled={!editCategoryId}
-                    tabIndex={5}
-                  >
-                    <option value="">Sem subcategoria</option>
-                    {(editSubcategoriesQuery.data ?? []).map((subcategory) => (
-                      <option key={subcategory.id} value={subcategory.id}>
-                        {subcategory.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={editControl}
+                    name="subcategoryId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ? field.value : 'none'}
+                        onValueChange={(value) =>
+                          field.onChange(value === 'none' ? '' : value)
+                        }
+                        disabled={!editCategoryId}
+                      >
+                        <SelectTrigger
+                          id="transaction-edit-subcategory"
+                          className="h-10"
+                          aria-invalid={!!editErrors.subcategoryId}
+                          tabIndex={5}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem subcategoria</SelectItem>
+                          {(editSubcategoriesQuery.data ?? []).map(
+                            (subcategory) => (
+                              <SelectItem
+                                key={subcategory.id}
+                                value={subcategory.id}
+                              >
+                                {subcategory.name}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {editErrors.subcategoryId && (
                     <p className="text-sm text-destructive">
                       {editErrors.subcategoryId.message}
@@ -3441,7 +3593,7 @@ function Transactions() {
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6"
+            className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
             ref={deleteModalRef}
             tabIndex={-1}
           >
@@ -3501,7 +3653,7 @@ function Transactions() {
             onClick={() => setIsBulkDeleteOpen(false)}
           />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6"
+            className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
             ref={bulkDeleteModalRef}
             tabIndex={-1}
           >

@@ -1013,7 +1013,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar categoria</h3>
@@ -1110,7 +1110,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsEditOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Editar categoria</h3>
@@ -1189,7 +1189,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Excluir categoria</h3>
               <p className="text-sm text-muted-foreground">
@@ -1248,7 +1248,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar subcategoria</h3>
@@ -1352,7 +1352,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubEditOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Editar subcategoria</h3>
@@ -1432,7 +1432,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubDeleteConfirmOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Excluir subcategoria</h3>
               <p className="text-sm text-muted-foreground">
