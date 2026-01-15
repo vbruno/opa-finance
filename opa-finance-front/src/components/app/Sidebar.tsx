@@ -12,9 +12,9 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { logout } from '@/features/auth'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { Button } from '@/components/ui/button'
+import { logout } from '@/features/auth'
 
 const appNavItems = [
   { to: '/app/accounts', label: 'Contas', icon: CreditCard },

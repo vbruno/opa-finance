@@ -1,8 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 
-import { getUser } from '@/features/auth'
 import { Button } from '@/components/ui/button'
+import { getUser } from '@/features/auth'
 
 type HeaderProps = {
   onMenuClick?: () => void
