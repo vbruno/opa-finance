@@ -7,13 +7,13 @@ import { users } from "../../db/schema";
 import type { RegisterInput, LoginInput } from "./auth.schemas";
 import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
 
+import { env } from "@/core/config/env";
 import {
   ConflictProblem,
   UnauthorizedProblem,
   NotFoundProblem,
   ValidationProblem,
 } from "@/core/errors/problems";
-import { env } from "@/core/config/env";
 
 import type { DB } from "@/core/plugins/drizzle";
 
@@ -81,7 +81,10 @@ export class AuthService {
   }
 
   generateRefreshToken(userId: string) {
-    return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d", secret: env.REFRESH_TOKEN_SECRET });
+    return this.app.jwt.sign(
+      { sub: userId },
+      { expiresIn: "7d", secret: env.REFRESH_TOKEN_SECRET },
+    );
   }
 
   /* -------------------------------------------------------------------------- */

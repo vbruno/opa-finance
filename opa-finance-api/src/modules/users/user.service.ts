@@ -1,5 +1,5 @@
 // src/modules/users/user.service.ts
-import { eq, ilike, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import type {

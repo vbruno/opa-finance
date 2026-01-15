@@ -1,8 +1,8 @@
 // test/transactions/delete-transaction.test.ts
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 
-import { eq } from "drizzle-orm";
 import { registerAndLogin } from "../helpers/auth";
 import { buildTestApp } from "../setup";
 

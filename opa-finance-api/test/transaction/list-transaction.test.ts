@@ -1,7 +1,7 @@
 // test/transaction/list-transaction.test.ts
+import { sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { sql } from "drizzle-orm";
 
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";

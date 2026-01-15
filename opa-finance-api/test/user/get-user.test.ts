@@ -141,7 +141,6 @@ describe.sequential("GET /users/:id", () => {
       },
     });
 
-    const [userA] = await db.select().from(users).where(eq(users.email, "a@example.com"));
     const [userB] = await db.select().from(users).where(eq(users.email, "b@example.com"));
 
     const login = await app.inject({

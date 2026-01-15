@@ -1,4 +1,5 @@
 // test/transactions/update-transaction.test.ts
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 
@@ -6,7 +7,6 @@ import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
 import type { DB } from "@/core/plugins/drizzle";
-import { eq } from "drizzle-orm";
 import { accounts, categories, transactions } from "@/db/schema";
 
 let app: FastifyInstance;

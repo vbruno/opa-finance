@@ -117,8 +117,7 @@ describe("GET /transactions/top-categories", () => {
   }
 
   it("deve retornar top 5 por categoria com percentual", async () => {
-    const { token, account, account2, catA, catB, subA1, subA2, subB1 } =
-      await seedBasicData();
+    const { token, account, account2, catA, catB, subA1, subA2, subB1 } = await seedBasicData();
 
     await createExpense(token, account.id, catA.id, 100, "2025-01-01", subA1.id);
     await createExpense(token, account.id, catA.id, 50, "2025-01-02", subA2.id);

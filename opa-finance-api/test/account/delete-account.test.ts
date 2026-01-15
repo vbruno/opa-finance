@@ -148,7 +148,7 @@ describe.sequential("DELETE /accounts/:id", () => {
       payload: { name: "Conta A", type: "cash" },
     });
 
-    const second = await app.inject({
+    await app.inject({
       method: "POST",
       url: "/accounts",
       headers: { Authorization: `Bearer ${token}` },

@@ -67,7 +67,8 @@ export class AccountService {
         return created;
       });
 
-      const { initialBalance: _initialBalance, ...rest } = account;
+      const { initialBalance, ...rest } = account;
+      void initialBalance;
       return {
         ...rest,
         currentBalance: 0,
@@ -97,7 +98,8 @@ export class AccountService {
       .groupBy(...this.accountGroupByColumns());
 
     return rows.map((row) => {
-      const { initialBalance: _initialBalance, ...rest } = row.account;
+      const { initialBalance, ...rest } = row.account;
+      void initialBalance;
       return {
         ...rest,
         currentBalance: Number(row.currentBalance),
@@ -131,7 +133,8 @@ export class AccountService {
       throw new ForbiddenProblem("Você não tem acesso a esta conta.", `/accounts/${id}`);
     }
 
-    const { initialBalance: _initialBalance, ...rest } = row.account;
+    const { initialBalance, ...rest } = row.account;
+    void initialBalance;
     return {
       ...rest,
       currentBalance: Number(row.currentBalance),
@@ -145,7 +148,7 @@ export class AccountService {
     const current = await this.getOne(id, userId); // já valida 404 e 403
 
     try {
-      const updated = await this.app.db.transaction(async (tx) => {
+      await this.app.db.transaction(async (tx) => {
         if (data.isPrimary === false && current.isPrimary === true) {
           throw new ConflictProblem(
             "A conta principal não pode ser desmarcada sem definir outra conta principal.",
@@ -175,7 +178,7 @@ export class AccountService {
     await this.getOne(id, userId);
 
     try {
-      const updated = await this.app.db.transaction(async (tx) => {
+      await this.app.db.transaction(async (tx) => {
         await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
 
         const [row] = await tx

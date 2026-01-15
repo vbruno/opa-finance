@@ -63,7 +63,7 @@ describe.sequential("PUT /accounts/:id", () => {
   it("deve trocar a conta principal ao atualizar isPrimary", async () => {
     const token = await registerAndLogin();
 
-    const first = await app.inject({
+    await app.inject({
       method: "POST",
       url: "/accounts",
       headers: { Authorization: `Bearer ${token}` },

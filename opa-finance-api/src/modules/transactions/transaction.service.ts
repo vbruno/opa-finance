@@ -31,9 +31,7 @@ export class TransactionService {
       const result = await this.app.db.execute(
         sql`select 1 from pg_extension where extname = 'unaccent'`,
       );
-      const rows = Array.isArray(result)
-        ? result
-        : ((result as { rows?: unknown[] }).rows ?? []);
+      const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
       this.unaccentAvailable = rows.length > 0;
     } catch {
       this.unaccentAvailable = false;
@@ -195,8 +193,7 @@ export class TransactionService {
     } else if (query.amount !== undefined) {
       filters.push(eq(transactions.amount, query.amount.toString()));
     }
-    const useUnaccent =
-      (query.description || query.notes) ? await this.hasUnaccent() : false;
+    const useUnaccent = query.description || query.notes ? await this.hasUnaccent() : false;
 
     if (query.description && query.notes) {
       if (useUnaccent) {
@@ -334,10 +331,7 @@ export class TransactionService {
 
       const counterpart = related.find((row) => row.id !== tx.id);
       if (data.accountId && counterpart && data.accountId === counterpart.accountId) {
-        throw new ValidationProblem(
-          "As contas precisam ser diferentes.",
-          `/transactions/${id}`,
-        );
+        throw new ValidationProblem("As contas precisam ser diferentes.", `/transactions/${id}`);
       }
 
       const updates = {
@@ -369,8 +363,7 @@ export class TransactionService {
         return results;
       });
 
-      const updatedCurrent =
-        updatedRows.find((row) => row.id === tx.id) ?? updatedRows[0] ?? tx;
+      const updatedCurrent = updatedRows.find((row) => row.id === tx.id) ?? updatedRows[0] ?? tx;
 
       return {
         ...updatedCurrent,
@@ -401,8 +394,7 @@ export class TransactionService {
     }
 
     const finalType = data.type ?? tx.type;
-    const finalCategory =
-      newCategory ?? (await this.validateCategory(userId, tx.categoryId));
+    const finalCategory = newCategory ?? (await this.validateCategory(userId, tx.categoryId));
 
     this.validateTypeMatchesCategory(finalType, finalCategory);
 
