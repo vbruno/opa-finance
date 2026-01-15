@@ -308,12 +308,20 @@ Esses documentos devem ser lidos em conjunto para garantir:
 - [x] Formulário de login com React Hook Form + Zod
 - [x] TanStack Query configurado
 - [x] Tema claro/escuro com toggle
+- [x] Responsividade mobile/desktop (breakpoint 960px + utilitários customizados)
+- [x] Sidebar fixa no desktop e drawer no mobile (scroll apenas no conteúdo)
 - [x] Usuário (perfil, edição de nome, troca de senha, logout)
 - [x] Accounts (tabela, filtros/ordenação/paginação na URL, CRUD via API, modais de detalhes/criação/edição, exclusão com confirmação e deep link)
 - [x] Categories / Subcategories
 - [x] Transactions (listagem, filtros na URL, ordenação server-side, CRUD, modais)
 - [x] Transfers (modal na tela de transacoes, validacao e integracao com API)
-- [ ] Dashboard (dados reais)
+- [x] Dashboard (dados reais)
+- [x] Selects customizados (shadcn) nos filtros e modais
+- [x] Atalhos de teclado (Categorias: C/S, Transações: N/T)
+- [x] UX mobile (inputs de data via datepicker, botões maiores no login)
+- [x] Resumo de seleção em transações (média/soma + exclusão em massa)
+- [x] Filtros colapsáveis no mobile (Contas, Categorias, Transações)
+- [x] Tooltip de "Copiado!" ao copiar valores
 
 ---
 
