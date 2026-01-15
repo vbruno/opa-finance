@@ -443,7 +443,7 @@ function Accounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Contas</h2>
           <p className="text-sm text-muted-foreground">
@@ -456,7 +456,7 @@ function Accounts() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <Button
             onClick={() => {
               reset()
@@ -471,8 +471,8 @@ function Accounts() {
       <div className="rounded-lg border bg-card p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <div className="min-w-[220px] flex-1">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="w-full sm:min-w-[220px] sm:flex-1">
               <Input
                 type="text"
                 placeholder="Buscar por nome..."
@@ -534,7 +534,7 @@ function Accounts() {
                 </span>
               </div>
             </div>
-            <div className="flex h-10 items-end">
+            <div className="flex h-10 w-full items-end justify-end sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
@@ -555,222 +555,404 @@ function Accounts() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="w-[1%] px-3 py-3">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={allSelectedOnPage}
-                  onChange={(event) => {
-                    setSelectedAccountIds((prev) => {
-                      const next = new Set(prev)
-                      if (event.target.checked) {
-                        pageIds.forEach((id) => next.add(id))
-                      } else {
-                        pageIds.forEach((id) => next.delete(id))
-                      }
-                      return next
-                    })
-                  }}
-                  aria-label="Selecionar todas as contas da página"
-                />
-              </th>
-              <th className="px-4 py-3">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('name')}
-                >
-                  Conta
-                  <SortIcon isActive={sortKey === 'name'} direction={sortDirection} />
-                </button>
-              </th>
-              <th className="w-[1%] px-4 py-3 whitespace-nowrap">
-                <button
-                  className="inline-flex items-center gap-2 text-left"
-                  type="button"
-                  onClick={() => handleSort('type')}
-                >
-                  Tipo
-                  <SortIcon isActive={sortKey === 'type'} direction={sortDirection} />
-                </button>
-              </th>
-              <th
-                className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${isRefreshingAccounts ? 'text-emerald-600' : ''
-                  }`}
-              >
-                <button
-                  className="inline-flex items-center gap-2 text-right"
-                  type="button"
-                  onClick={() => handleSort('balance')}
-                >
-                  Saldo atual
-                  <SortIcon isActive={sortKey === 'balance'} direction={sortDirection} />
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {accountsQuery.isLoading && (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Carregando contas...
-                  </p>
-                </td>
-              </tr>
-            )}
-            {accountsQuery.isError && (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center">
-                  <p className="text-sm text-destructive">
-                    Erro ao carregar contas. Tente novamente.
-                  </p>
-                </td>
-              </tr>
-            )}
-            {!accountsQuery.isLoading &&
-              !accountsQuery.isError &&
-              paginatedAccounts.map((account) => {
-                const displayBalance = account.currentBalance ?? 0
-                return (
-                  <tr
-                    key={account.id}
-                    className="cursor-pointer border-t hover:bg-muted/30"
-                    onClick={() =>
-                      navigate({
-                        search: (prev) => ({ ...prev, id: account.id }),
-                      })
-                    }
-                  >
-                    <td
-                      className="cursor-pointer px-3 py-3"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setSelectedAccountIds((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(account.id)) {
-                            next.delete(account.id)
-                          } else {
-                            next.add(account.id)
-                          }
-                          return next
-                        })
-                      }}
-                      onMouseDown={(event) => event.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 cursor-pointer"
-                        checked={selectedAccountIds.has(account.id)}
-                        onChange={(event) => {
-                          setSelectedAccountIds((prev) => {
-                            const next = new Set(prev)
-                            if (event.target.checked) {
-                              next.add(account.id)
-                            } else {
-                              next.delete(account.id)
-                            }
-                            return next
-                          })
-                        }}
-                        aria-label={`Selecionar conta ${account.name}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium">{account.name}</td>
-                    <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap">
-                      {accountTypeLabels[account.type] ?? account.type}
-                    </td>
-                    <td
-                      className={
-                        displayBalance < 0
-                          ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-rose-600'
-                          : displayBalance > 0
-                            ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
-                            : 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
-                      }
-                    >
-                      {`$ ${formatCurrencyValue(displayBalance)}`}
-                    </td>
-                  </tr>
-                )
-              })}
-            {!accountsQuery.isLoading &&
-              !accountsQuery.isError &&
-              sortedAccounts.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center">
-                    <div className="space-y-2">
-                      {accounts.length === 0 ? (
-                        <>
-                          <p className="text-sm font-medium">
-                            Nenhuma conta cadastrada ainda.
-                          </p>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              reset()
-                              setIsCreateOpen(true)
-                            }}
-                          >
-                            Criar conta
-                          </Button>
-                        </>
-                      ) : (
-                        <p className="text-sm font-medium">
-                          Nenhuma conta encontrada com os filtros atuais.
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )}
-          </tbody>
-          <tfoot className="bg-muted/20 text-sm">
-            <tr className="border-t">
-              <td className="px-4 py-3"></td>
-              <td className="px-3 py-3 font-semibold text-muted-foreground">
-                {selectedCount >= 1 ? `${selectedCount} selecionadas` : ''}
-              </td>
-              <td className="px-4 py-3 text-center font-semibold text-muted-foreground">
-                {selectedCount >= 1 ? 'Parcial' : 'Total'}
-              </td>
-              <td
-                className={
-                  accountsQuery.isLoading || accountsQuery.isError
-                    ? 'px-4 py-3 text-right font-semibold text-muted-foreground'
-                    : (selectedCount >= 1 ? selectedTotal : totalFilteredBalance) < 0
-                      ? 'sensitive px-4 py-3 text-right font-semibold text-rose-600'
-                      : (selectedCount >= 1 ? selectedTotal : totalFilteredBalance) > 0
-                        ? 'sensitive px-4 py-3 text-right font-semibold text-emerald-600'
-                        : 'sensitive px-4 py-3 text-right font-semibold text-muted-foreground'
+      <div className="space-y-3 md:hidden">
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={allSelectedOnPage}
+              onChange={(event) => {
+                setSelectedAccountIds((prev) => {
+                  const next = new Set(prev)
+                  if (event.target.checked) {
+                    pageIds.forEach((id) => next.add(id))
+                  } else {
+                    pageIds.forEach((id) => next.delete(id))
+                  }
+                  return next
+                })
+              }}
+              aria-label="Selecionar todas as contas da página"
+            />
+            <span className="text-muted-foreground">Selecionar página</span>
+          </div>
+          {selectedCount >= 1 ? (
+            <span className="font-semibold text-muted-foreground">
+              {selectedCount} selecionadas
+            </span>
+          ) : null}
+        </div>
+
+        {accountsQuery.isLoading && (
+          <div className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">
+            Carregando contas...
+          </div>
+        )}
+        {accountsQuery.isError && (
+          <div className="rounded-lg border px-4 py-6 text-center text-sm text-destructive">
+            Erro ao carregar contas. Tente novamente.
+          </div>
+        )}
+        {!accountsQuery.isLoading &&
+          !accountsQuery.isError &&
+          paginatedAccounts.map((account) => {
+            const displayBalance = account.currentBalance ?? 0
+            const balanceClass =
+              displayBalance < 0
+                ? 'text-rose-600'
+                : displayBalance > 0
+                  ? 'text-emerald-600'
+                  : 'text-muted-foreground'
+            return (
+              <div
+                key={account.id}
+                className="cursor-pointer rounded-lg border bg-background p-3 transition hover:bg-muted/30"
+                onClick={() =>
+                  navigate({
+                    search: (prev) => ({ ...prev, id: account.id }),
+                  })
                 }
               >
-                {accountsQuery.isLoading || accountsQuery.isError
-                  ? '--'
-                  : `$ ${formatCurrencyValue(
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase text-muted-foreground">
+                      Conta
+                    </p>
+                    <p className="text-sm font-semibold">{account.name}</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 cursor-pointer"
+                    checked={selectedAccountIds.has(account.id)}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => {
+                      setSelectedAccountIds((prev) => {
+                        const next = new Set(prev)
+                        if (event.target.checked) {
+                          next.add(account.id)
+                        } else {
+                          next.delete(account.id)
+                        }
+                        return next
+                      })
+                    }}
+                    aria-label={`Selecionar conta ${account.name}`}
+                  />
+                </div>
+                <div className="mt-2 flex items-end justify-between gap-3 text-sm">
+                  <div>
+                    <p className="text-xs uppercase text-muted-foreground">
+                      Tipo
+                    </p>
+                    <p className="text-muted-foreground">
+                      {accountTypeLabels[account.type] ?? account.type}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs uppercase text-muted-foreground">
+                      Saldo
+                    </p>
+                    <p className={`sensitive text-sm font-semibold ${balanceClass}`}>
+                      {`$ ${formatCurrencyValue(displayBalance)}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        {!accountsQuery.isLoading &&
+          !accountsQuery.isError &&
+          sortedAccounts.length === 0 && (
+            <div className="rounded-lg border px-4 py-6 text-center">
+              <div className="space-y-2">
+                {accounts.length === 0 ? (
+                  <>
+                    <p className="text-sm font-medium">
+                      Nenhuma conta cadastrada ainda.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        reset()
+                        setIsCreateOpen(true)
+                      }}
+                    >
+                      Criar conta
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium">
+                    Nenhuma conta encontrada com os filtros atuais.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        {!accountsQuery.isLoading &&
+          !accountsQuery.isError &&
+          sortedAccounts.length > 0 && (
+            <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {selectedCount >= 1 ? 'Parcial' : 'Total'}
+                </span>
+                <span
+                  className={
+                    (selectedCount >= 1
+                      ? selectedTotal
+                      : totalFilteredBalance) < 0
+                      ? 'sensitive font-semibold text-rose-600'
+                      : (selectedCount >= 1
+                          ? selectedTotal
+                          : totalFilteredBalance) > 0
+                        ? 'sensitive font-semibold text-emerald-600'
+                        : 'sensitive font-semibold text-muted-foreground'
+                  }
+                >
+                  {`$ ${formatCurrencyValue(
                     selectedCount >= 1
                       ? selectedTotal
                       : totalFilteredBalance,
                   )}`}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+                </span>
+              </div>
+            </div>
+          )}
+      </div>
+
+      <div className="hidden md:block">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="min-w-[640px] w-full text-left text-sm">
+            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="w-[1%] px-3 py-3">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={allSelectedOnPage}
+                    onChange={(event) => {
+                      setSelectedAccountIds((prev) => {
+                        const next = new Set(prev)
+                        if (event.target.checked) {
+                          pageIds.forEach((id) => next.add(id))
+                        } else {
+                          pageIds.forEach((id) => next.delete(id))
+                        }
+                        return next
+                      })
+                    }}
+                    aria-label="Selecionar todas as contas da página"
+                  />
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('name')}
+                  >
+                    Conta
+                    <SortIcon
+                      isActive={sortKey === 'name'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th className="w-[1%] px-4 py-3 whitespace-nowrap">
+                  <button
+                    className="inline-flex items-center gap-2 text-left"
+                    type="button"
+                    onClick={() => handleSort('type')}
+                  >
+                    Tipo
+                    <SortIcon
+                      isActive={sortKey === 'type'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+                <th
+                  className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${isRefreshingAccounts ? 'text-emerald-600' : ''
+                    }`}
+                >
+                  <button
+                    className="inline-flex items-center gap-2 text-right"
+                    type="button"
+                    onClick={() => handleSort('balance')}
+                  >
+                    Saldo atual
+                    <SortIcon
+                      isActive={sortKey === 'balance'}
+                      direction={sortDirection}
+                    />
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {accountsQuery.isLoading && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Carregando contas...
+                    </p>
+                  </td>
+                </tr>
+              )}
+              {accountsQuery.isError && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center">
+                    <p className="text-sm text-destructive">
+                      Erro ao carregar contas. Tente novamente.
+                    </p>
+                  </td>
+                </tr>
+              )}
+              {!accountsQuery.isLoading &&
+                !accountsQuery.isError &&
+                paginatedAccounts.map((account) => {
+                  const displayBalance = account.currentBalance ?? 0
+                  return (
+                    <tr
+                      key={account.id}
+                      className="cursor-pointer border-t hover:bg-muted/30"
+                      onClick={() =>
+                        navigate({
+                          search: (prev) => ({ ...prev, id: account.id }),
+                        })
+                      }
+                    >
+                      <td
+                        className="cursor-pointer px-3 py-3"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setSelectedAccountIds((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(account.id)) {
+                              next.delete(account.id)
+                            } else {
+                              next.add(account.id)
+                            }
+                            return next
+                          })
+                        }}
+                        onMouseDown={(event) => event.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 cursor-pointer"
+                          checked={selectedAccountIds.has(account.id)}
+                          onChange={(event) => {
+                            setSelectedAccountIds((prev) => {
+                              const next = new Set(prev)
+                              if (event.target.checked) {
+                                next.add(account.id)
+                              } else {
+                                next.delete(account.id)
+                              }
+                              return next
+                            })
+                          }}
+                          aria-label={`Selecionar conta ${account.name}`}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium">{account.name}</td>
+                      <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap">
+                        {accountTypeLabels[account.type] ?? account.type}
+                      </td>
+                      <td
+                        className={
+                          displayBalance < 0
+                            ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-rose-600'
+                            : displayBalance > 0
+                              ? 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-emerald-600'
+                              : 'sensitive px-4 py-3 text-right font-semibold whitespace-nowrap text-muted-foreground'
+                        }
+                      >
+                        {`$ ${formatCurrencyValue(displayBalance)}`}
+                      </td>
+                    </tr>
+                  )
+                })}
+              {!accountsQuery.isLoading &&
+                !accountsQuery.isError &&
+                sortedAccounts.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center">
+                      <div className="space-y-2">
+                        {accounts.length === 0 ? (
+                          <>
+                            <p className="text-sm font-medium">
+                              Nenhuma conta cadastrada ainda.
+                            </p>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                reset()
+                                setIsCreateOpen(true)
+                              }}
+                            >
+                              Criar conta
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="text-sm font-medium">
+                            Nenhuma conta encontrada com os filtros atuais.
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+            </tbody>
+            <tfoot className="bg-muted/20 text-sm">
+              <tr className="border-t">
+                <td className="px-4 py-3"></td>
+                <td className="px-3 py-3 font-semibold text-muted-foreground">
+                  {selectedCount >= 1 ? `${selectedCount} selecionadas` : ''}
+                </td>
+                <td className="px-4 py-3 text-center font-semibold text-muted-foreground">
+                  {selectedCount >= 1 ? 'Parcial' : 'Total'}
+                </td>
+                <td
+                  className={
+                    accountsQuery.isLoading || accountsQuery.isError
+                      ? 'px-4 py-3 text-right font-semibold text-muted-foreground'
+                      : (selectedCount >= 1
+                          ? selectedTotal
+                          : totalFilteredBalance) < 0
+                        ? 'sensitive px-4 py-3 text-right font-semibold text-rose-600'
+                        : (selectedCount >= 1
+                            ? selectedTotal
+                            : totalFilteredBalance) > 0
+                          ? 'sensitive px-4 py-3 text-right font-semibold text-emerald-600'
+                          : 'sensitive px-4 py-3 text-right font-semibold text-muted-foreground'
+                  }
+                >
+                  {accountsQuery.isLoading || accountsQuery.isError
+                    ? '--'
+                    : `$ ${formatCurrencyValue(
+                      selectedCount >= 1
+                        ? selectedTotal
+                        : totalFilteredBalance,
+                    )}`}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
 
       {sortedAccounts.length > pageSize && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Pagina {safePage} de {totalPages}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
               variant="outline"
+              className="h-11 w-full sm:h-9 sm:w-auto"
               disabled={safePage === 1}
               onClick={() =>
                 navigate({
@@ -786,6 +968,7 @@ function Accounts() {
             </Button>
             <Button
               variant="outline"
+              className="h-11 w-full sm:h-9 sm:w-auto"
               disabled={safePage === 1}
               onClick={() =>
                 navigate({
@@ -801,6 +984,7 @@ function Accounts() {
             </Button>
             <Button
               variant="outline"
+              className="h-11 w-full sm:h-9 sm:w-auto"
               disabled={safePage === totalPages}
               onClick={() =>
                 navigate({
@@ -816,6 +1000,7 @@ function Accounts() {
             </Button>
             <Button
               variant="outline"
+              className="h-11 w-full sm:h-9 sm:w-auto"
               disabled={safePage === totalPages}
               onClick={() =>
                 navigate({
@@ -839,7 +1024,7 @@ function Accounts() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar nova conta</h3>
@@ -911,16 +1096,20 @@ function Accounts() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-primary"
+                    className="h-5 w-5 accent-primary sm:h-4 sm:w-4"
                     {...register('confirm')}
                   />
                   Confirmo que os dados estão corretos
                 </label>
-                <Button type="submit" disabled={!confirmValue || isSubmitting}>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={!confirmValue || isSubmitting}
+                >
                   {isSubmitting || createAccountMutation.isPending
                     ? 'Criando...'
                     : 'Criar conta'}
@@ -953,7 +1142,7 @@ function Accounts() {
             }
           />
           <div
-            className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
+            className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6"
             ref={detailModalRef}
             tabIndex={-1}
           >
@@ -965,14 +1154,14 @@ function Accounts() {
             </div>
 
             <div className="mt-6 grid gap-4 text-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Tipo</span>
                 <span className="font-medium">
                   {accountTypeLabels[selectedAccount.type] ??
                     selectedAccount.type}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Saldo atual</span>
                 <span className="sensitive font-semibold">
                   {`$ ${formatCurrencyValue(
@@ -980,7 +1169,7 @@ function Accounts() {
                   )}`}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Criada em</span>
                 <span className="font-medium">
                   {dateFormatter.format(new Date(selectedAccount.createdAt))}
@@ -988,10 +1177,11 @@ function Accounts() {
               </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-end">
-              <div className="flex flex-wrap items-center gap-3">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
                 <Button
                   variant="destructive"
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     setDeleteBlockedReason(null)
                     setDeleteError(null)
@@ -1002,6 +1192,7 @@ function Accounts() {
                 </Button>
                 <Button
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     resetEdit({
                       name: selectedAccount.name,
@@ -1031,7 +1222,7 @@ function Accounts() {
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+            className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6"
             ref={deleteModalRef}
             tabIndex={-1}
           >
@@ -1051,15 +1242,17 @@ function Accounts() {
               </div>
             )}
 
-            <div className="mt-6 flex items-center justify-end gap-2">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setIsDeleteConfirmOpen(false)}
               >
                 Cancelar
               </Button>
               <Button
                 variant="destructive"
+                className="w-full sm:w-auto"
                 disabled={deleteAccountMutation.isPending}
                 onClick={async () => {
                   try {
@@ -1111,7 +1304,7 @@ function Accounts() {
               })
             }}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">Editar conta</h3>
               <p className="text-sm text-muted-foreground">
@@ -1188,17 +1381,18 @@ function Accounts() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-primary"
+                    className="h-5 w-5 accent-primary sm:h-4 sm:w-4"
                     {...editRegister('confirm')}
                   />
                   Confirmo que os dados estão corretos
                 </label>
                 <Button
                   type="submit"
+                  className="w-full sm:w-auto"
                   disabled={!confirmEditValue || isEditSubmitting}
                 >
                   {isEditSubmitting || updateAccountMutation.isPending

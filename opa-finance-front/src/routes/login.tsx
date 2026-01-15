@@ -55,12 +55,12 @@ function Login() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
-      <div className="relative w-full max-w-sm space-y-6 rounded-lg border bg-background p-6 shadow-sm">
-        <div className="absolute right-4 top-4">
+      <div className="relative w-full max-w-sm space-y-5 rounded-lg border bg-background p-4 shadow-sm sm:p-6">
+        <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
           <ThemeToggle />
         </div>
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold">Opa Finance</h1>
+        <div className="space-y-1 text-center">
+          <h1 className="text-2xl font-bold sm:text-3xl">Opa Finance</h1>
           <p className="text-sm text-muted-foreground">
             Entre com sua conta para continuar
           </p>
@@ -107,20 +107,23 @@ function Login() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <label
+            htmlFor="toggle-login-password"
+            className="flex items-center gap-2 text-sm"
+          >
             <input
               id="toggle-login-password"
               type="checkbox"
-              className="h-4 w-4 accent-primary"
+              className="h-5 w-5 accent-primary"
               checked={showPassword}
               onChange={(event) => setShowPassword(event.target.checked)}
             />
-            <Label htmlFor="toggle-login-password">Mostrar senha</Label>
-          </div>
+            <span>Mostrar senha</span>
+          </label>
 
           <Button
             type="submit"
-            className="w-full"
+            className="h-11 w-full sm:h-10"
             disabled={isSubmitting || loginMutation.isPending}
           >
             {isSubmitting || loginMutation.isPending ? 'Entrando...' : 'Entrar'}

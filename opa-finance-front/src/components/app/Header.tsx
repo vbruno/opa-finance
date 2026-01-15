@@ -1,12 +1,16 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Menu } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { getUser, logout } from '@/features/auth'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 
-export function Header() {
+type HeaderProps = {
+  onMenuClick?: () => void
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate()
   const user = getUser()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -46,24 +50,42 @@ export function Header() {
   }
 
   return (
-    <header className="flex items-center justify-between border-b px-6 py-4">
-      <Link to="/app" className="font-bold">
-        Opa Finance
-      </Link>
+    <header className="flex items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4">
+      <div className="flex items-center gap-2">
+        {onMenuClick ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="md:hidden"
+            aria-label="Abrir menu"
+            onClick={onMenuClick}
+          >
+            <Menu className="size-4" />
+          </Button>
+        ) : null}
+        <Link to="/app" className="font-bold">
+          Opa Finance
+        </Link>
+      </div>
 
-      <div className="flex items-center gap-3">
-        <Button variant="outline" onClick={() => setIsMenuOpen(true)}>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setIsMenuOpen(true)}
+          className="h-8 px-3 text-xs sm:h-9 sm:px-4 sm:text-sm"
+        >
           {user?.name ?? 'Conta'}
         </Button>
         <Button
           variant="outline"
-          size="icon"
+          size="icon-sm"
           aria-label={
             isSensitiveHidden
               ? 'Mostrar valores'
               : 'Ocultar valores'
           }
           onClick={handleToggleSensitive}
+          className="h-8 w-8 sm:h-9 sm:w-9"
         >
           {isSensitiveHidden ? (
             <Eye className="size-4" />

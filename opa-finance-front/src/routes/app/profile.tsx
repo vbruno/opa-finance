@@ -100,7 +100,7 @@ function Profile() {
         </p>
       </div>
 
-      <section className="rounded-lg border bg-background p-6 shadow-sm">
+      <section className="rounded-lg border bg-background p-4 shadow-sm sm:p-6">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Dados pessoais</h2>
           <p className="text-sm text-muted-foreground">
@@ -108,7 +108,7 @@ function Profile() {
           </p>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="profile-name">Nome</Label>
             <Input
@@ -158,6 +158,7 @@ function Profile() {
         <div className="mt-6">
           <Button
             onClick={profileForm.handleSubmit(onUpdateProfile)}
+            className="h-11 w-full sm:h-10 sm:w-auto"
             disabled={
               !isUserReady ||
               updateProfileMutation.isPending ||
@@ -169,7 +170,7 @@ function Profile() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-background p-6 shadow-sm">
+      <section className="rounded-lg border bg-background p-4 shadow-sm sm:p-6">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Alterar senha</h2>
           <p className="text-sm text-muted-foreground">
@@ -179,22 +180,23 @@ function Profile() {
 
         <form
           onSubmit={passwordForm.handleSubmit(onChangePassword)}
-          className="mt-4 grid gap-4 md:grid-cols-2"
+          className="mt-4 grid gap-4 sm:grid-cols-2"
         >
-          <div className="flex items-center gap-2 md:col-span-2">
+          <label
+            htmlFor="toggle-password-visibility"
+            className="flex items-center gap-2 text-sm sm:col-span-2"
+          >
             <input
               id="toggle-password-visibility"
               type="checkbox"
-              className="h-4 w-4 accent-primary"
+              className="h-5 w-5 accent-primary"
               checked={showPasswords}
               onChange={(event) => setShowPasswords(event.target.checked)}
             />
-            <Label htmlFor="toggle-password-visibility">
-              Mostrar senhas
-            </Label>
-          </div>
+            <span>Mostrar senhas</span>
+          </label>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="current-password">Senha atual</Label>
             <Input
               id="current-password"
@@ -246,19 +248,20 @@ function Profile() {
           </div>
 
           {passwordForm.formState.errors.root?.message && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive md:col-span-2">
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive sm:col-span-2">
               {passwordForm.formState.errors.root.message}
             </div>
           )}
           {passwordMessage && (
-            <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700 md:col-span-2">
+            <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">
               {passwordMessage}
             </div>
           )}
 
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <Button
               type="submit"
+              className="h-11 w-full sm:h-10 sm:w-auto"
               disabled={
                 changePasswordMutation.isPending ||
                 passwordForm.formState.isSubmitting

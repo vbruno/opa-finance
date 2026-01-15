@@ -1259,7 +1259,7 @@ function Transactions() {
             Acompanhe receitas e despesas registradas nas contas.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Button
             variant="outline"
             onClick={() => {
@@ -1279,7 +1279,7 @@ function Transactions() {
       <div className="rounded-lg border bg-card p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <h3 className="text-sm font-semibold">Filtros</h3>
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
             <Input
               id="filter-description"
               placeholder={
@@ -1298,7 +1298,7 @@ function Transactions() {
                 }
               }}
             />
-            <div className="flex items-center gap-1.5">
+            <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:flex-nowrap">
               {hasActiveFilters && (
                 <Button
                   variant="outline"
@@ -1337,7 +1337,7 @@ function Transactions() {
                   <input
                     id="filter-include-notes"
                     type="checkbox"
-                    className="h-4 w-4"
+                    className="h-5 w-5 sm:h-4 sm:w-4"
                     checked={includeNotes}
                     disabled={!canSearchNotes || amountMode}
                     onChange={(event) =>
@@ -1357,7 +1357,7 @@ function Transactions() {
                   <input
                     id="filter-notes-only"
                     type="checkbox"
-                    className="h-4 w-4"
+                    className="h-5 w-5 sm:h-4 sm:w-4"
                     checked={notesOnly}
                     disabled={!canSearchNotes || amountMode}
                     onChange={(event) =>
@@ -1377,7 +1377,7 @@ function Transactions() {
                   <input
                     id="filter-amount-mode"
                     type="checkbox"
-                    className="h-4 w-4"
+                    className="h-5 w-5 sm:h-4 sm:w-4"
                     checked={amountMode}
                     onChange={(event) =>
                       navigate({
@@ -1611,9 +1611,233 @@ function Transactions() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border">
+      <div className="space-y-3 md:hidden">
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-5 w-5 cursor-pointer"
+              checked={allSelected}
+              onChange={(event) => {
+                if (event.target.checked) {
+                  setSelectedIds(
+                    new Set(transactions.map((transaction) => transaction.id)),
+                  )
+                  return
+                }
+                setSelectedIds(new Set())
+              }}
+              aria-label="Selecionar todas as transações"
+            />
+            <span className="text-muted-foreground">Selecionar página</span>
+          </div>
+          {selectedIds.size > 0 ? (
+            <span className="font-semibold text-muted-foreground">
+              {selectedIds.size} selecionadas
+            </span>
+          ) : null}
+        </div>
+
+        {transactionsQuery.isLoading && (
+          <div className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">
+            Carregando transações...
+          </div>
+        )}
+        {!transactionsQuery.isLoading && isAmountFilterInvalid && (
+          <div className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">
+            {amountFilterErrorMessage}
+          </div>
+        )}
+        {!transactionsQuery.isLoading &&
+          !isAmountFilterInvalid &&
+          transactions.length === 0 && (
+            <div className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">
+              Nenhuma transação encontrada.
+            </div>
+          )}
+        {transactions.map((transaction) => {
+          const description =
+            transaction.description ||
+            transaction.categoryName ||
+            categoryMap.get(transaction.categoryId) ||
+            'Sem descrição'
+          const amountClass =
+            transaction.type === 'income'
+              ? 'text-emerald-600'
+              : transaction.type === 'expense'
+                ? 'text-rose-600'
+                : 'text-muted-foreground'
+          return (
+            <div
+              key={transaction.id}
+              className="cursor-pointer rounded-lg border bg-background p-3 transition hover:bg-muted/30"
+              onClick={() => {
+                setDeleteError(null)
+                setRepeatTransferError(null)
+                setTransferEditError(null)
+                setSelectedTransaction(transaction)
+              }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Data</p>
+                  <p className="text-sm font-semibold">
+                    {dateFormatter.format(new Date(transaction.date))}
+                  </p>
+                </div>
+                <input
+                  id={`transaction-select-mobile-${transaction.id}`}
+                  type="checkbox"
+                  className="h-5 w-5 cursor-pointer"
+                  checked={selectedIds.has(transaction.id)}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev)
+                      if (event.target.checked) {
+                        next.add(transaction.id)
+                      } else {
+                        next.delete(transaction.id)
+                      }
+                      return next
+                    })
+                  }}
+                  aria-label="Selecionar transação"
+                />
+              </div>
+              <div className="mt-2">
+                <p className="text-xs uppercase text-muted-foreground">
+                  Descrição
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span>{description}</span>
+                  {transaction.notes && (
+                    <span
+                      className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                      title={transaction.notes}
+                    >
+                      Notas
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase text-muted-foreground">
+                    Conta
+                  </span>
+                  <span>
+                    {transaction.accountName ||
+                      accountMap.get(transaction.accountId) ||
+                      '-'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase text-muted-foreground">
+                    Categoria
+                  </span>
+                  <span>
+                    {transaction.categoryName ||
+                      categoryMap.get(transaction.categoryId) ||
+                      '-'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase text-muted-foreground">
+                    Subcategoria
+                  </span>
+                  <span>
+                    {transaction.subcategoryId
+                      ? transaction.subcategoryName || '-'
+                      : '-'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span
+                  className={
+                    transaction.type === 'income'
+                      ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
+                      : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
+                  }
+                >
+                  {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                </span>
+                <span className={`sensitive text-sm font-semibold ${amountClass}`}>
+                  {formatCurrencyValue(transaction.amount)}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {!transactionsQuery.isLoading && totalPages > 1 && (
+        <div className="mt-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-xs md:hidden">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">
+              Página {page} de {totalPages}
+            </span>
+            <select
+              className="h-9 rounded-md border bg-background px-2 text-xs dark:border-muted/80"
+              value={limit}
+              onChange={(event) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    limit: Number(event.target.value),
+                    page: 1,
+                  }),
+                })
+              }
+              aria-label="Quantidade de linhas"
+            >
+              {[10, 20, 30, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-11 flex-1"
+              disabled={page === 1}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: Math.max(1, page - 1),
+                  }),
+                })
+              }
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 flex-1"
+              disabled={page === totalPages}
+              onClick={() =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: Math.min(totalPages, page + 1),
+                  }),
+                })
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="hidden md:block">
+      <div className="overflow-x-auto rounded-lg border">
         <div className="max-h-[520px] overflow-y-auto">
-          <table className="w-full text-sm">
+          <table className="min-w-[900px] w-full text-sm">
             <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
               <tr>
                 <th className="w-12 px-4 py-2 text-center">
@@ -1959,6 +2183,7 @@ function Transactions() {
           </div>
         </div>
       </div>
+      </div>
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1966,7 +2191,7 @@ function Transactions() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">Nova transação</h3>
               <p className="text-sm text-muted-foreground">
@@ -2309,15 +2534,20 @@ function Transactions() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => setIsCreateOpen(false)}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={isSubmitting}
+                >
                   Salvar
                 </Button>
               </div>
@@ -2332,7 +2562,7 @@ function Transactions() {
             className="fixed inset-0"
             onClick={handleCloseTransferModal}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">
                 {transferEditContext
@@ -2530,16 +2760,18 @@ function Transactions() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={handleCloseTransferModal}
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
+                  className="w-full sm:w-auto"
                   disabled={transferForm.formState.isSubmitting}
                 >
                   {transferEditContext ? 'Salvar' : 'Transferir'}
@@ -2557,7 +2789,7 @@ function Transactions() {
             onClick={() => setSelectedTransaction(null)}
           />
           <div
-            className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
+            className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6"
             ref={detailModalRef}
             tabIndex={-1}
           >
@@ -2569,7 +2801,7 @@ function Transactions() {
             </div>
 
             <div className="mt-6 grid gap-4 text-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Data</span>
                 <span className="font-medium">
                   {dateFormatter.format(
@@ -2577,7 +2809,7 @@ function Transactions() {
                   )}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Descrição</span>
                 <span className="relative">
                   <button
@@ -2603,7 +2835,7 @@ function Transactions() {
                   )}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Conta</span>
                 <span className="font-medium">
                   {selectedTransaction.accountName ||
@@ -2611,7 +2843,7 @@ function Transactions() {
                     '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Categoria</span>
                 <span className="font-medium">
                   {selectedTransaction.categoryName ||
@@ -2619,7 +2851,7 @@ function Transactions() {
                     '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Subcategoria</span>
                 <span className="font-medium">
                   {selectedTransaction.subcategoryId
@@ -2627,7 +2859,7 @@ function Transactions() {
                     : '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Tipo</span>
                 <span className="font-medium">
                   {selectedTransaction.type === 'income'
@@ -2635,7 +2867,7 @@ function Transactions() {
                     : 'Despesa'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Valor</span>
                 <span className="relative">
                   <button
@@ -2657,13 +2889,13 @@ function Transactions() {
                   )}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Notas</span>
                 <span className="font-medium">
                   {selectedTransaction.notes || 'Sem notas'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Criada em</span>
                 <span className="font-medium">
                   {dateFormatter.format(
@@ -2674,7 +2906,7 @@ function Transactions() {
             </div>
 
             <div className="mt-6 flex items-center justify-end">
-              <div className="flex w-full flex-col items-end gap-3">
+              <div className="flex w-full flex-col gap-3 sm:items-end">
                 {repeatTransferError && (
                   <p className="text-sm text-destructive">
                     {repeatTransferError}
@@ -2685,10 +2917,11 @@ function Transactions() {
                     {transferEditError}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                   {selectedTransaction.transferId ? (
                     <Button
                       variant="outline"
+                      className="w-full sm:w-auto"
                       disabled={isRepeatTransferLoading}
                       aria-busy={isRepeatTransferLoading}
                       onClick={() =>
@@ -2700,6 +2933,7 @@ function Transactions() {
                   ) : (
                     <Button
                       variant="outline"
+                      className="w-full sm:w-auto"
                       onClick={() => handleOpenDuplicate(selectedTransaction)}
                     >
                       Duplicar
@@ -2707,6 +2941,7 @@ function Transactions() {
                   )}
                   <Button
                     variant="outline"
+                    className="w-full sm:w-auto"
                     autoFocus
                     disabled={
                       selectedTransaction.transferId && isEditTransferLoading
@@ -2728,6 +2963,7 @@ function Transactions() {
                   </Button>
                   <Button
                     variant="destructive"
+                    className="w-full sm:w-auto"
                     onClick={() => handleOpenDelete(selectedTransaction)}
                   >
                     Excluir
@@ -2745,7 +2981,7 @@ function Transactions() {
             className="fixed inset-0"
             onClick={() => setIsEditOpen(false)}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">Editar transação</h3>
               <p className="text-sm text-muted-foreground">
@@ -2979,15 +3215,20 @@ function Transactions() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => setIsEditOpen(false)}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isEditSubmitting}>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={isEditSubmitting}
+                >
                   Atualizar
                 </Button>
               </div>
@@ -3003,7 +3244,7 @@ function Transactions() {
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+            className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6"
             ref={deleteModalRef}
             tabIndex={-1}
           >
@@ -3021,15 +3262,17 @@ function Transactions() {
               </div>
             )}
 
-            <div className="mt-6 flex items-center justify-end gap-2">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setIsDeleteConfirmOpen(false)}
               >
                 Cancelar
               </Button>
               <Button
                 variant="destructive"
+                className="w-full sm:w-auto"
                 onClick={async () => {
                   try {
                     await deleteTransactionMutation.mutateAsync(
@@ -3061,7 +3304,7 @@ function Transactions() {
             onClick={() => setIsBulkDeleteOpen(false)}
           />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+            className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6"
             ref={bulkDeleteModalRef}
             tabIndex={-1}
           >
@@ -3079,9 +3322,10 @@ function Transactions() {
               </div>
             )}
 
-            <div className="mt-6 flex items-center justify-end gap-2">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setIsBulkDeleteOpen(false)}
                 disabled={isBulkDeleting}
               >
@@ -3089,6 +3333,7 @@ function Transactions() {
               </Button>
               <Button
                 variant="destructive"
+                className="w-full sm:w-auto"
                 onClick={async () => {
                   const idsArray = buildBulkDeleteIds(selectedTransactions)
                   if (idsArray.length === 0) {

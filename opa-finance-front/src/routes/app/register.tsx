@@ -64,7 +64,7 @@ function RegisterUser() {
         </p>
       </div>
 
-      <div className="max-w-xl rounded-lg border bg-background p-6 shadow-sm">
+      <div className="max-w-xl rounded-lg border bg-background p-4 shadow-sm sm:p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {errors.root?.message && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -140,20 +140,23 @@ function RegisterUser() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <label
+            htmlFor="toggle-register-password"
+            className="flex items-center gap-2 text-sm"
+          >
             <input
               id="toggle-register-password"
               type="checkbox"
-              className="h-4 w-4 accent-primary"
+              className="h-5 w-5 accent-primary"
               checked={showPasswords}
               onChange={(event) => setShowPasswords(event.target.checked)}
             />
-            <Label htmlFor="toggle-register-password">Mostrar senhas</Label>
-          </div>
+            <span>Mostrar senhas</span>
+          </label>
 
           <Button
             type="submit"
-            className="w-full"
+            className="h-11 w-full sm:h-10"
             disabled={isSubmitting || registerMutation.isPending}
           >
             {isSubmitting || registerMutation.isPending

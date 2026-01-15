@@ -56,7 +56,7 @@ function UnavailableScreen() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-foreground">
-      <div className="w-full max-w-lg space-y-4 rounded-lg border bg-card p-6 shadow-sm">
+      <div className="w-full max-w-lg space-y-4 rounded-lg border bg-card p-4 shadow-sm sm:p-6">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Sistema indisponível</h1>
           <p className="text-sm text-muted-foreground">
@@ -64,7 +64,7 @@ function UnavailableScreen() {
             Tente fazer login novamente ou volte mais tarde.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted-foreground">Status do servidor:</span>
           <span
             className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold ${status === 'checking'
@@ -85,8 +85,11 @@ function UnavailableScreen() {
                   : 'Desconhecido'}
           </span>
         </div>
-        <div className="flex flex-wrap gap-4 items-center">
-          <Button onClick={() => navigate({ to: '/login' })}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button
+            className="h-11 w-full sm:h-10 sm:w-auto"
+            onClick={() => navigate({ to: '/login' })}
+          >
             Ir para login
           </Button>
           {status === 'online' && redirectCountdown !== null ? (
@@ -100,6 +103,7 @@ function UnavailableScreen() {
           ) : (
             <Button
               variant="outline"
+              className="h-11 w-full sm:h-10 sm:w-auto"
               onClick={handleCheckStatus}
               disabled={status === 'checking'}
             >

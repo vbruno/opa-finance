@@ -357,7 +357,7 @@ function Categories() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Categorias</h2>
           <p className="text-sm text-muted-foreground">
@@ -365,7 +365,7 @@ function Categories() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Button
             variant="outline"
             disabled={isMutating || userCategories.length === 0}
@@ -401,8 +401,8 @@ function Categories() {
       <div className="rounded-lg border bg-card p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <div className="min-w-[220px] flex-1">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="w-full sm:min-w-[220px] sm:flex-1">
               <Input
                 type="text"
                 placeholder="Buscar por nome..."
@@ -467,7 +467,7 @@ function Categories() {
                 </span>
               </div>
             </div>
-            <div className="flex h-10 items-end">
+            <div className="flex h-10 w-full items-end justify-end sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
@@ -488,242 +488,453 @@ function Categories() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Categoria</th>
-              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
-              <th className="w-[1%] px-4 py-3 whitespace-nowrap">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categoriesQuery.isLoading && (
-              <tr>
-                <td colSpan={3} className="px-4 py-10 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Carregando categorias...
-                  </p>
-                </td>
-              </tr>
-            )}
-            {errorMessage && (
-              <tr>
-                <td colSpan={3} className="px-4 py-10 text-center">
-                  <p className="text-sm text-destructive">{errorMessage}</p>
-                </td>
-              </tr>
-            )}
-            {!categoriesQuery.isLoading &&
-              !errorMessage &&
-              filteredCategories.map((category) => (
-                <Fragment key={category.id}>
-                  <tr className="border-t">
-                    <td className="px-4 py-3 font-medium">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30"
-                          aria-label={
-                            expandedCategoryIds.includes(category.id)
-                              ? 'Ocultar subcategorias'
-                              : 'Mostrar subcategorias'
-                          }
-                          aria-expanded={expandedCategoryIds.includes(category.id)}
-                          onClick={() => {
-                            if (normalizedSearch.length > 0) {
-                              setHasManualSearchExpandOverride(true)
-                            }
-                            setExpandedCategoryIds((prev) =>
-                              prev.includes(category.id)
-                                ? prev.filter((id) => id !== category.id)
-                                : [...prev, category.id],
-                            )
-                          }}
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
-                                ? 'rotate-90'
-                                : ''
-                              }`}
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M6 4l4 4-4 4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                        {category.name}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={
-                              category.type === 'income'
-                                ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
-                                : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
-                            }
-                          >
-                        {typeLabels[category.type]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <Button
-                          size="icon-sm"
-                          variant="secondary"
-                          className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
-                          disabled={category.system}
-                          aria-label="Editar categoria"
-                          onClick={() => {
-                            setSelectedCategory(category)
-                            editForm.reset({ name: category.name })
-                            setIsEditOpen(true)
-                          }}
-                        >
-                          <Pencil className="size-5" />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="destructive"
-                          className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
-                          disabled={category.system}
-                          aria-label="Excluir categoria"
-                          onClick={() => {
-                            setSelectedCategory(category)
-                            setDeleteError(null)
-                            setIsDeleteConfirmOpen(true)
-                          }}
-                        >
-                          <Trash2 className="size-5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                  {expandedCategoryIds.includes(category.id) && (
-                    <>
-                      {expandedQueriesById[category.id]?.isLoading && (
-                        <tr className="border-t">
-                          <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
-                            Carregando subcategorias...
-                          </td>
-                        </tr>
-                      )}
-                      {expandedQueriesById[category.id]?.isError && (
-                        <tr className="border-t">
-                          <td colSpan={3} className="px-4 py-3 text-sm text-destructive">
-                            Erro ao carregar subcategorias. Tente novamente.
-                          </td>
-                        </tr>
-                      )}
-                      {!expandedQueriesById[category.id]?.isLoading &&
-                        !expandedQueriesById[category.id]?.isError &&
-                        (expandedQueriesById[category.id]?.data ?? []).map(
-                          (subcategory) => (
-                            <tr key={subcategory.id} className="border-t bg-muted/10">
-                              <td className="px-4 py-3 text-sm">
-                                <span className="text-muted-foreground">—</span>{' '}
-                                {subcategory.name}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                <span
-                                  className={
-                                    category.type === 'income'
-                                      ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
-                                      : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
-                                  }
-                                >
-                                  {typeLabels[category.type]}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                <div className="flex items-center gap-3">
-                                  <Button
-                                    size="icon-sm"
-                                    variant="secondary"
-                                    className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
-                                    aria-label="Editar subcategoria"
-                                    onClick={() => {
-                                      setSubcategoryParent(category)
-                                      setSelectedSubcategory(subcategory)
-                                      subEditForm.reset({ name: subcategory.name })
-                                      setIsSubEditOpen(true)
-                                    }}
-                                  >
-                                    <Pencil className="size-5" />
-                                  </Button>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="destructive"
-                                    className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
-                                    aria-label="Excluir subcategoria"
-                                    onClick={() => {
-                                      setSubcategoryParent(category)
-                                      setSelectedSubcategory(subcategory)
-                                      setSubDeleteError(null)
-                                      setIsSubDeleteConfirmOpen(true)
-                                    }}
-                                  >
-                                    <Trash2 className="size-5" />
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ),
-                        )}
-                      {!expandedQueriesById[category.id]?.isLoading &&
-                        !expandedQueriesById[category.id]?.isError &&
-                        (expandedQueriesById[category.id]?.data ?? [])
-                          .length === 0 && (
-                          <tr className="border-t">
-                            <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
-                              Nenhuma subcategoria cadastrada.
-                            </td>
-                          </tr>
-                        )}
-                    </>
+      <div className="space-y-3 md:hidden">
+        {categoriesQuery.isLoading && (
+          <div className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">
+            Carregando categorias...
+          </div>
+        )}
+        {errorMessage && (
+          <div className="rounded-lg border px-4 py-6 text-center text-sm text-destructive">
+            {errorMessage}
+          </div>
+        )}
+        {!categoriesQuery.isLoading &&
+          !errorMessage &&
+          filteredCategories.map((category) => (
+            <div
+              key={category.id}
+              className="rounded-lg border bg-background p-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30"
+                    aria-label={
+                      expandedCategoryIds.includes(category.id)
+                        ? 'Ocultar subcategorias'
+                        : 'Mostrar subcategorias'
+                    }
+                    aria-expanded={expandedCategoryIds.includes(category.id)}
+                    onClick={() => {
+                      if (normalizedSearch.length > 0) {
+                        setHasManualSearchExpandOverride(true)
+                      }
+                      setExpandedCategoryIds((prev) =>
+                        prev.includes(category.id)
+                          ? prev.filter((id) => id !== category.id)
+                          : [...prev, category.id],
+                      )
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
+                          ? 'rotate-90'
+                          : ''
+                        }`}
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6 4l4 4-4 4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <div>
+                    <p className="text-xs uppercase text-muted-foreground">
+                      Categoria
+                    </p>
+                    <p className="text-sm font-semibold">{category.name}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="icon-sm"
+                    variant="secondary"
+                    className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
+                    disabled={category.system}
+                    aria-label="Editar categoria"
+                    onClick={() => {
+                      setSelectedCategory(category)
+                      editForm.reset({ name: category.name })
+                      setIsEditOpen(true)
+                    }}
+                  >
+                    <Pencil className="size-5" />
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="destructive"
+                    className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
+                    disabled={category.system}
+                    aria-label="Excluir categoria"
+                    onClick={() => {
+                      setSelectedCategory(category)
+                      setDeleteError(null)
+                      setIsDeleteConfirmOpen(true)
+                    }}
+                  >
+                    <Trash2 className="size-5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-2">
+                <span
+                  className={
+                    category.type === 'income'
+                      ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
+                      : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
+                  }
+                >
+                  {typeLabels[category.type]}
+                </span>
+              </div>
+              {expandedCategoryIds.includes(category.id) && (
+                <div className="mt-2 space-y-2">
+                  {expandedQueriesById[category.id]?.isLoading && (
+                    <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                      Carregando subcategorias...
+                    </div>
                   )}
-                </Fragment>
-              ))}
-            {!categoriesQuery.isLoading &&
-              !errorMessage &&
-              filteredCategories.length === 0 && (
+                  {expandedQueriesById[category.id]?.isError && (
+                    <div className="rounded-md border px-3 py-2 text-sm text-destructive">
+                      Erro ao carregar subcategorias. Tente novamente.
+                    </div>
+                  )}
+                  {!expandedQueriesById[category.id]?.isLoading &&
+                    !expandedQueriesById[category.id]?.isError &&
+                    (expandedQueriesById[category.id]?.data ?? []).map(
+                      (subcategory) => (
+                        <div
+                          key={subcategory.id}
+                          className="rounded-md border bg-muted/10 px-3 py-2"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm">
+                              <span className="text-muted-foreground">—</span>{' '}
+                              {subcategory.name}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                size="icon-sm"
+                                variant="secondary"
+                                className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
+                                aria-label="Editar subcategoria"
+                                onClick={() => {
+                                  setSubcategoryParent(category)
+                                  setSelectedSubcategory(subcategory)
+                                  subEditForm.reset({ name: subcategory.name })
+                                  setIsSubEditOpen(true)
+                                }}
+                              >
+                                <Pencil className="size-5" />
+                              </Button>
+                              <Button
+                                size="icon-sm"
+                                variant="destructive"
+                                className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
+                                aria-label="Excluir subcategoria"
+                                onClick={() => {
+                                  setSubcategoryParent(category)
+                                  setSelectedSubcategory(subcategory)
+                                  setSubDeleteError(null)
+                                  setIsSubDeleteConfirmOpen(true)
+                                }}
+                              >
+                                <Trash2 className="size-5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  {!expandedQueriesById[category.id]?.isLoading &&
+                    !expandedQueriesById[category.id]?.isError &&
+                    (expandedQueriesById[category.id]?.data ?? [])
+                      .length === 0 && (
+                      <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                        Nenhuma subcategoria cadastrada.
+                      </div>
+                    )}
+                </div>
+              )}
+            </div>
+          ))}
+        {!categoriesQuery.isLoading &&
+          !errorMessage &&
+          filteredCategories.length === 0 && (
+            <div className="rounded-lg border px-4 py-6 text-center">
+              <div className="space-y-2">
+                {userCategories.length === 0 ? (
+                  <>
+                    <p className="text-sm font-medium">
+                      Nenhuma categoria cadastrada ainda.
+                    </p>
+                    <Button
+                      size="sm"
+                      disabled={isMutating}
+                      onClick={() => {
+                        form.reset()
+                        setIsCreateOpen(true)
+                      }}
+                    >
+                      Criar categoria
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium">
+                    Nenhuma categoria encontrada com os filtros atuais.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+      </div>
+
+      <div className="hidden md:block">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="min-w-[640px] w-full text-left text-sm">
+            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Categoria</th>
+                <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
+                <th className="w-[1%] px-4 py-3 whitespace-nowrap">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categoriesQuery.isLoading && (
                 <tr>
                   <td colSpan={3} className="px-4 py-10 text-center">
-                    <div className="space-y-2">
-                      {userCategories.length === 0 ? (
-                        <>
-                          <p className="text-sm font-medium">
-                            Nenhuma categoria cadastrada ainda.
-                          </p>
-                          <Button
-                            size="sm"
-                            disabled={isMutating}
-                            onClick={() => {
-                              form.reset()
-                              setIsCreateOpen(true)
-                            }}
-                          >
-                            Criar categoria
-                          </Button>
-                        </>
-                      ) : (
-                        <p className="text-sm font-medium">
-                          Nenhuma categoria encontrada com os filtros atuais.
-                        </p>
-                      )}
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Carregando categorias...
+                    </p>
                   </td>
                 </tr>
               )}
-          </tbody>
-        </table>
+              {errorMessage && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-10 text-center">
+                    <p className="text-sm text-destructive">{errorMessage}</p>
+                  </td>
+                </tr>
+              )}
+              {!categoriesQuery.isLoading &&
+                !errorMessage &&
+                filteredCategories.map((category) => (
+                  <Fragment key={category.id}>
+                    <tr className="border-t">
+                      <td className="px-4 py-3 font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30"
+                            aria-label={
+                              expandedCategoryIds.includes(category.id)
+                                ? 'Ocultar subcategorias'
+                                : 'Mostrar subcategorias'
+                            }
+                            aria-expanded={expandedCategoryIds.includes(category.id)}
+                            onClick={() => {
+                              if (normalizedSearch.length > 0) {
+                                setHasManualSearchExpandOverride(true)
+                              }
+                              setExpandedCategoryIds((prev) =>
+                                prev.includes(category.id)
+                                  ? prev.filter((id) => id !== category.id)
+                                  : [...prev, category.id],
+                              )
+                            }}
+                          >
+                            <svg
+                              viewBox="0 0 16 16"
+                              className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
+                                  ? 'rotate-90'
+                                  : ''
+                                }`}
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M6 4l4 4-4 4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                          {category.name}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={
+                            category.type === 'income'
+                              ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
+                              : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
+                          }
+                        >
+                          {typeLabels[category.type]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            size="icon-sm"
+                            variant="secondary"
+                            className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
+                            disabled={category.system}
+                            aria-label="Editar categoria"
+                            onClick={() => {
+                              setSelectedCategory(category)
+                              editForm.reset({ name: category.name })
+                              setIsEditOpen(true)
+                            }}
+                          >
+                            <Pencil className="size-5" />
+                          </Button>
+                          <Button
+                            size="icon-sm"
+                            variant="destructive"
+                            className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
+                            disabled={category.system}
+                            aria-label="Excluir categoria"
+                            onClick={() => {
+                              setSelectedCategory(category)
+                              setDeleteError(null)
+                              setIsDeleteConfirmOpen(true)
+                            }}
+                          >
+                            <Trash2 className="size-5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedCategoryIds.includes(category.id) && (
+                      <>
+                        {expandedQueriesById[category.id]?.isLoading && (
+                          <tr className="border-t">
+                            <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
+                              Carregando subcategorias...
+                            </td>
+                          </tr>
+                        )}
+                        {expandedQueriesById[category.id]?.isError && (
+                          <tr className="border-t">
+                            <td colSpan={3} className="px-4 py-3 text-sm text-destructive">
+                              Erro ao carregar subcategorias. Tente novamente.
+                            </td>
+                          </tr>
+                        )}
+                        {!expandedQueriesById[category.id]?.isLoading &&
+                          !expandedQueriesById[category.id]?.isError &&
+                          (expandedQueriesById[category.id]?.data ?? []).map(
+                            (subcategory) => (
+                              <tr key={subcategory.id} className="border-t bg-muted/10">
+                                <td className="px-4 py-3 text-sm">
+                                  <span className="text-muted-foreground">—</span>{' '}
+                                  {subcategory.name}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={
+                                      category.type === 'income'
+                                        ? 'rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700'
+                                        : 'rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700'
+                                    }
+                                  >
+                                    {typeLabels[category.type]}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <div className="flex items-center gap-3">
+                                    <Button
+                                      size="icon-sm"
+                                      variant="secondary"
+                                      className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
+                                      aria-label="Editar subcategoria"
+                                      onClick={() => {
+                                        setSubcategoryParent(category)
+                                        setSelectedSubcategory(subcategory)
+                                        subEditForm.reset({ name: subcategory.name })
+                                        setIsSubEditOpen(true)
+                                      }}
+                                    >
+                                      <Pencil className="size-5" />
+                                    </Button>
+                                    <Button
+                                      size="icon-sm"
+                                      variant="destructive"
+                                      className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
+                                      aria-label="Excluir subcategoria"
+                                      onClick={() => {
+                                        setSubcategoryParent(category)
+                                        setSelectedSubcategory(subcategory)
+                                        setSubDeleteError(null)
+                                        setIsSubDeleteConfirmOpen(true)
+                                      }}
+                                    >
+                                      <Trash2 className="size-5" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                        {!expandedQueriesById[category.id]?.isLoading &&
+                          !expandedQueriesById[category.id]?.isError &&
+                          (expandedQueriesById[category.id]?.data ?? [])
+                            .length === 0 && (
+                            <tr className="border-t">
+                              <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
+                                Nenhuma subcategoria cadastrada.
+                              </td>
+                            </tr>
+                          )}
+                      </>
+                    )}
+                  </Fragment>
+                ))}
+              {!categoriesQuery.isLoading &&
+                !errorMessage &&
+                filteredCategories.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-10 text-center">
+                      <div className="space-y-2">
+                        {userCategories.length === 0 ? (
+                          <>
+                            <p className="text-sm font-medium">
+                              Nenhuma categoria cadastrada ainda.
+                            </p>
+                            <Button
+                              size="sm"
+                              disabled={isMutating}
+                              onClick={() => {
+                                form.reset()
+                                setIsCreateOpen(true)
+                              }}
+                            >
+                              Criar categoria
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="text-sm font-medium">
+                            Nenhuma categoria encontrada com os filtros atuais.
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
 
@@ -733,7 +944,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar categoria</h3>
@@ -808,8 +1019,12 @@ function Categories() {
                 </div>
               )}
 
-              <div className="flex justify-end pt-2">
-                <Button type="submit" disabled={createCategoryMutation.isPending}>
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={createCategoryMutation.isPending}
+                >
                   {createCategoryMutation.isPending
                     ? 'Criando...'
                     : 'Criar categoria'}
@@ -826,7 +1041,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsEditOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Editar categoria</h3>
@@ -883,9 +1098,10 @@ function Categories() {
                 </div>
               )}
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
                 <Button
                   type="submit"
+                  className="w-full sm:w-auto"
                   disabled={updateCategoryMutation.isPending}
                 >
                   {updateCategoryMutation.isPending
@@ -904,7 +1120,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsDeleteConfirmOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Excluir categoria</h3>
               <p className="text-sm text-muted-foreground">
@@ -918,14 +1134,16 @@ function Categories() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setIsDeleteConfirmOpen(false)}
               >
                 Cancelar
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 onClick={async () => {
                   setDeleteError(null)
                   try {
@@ -961,7 +1179,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar subcategoria</h3>
@@ -1043,9 +1261,10 @@ function Categories() {
                 </div>
               )}
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
                 <Button
                   type="submit"
+                  className="w-full sm:w-auto"
                   disabled={createSubcategoryMutation.isPending}
                 >
                   {createSubcategoryMutation.isPending
@@ -1064,7 +1283,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubEditOpen(false)}
           />
-          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Editar subcategoria</h3>
@@ -1122,9 +1341,10 @@ function Categories() {
                 </div>
               )}
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
                 <Button
                   type="submit"
+                  className="w-full sm:w-auto"
                   disabled={updateSubcategoryMutation.isPending}
                 >
                   {updateSubcategoryMutation.isPending
@@ -1143,7 +1363,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubDeleteConfirmOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+          <div className="relative w-full max-w-md rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Excluir subcategoria</h3>
               <p className="text-sm text-muted-foreground">
@@ -1157,14 +1377,16 @@ function Categories() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setIsSubDeleteConfirmOpen(false)}
               >
                 Cancelar
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 onClick={async () => {
                   setSubDeleteError(null)
                   try {

@@ -383,8 +383,8 @@ function Dashboard() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <div className="min-w-[180px] space-y-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="w-full space-y-1 sm:min-w-[180px] sm:flex-1">
             <Label htmlFor="period">Período</Label>
             <select
               id="period"
@@ -401,7 +401,7 @@ function Dashboard() {
             </select>
           </div>
 
-          <div className="min-w-[200px] space-y-1">
+          <div className="w-full space-y-1 sm:min-w-[200px] sm:flex-1">
             <Label htmlFor="account">Conta</Label>
             <select
               id="account"
@@ -423,8 +423,8 @@ function Dashboard() {
           </div>
 
           {period === 'custom' && (
-            <div className="flex flex-wrap gap-3">
-              <div className="min-w-[160px] space-y-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <div className="w-full space-y-1 sm:min-w-[160px] sm:flex-1">
                 <Label htmlFor="startDate">Início</Label>
                 <Input
                   id="startDate"
@@ -435,7 +435,7 @@ function Dashboard() {
                   }
                 />
               </div>
-              <div className="min-w-[160px] space-y-1">
+              <div className="w-full space-y-1 sm:min-w-[160px] sm:flex-1">
                 <Label htmlFor="endDate">Fim</Label>
                 <Input
                   id="endDate"
@@ -451,7 +451,7 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {showSummarySkeleton ? (
           Array.from({ length: 3 }).map((_, index) => (
             <div
@@ -510,7 +510,7 @@ function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div className="rounded-lg border bg-background p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <Button
                   variant="outline"
@@ -608,7 +608,7 @@ function Dashboard() {
           </div>
 
           <div className="rounded-lg border bg-background p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <Button
                   variant="outline"
@@ -629,12 +629,12 @@ function Dashboard() {
                   </h2>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {isTopExpensesOpen && (
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
-                      className="size-4 rounded border"
+                      className="h-5 w-5 rounded border sm:h-4 sm:w-4"
                       checked={expenseGroupBy === 'subcategory'}
                       onChange={(event) =>
                         setExpenseGroupBy(
@@ -738,7 +738,7 @@ function Dashboard() {
           </div>
 
           <div className="rounded-lg border bg-background p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <Button
                   variant="outline"
@@ -759,12 +759,12 @@ function Dashboard() {
                   </h2>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {isTopIncomeOpen && (
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
-                      className="size-4 rounded border"
+                      className="h-5 w-5 rounded border sm:h-4 sm:w-4"
                       checked={incomeGroupBy === 'subcategory'}
                       onChange={(event) =>
                         setIncomeGroupBy(
@@ -969,8 +969,8 @@ function Dashboard() {
             className="fixed inset-0"
             onClick={() => setSelectedTopCategory(null)}
           />
-          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-6 shadow-lg">
-            <div className="flex items-start justify-between gap-4">
+          <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold">
                   Últimos lançamentos
@@ -979,7 +979,7 @@ function Dashboard() {
                   {selectedTopCategory.name}
                 </p>
               </div>
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="self-start">
                 <Link
                   to="/app/transactions"
                   search={{
@@ -1029,7 +1029,7 @@ function Dashboard() {
                     <button
                       key={transaction.id}
                       type="button"
-                      className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40"
+                      className="flex w-full flex-col gap-2 rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
                       onClick={() => setSelectedTransaction(transaction)}
                     >
                       <div className="flex items-center gap-2">
@@ -1037,7 +1037,7 @@ function Dashboard() {
                           {transaction.description || 'Sem descrição'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-right">
+                      <div className="flex items-center gap-3 text-left sm:text-right">
                         <span
                           className={
                             transaction.type === 'income'
@@ -1067,7 +1067,7 @@ function Dashboard() {
             onClick={() => setSelectedTransaction(null)}
           />
           <div
-            className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
+            className="relative w-full max-w-lg rounded-lg border bg-background p-4 shadow-lg sm:p-6"
             ref={detailModalRef}
             tabIndex={-1}
           >
@@ -1079,7 +1079,7 @@ function Dashboard() {
             </div>
 
             <div className="mt-6 grid gap-4 text-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Data</span>
                 <span className="font-medium">
                   {dateFormatter.format(
@@ -1087,7 +1087,7 @@ function Dashboard() {
                   )}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Descrição</span>
                 <span className="relative">
                   <button
@@ -1109,7 +1109,7 @@ function Dashboard() {
                   )}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Conta</span>
                 <span className="font-medium">
                   {selectedTransaction.accountName ||
@@ -1117,13 +1117,13 @@ function Dashboard() {
                     '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Categoria</span>
                 <span className="font-medium">
                   {selectedTransaction.categoryName || '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Subcategoria</span>
                 <span className="font-medium">
                   {selectedTransaction.subcategoryId
@@ -1131,7 +1131,7 @@ function Dashboard() {
                     : '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Tipo</span>
                 <span className="font-medium">
                   {selectedTransaction.type === 'income'
@@ -1139,7 +1139,7 @@ function Dashboard() {
                     : 'Despesa'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Valor</span>
                 <span className="relative">
                   <button
