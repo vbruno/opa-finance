@@ -3,12 +3,11 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import { isAuthenticated } from '@/features/auth'
-import { useLogin } from '@/features/auth'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { isAuthenticated, useLogin } from '@/features/auth'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { loginSchema, type LoginFormData } from '@/schemas/auth.schema'
 

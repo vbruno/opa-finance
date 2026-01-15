@@ -5,9 +5,9 @@ import {
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { isAuthenticated } from '@/features/auth'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
+import { isAuthenticated } from '@/features/auth'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: () => {

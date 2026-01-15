@@ -2,7 +2,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -134,7 +141,10 @@ function Categories() {
 
   const deleteSubcategoryMutation = useDeleteSubcategory()
 
-  const categories = categoriesQuery.data ?? []
+  const categories = useMemo(
+    () => categoriesQuery.data ?? [],
+    [categoriesQuery.data],
+  )
   const search = Route.useSearch()
   const searchTerm = search.q ?? ''
   const typeFilter = search.type ?? ''
@@ -187,15 +197,21 @@ function Categories() {
     const matchesType = typeFilter ? category.type === typeFilter : true
     return (matchesName || matchesSubcategory) && matchesType
   })
-  const categoryMatchIds = normalizedSearch.length
-    ? userCategories
+  const categoryMatchIds = useMemo(() => {
+    if (!normalizedSearch.length) {
+      return []
+    }
+    return userCategories
       .filter((category) =>
         normalizeSearch(category.name).includes(normalizedSearch),
       )
       .map((category) => category.id)
-    : []
-  const subcategoryMatchIds = debouncedNormalizedSearch.length
-    ? userCategories
+  }, [normalizedSearch, userCategories])
+  const subcategoryMatchIds = useMemo(() => {
+    if (!debouncedNormalizedSearch.length) {
+      return []
+    }
+    return userCategories
       .filter((category) => {
         const subcategories =
           searchSubcategoriesQuery.data?.[category.id] ?? []
@@ -204,10 +220,17 @@ function Categories() {
         )
       })
       .map((category) => category.id)
-    : []
-  const searchExpandIds = normalizedSearch.length
-    ? Array.from(new Set([...categoryMatchIds, ...subcategoryMatchIds]))
-    : []
+  }, [
+    debouncedNormalizedSearch,
+    searchSubcategoriesQuery.data,
+    userCategories,
+  ])
+  const searchExpandIds = useMemo(() => {
+    if (!normalizedSearch.length) {
+      return []
+    }
+    return Array.from(new Set([...categoryMatchIds, ...subcategoryMatchIds]))
+  }, [categoryMatchIds, normalizedSearch, subcategoryMatchIds])
   const typeLabels: Record<Category['type'], string> = {
     income: 'Receita',
     expense: 'Despesa',
@@ -357,12 +380,12 @@ function Categories() {
     isSubDeleteConfirmOpen,
   ])
 
-  function openCategoryCreate() {
+  const openCategoryCreate = useCallback(() => {
     form.reset()
     setIsCreateOpen(true)
-  }
+  }, [form])
 
-  function openSubcategoryCreate() {
+  const openSubcategoryCreate = useCallback(() => {
     if (isMutating || userCategories.length === 0) {
       return
     }
@@ -378,7 +401,13 @@ function Categories() {
     }
     subCreateForm.reset()
     setIsSubCreateOpen(true)
-  }
+  }, [
+    categories,
+    isMutating,
+    primaryExpandedCategoryId,
+    subCreateForm,
+    userCategories,
+  ])
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -406,7 +435,7 @@ function Categories() {
 
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
-  }, [categories, isMutating, primaryExpandedCategoryId, userCategories])
+  }, [openCategoryCreate, openSubcategoryCreate])
 
   return (
     <div className="space-y-6">

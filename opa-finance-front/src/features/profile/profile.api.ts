@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 
-import { api } from '@/lib/api'
 import type { User } from '@/features/auth'
+import { api } from '@/lib/api'
 
 export type UpdateProfilePayload = {
   id: string

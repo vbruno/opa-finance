@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEventHandler,
@@ -108,7 +109,7 @@ function Dashboard() {
   )
 
   const accountsQuery = useAccounts()
-  const accounts = accountsQuery.data ?? []
+  const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
   const primaryAccount =
     accounts.find((account) => account.isPrimary) ?? accounts[0]
   const isAccountParamAll = accountParam === 'all'

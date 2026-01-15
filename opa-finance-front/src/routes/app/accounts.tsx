@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
 import { SlidersHorizontal } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -160,7 +160,7 @@ function Accounts() {
   const updateAccountMutation = useUpdateAccount()
 
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
-  const accounts = accountsQuery.data ?? []
+  const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
   const isRefreshingAccounts =
     accountsQuery.isFetching && !accountsQuery.isLoading
   const search = Route.useSearch()

@@ -8,10 +8,13 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import {
+  useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEventHandler,
+  type FocusEvent,
   type KeyboardEventHandler,
   type MouseEventHandler,
 } from 'react'
@@ -512,8 +515,14 @@ function Transactions() {
     setActiveSuggestionIndex(0)
   }, [descriptionSuggestions.length, isDescriptionSuggestionsOpen])
 
-  const rawTransactions = transactionsQuery.data?.data ?? []
-  const transactions = isAmountFilterInvalid ? [] : rawTransactions
+  const rawTransactions = useMemo(
+    () => transactionsQuery.data?.data ?? [],
+    [transactionsQuery.data],
+  )
+  const transactions = useMemo(
+    () => (isAmountFilterInvalid ? [] : rawTransactions),
+    [isAmountFilterInvalid, rawTransactions],
+  )
   const total = isAmountFilterInvalid ? 0 : transactionsQuery.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
@@ -538,15 +547,6 @@ function Transactions() {
     if (value < 0) return 'text-rose-600'
     return 'text-muted-foreground'
   }
-  const getTransferRelatedIds = (transferId: string | null) => {
-    if (!transferId) {
-      return []
-    }
-    return transactions
-      .filter((item) => item.transferId === transferId)
-      .map((item) => item.id)
-  }
-
   const buildBulkDeleteIds = (items: Transaction[]) => {
     const ids = new Set<string>()
     const seenTransfers = new Set<string>()
@@ -562,7 +562,7 @@ function Transactions() {
     return Array.from(ids)
   }
 
-  const handleDateFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+  const handleDateFocus = (event: FocusEvent<HTMLInputElement>) => {
     const input = event.currentTarget
     if (typeof input.showPicker === 'function') {
       input.showPicker()
@@ -577,7 +577,7 @@ function Transactions() {
     categories.map((category) => [category.id, category.name]),
   )
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     isClearingDescription.current = true
     isClearingAmount.current = true
     setDescriptionDraft('')
@@ -599,7 +599,7 @@ function Transactions() {
         endDate: undefined,
       }),
     })
-  }
+  }, [navigate])
   function handleSort(
     nextKey:
       | 'date'
@@ -907,15 +907,15 @@ function Transactions() {
     selectedTransaction,
   ])
 
-  const openTransactionCreate = () => {
+  const openTransactionCreate = useCallback(() => {
     setIsCreateOpen(true)
-  }
+  }, [])
 
-  const openTransferCreate = () => {
+  const openTransferCreate = useCallback(() => {
     setTransferEditContext(null)
     setTransferEditError(null)
     setIsTransferOpen(true)
-  }
+  }, [])
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
