@@ -657,6 +657,11 @@ Cria uma nova categoria.
 - `income` - Receita
 - `expense` - Despesa
 
+**Observação importante:**
+Somente a categoria de sistema "Transferência" pode ser usada em transações.
+Ela aceita tanto `income` quanto `expense` para manter a consistência de
+transferências entre contas.
+
 **Response 201:**
 
 ```json
@@ -684,6 +689,11 @@ Cria uma nova categoria.
 Lista todas as categorias do usuário (inclui categorias de sistema).
 
 **Headers:** `Authorization: Bearer {token}`
+
+**Observação importante:**
+As categorias de sistema aparecem no list, mas apenas a categoria de sistema
+"Transferência" pode ser usada em transações. Outras categorias de sistema são
+somente leitura e não podem ser selecionadas no POST/PUT de `/transactions`.
 
 **Response 200:**
 

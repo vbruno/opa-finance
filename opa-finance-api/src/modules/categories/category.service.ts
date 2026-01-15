@@ -28,6 +28,7 @@ export class CategoryService {
         name: data.name,
         type: data.type,
         system: false,
+        color: data.color ?? null,
       })
       .returning();
 

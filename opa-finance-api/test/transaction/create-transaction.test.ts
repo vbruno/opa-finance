@@ -92,4 +92,37 @@ describe("POST /transactions", () => {
 
     expect(res.statusCode).toBe(401);
   });
+
+  it("deve permitir categoria Transferência com tipo income", async () => {
+    const { token, user } = await registerAndLogin(app, db);
+
+    const [acc] = await db
+      .insert(accounts)
+      .values({ name: "Carteira", type: "cash", userId: user.id, initialBalance: "0" })
+      .returning();
+
+    const [transferCategory] = await db
+      .insert(categories)
+      .values({ name: "Transferência", type: "expense", userId: null, system: true })
+      .returning();
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: acc.id,
+        categoryId: transferCategory.id,
+        type: "income",
+        amount: 250,
+        date: "2025-01-10",
+        description: "Transferência recebida",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.categoryId).toBe(transferCategory.id);
+    expect(body.type).toBe("income");
+  });
 });

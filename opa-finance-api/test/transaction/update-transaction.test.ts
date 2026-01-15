@@ -129,6 +129,7 @@ describe("PUT /transactions/:id", () => {
 
     expect(body.amount).toBe(150);
     expect(body.description).toBe("Compras maiores");
+    expect(body.updatedAt).toBeTruthy();
   });
 
   /* ------------------------------------------------------------------------ */
@@ -342,6 +343,8 @@ describe("PUT /transactions/:id", () => {
     expect(updated[1].date).toBe("2025-01-20");
     expect(updated[0].description).toBe("Transferência editada");
     expect(updated[1].description).toBe("Transferência editada");
+    expect(updated[0].updatedAt).toBeTruthy();
+    expect(updated[1].updatedAt).toBeTruthy();
   });
 
   it("não deve permitir atualizar transferência com contas iguais", async () => {

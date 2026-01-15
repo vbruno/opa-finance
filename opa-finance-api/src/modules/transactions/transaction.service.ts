@@ -60,7 +60,7 @@ export class TransactionService {
     const [cat] = await this.app.db.select().from(categories).where(eq(categories.id, categoryId));
 
     if (!cat) throw new NotFoundProblem("Categoria não encontrada.", `/categories/${categoryId}`);
-    if (cat.userId !== userId)
+    if (cat.userId !== userId && !this.isTransferCategory(cat))
       throw new ForbiddenProblem("Acesso negado à categoria.", `/categories/${categoryId}`);
 
     return cat;
@@ -83,10 +83,17 @@ export class TransactionService {
     return sub;
   }
 
-  private validateTypeMatchesCategory(type: string, categoryType: string) {
-    if (type !== categoryType) {
+  private isTransferCategory(category: { name: string; system: boolean | null }) {
+    return category.system === true && category.name === "Transferência";
+  }
+
+  private validateTypeMatchesCategory(
+    type: string,
+    category: { type: string; name: string; system: boolean | null },
+  ) {
+    if (type !== category.type && !this.isTransferCategory(category)) {
       throw new ValidationProblem(
-        `O tipo da transação (${type}) não corresponde ao tipo da categoria (${categoryType}).`,
+        `O tipo da transação (${type}) não corresponde ao tipo da categoria (${category.type}).`,
         "/transactions",
       );
     }
@@ -118,7 +125,7 @@ export class TransactionService {
     }
 
     // regra: type deve ser igual ao tipo da categoria
-    this.validateTypeMatchesCategory(data.type, cat.type);
+    this.validateTypeMatchesCategory(data.type, cat);
 
     // cria transação
     const [tx] = await this.app.db
@@ -394,19 +401,10 @@ export class TransactionService {
     }
 
     const finalType = data.type ?? tx.type;
+    const finalCategory =
+      newCategory ?? (await this.validateCategory(userId, tx.categoryId));
 
-    // tipo da categoria deve ser obtido da categoria final
-    let finalCategoryType = tx.type;
-
-    if (newCategory) {
-      finalCategoryType = newCategory.type;
-    } else {
-      // pega categoria original da transação
-      const oldCategory = await this.validateCategory(userId, tx.categoryId);
-      finalCategoryType = oldCategory.type;
-    }
-
-    this.validateTypeMatchesCategory(finalType, finalCategoryType);
+    this.validateTypeMatchesCategory(finalType, finalCategory);
 
     const [updated] = await this.app.db
       .update(transactions)

@@ -130,4 +130,5 @@ export const transactions = pgTable("transactions", {
   transferId: uuid("transfer_id"),
 
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });

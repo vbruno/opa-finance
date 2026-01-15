@@ -9,6 +9,7 @@ import { categoryTypes } from "./category.enum";
 export const createCategorySchema = z.object({
   name: z.string().min(1, { message: "Nome é obrigatório." }),
   type: z.enum(categoryTypes, { message: "Tipo de categoria inválido." }),
+  color: z.string().nullable().optional(),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
@@ -20,6 +21,7 @@ export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export const updateCategorySchema = z
   .object({
     name: z.string().min(1, { message: "Nome é obrigatório." }).optional(),
+    color: z.string().nullable().optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "Pelo menos um campo deve ser atualizado.",
