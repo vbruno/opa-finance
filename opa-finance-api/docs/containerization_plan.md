@@ -50,8 +50,8 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 
 ### 4) Migrations
 - Definir quando rodar:
-  - Manual: `npm run db:migrate`
-  - CI/CD: etapa antes de subir app
+  - Manual (recomendado no primeiro deploy): executar `npm run db:migrate` com o container ja conectado ao banco.
+  - Atualizacoes: rodar migrations antes de reiniciar a API.
 - Garantir que migrations estao dentro do container (`src/db/migrations`).
 
 ### 5) Healthcheck
