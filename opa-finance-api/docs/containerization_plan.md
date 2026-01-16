@@ -30,7 +30,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
   - `CORS_ORIGINS`
   - `PORT`
   - `HOST`
-- Usar `env_file` no compose (Portainer), sem embutir em imagem.
+- Definir variaveis direto no Stack do Portainer (sem `env_file`).
 - Exemplo em `.env.example` (sem segredos reais).
 - `CORS_ORIGINS=*` pode ser usado temporariamente ate o front estar publicado.
 
@@ -40,13 +40,14 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - `DATABASE_URL` aponta para o container `postgres_infra`.
 - Porta `3333` exposta para o Nginx.
 - Healthcheck via `node -e` (sem dependencia de `wget`/`curl`).
+- O frontend fica em outra subpasta do repo e nao participa do build do backend.
 
 ### 3.1) Passo a passo no Portainer (Stack)
 1. Acesse **Stacks** > **Add stack**.
 2. Escolha o metodo **Git repository**.
-3. Informe o repo: `https://github.com/vbruno/opa-finance/tree/main/opa-finance-api` e branch `main`.
-4. Ajuste o caminho do compose para `docker-compose.yml`.
-5. Configure `env_file` com o arquivo `.env` no mesmo diretorio do compose.
+3. Informe o repo: `https://github.com/vbruno/opa-finance.git` e branch `main`.
+4. Ajuste o caminho do compose para `opa-finance-api/docker-compose.yml`.
+5. Configure as variaveis de ambiente direto na tela do Stack.
 6. Deploy da stack.
 
 ### 4) Migrations

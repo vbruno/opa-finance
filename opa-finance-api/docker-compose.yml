@@ -6,8 +6,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: opa-finance-api:latest
-    env_file:
-      - .env
     restart: unless-stopped
     healthcheck:
       test:
@@ -35,8 +33,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: opa-finance-api:latest
-    env_file:
-      - .env
     networks:
       - backend_net
     command: ["npm", "run", "db:migrate"]
