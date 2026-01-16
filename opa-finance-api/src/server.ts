@@ -45,7 +45,9 @@ async function start() {
     env.CORS_ORIGINS?.split(",")
       .map((origin) => origin.trim())
       .filter(Boolean) ?? [];
-  const corsOrigin = env.NODE_ENV === "development" ? true : corsOrigins;
+  // TODO: restringir CORS_ORIGINS quando o frontend estiver em producao.
+  const corsOrigin =
+    env.NODE_ENV === "development" || corsOrigins.includes("*") ? true : corsOrigins;
   app.register(cors, {
     origin: corsOrigin,
     credentials: true,

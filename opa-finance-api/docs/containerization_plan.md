@@ -1,16 +1,15 @@
 # Plano de Containerizacao do Backend
 
 ## Objetivo
-Padronizar a execucao do backend em containers para desenvolvimento e producao, garantindo build reprodutivel, variaveis de ambiente consistentes e estrategia de migrations clara.
+Padronizar a execucao do backend em containers na VPS com Portainer, com build via Docker Compose, variaveis de ambiente via `env_file` e estrategia de migrations clara.
 
 ## Escopo
 - Dockerfile (multi-stage)
 - .dockerignore
-- docker-compose para Postgres local
-- Variaveis de ambiente
+- docker-compose para Portainer (build do repo)
+- Variaveis de ambiente via `env_file`
 - Migrations
 - Healthcheck e logs
-- CI/CD basico (build e push)
 
 ## Plano
 
@@ -31,13 +30,23 @@ Padronizar a execucao do backend em containers para desenvolvimento e producao, 
   - `CORS_ORIGINS`
   - `PORT`
   - `HOST`
-- Usar `.env` local e `--env-file` no compose, sem embutir em imagem.
+- Usar `env_file` no compose (Portainer), sem embutir em imagem.
+- Exemplo em `.env.example` (sem segredos reais).
+- `CORS_ORIGINS=*` pode ser usado temporariamente ate o front estar publicado.
 
-### 3) docker-compose (desenvolvimento)
-- Subir Postgres local com volume persistente.
-- Expor porta 5432.
-- Definir `DATABASE_URL` apontando para o service do Postgres.
-- (Opcional) adicionar Adminer/pgAdmin.
+### 3) docker-compose (Portainer)
+- Build direto do repo no Portainer (Stack).
+- Usar rede externa `backend_net`.
+- `DATABASE_URL` aponta para o container `postgres_infra`.
+- Porta `3333` exposta para o Nginx.
+
+### 3.1) Passo a passo no Portainer (Stack)
+1. Acesse **Stacks** > **Add stack**.
+2. Escolha o metodo **Git repository**.
+3. Informe o repo: `https://github.com/vbruno/opa-finance/tree/main/opa-finance-api` e branch `main`.
+4. Ajuste o caminho do compose para `docker-compose.yml`.
+5. Configure `env_file` com o arquivo `.env` no mesmo diretorio do compose.
+6. Deploy da stack.
 
 ### 4) Migrations
 - Definir quando rodar:
