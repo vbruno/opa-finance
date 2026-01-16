@@ -577,7 +577,7 @@ export class TransactionService {
         .orderBy(desc(totalAmount))
         .limit(5);
 
-    const combined = [
+      const combined = [
         ...rows.map((row: (typeof rows)[number]) => ({
           id: row.subcategoryId,
           name: row.subcategoryName,
