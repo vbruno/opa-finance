@@ -1837,7 +1837,9 @@ function Transactions() {
                   <span className="text-xs uppercase text-muted-foreground">
                     Data
                   </span>
-                  <span>{dateFormatter.format(new Date(transaction.date))}</span>
+                  <span>
+                    {formatDateDisplay(transaction.date, dateFormatter)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs uppercase text-muted-foreground">
@@ -2261,7 +2263,7 @@ function Transactions() {
                       </label>
                     </td>
                     <td className="px-4 py-2">
-                      {dateFormatter.format(new Date(transaction.date))}
+                      {formatDateDisplay(transaction.date, dateFormatter)}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
@@ -3112,9 +3114,7 @@ function Transactions() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Data</span>
                 <span className="font-medium">
-                  {dateFormatter.format(
-                    new Date(selectedTransaction.date),
-                  )}
+                  {formatDateDisplay(selectedTransaction.date, dateFormatter)}
                 </span>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3206,8 +3206,9 @@ function Transactions() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Criada em</span>
                 <span className="font-medium">
-                  {dateFormatter.format(
-                    new Date(selectedTransaction.createdAt),
+                  {formatDateDisplay(
+                    selectedTransaction.createdAt,
+                    dateFormatter,
                   )}
                 </span>
               </div>
@@ -3967,6 +3968,20 @@ function buildPaginationItems(current: number, total: number) {
   }
 
   return items
+}
+
+function formatDateDisplay(
+  value: string | Date | null | undefined,
+  formatter: Intl.DateTimeFormat,
+) {
+  if (!value) {
+    return '-'
+  }
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+  return formatter.format(date)
 }
 
 function formatDateInput(date: Date) {

@@ -105,7 +105,30 @@ export async function transactionRoutes(app: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              data: { type: "array", items: { type: "object" } },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    userId: { type: "string" },
+                    accountId: { type: "string" },
+                    accountName: { type: "string", nullable: true },
+                    categoryId: { type: "string" },
+                    categoryName: { type: "string", nullable: true },
+                    subcategoryId: { type: "string", nullable: true },
+                    subcategoryName: { type: "string", nullable: true },
+                    type: { type: "string" },
+                    amount: { type: "number" },
+                    date: { type: "string" },
+                    description: { type: "string", nullable: true },
+                    notes: { type: "string", nullable: true },
+                    transferId: { type: "string", nullable: true },
+                    createdAt: { type: "string" },
+                    updatedAt: { type: "string", nullable: true },
+                  },
+                },
+              },
               page: { type: "number" },
               limit: { type: "number" },
               total: { type: "number" },
