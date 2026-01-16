@@ -51,7 +51,8 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 6. Deploy da stack.
 
 ### 4) Migrations
-- Automatizado via service `migrate` no compose (executa uma vez).
+- Temporario: rodar `npm run db:migrate` no start da API para facilitar debug no Portainer.
+- Depois do primeiro deploy, voltar para o service dedicado `migrate`.
 - Nao rodar `db:generate` em producao; gerar migrations em dev/CI.
 - Garantir que migrations estao dentro do container (`src/db/migrations`).
 
