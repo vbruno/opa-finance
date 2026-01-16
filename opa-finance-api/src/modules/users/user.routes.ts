@@ -38,7 +38,18 @@ export async function userRoutes(app: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              data: { type: "array", items: { type: "object" } },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    name: { type: "string" },
+                    email: { type: "string" },
+                    createdAt: { type: "string" },
+                  },
+                },
+              },
               page: { type: "number" },
               limit: { type: "number" },
             },
