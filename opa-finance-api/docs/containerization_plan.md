@@ -39,6 +39,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - Usar rede externa `backend_net`.
 - `DATABASE_URL` aponta para o container `postgres_infra`.
 - Porta `3333` exposta para o Nginx.
+- Healthcheck via `node -e` (sem dependencia de `wget`/`curl`).
 
 ### 3.1) Passo a passo no Portainer (Stack)
 1. Acesse **Stacks** > **Add stack**.
@@ -49,9 +50,8 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 6. Deploy da stack.
 
 ### 4) Migrations
-- Definir quando rodar:
-  - Manual (recomendado no primeiro deploy): executar `npm run db:migrate` com o container ja conectado ao banco.
-  - Atualizacoes: rodar migrations antes de reiniciar a API.
+- Automatizado via service `migrate` no compose (executa uma vez).
+- Nao rodar `db:generate` em producao; gerar migrations em dev/CI.
 - Garantir que migrations estao dentro do container (`src/db/migrations`).
 
 ### 5) Healthcheck
