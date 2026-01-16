@@ -13,6 +13,7 @@ import jwtPlugin from "./core/plugins/jwt";
 import { accountRoutes } from "./modules/accounts/account.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
+import { systemRoutes } from "./modules/system/system.routes";
 import { transactionRoutes } from "./modules/transactions/transaction.routes";
 import { transferRoutes } from "./modules/transfers/transfer.routes";
 import { userRoutes } from "./modules/users/user.routes";
@@ -110,14 +111,9 @@ async function start() {
   app.register(categoryRoutes);
   app.register(transactionRoutes);
   app.register(transferRoutes);
+  app.register(systemRoutes);
 
-  // **⚠️ Último passo: registrar o handler global de erros**
   registerErrorHandler(app);
-
-  // Rota simples
-  app.get("/", () => {
-    return { message: "API funcionando!" };
-  });
 
   await app.listen({ port: Number(env.PORT), host: env.HOST });
 

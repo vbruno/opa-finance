@@ -92,6 +92,36 @@ Todos os erros seguem o padrão **RFC 7807** (Problem Details):
 
 ---
 
+## ❤️ Health
+
+### GET `/health`
+
+Health check simples da API.
+
+**Response 200:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+---
+
+### GET `/`
+
+Retorna mensagem basica de status.
+
+**Response 200:**
+
+```json
+{
+  "message": "API funcionando!"
+}
+```
+
+---
+
 ## 🔑 Auth
 
 ### POST `/auth/register`

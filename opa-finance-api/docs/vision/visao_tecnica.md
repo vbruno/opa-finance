@@ -29,6 +29,10 @@
 - Repositories  
 - Schemas Zod  
 
+## Rotas de Sistema
+- `/health`: health check da API  
+- `/`: status simples da API  
+
 ## Autenticação
 - Access Token curto  
 - Refresh Token longo (httpOnly + secure)  
