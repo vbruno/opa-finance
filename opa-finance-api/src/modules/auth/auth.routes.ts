@@ -20,142 +20,397 @@ import { NotFoundProblem, UnauthorizedProblem } from "@/core/errors/problems";
 
 export async function authRoutes(app: FastifyInstance) {
   const service = new AuthService(app, app.db);
+  const authTag = ["Auth"];
 
   /* -------------------------------------------------------------------------- */
   /*                                   REGISTER                                 */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/register", async (req, reply) => {
-    const data = registerSchema.parse(req.body);
+  app.post(
+    "/auth/register",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Registrar usuário",
+        description: "Cria um novo usuário e retorna access token.",
+        body: {
+          type: "object",
+          required: ["name", "email", "password", "confirmPassword"],
+          properties: {
+            name: { type: "string", example: "João Silva" },
+            email: { type: "string", example: "joao@example.com" },
+            password: { type: "string", example: "MinhaSenha@123" },
+            confirmPassword: { type: "string", example: "MinhaSenha@123" },
+          },
+        },
+        response: {
+          201: {
+            type: "object",
+            properties: {
+              accessToken: { type: "string" },
+            },
+            example: {
+              accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXCJ9...",
+            },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const data = registerSchema.parse(req.body);
 
-    const user = await service.register(data);
+      const user = await service.register(data);
 
-    const accessToken = service.generateAccessToken(user.id);
-    const refreshToken = service.generateRefreshToken(user.id);
+      const accessToken = service.generateAccessToken(user.id);
+      const refreshToken = service.generateRefreshToken(user.id);
 
-    reply.setCookie("refreshToken", refreshToken, {
-      path: "/",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      reply.setCookie("refreshToken", refreshToken, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
+      });
 
-    return reply.status(201).send({ accessToken });
-  });
+      return reply.status(201).send({ accessToken });
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                                     LOGIN                                  */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/login", async (req, reply) => {
-    const data = loginSchema.parse(req.body);
-    const user = await service.login(data);
+  app.post(
+    "/auth/login",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Login",
+        description: "Autentica um usuário e retorna access token.",
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string", example: "joao@example.com" },
+            password: { type: "string", example: "MinhaSenha@123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              accessToken: { type: "string" },
+            },
+            example: {
+              accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXCJ9...",
+            },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const data = loginSchema.parse(req.body);
+      const user = await service.login(data);
 
-    const accessToken = service.generateAccessToken(user.id);
-    const refreshToken = service.generateRefreshToken(user.id);
+      const accessToken = service.generateAccessToken(user.id);
+      const refreshToken = service.generateRefreshToken(user.id);
 
-    reply.setCookie("refreshToken", refreshToken, {
-      path: "/",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      reply.setCookie("refreshToken", refreshToken, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
+      });
 
-    return { accessToken };
-  });
+      return { accessToken };
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                               REFRESH TOKEN                                */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/refresh", async (req, reply) => {
-    let payload: { sub: string };
+  app.post(
+    "/auth/refresh",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Renovar token",
+        description: "Renova o access token usando o cookie refreshToken.",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              accessToken: { type: "string" },
+            },
+            example: {
+              accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXCJ9...",
+            },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      let payload: { sub: string };
 
-    try {
-      payload = await req.jwtVerify<{ sub: string }>({
-        onlyCookie: true,
-        secret: env.REFRESH_TOKEN_SECRET,
+      try {
+        payload = await req.jwtVerify<{ sub: string }>({
+          decode: {},
+          verify: {
+            onlyCookie: true,
+            key: env.REFRESH_TOKEN_SECRET,
+          },
+        });
+      } catch {
+        throw new UnauthorizedProblem("Invalid refresh token", req.url);
+      }
+
+      const accessToken = service.generateAccessToken(payload.sub);
+      const refreshToken = service.generateRefreshToken(payload.sub);
+
+      reply.setCookie("refreshToken", refreshToken, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
       });
-    } catch {
-      throw new UnauthorizedProblem("Invalid refresh token", req.url);
-    }
 
-    const accessToken = service.generateAccessToken(payload.sub);
-    const refreshToken = service.generateRefreshToken(payload.sub);
-
-    reply.setCookie("refreshToken", refreshToken, {
-      path: "/",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    return { accessToken };
-  });
+      return { accessToken };
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                                      ME                                    */
   /* -------------------------------------------------------------------------- */
-  app.get("/auth/me", { preHandler: [app.authenticate] }, async (req) => {
-    const userId = req.user.sub;
+  app.get(
+    "/auth/me",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: authTag,
+        summary: "Obter usuário atual",
+        description: "Retorna dados do usuário autenticado.",
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              name: { type: "string" },
+              email: { type: "string" },
+              createdAt: { type: "string" },
+            },
+            example: {
+              id: "uuid",
+              name: "João Silva",
+              email: "joao@example.com",
+              createdAt: "2025-01-15T10:30:00.000Z",
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const userId = req.user.sub;
 
-    const [user] = await app.db.select().from(users).where(eq(users.id, userId));
+      const [user] = await app.db.select().from(users).where(eq(users.id, userId));
 
-    if (!user) {
-      throw new NotFoundProblem("Usuário não encontrado", req.url);
-    }
+      if (!user) {
+        throw new NotFoundProblem("Usuário não encontrado", req.url);
+      }
 
-    const { passwordHash, ...publicUser } = user;
-    void passwordHash;
-    return publicUser;
-  });
+      const { passwordHash, ...publicUser } = user;
+      void passwordHash;
+      return publicUser;
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                                     LOGOUT                                 */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/logout", async (_req, reply) => {
-    reply.clearCookie("refreshToken", { path: "/" });
-    return reply.status(200).send({ message: "Logout realizado com sucesso." });
-  });
+  app.post(
+    "/auth/logout",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Sair",
+        description: "Remove o cookie refreshToken.",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+            },
+            example: {
+              message: "Logout realizado com sucesso.",
+            },
+          },
+        },
+      },
+    },
+    async (_req, reply) => {
+      reply.clearCookie("refreshToken", { path: "/" });
+      return reply.status(200).send({ message: "Logout realizado com sucesso." });
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                          CHECK PASSWORD STRENGTH                           */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/check-password-strength", async (req) => {
-    const { password } = passwordStrengthSchema.parse(req.body);
-    return { strength: getPasswordStrength(password) };
-  });
+  app.post(
+    "/auth/check-password-strength",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Verificar força da senha",
+        description: "Retorna a força da senha.",
+        body: {
+          type: "object",
+          required: ["password"],
+          properties: {
+            password: { type: "string", example: "MinhaSenha@123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              strength: { type: "number" },
+            },
+            example: {
+              strength: 4,
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const { password } = passwordStrengthSchema.parse(req.body);
+      return { strength: getPasswordStrength(password) };
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                             CHANGE PASSWORD                                */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/change-password", { preHandler: [app.authenticate] }, async (req) => {
-    const data = changePasswordSchema.parse(req.body);
+  app.post(
+    "/auth/change-password",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: authTag,
+        summary: "Alterar senha",
+        description: "Altera a senha do usuário autenticado.",
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: "object",
+          required: ["currentPassword", "newPassword", "confirmNewPassword"],
+          properties: {
+            currentPassword: { type: "string", example: "SenhaAtual@123" },
+            newPassword: { type: "string", example: "NovaSenha@123" },
+            confirmNewPassword: { type: "string", example: "NovaSenha@123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+            },
+            example: {
+              message: "Senha alterada com sucesso.",
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const data = changePasswordSchema.parse(req.body);
 
-    return await service.changePassword(req.user.sub, data);
-  });
+      return await service.changePassword(req.user.sub, data);
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                              FORGOT PASSWORD                               */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/forgot-password", async (req) => {
-    const { email } = forgotPasswordSchema.parse(req.body);
+  app.post(
+    "/auth/forgot-password",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Recuperar senha",
+        description: "Gera token de redefinição. Em produção, não retorna token.",
+        body: {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string", example: "joao@example.com" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+              resetToken: { type: "string", nullable: true },
+            },
+            example: {
+              message: "Se o email existir, enviaremos um link de redefinição.",
+              resetToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXCJ9...",
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const { email } = forgotPasswordSchema.parse(req.body);
 
-    const result = await service.forgotPassword(email);
-    // TODO: enviar o token por e-mail em producao.
-    const includeToken = env.NODE_ENV !== "production";
+      const result = await service.forgotPassword(email);
+      // TODO: enviar o token por e-mail em produção.
+      const includeToken = env.NODE_ENV !== "production";
 
-    return {
-      message: "Se o email existir, enviaremos um link de redefinição.",
-      ...(includeToken ? { resetToken: result.resetToken } : {}),
-    };
-  });
+      return {
+        message: "Se o email existir, enviaremos um link de redefinição.",
+        ...(includeToken ? { resetToken: result.resetToken } : {}),
+      };
+    },
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                               RESET PASSWORD                               */
   /* -------------------------------------------------------------------------- */
-  app.post("/auth/reset-password", async (req) => {
-    const data = resetPasswordSchema.parse(req.body);
-    return await service.resetPassword(data);
-  });
+  app.post(
+    "/auth/reset-password",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Redefinir senha",
+        description: "Redefine senha usando token de reset.",
+        body: {
+          type: "object",
+          required: ["token", "newPassword", "confirmNewPassword"],
+          properties: {
+            token: { type: "string" },
+            newPassword: { type: "string", example: "NovaSenha@123" },
+            confirmNewPassword: { type: "string", example: "NovaSenha@123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+            },
+            example: {
+              message: "Senha redefinida com sucesso.",
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const data = resetPasswordSchema.parse(req.body);
+      return await service.resetPassword(data);
+    },
+  );
 }

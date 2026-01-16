@@ -1,5 +1,6 @@
 // test/setup.ts
 import cookie from "@fastify/cookie";
+import type Ajv from "ajv";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
@@ -15,7 +16,18 @@ import { transferRoutes } from "@/modules/transfers/transfer.routes";
 import { userRoutes } from "@/modules/users/user.routes";
 
 export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> {
-  const app: FastifyInstance = Fastify();
+  const app: FastifyInstance = Fastify({
+    ajv: {
+      plugins: [
+        (ajv: Ajv) => {
+          ajv.addKeyword({
+            keyword: "example",
+            schemaType: ["string", "number", "boolean", "object", "array"],
+          });
+        },
+      ],
+    },
+  });
 
   // Banco de teste (Postgres em memória ou isolado)
   const db: DB = await createTestDB();

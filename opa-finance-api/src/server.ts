@@ -1,5 +1,8 @@
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
+import type Ajv from "ajv";
 import { config } from "dotenv";
 import Fastify from "fastify";
 import { env } from "./core/config/env";
@@ -24,6 +27,16 @@ async function start() {
             level: env.LOG_LEVEL ?? "info",
           }
         : false,
+    ajv: {
+      plugins: [
+        (ajv: Ajv) => {
+          ajv.addKeyword({
+            keyword: "example",
+            schemaType: ["string", "number", "boolean", "object", "array"],
+          });
+        },
+      ],
+    },
   });
 
   // CORS
@@ -44,6 +57,34 @@ async function start() {
   app.register(cookie, {
     secret: env.JWT_SECRET,
   });
+
+  if (env.NODE_ENV !== "production") {
+    app.register(swagger, {
+      openapi: {
+        info: {
+          title: "OPA Finance API",
+          version: "1.0.0",
+          description: "API para controle financeiro com autenticação JWT e cookies.",
+        },
+        servers: [
+          { url: "http://localhost:3333", description: "Development" },
+          { url: "https://api.seudominio.com", description: "Production" },
+        ],
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: "http",
+              scheme: "bearer",
+              bearerFormat: "JWT",
+            },
+          },
+        },
+      },
+    });
+    app.register(swaggerUi, {
+      routePrefix: "/docs",
+    });
+  }
 
   // Banco real (Drizzle)
   app.decorate("db", db);

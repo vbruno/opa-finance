@@ -217,6 +217,13 @@ npm run db:migrate
 npm run dev
 ```
 
+### 📖 Swagger
+Em `development`/`test`, a documentação Swagger fica disponível em:
+
+```
+http://localhost:3333/docs
+```
+
 ---
 
 ## 🏗 Estrutura de Pastas (detalhada)
