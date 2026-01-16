@@ -1,21 +1,19 @@
 // src/modules/auth/auth.service.ts
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { hashPassword, comparePassword } from "../../core/utils/hash.utils";
-import { users } from "../../db/schema";
-
-import type { RegisterInput, LoginInput } from "./auth.schemas";
-import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
-
-import { env } from "@/core/config/env";
+import { env } from "../../core/config/env";
 import {
   ConflictProblem,
   UnauthorizedProblem,
   NotFoundProblem,
   ValidationProblem,
-} from "@/core/errors/problems";
+} from "../../core/errors/problems";
+import type { DB } from "../../core/plugins/drizzle";
+import { hashPassword, comparePassword } from "../../core/utils/hash.utils";
+import { users } from "../../db/schema";
 
-import type { DB } from "@/core/plugins/drizzle";
+import type { RegisterInput, LoginInput } from "./auth.schemas";
+import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
 
 export class AuthService {
   constructor(

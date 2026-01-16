@@ -2,11 +2,10 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
+import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/errors/problems";
+
+import { accounts, transactions } from "../../db/schema";
 import type { CreateAccountInput, UpdateAccountInput } from "./account.schemas";
-
-import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "@/core/errors/problems";
-
-import { accounts, transactions } from "@/db/schema";
 
 export class AccountService {
   constructor(private app: FastifyInstance) {}

@@ -1,6 +1,6 @@
 // test/helpers/seed/seedCategory.ts
 import type { FastifyInstance } from "fastify";
-import type { CategoryType } from "@/modules/categories/category.enum";
+import type { CategoryType } from "../../../src/modules/categories/category.enum";
 
 type SeedCategoryOverrides = {
   name?: string;

@@ -1,6 +1,6 @@
 // test/helpers/seed/seedAccount.ts
 import type { FastifyInstance } from "fastify";
-import type { AccountType } from "@/modules/accounts/account.enum";
+import type { AccountType } from "../../../src/modules/accounts/account.enum";
 
 type SeedAccountOverrides = {
   name?: string;

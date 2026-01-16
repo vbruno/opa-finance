@@ -1,6 +1,6 @@
 // test/helpers/seed/seedTransaction.ts
 import type { FastifyInstance } from "fastify";
-import type { TransactionType } from "@/modules/transactions/transaction.enums";
+import type { TransactionType } from "../../../src/modules/transactions/transaction.enums";
 
 type SeedTransactionOverrides = {
   accountId: string;

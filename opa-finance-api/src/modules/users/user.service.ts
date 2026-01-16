@@ -2,6 +2,8 @@
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
+import { ForbiddenProblem, NotFoundProblem } from "../../core/errors/problems";
+import { users } from "../../db/schema";
 import type {
   ListUsersQuery,
   UpdateUserBody,
@@ -9,9 +11,6 @@ import type {
   DeleteUserParams,
   GetUserParams,
 } from "./user.schemas";
-
-import { ForbiddenProblem, NotFoundProblem } from "@/core/errors/problems";
-import { users } from "@/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 

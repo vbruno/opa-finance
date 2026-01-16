@@ -4,16 +4,16 @@ import type Ajv from "ajv";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
+import { registerErrorHandler } from "../src/core/middlewares/handle-route-error";
+import { DB } from "../src/core/plugins/drizzle";
 import { createTestDB } from "../src/core/plugins/drizzle-test";
 import jwtPlugin from "../src/core/plugins/jwt";
-import { registerErrorHandler } from "@/core/middlewares/handle-route-error";
-import { DB } from "@/core/plugins/drizzle";
-import { accountRoutes } from "@/modules/accounts/account.routes";
-import { authRoutes } from "@/modules/auth/auth.routes";
-import { categoryRoutes } from "@/modules/categories/category.routes";
-import { transactionRoutes } from "@/modules/transactions/transaction.routes";
-import { transferRoutes } from "@/modules/transfers/transfer.routes";
-import { userRoutes } from "@/modules/users/user.routes";
+import { accountRoutes } from "../src/modules/accounts/account.routes";
+import { authRoutes } from "../src/modules/auth/auth.routes";
+import { categoryRoutes } from "../src/modules/categories/category.routes";
+import { transactionRoutes } from "../src/modules/transactions/transaction.routes";
+import { transferRoutes } from "../src/modules/transfers/transfer.routes";
+import { userRoutes } from "../src/modules/users/user.routes";
 
 export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> {
   const app: FastifyInstance = Fastify({

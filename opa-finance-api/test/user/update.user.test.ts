@@ -4,9 +4,9 @@ import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { DB } from "../../src/core/plugins/drizzle"; // ✔ correto
+import { hashPassword } from "../../src/core/utils/hash.utils";
 import { users } from "../../src/db/schema";
 import { buildTestApp } from "../setup";
-import { hashPassword } from "@/core/utils/hash.utils";
 
 let app: FastifyInstance;
 let db: DB;

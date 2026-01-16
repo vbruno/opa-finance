@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
-import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "@/core/errors/problems";
-import { categories, subcategories } from "@/db/schema";
+import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "../../core/errors/problems";
+import { categories, subcategories } from "../../db/schema";
 
 export class SubcategoryService {
   constructor(private app: FastifyInstance) {}

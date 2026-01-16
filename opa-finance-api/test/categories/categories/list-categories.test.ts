@@ -1,10 +1,10 @@
 // test/categories/list-categories.test.ts
 import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import type { DB } from "../../../src/core/plugins/drizzle";
+import { categories, users } from "../../../src/db/schema";
 import { registerAndLogin } from "../../helpers/auth";
 import { buildTestApp } from "../../setup";
-import type { DB } from "@/core/plugins/drizzle";
-import { categories, users } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;

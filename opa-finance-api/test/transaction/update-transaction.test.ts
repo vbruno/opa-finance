@@ -3,11 +3,11 @@ import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 
+import type { DB } from "../../src/core/plugins/drizzle";
+import { accounts, categories, transactions } from "../../src/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
-import type { DB } from "@/core/plugins/drizzle";
-import { accounts, categories, transactions } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;

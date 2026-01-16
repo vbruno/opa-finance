@@ -1,11 +1,10 @@
 // test/subcategories/create-subcategory.test.ts
 import type { FastifyInstance } from "fastify";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import type { DB } from "../../../src/core/plugins/drizzle";
+import { categories, subcategories, users } from "../../../src/db/schema";
 import { registerAndLogin } from "../../helpers/auth";
 import { buildTestApp } from "../../setup";
-import type { DB } from "@/core/plugins/drizzle";
-
-import { categories, subcategories, users } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;

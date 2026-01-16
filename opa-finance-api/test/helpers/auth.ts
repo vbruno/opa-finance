@@ -1,8 +1,8 @@
 // test/helpers/auth.ts
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import type { DB } from "@/core/plugins/drizzle";
-import { users } from "@/db/schema";
+import type { DB } from "../../src/core/plugins/drizzle";
+import { users } from "../../src/db/schema";
 
 export async function registerAndLogin(
   app: FastifyInstance,

@@ -3,7 +3,7 @@ import jwt from "@fastify/jwt";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { env } from "../config/env";
-import { UnauthorizedProblem } from "@/core/errors/problems";
+import { UnauthorizedProblem } from "../errors/problems";
 
 export default fp(async function jwtPlugin(app: FastifyInstance) {
   app.register(jwt, {

@@ -2,9 +2,9 @@
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { transactions, users, categories } from "../../src/db/schema";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
-import { transactions, users, categories } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: any;

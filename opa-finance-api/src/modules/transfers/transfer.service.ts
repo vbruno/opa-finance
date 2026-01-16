@@ -2,10 +2,10 @@
 import { randomUUID } from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "../../core/errors/problems";
+import type { DB } from "../../core/plugins/drizzle";
+import { transactions, accounts, categories } from "../../db/schema";
 import { CreateTransferInput } from "./transfer.schemas";
-import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "@/core/errors/problems";
-import type { DB } from "@/core/plugins/drizzle";
-import { transactions, accounts, categories } from "@/db/schema";
 
 export class TransferService {
   constructor(private app: FastifyInstance) {}

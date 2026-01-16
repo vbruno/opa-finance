@@ -2,6 +2,8 @@
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
+import { env } from "../../core/config/env";
+import { NotFoundProblem, UnauthorizedProblem } from "../../core/errors/problems";
 import { getPasswordStrength } from "../../core/utils/passwords.utils";
 import { users } from "../../db/schema";
 
@@ -14,9 +16,6 @@ import {
   passwordStrengthSchema,
   resetPasswordSchema,
 } from "./password.schemas";
-
-import { env } from "@/core/config/env";
-import { NotFoundProblem, UnauthorizedProblem } from "@/core/errors/problems";
 
 export async function authRoutes(app: FastifyInstance) {
   const service = new AuthService(app, app.db);

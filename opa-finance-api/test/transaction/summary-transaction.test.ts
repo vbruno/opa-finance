@@ -1,11 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
+import type { DB } from "../../src/core/plugins/drizzle";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
-
-import type { DB } from "@/core/plugins/drizzle";
 
 let app: FastifyInstance;
 let db: DB;

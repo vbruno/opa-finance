@@ -1,10 +1,10 @@
 import { and, eq, or } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
-import { CreateCategoryInput } from "./category.schemas";
-import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "@/core/errors/problems";
+import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/errors/problems";
 
-import { categories, subcategories } from "@/db/schema";
+import { categories, subcategories } from "../../db/schema";
+import { CreateCategoryInput } from "./category.schemas";
 export class CategoryService {
   constructor(private app: FastifyInstance) {}
 
