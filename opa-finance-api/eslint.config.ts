@@ -5,6 +5,9 @@ import importPlugin from "eslint-plugin-import";
 
 export default [
   {
+    ignores: ["drizzle.config.js"],
+  },
+  {
     ignores: ["dist/**", "node_modules/**", "eslint.config.*"],
   },
   js.configs.recommended,

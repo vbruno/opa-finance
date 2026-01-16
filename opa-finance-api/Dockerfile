@@ -19,7 +19,7 @@ ENV PORT=3333
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=build /app/drizzle.config.js ./drizzle.config.js
 COPY --from=build /app/src/db/migrations ./src/db/migrations
 EXPOSE 3333
 CMD ["node", "dist/server.js"]

@@ -51,7 +51,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 6. Deploy da stack.
 
 ### 4) Migrations
-- Temporario: rodar `npm run db:migrate -- --config drizzle.config.ts` no start da API.
+- Temporario: rodar `npm run db:migrate -- --config drizzle.config.js` no start da API.
 - Depois do primeiro deploy, voltar para o service dedicado `migrate`.
 - Nao rodar `db:generate` em producao; gerar migrations em dev/CI.
 - Garantir que migrations estao dentro do container (`src/db/migrations`).

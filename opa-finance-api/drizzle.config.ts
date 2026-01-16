@@ -9,3 +9,4 @@ export default defineConfig({
     url: env.DATABASE_URL!,
   },
 });
+// NOTE: Este arquivo não é usado em producao. Se alterar aqui, atualize tambem o drizzle.config.js.
