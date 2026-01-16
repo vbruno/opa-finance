@@ -271,7 +271,7 @@ export class TransactionService {
       .limit(limit)
       .offset(offset);
 
-    const data = rows.map((row) => ({
+    const data = rows.map((row: (typeof rows)[number]) => ({
       ...row.transaction,
       amount: Number(row.transaction.amount),
       accountName: row.accountName ?? null,
@@ -329,7 +329,7 @@ export class TransactionService {
         .from(transactions)
         .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
 
-      const counterpart = related.find((row) => row.id !== tx.id);
+      const counterpart = related.find((row: (typeof related)[number]) => row.id !== tx.id);
       if (data.accountId && counterpart && data.accountId === counterpart.accountId) {
         throw new ValidationProblem("As contas precisam ser diferentes.", `/transactions/${id}`);
       }
@@ -344,9 +344,9 @@ export class TransactionService {
 
       const rowsToUpdate = related.length > 0 ? related : [tx];
 
-      const updatedRows = await this.app.db.transaction(async (db) => {
+      const updatedRows = await this.app.db.transaction(async (db: typeof this.app.db) => {
         const results = [];
-        for (const row of rowsToUpdate) {
+        for (const row of rowsToUpdate as (typeof rowsToUpdate)[number][]) {
           const [updated] = await db
             .update(transactions)
             .set({
@@ -363,7 +363,10 @@ export class TransactionService {
         return results;
       });
 
-      const updatedCurrent = updatedRows.find((row) => row.id === tx.id) ?? updatedRows[0] ?? tx;
+      const updatedCurrent =
+        updatedRows.find((row: (typeof updatedRows)[number]) => row.id === tx.id) ??
+        updatedRows[0] ??
+        tx;
 
       return {
         ...updatedCurrent,
@@ -442,7 +445,7 @@ export class TransactionService {
       return { message: "Transação removida. Transferência incompleta foi ajustada." };
     }
 
-    await this.app.db.transaction(async (db) => {
+    await this.app.db.transaction(async (db: typeof this.app.db) => {
       await db
         .delete(transactions)
         .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
@@ -529,7 +532,7 @@ export class TransactionService {
       filters.push(eq(transactions.accountId, query.accountId));
     }
 
-    const typeFilter = query.type ?? "expense";
+    const typeFilter = (query.type ?? "expense") as TransactionType;
     filters.push(eq(transactions.type, typeFilter));
 
     const groupBy = query.groupBy ?? "category";
@@ -574,15 +577,15 @@ export class TransactionService {
         .orderBy(desc(totalAmount))
         .limit(5);
 
-      const combined = [
-        ...rows.map((row) => ({
+    const combined = [
+        ...rows.map((row: (typeof rows)[number]) => ({
           id: row.subcategoryId,
           name: row.subcategoryName,
           categoryId: row.categoryId,
           categoryName: row.categoryName,
           totalAmount: row.totalAmount,
         })),
-        ...fallbackRows.map((row) => ({
+        ...fallbackRows.map((row: (typeof fallbackRows)[number]) => ({
           id: row.categoryId,
           name: row.categoryName,
           categoryId: row.categoryId,
@@ -594,7 +597,7 @@ export class TransactionService {
         .sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount))
         .slice(0, 5);
 
-      return combined.map((row) => {
+      return combined.map((row: (typeof combined)[number]) => {
         const amount = Number(row.totalAmount ?? 0);
         const percentage = total > 0 ? (amount / total) * 100 : 0;
         return {
@@ -621,7 +624,7 @@ export class TransactionService {
       .orderBy(desc(totalAmount))
       .limit(5);
 
-    return rows.map((row) => {
+    return rows.map((row: (typeof rows)[number]) => {
       const amount = Number(row.totalAmount ?? 0);
       const percentage = total > 0 ? (amount / total) * 100 : 0;
       return {

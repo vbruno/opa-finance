@@ -79,10 +79,7 @@ export class AuthService {
   }
 
   generateRefreshToken(userId: string) {
-    return this.app.jwt.sign(
-      { sub: userId },
-      { expiresIn: "7d", secret: env.REFRESH_TOKEN_SECRET },
-    );
+    return this.app.jwt.sign({ sub: userId }, { expiresIn: "7d", key: env.REFRESH_TOKEN_SECRET });
   }
 
   /* -------------------------------------------------------------------------- */

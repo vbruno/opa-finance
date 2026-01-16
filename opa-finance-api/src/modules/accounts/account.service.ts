@@ -45,7 +45,7 @@ export class AccountService {
   /* -------------------------------------------------------------------------- */
   async create(userId: string, data: CreateAccountInput) {
     try {
-      const account = await this.app.db.transaction(async (tx) => {
+      const account = await this.app.db.transaction(async (tx: typeof this.app.db) => {
         const [currentPrimary] = await tx
           .select({ id: accounts.id })
           .from(accounts)
@@ -96,7 +96,7 @@ export class AccountService {
       .where(eq(accounts.userId, userId))
       .groupBy(...this.accountGroupByColumns());
 
-    return rows.map((row) => {
+    return rows.map((row: (typeof rows)[number]) => {
       const { initialBalance, ...rest } = row.account;
       void initialBalance;
       return {
@@ -147,7 +147,7 @@ export class AccountService {
     const current = await this.getOne(id, userId); // já valida 404 e 403
 
     try {
-      await this.app.db.transaction(async (tx) => {
+      await this.app.db.transaction(async (tx: typeof this.app.db) => {
         if (data.isPrimary === false && current.isPrimary === true) {
           throw new ConflictProblem(
             "A conta principal não pode ser desmarcada sem definir outra conta principal.",
@@ -177,7 +177,7 @@ export class AccountService {
     await this.getOne(id, userId);
 
     try {
-      await this.app.db.transaction(async (tx) => {
+      await this.app.db.transaction(async (tx: typeof this.app.db) => {
         await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
 
         const [row] = await tx
