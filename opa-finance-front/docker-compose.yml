@@ -1,0 +1,16 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: 'http://opa-finance-api:3333'
+    ports:
+      - '8080:80'
+    restart: unless-stopped
+    networks:
+      - opa-finance-net
+
+networks:
+  opa-finance-net:
+    external: true
