@@ -97,10 +97,13 @@ function Accounts() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [isPrimaryConfirmOpen, setIsPrimaryConfirmOpen] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
   )
+  const [isSettingPrimary, setIsSettingPrimary] = useState(false)
+  const [primaryError, setPrimaryError] = useState<string | null>(null)
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
     new Set(),
   )
@@ -216,6 +219,30 @@ function Accounts() {
 
     return a.name.localeCompare(b.name) * directionMultiplier
   })
+
+  const handleSetPrimaryAccount = async () => {
+    if (!selectedAccount || selectedAccount.isPrimary || isSettingPrimary) {
+      return
+    }
+    setIsSettingPrimary(true)
+    setPrimaryError(null)
+    try {
+      await updateAccountMutation.mutateAsync({
+        id: selectedAccount.id,
+        payload: { isPrimary: true },
+      })
+      setIsPrimaryConfirmOpen(false)
+    } catch (error: unknown) {
+      setPrimaryError(
+        getApiErrorMessage(error, {
+          defaultMessage:
+            'Erro ao definir conta principal. Tente novamente.',
+        }),
+      )
+    } finally {
+      setIsSettingPrimary(false)
+    }
+  }
 
   function handleSort(nextKey: 'name' | 'type' | 'balance') {
     navigate({
@@ -1428,6 +1455,29 @@ function Accounts() {
                     : 'Salvar alterações'}
                 </Button>
               </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    setPrimaryError(null)
+                    setIsPrimaryConfirmOpen(true)
+                  }}
+                  disabled={selectedAccount.isPrimary || isSettingPrimary}
+                >
+                  {selectedAccount.isPrimary
+                    ? 'Conta principal'
+                    : isSettingPrimary
+                      ? 'Definindo...'
+                      : 'Definir como principal'}
+                </Button>
+                {selectedAccount.isPrimary && (
+                  <span className="text-xs font-semibold text-emerald-600">
+                    Principal ativa
+                  </span>
+                )}
+              </div>
               {editErrors.confirm && (
                 <p className="text-sm text-destructive">
                   {editErrors.confirm.message}
@@ -1439,6 +1489,47 @@ function Accounts() {
                 </div>
               )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {isPrimaryConfirmOpen && selectedAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsPrimaryConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Definir conta principal</h3>
+              <p className="text-sm text-muted-foreground">
+                Deseja definir a conta {selectedAccount.name} como principal?
+              </p>
+            </div>
+
+            {primaryError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {primaryError}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setIsPrimaryConfirmOpen(false)}
+                disabled={isSettingPrimary}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={handleSetPrimaryAccount}
+                disabled={isSettingPrimary}
+              >
+                {isSettingPrimary ? 'Definindo...' : 'Confirmar'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
