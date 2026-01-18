@@ -46,8 +46,10 @@ async function start() {
       .map((origin) => origin.trim())
       .filter(Boolean) ?? [];
   // TODO: restringir CORS_ORIGINS quando o frontend estiver em producao.
+  const isDev = env.NODE_ENV === "development";
+  const allowAny = corsOrigins.includes("*");
   const corsOrigin =
-    env.NODE_ENV === "development" || corsOrigins.includes("*") ? true : corsOrigins;
+    isDev || allowAny ? true : corsOrigins.length > 0 ? corsOrigins : false;
   app.register(cors, {
     origin: corsOrigin,
     credentials: true,

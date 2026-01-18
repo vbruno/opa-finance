@@ -33,6 +33,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - Definir variaveis direto no Stack do Portainer (sem `env_file`).
 - Exemplo em `.env.example` (sem segredos reais).
 - `CORS_ORIGINS=*` pode ser usado temporariamente ate o front estar publicado.
+- Em producao com proxy reverso, deixar `CORS_ORIGINS` vazio desabilita CORS.
 
 ### 3) docker-compose (Portainer)
 - Build direto do repo no Portainer (Stack).
