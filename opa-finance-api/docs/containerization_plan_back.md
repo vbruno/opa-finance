@@ -61,6 +61,8 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - Endpoint `/health` retorna `{ status: "ok" }`.
 - Pode ser usado para readiness/liveness.
 - Adicionar `HEALTHCHECK` no Dockerfile (opcional).
+- No compose, usar `start_period` maior (ex.: 120s) quando houver migrations no start.
+- Ajustar `retries` e `timeout` para tolerar migrations longas (ex.: 5 retries, 10s).
 
 ### 6) Logs
 - Produção com `LOG_LEVEL` configuravel.
