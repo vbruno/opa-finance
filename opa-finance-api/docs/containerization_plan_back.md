@@ -36,9 +36,9 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 
 ### 3) docker-compose (Portainer)
 - Build direto do repo no Portainer (Stack).
-- Usar rede externa `backend_net`.
-- `DATABASE_URL` aponta para o container `postgres_infra`.
-- Porta `3333` exposta para o Nginx.
+- Usar rede externa `opa-finance-net` (comunicacao interna com o frontend).
+- `DATABASE_URL` aponta para o container `postgres_infra` (rede interna do banco).
+- Nao expor porta `3333` para o host quando o acesso for via frontend + proxy.
 - Healthcheck via `node -e` (sem dependencia de `wget`/`curl`).
 - O frontend fica em outra subpasta do repo e nao participa do build do backend.
 

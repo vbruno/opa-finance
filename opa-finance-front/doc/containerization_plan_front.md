@@ -27,6 +27,7 @@ Padronizar a execucao do frontend em containers na VPS com Portainer, com build 
 ### 2) Variaveis de ambiente (build-time)
 
 - `VITE_API_URL` precisa estar definido no build.
+- Quando usar reverse proxy no Nginx (mesmo dominio), definir `VITE_API_URL=/api`.
 - Definir via `.env.production` ou `build args` no Portainer.
 - Exemplo em `.env.example` (sem segredos).
 - Observacao: Vite injeta variaveis no build; nao e runtime por padrao.
@@ -34,7 +35,9 @@ Padronizar a execucao do frontend em containers na VPS com Portainer, com build 
 ### 3) docker-compose (Portainer)
 
 - Build direto do repo no Portainer (Stack).
-- Usar rede externa `frontend_net` (ou compartilhar a mesma rede do Nginx reverso).
+- Usar redes externas:
+  - `proxy-net` (publica, para o Nginx Proxy Manager)
+  - `opa-finance-net` (privada, para comunicacao com o backend)
 - Expor porta `80` (ou 8080) para o reverse proxy.
 - Exemplo (ajustar caminho do compose):
 
@@ -45,15 +48,16 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: "https://api.seu-dominio.com"
-    ports:
-      - "8080:80"
+        VITE_API_URL: "/api"
     restart: unless-stopped
     networks:
-      - frontend_net
+      - proxy-net
+      - opa-finance-net
 
 networks:
-  frontend_net:
+  proxy-net:
+    external: true
+  opa-finance-net:
     external: true
 ```
 
@@ -77,6 +81,12 @@ server {
 
   root /usr/share/nginx/html;
   index index.html;
+
+  location /api/ {
+    proxy_pass http://opa-finance-api:3333/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
 
   location / {
     try_files $uri $uri/ /index.html;

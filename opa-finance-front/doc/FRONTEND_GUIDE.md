@@ -191,6 +191,17 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 
 ---
 
+## 🚀 Deploy / Containerizacao
+
+- Build de producao: `npm run build` gera `dist/`.
+- Servir `dist/` com Nginx (SPA) e fallback para `index.html`.
+- Proxy recomendado no Nginx:
+  - `VITE_API_URL=/api`
+  - Nginx encaminha `/api/` -> `http://opa-finance-api:3333/`
+- `VITE_API_URL` e build-time; qualquer alteracao exige rebuild do frontend.
+
+---
+
 ## 🧾 Formulários (padrão)
 
 - React Hook Form + Zod (resolver)
