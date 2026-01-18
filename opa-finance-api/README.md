@@ -15,8 +15,10 @@ O projeto segue arquitetura modular, autenticação JWT moderna e banco normaliz
 - [Modelagem do Banco (ERD)](#modelagem-do-banco-erd)
 - [Regras de Negócio](#regras-de-negócio)
 - [Padrões do Projeto](#padrões-do-projeto)
+- [Pré-requisitos](#-pré-requisitos)
 - [Instalação e Execução](#instalação-e-execução)
 - [Scripts](#scripts)
+- [Documentação](#documentação)
 - [Estrutura de Pastas](#estrutura-de-pastas)
 - [Roadmap](#roadmap)
 
@@ -182,12 +184,19 @@ Tipos suportados:
 
 ---
 
+## ✅ Pré-requisitos
+
+- Node.js 18+
+- npm 9+
+- PostgreSQL **local ou remoto** configurado
+  - Alternativa: subir PostgreSQL via Docker + Docker Compose
+
 ## 📦 Instalação e Execução
 
 ### 1️⃣ Clonar repositório
 ```sh
 git clone https://github.com/SEU_USUARIO/NOME_DO_REPO.git
-cd backend
+cd opa-finance-api
 ```
 
 ### 2️⃣ Instalar dependências
@@ -200,10 +209,14 @@ Crie o arquivo `.env`:
 
 ```
 DATABASE_URL="postgres://user:pass@localhost:5432/finance"
+# Exemplo remoto:
+# DATABASE_URL="postgres://user:pass@db.host.com:5432/finance"
 JWT_SECRET="sua_chave_segura"
 REFRESH_TOKEN_SECRET="outra_chave_segura"
 LOG_LEVEL="info"
 ```
+
+> 📌 **Onde colocar:** crie o arquivo `.env` **na raiz do backend** (pasta `opa-finance-api/`).
 
 Niveis de log suportados: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`.
 
@@ -211,6 +224,8 @@ Niveis de log suportados: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `s
 ```sh
 npm run db:migrate
 ```
+
+> Após rodar as migrations, inicie o backend normalmente.
 
 ### 5️⃣ Rodar servidor
 ```sh
@@ -251,6 +266,24 @@ src/
 
 ---
 
+## 📜 Scripts
+
+- `npm run dev` — servidor local
+- `npm run db:migrate` — aplica migrations no banco
+- `npm run test` — executa testes
+
+## 📄 Documentação
+
+- Swagger (dev/test): `http://localhost:3333/docs`
+- Documento consolidado: [docs/documento_consolidado_planejamento.md](docs/documento_consolidado_planejamento.md)
+- Módulos:
+  - [Auth](docs/modules/modules_auth.md)
+  - [Accounts](docs/modules/modules_accounts.md)
+  - [Categories](docs/modules/modules_categories.md)
+  - [Subcategories](docs/modules/modules_subcategories.md)
+  - [Transactions](docs/modules/modules_transactions.md)
+  - [Transfers](docs/modules/modules_transfers.md)
+
 ## 🧪 Testes
 
 Ferramentas:
@@ -284,4 +317,8 @@ Testes:
 ---
 
 ## 👨‍💻 Autor
-Projeto desenvolvido por **Bruno Velho**.
+
+**Bruno S Velho**
+- Email: bruno.velho@gmail.com
+- GitHub: https://github.com/vbruno
+- LinkedIn: https://www.linkedin.com/in/brunovelho/
