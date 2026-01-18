@@ -84,7 +84,10 @@ function Categories() {
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const subCreateNameRef = useRef<HTMLInputElement | null>(null)
+  const subCreateParentRef = useRef<HTMLSelectElement | null>(null)
   const subEditNameRef = useRef<HTMLInputElement | null>(null)
+  const lastCreatedCategoryRef = useRef<Category | null>(null)
+  const lastSubcategoryParentIdRef = useRef<string | null>(null)
 
   const categoriesQuery = useCategories()
 
@@ -273,7 +276,7 @@ function Categories() {
       return
     }
     const focusId = window.setTimeout(() => {
-      subCreateNameRef.current?.focus()
+      subCreateParentRef.current?.focus()
     }, 0)
     return () => window.clearTimeout(focusId)
   }, [isSubCreateOpen])
@@ -381,7 +384,10 @@ function Categories() {
   ])
 
   const openCategoryCreate = useCallback(() => {
-    form.reset()
+    form.reset({
+      name: '',
+      type: lastCreatedCategoryRef.current?.type ?? '',
+    })
     setIsCreateOpen(true)
   }, [form])
 
@@ -389,7 +395,21 @@ function Categories() {
     if (isMutating || userCategories.length === 0) {
       return
     }
-    if (primaryExpandedCategoryId) {
+    const lastSubcategoryParentId = lastSubcategoryParentIdRef.current
+    if (lastSubcategoryParentId) {
+      const match = categories.find(
+        (category) => category.id === lastSubcategoryParentId,
+      )
+      if (match) {
+        setSubcategoryParent(match)
+      }
+    } else if (lastCreatedCategoryRef.current) {
+      const lastCreatedCategory = lastCreatedCategoryRef.current
+      const match = categories.find(
+        (category) => category.id === lastCreatedCategory?.id,
+      )
+      setSubcategoryParent(match ?? lastCreatedCategory ?? null)
+    } else if (primaryExpandedCategoryId) {
       const parent = categories.find(
         (category) => category.id === primaryExpandedCategoryId,
       )
@@ -1070,10 +1090,11 @@ function Categories() {
               className="mt-6 space-y-4"
               onSubmit={form.handleSubmit(async (formData) => {
                 try {
-                  await createCategoryMutation.mutateAsync({
+                  const created = await createCategoryMutation.mutateAsync({
                     name: formData.name,
                     type: formData.type,
                   })
+                  lastCreatedCategoryRef.current = created
                   setIsCreateOpen(false)
                   form.reset()
                 } catch (error: unknown) {
@@ -1312,6 +1333,7 @@ function Categories() {
                     categoryId: subcategoryParent.id,
                     name: formData.name,
                   })
+                  lastSubcategoryParentIdRef.current = subcategoryParent.id
                   setIsSubCreateOpen(false)
                   subCreateForm.reset()
                 } catch (error: unknown) {
@@ -1330,6 +1352,7 @@ function Categories() {
                   id="subcategory-parent"
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   value={subcategoryParent.id}
+                  ref={subCreateParentRef}
                   onChange={(event) => {
                     const nextParent = userCategories.find(
                       (category) => category.id === event.target.value,
