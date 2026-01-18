@@ -13,8 +13,9 @@ export type Account = {
 }
 
 export type AccountPayload = {
-  name: string
-  type: string
+  name?: string
+  type?: string
+  isPrimary?: boolean
 }
 
 const accountsKey = ['accounts']

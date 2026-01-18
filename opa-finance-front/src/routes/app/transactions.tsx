@@ -259,6 +259,7 @@ function Transactions() {
   const lastEditCategoryId = useRef<string | null>(null)
   const isClearingDescription = useRef(false)
   const isClearingAmount = useRef(false)
+  const isCreateFromDuplicate = useRef(false)
   const isMobile = useMediaQuery('(max-width: 639px)')
   const handleMobileDateKeyDown: KeyboardEventHandler<HTMLInputElement> = (
     event,
@@ -386,10 +387,10 @@ function Transactions() {
     register,
     handleSubmit,
     reset,
-    getValues,
     watch,
     setError,
     setValue,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<TransactionCreateFormData>({
     resolver: zodResolver(transactionCreateSchema),
@@ -446,12 +447,14 @@ function Transactions() {
   const createType = watch('type')
   const createAccountId = watch('accountId')
   const createDescription = watch('description') ?? ''
+  const transferFromAccountId = transferForm.watch('fromAccountId')
   const editCategoryId = watchEdit('categoryId')
   const editType = watchEdit('type')
   const categories = categoriesQuery.data ?? []
   const availableCategories = categories.filter((category) => !category.system)
+  const accounts = accountsQuery.data ?? []
   const primaryAccountId =
-    (accountsQuery.data ?? []).find((account) => account.isPrimary)?.id ?? ''
+    accounts.find((account) => account.isPrimary)?.id ?? accounts[0]?.id ?? ''
   const debouncedCreateDescription = useDebouncedValue(createDescription, 1000)
 
   const createCategory = categories.find(
@@ -736,26 +739,44 @@ function Transactions() {
   useEffect(() => {
     if (isCreateOpen) {
       setValue('date', formatDateInput(new Date()))
-      const currentAccountId = getValues('accountId')
-      if (!currentAccountId && primaryAccountId) {
+      clearErrors('root')
+      if (
+        !isCreateFromDuplicate.current &&
+        primaryAccountId &&
+        !createAccountId
+      ) {
         setValue('accountId', primaryAccountId)
+      }
+      if (isCreateFromDuplicate.current) {
+        isCreateFromDuplicate.current = false
       }
       descriptionInputRef.current?.focus()
     }
-  }, [getValues, isCreateOpen, primaryAccountId, setValue])
+  }, [
+    clearErrors,
+    createAccountId,
+    isCreateOpen,
+    primaryAccountId,
+    setValue,
+  ])
 
   useEffect(() => {
     if (isTransferOpen) {
       if (!transferEditContext) {
         transferForm.setValue('date', formatDateInput(new Date()))
-        const currentFromAccountId = transferForm.getValues('fromAccountId')
-        if (!currentFromAccountId && primaryAccountId) {
+        if (!transferFromAccountId && primaryAccountId) {
           transferForm.setValue('fromAccountId', primaryAccountId)
         }
       }
       transferAmountRef.current?.focus()
     }
-  }, [isTransferOpen, primaryAccountId, transferEditContext, transferForm])
+  }, [
+    isTransferOpen,
+    primaryAccountId,
+    transferEditContext,
+    transferForm,
+    transferFromAccountId,
+  ])
 
   useEffect(() => {
     if (isEditOpen) {
@@ -908,6 +929,7 @@ function Transactions() {
   ])
 
   const openTransactionCreate = useCallback(() => {
+    isCreateFromDuplicate.current = false
     setIsCreateOpen(true)
   }, [])
 
@@ -919,6 +941,16 @@ function Transactions() {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      const hasOpenModal =
+        isCreateOpen ||
+        isTransferOpen ||
+        isEditOpen ||
+        isDeleteConfirmOpen ||
+        isBulkDeleteOpen ||
+        !!selectedTransaction
+      if (hasOpenModal) {
+        return
+      }
       if (event.metaKey || event.ctrlKey) {
         return
       }
@@ -950,7 +982,16 @@ function Transactions() {
     return () => {
       window.removeEventListener('keydown', handleShortcut, true)
     }
-  }, [openTransactionCreate, openTransferCreate])
+  }, [
+    isBulkDeleteOpen,
+    isCreateOpen,
+    isDeleteConfirmOpen,
+    isEditOpen,
+    isTransferOpen,
+    openTransactionCreate,
+    openTransferCreate,
+    selectedTransaction,
+  ])
 
   useEffect(() => {
     setDescriptionDraft(descriptionFilter)
@@ -1134,6 +1175,7 @@ function Transactions() {
     if (transaction.transferId) {
       return
     }
+    isCreateFromDuplicate.current = true
     reset({
       accountId: transaction.accountId,
       categoryId: transaction.categoryId,
@@ -3133,6 +3175,7 @@ function Transactions() {
                     }
                   >
                     {selectedTransaction.description ||
+                      selectedTransaction.categoryName ||
                       categoryMap.get(selectedTransaction.categoryId) ||
                       'Sem descrição'}
                   </button>
