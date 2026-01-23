@@ -674,7 +674,14 @@ function Accounts() {
                     <p className="text-xs uppercase text-muted-foreground">
                       Conta
                     </p>
-                    <p className="text-sm font-semibold">{account.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold">{account.name}</p>
+                      {account.isPrimary && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          Principal
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -912,7 +919,16 @@ function Accounts() {
                           aria-label={`Selecionar conta ${account.name}`}
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium">{account.name}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>{account.name}</span>
+                          {account.isPrimary && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              Principal
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap">
                         {accountTypeLabels[account.type] ?? account.type}
                       </td>
@@ -1202,7 +1218,16 @@ function Accounts() {
             tabIndex={-1}
           >
             <div className="space-y-1">
-              <h3 className="text-lg font-semibold">{selectedAccount.name}</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold">
+                  {selectedAccount.name}
+                </h3>
+                {selectedAccount.isPrimary && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    Principal
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">
                 Detalhes da conta
               </p>

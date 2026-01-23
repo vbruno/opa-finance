@@ -1,3 +1,5 @@
+import { queryClient } from '@/lib/queryClient'
+
 export type User = {
   id: string
   name: string
@@ -67,6 +69,7 @@ export function logout() {
   currentUser = null
   saveToken(null)
   saveUser(null)
+  queryClient.clear()
 }
 
 export function isAuthenticated() {
