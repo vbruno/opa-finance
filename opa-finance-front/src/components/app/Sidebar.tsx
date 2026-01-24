@@ -10,11 +10,12 @@ import {
   Receipt,
   Sun,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/features/auth'
+import { useUserPreference } from '@/hooks/useUserPreference'
 
 const appNavItems = [
   { to: '/app/accounts', label: 'Contas', icon: CreditCard },
@@ -73,28 +74,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
-  const [isSensitiveHidden, setIsSensitiveHidden] = useState(false)
+  const [isSensitiveHidden, setIsSensitiveHidden] = useUserPreference(
+    'hideSensitive',
+    false,
+  )
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-    const stored = localStorage.getItem('opa-finance:hideSensitive')
-    const shouldHide = stored === 'true'
-    setIsSensitiveHidden(shouldHide)
-    document.documentElement.classList.toggle('hide-sensitive', shouldHide)
-  }, [])
+    document.documentElement.classList.toggle('hide-sensitive', isSensitiveHidden)
+  }, [isSensitiveHidden])
 
   function handleToggleSensitive() {
     const nextValue = !isSensitiveHidden
     setIsSensitiveHidden(nextValue)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(
-        'opa-finance:hideSensitive',
-        nextValue ? 'true' : 'false',
-      )
-    }
-    document.documentElement.classList.toggle('hide-sensitive', nextValue)
   }
 
   function handleLogout() {
