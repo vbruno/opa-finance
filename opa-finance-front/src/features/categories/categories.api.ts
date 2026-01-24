@@ -123,6 +123,15 @@ export function useCreateSubcategory() {
       queryClient.invalidateQueries({
         queryKey: ['subcategories', variables.categoryId],
       })
+      queryClient.invalidateQueries({
+        queryKey: ['subcategories', 'transaction-create', variables.categoryId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['subcategories', 'transaction-edit', variables.categoryId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['subcategories', 'transaction-filter', variables.categoryId],
+      })
       queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
     },
   })

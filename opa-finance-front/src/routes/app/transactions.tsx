@@ -718,6 +718,8 @@ function Transactions() {
   useEffect(() => {
     const hasOpenModal =
       isCreateOpen ||
+      isCreateCategoryOpen ||
+      isCreateSubcategoryOpen ||
       isTransferOpen ||
       isEditOpen ||
       isDeleteConfirmOpen ||
@@ -735,6 +737,8 @@ function Transactions() {
     }
   }, [
     isCreateOpen,
+    isCreateCategoryOpen,
+    isCreateSubcategoryOpen,
     isTransferOpen,
     isEditOpen,
     isDeleteConfirmOpen,
@@ -745,6 +749,8 @@ function Transactions() {
   useEffect(() => {
     const hasOpenModal =
       isCreateOpen ||
+      isCreateCategoryOpen ||
+      isCreateSubcategoryOpen ||
       isTransferOpen ||
       isEditOpen ||
       isDeleteConfirmOpen ||
@@ -820,13 +826,13 @@ function Transactions() {
       return
     }
     const fallbackCategoryId =
-      createCategoryId || availableCategories[0]?.id || ''
+      createCategoryId || categories.find((category) => !category.system)?.id || ''
     subcategoryCreateForm.reset({
       categoryId: fallbackCategoryId,
       name: '',
     })
   }, [
-    availableCategories,
+    categories,
     createCategoryId,
     isCreateSubcategoryOpen,
     subcategoryCreateForm,
@@ -968,6 +974,14 @@ function Transactions() {
         setIsBulkDeleteOpen(false)
         return
       }
+      if (isCreateSubcategoryOpen) {
+        setIsCreateSubcategoryOpen(false)
+        return
+      }
+      if (isCreateCategoryOpen) {
+        setIsCreateCategoryOpen(false)
+        return
+      }
 
       if (isTransferOpen) {
         setIsTransferOpen(false)
@@ -993,6 +1007,8 @@ function Transactions() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [
     isCreateOpen,
+    isCreateCategoryOpen,
+    isCreateSubcategoryOpen,
     isTransferOpen,
     isEditOpen,
     isDeleteConfirmOpen,

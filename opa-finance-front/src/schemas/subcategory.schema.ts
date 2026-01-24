@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const subcategoryCreateSchema = z.object({
+  categoryId: z.string().min(1, 'Selecione uma categoria.'),
   name: z
     .string()
     .min(1, 'Informe o nome da subcategoria.')

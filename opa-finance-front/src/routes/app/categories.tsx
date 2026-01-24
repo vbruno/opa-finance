@@ -120,6 +120,7 @@ function Categories() {
   const subCreateForm = useForm<SubcategoryCreateFormData>({
     resolver: zodResolver(subcategoryCreateSchema),
     defaultValues: {
+      categoryId: '',
       name: '',
     },
   })
@@ -134,6 +135,7 @@ function Categories() {
   const createNameField = form.register('name')
   const editNameField = editForm.register('name')
   const subCreateNameField = subCreateForm.register('name')
+  const subCreateCategoryField = subCreateForm.register('categoryId')
   const subEditNameField = subEditForm.register('name')
 
   const createCategoryMutation = useCreateCategory()
@@ -279,11 +281,16 @@ function Categories() {
     if (!isSubCreateOpen) {
       return
     }
+    if (subcategoryParent) {
+      subCreateForm.setValue('categoryId', subcategoryParent.id, {
+        shouldDirty: true,
+      })
+    }
     const focusId = window.setTimeout(() => {
       subCreateParentRef.current?.focus()
     }, 0)
     return () => window.clearTimeout(focusId)
-  }, [isSubCreateOpen])
+  }, [isSubCreateOpen, subCreateForm, subcategoryParent])
 
   useEffect(() => {
     if (!isSubEditOpen) {
@@ -438,7 +445,10 @@ function Categories() {
       setSubcategoryParent(nextParent)
       setLastSubcategoryParentId(nextParent.id)
     }
-    subCreateForm.reset()
+    subCreateForm.reset({
+      name: '',
+      categoryId: nextParent?.id ?? '',
+    })
     setIsSubCreateOpen(true)
   }, [
     categories,
@@ -1382,6 +1392,9 @@ function Categories() {
                     if (nextParent) {
                       setSubcategoryParent(nextParent)
                       setLastSubcategoryParentId(nextParent.id)
+                      subCreateForm.setValue('categoryId', nextParent.id, {
+                        shouldDirty: true,
+                      })
                     }
                   }}
                 >
@@ -1395,6 +1408,7 @@ function Categories() {
 
               <div className="space-y-2">
                 <Label htmlFor="subcategory-name">Nome</Label>
+                <input type="hidden" {...subCreateCategoryField} />
                 <Input
                   id="subcategory-name"
                   placeholder="Ex: Supermercado"
