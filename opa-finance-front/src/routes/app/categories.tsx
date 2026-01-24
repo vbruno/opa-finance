@@ -90,6 +90,8 @@ function Categories() {
   const lastCreatedCategoryRef = useRef<Category | null>(null)
   const [lastSubcategoryParentId, setLastSubcategoryParentId] =
     useUserPreference<string | null>('lastSubcategoryParent', null)
+  const [lastCategoryType, setLastCategoryType] =
+    useUserPreference<string | null>('lastCategoryType', null)
 
   const categoriesQuery = useCategories()
 
@@ -388,54 +390,53 @@ function Categories() {
   const openCategoryCreate = useCallback(() => {
     form.reset({
       name: '',
-      type: lastCreatedCategoryRef.current?.type ?? '',
+      type: lastCategoryType ?? lastCreatedCategoryRef.current?.type ?? '',
     })
     setIsCreateOpen(true)
-  }, [form])
+  }, [form, lastCategoryType])
 
   const openSubcategoryCreate = useCallback(() => {
     if (isMutating || userCategories.length === 0) {
       return
     }
+    let nextParent: Category | null = null
     if (lastSubcategoryParentId) {
       const match = categories.find(
         (category) => category.id === lastSubcategoryParentId,
       )
       if (match) {
-        setSubcategoryParent(match)
+        nextParent = match
       } else if (lastCreatedCategoryRef.current) {
         const lastCreatedCategory = lastCreatedCategoryRef.current
         const createdMatch = categories.find(
           (category) => category.id === lastCreatedCategory?.id,
         )
-        setSubcategoryParent(createdMatch ?? lastCreatedCategory ?? null)
+        nextParent = createdMatch ?? lastCreatedCategory ?? null
       } else if (primaryExpandedCategoryId) {
         const parent = categories.find(
           (category) => category.id === primaryExpandedCategoryId,
         )
-        if (parent) {
-          setSubcategoryParent(parent)
-        } else {
-          setSubcategoryParent(userCategories[0])
-        }
+        nextParent = parent ?? userCategories[0]
       } else {
-        setSubcategoryParent(userCategories[0])
+        nextParent = userCategories[0]
       }
     } else if (lastCreatedCategoryRef.current) {
       const lastCreatedCategory = lastCreatedCategoryRef.current
       const match = categories.find(
         (category) => category.id === lastCreatedCategory?.id,
       )
-      setSubcategoryParent(match ?? lastCreatedCategory ?? null)
+      nextParent = match ?? lastCreatedCategory ?? null
     } else if (primaryExpandedCategoryId) {
       const parent = categories.find(
         (category) => category.id === primaryExpandedCategoryId,
       )
-      if (parent) {
-        setSubcategoryParent(parent)
-      }
+      nextParent = parent ?? null
     } else {
-      setSubcategoryParent(userCategories[0])
+      nextParent = userCategories[0]
+    }
+    if (nextParent) {
+      setSubcategoryParent(nextParent)
+      setLastSubcategoryParentId(nextParent.id)
     }
     subCreateForm.reset()
     setIsSubCreateOpen(true)
@@ -444,6 +445,7 @@ function Categories() {
     isMutating,
     lastSubcategoryParentId,
     primaryExpandedCategoryId,
+    setLastSubcategoryParentId,
     subCreateForm,
     userCategories,
   ])
@@ -760,8 +762,9 @@ function Categories() {
                   )}
                   {!expandedQueriesById[category.id]?.isLoading &&
                     !expandedQueriesById[category.id]?.isError &&
-                    (expandedQueriesById[category.id]?.data ?? []).map(
-                      (subcategory) => (
+                    [...(expandedQueriesById[category.id]?.data ?? [])]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((subcategory) => (
                         <div
                           key={subcategory.id}
                           className="rounded-md border bg-muted/10 px-3 py-2"
@@ -803,8 +806,7 @@ function Categories() {
                             </div>
                           </div>
                         </div>
-                      ),
-                    )}
+                      ))}
                   {!expandedQueriesById[category.id]?.isLoading &&
                     !expandedQueriesById[category.id]?.isError &&
                     (expandedQueriesById[category.id]?.data ?? [])
@@ -985,8 +987,9 @@ function Categories() {
                         )}
                         {!expandedQueriesById[category.id]?.isLoading &&
                           !expandedQueriesById[category.id]?.isError &&
-                          (expandedQueriesById[category.id]?.data ?? []).map(
-                            (subcategory) => (
+                          [...(expandedQueriesById[category.id]?.data ?? [])]
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((subcategory) => (
                               <tr key={subcategory.id} className="border-t bg-muted/10">
                                 <td className="px-4 py-3 text-sm">
                                   <span className="text-muted-foreground">—</span>{' '}
@@ -1036,8 +1039,7 @@ function Categories() {
                                   </div>
                                 </td>
                               </tr>
-                            ),
-                          )}
+                            ))}
                         {!expandedQueriesById[category.id]?.isLoading &&
                           !expandedQueriesById[category.id]?.isError &&
                           (expandedQueriesById[category.id]?.data ?? [])
@@ -1114,6 +1116,7 @@ function Categories() {
                     type: formData.type,
                   })
                   lastCreatedCategoryRef.current = created
+                  setLastCategoryType(created.type)
                   setIsCreateOpen(false)
                   form.reset()
                 } catch (error: unknown) {
