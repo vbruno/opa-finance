@@ -3,11 +3,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from 'react'
+
+import { useAppPreference } from '@/hooks/useAppPreference'
 
 type Theme = 'light' | 'dark'
 
@@ -18,16 +19,10 @@ type ThemeContextValue = {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
-const THEME_STORAGE_KEY = 'opa-finance-theme'
 
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') {
     return 'light'
-  }
-
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark') {
-    return stored
   }
 
   return window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -42,11 +37,13 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  const [theme, setTheme] = useAppPreference<Theme>(
+    'theme',
+    getInitialTheme(),
+  )
 
   useEffect(() => {
     applyTheme(theme)
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
   const value = useMemo(
@@ -56,7 +53,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       toggleTheme: () =>
         setTheme((current) => (current === 'dark' ? 'light' : 'dark')),
     }),
-    [theme],
+    [setTheme, theme],
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
