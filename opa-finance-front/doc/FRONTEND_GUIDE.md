@@ -93,6 +93,24 @@ Fornecer uma interface:
 
 ---
 
+## 💾 Preferências (localStorage)
+
+Padronizamos preferências usando hooks:
+
+- `useUserPreference`: preferências por usuário (namespace com `userId`).
+  - Ex.: última categoria usada em subcategoria, ocultar valores.
+- `useAppPreference`: preferências globais (sem `userId`).
+  - Ex.: tema do app.
+
+Regra geral:
+- Preferências pessoais → `useUserPreference`.
+- Preferências globais do app → `useAppPreference`.
+
+Exemplo aplicado:
+- Limite de paginação em Transações usa `useUserPreference('transactionsPageSize')`.
+
+---
+
 ## 🗂️ Arquitetura de Pastas (Frontend)
 
 ```txt

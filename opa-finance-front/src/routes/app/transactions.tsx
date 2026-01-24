@@ -46,6 +46,7 @@ import {
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
+import { useUserPreference } from '@/hooks/useUserPreference'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -288,8 +289,22 @@ function Transactions() {
   }
 
   const search = Route.useSearch()
+  const [limitPreference, setLimitPreference] = useUserPreference<number>(
+    'transactionsPageSize',
+    10,
+    {
+      serialize: (value) => String(value),
+      deserialize: (raw) => {
+        const parsed = Number(raw)
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          return 10
+        }
+        return Math.min(100, Math.max(1, Math.floor(parsed)))
+      },
+    },
+  )
   const page = search.page ?? 1
-  const limit = search.limit ?? 10
+  const limit = search.limit ?? limitPreference
   const typeFilter = search.type ?? ''
   const accountFilter = search.accountId ?? ''
   const categoryFilter = search.categoryId ?? ''
@@ -2047,13 +2062,17 @@ function Transactions() {
             <Select
               value={String(limit)}
               onValueChange={(value) =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    limit: Number(value),
-                    page: 1,
-                  }),
-                })
+                {
+                  const nextLimit = Number(value)
+                  setLimitPreference(nextLimit)
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      limit: nextLimit,
+                      page: 1,
+                    }),
+                  })
+                }
               }
             >
               <SelectTrigger
@@ -2375,13 +2394,17 @@ function Transactions() {
               <Select
                 value={String(limit)}
                 onValueChange={(value) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      limit: Number(value),
-                      page: 1,
-                    }),
-                  })
+                  {
+                    const nextLimit = Number(value)
+                    setLimitPreference(nextLimit)
+                    navigate({
+                      search: (prev) => ({
+                        ...prev,
+                        limit: nextLimit,
+                        page: 1,
+                      }),
+                    })
+                  }
                 }
               >
                 <SelectTrigger
