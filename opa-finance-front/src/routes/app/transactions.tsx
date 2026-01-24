@@ -496,7 +496,18 @@ function Transactions() {
   const editCategoryId = watchEdit('categoryId')
   const editType = watchEdit('type')
   const categories = categoriesQuery.data ?? []
-  const availableCategories = categories.filter((category) => !category.system)
+  const availableCategories = useMemo(() => {
+    const items = categories.filter((category) => !category.system)
+    const typeRank: Record<string, number> = {
+      income: 0,
+      expense: 1,
+    }
+    return [...items].sort((a, b) => {
+      const typeDiff = (typeRank[a.type] ?? 99) - (typeRank[b.type] ?? 99)
+      if (typeDiff !== 0) return typeDiff
+      return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+    })
+  }, [categories])
   const accounts = accountsQuery.data ?? []
   const primaryAccountId =
     accounts.find((account) => account.isPrimary)?.id ?? accounts[0]?.id ?? ''
