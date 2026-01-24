@@ -62,13 +62,15 @@ export async function authRoutes(app: FastifyInstance) {
       const accessToken = service.generateAccessToken(user.id);
       const refreshToken = service.generateRefreshToken(user.id);
 
-      reply.setCookie("refreshToken", refreshToken, {
+      const cookieOptions = {
         path: "/",
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
         maxAge: 60 * 60 * 24 * 7,
-      });
+      } as const;
+
+      reply.setCookie("refreshToken", refreshToken, cookieOptions);
 
       return reply.status(201).send({ accessToken });
     },
@@ -112,13 +114,15 @@ export async function authRoutes(app: FastifyInstance) {
       const accessToken = service.generateAccessToken(user.id);
       const refreshToken = service.generateRefreshToken(user.id);
 
-      reply.setCookie("refreshToken", refreshToken, {
+      const cookieOptions = {
         path: "/",
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
         maxAge: 60 * 60 * 24 * 7,
-      });
+      } as const;
+
+      reply.setCookie("refreshToken", refreshToken, cookieOptions);
 
       return { accessToken };
     },
@@ -150,6 +154,11 @@ export async function authRoutes(app: FastifyInstance) {
     async (req, reply) => {
       let payload: { sub: string };
 
+      if (!req.cookies?.refreshToken) {
+        reply.clearCookie("refreshToken", { path: "/" });
+        throw new UnauthorizedProblem("Missing refresh token", req.url);
+      }
+
       try {
         payload = await req.jwtVerify<{ sub: string }>({
           decode: {},
@@ -159,19 +168,37 @@ export async function authRoutes(app: FastifyInstance) {
           },
         });
       } catch {
-        throw new UnauthorizedProblem("Invalid refresh token", req.url);
+        if (process.env.NODE_ENV !== "production") {
+          try {
+            payload = await req.jwtVerify<{ sub: string }>({
+              decode: {},
+              verify: {
+                onlyCookie: true,
+                key: env.JWT_SECRET,
+              },
+            });
+          } catch {
+            reply.clearCookie("refreshToken", { path: "/" });
+            throw new UnauthorizedProblem("Invalid refresh token", req.url);
+          }
+        } else {
+          reply.clearCookie("refreshToken", { path: "/" });
+          throw new UnauthorizedProblem("Invalid refresh token", req.url);
+        }
       }
 
       const accessToken = service.generateAccessToken(payload.sub);
       const refreshToken = service.generateRefreshToken(payload.sub);
 
-      reply.setCookie("refreshToken", refreshToken, {
+      const cookieOptions = {
         path: "/",
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
         maxAge: 60 * 60 * 24 * 7,
-      });
+      } as const;
+
+      reply.setCookie("refreshToken", refreshToken, cookieOptions);
 
       return { accessToken };
     },

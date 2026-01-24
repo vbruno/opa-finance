@@ -35,6 +35,8 @@ import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
   useCategories,
+  useCreateCategory,
+  useCreateSubcategory,
 } from '@/features/categories'
 import {
   useCreateTransaction,
@@ -55,6 +57,14 @@ import {
   formatCurrencyValue,
   parseCurrencyInput,
 } from '@/lib/utils'
+import {
+  categoryCreateSchema,
+  type CategoryCreateFormData,
+} from '@/schemas/category.schema'
+import {
+  subcategoryCreateSchema,
+  type SubcategoryCreateFormData,
+} from '@/schemas/subcategory.schema'
 import {
   transactionCreateSchema,
   type TransactionCreateFormData,
@@ -215,6 +225,8 @@ function Transactions() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isCreateCategoryOpen, setIsCreateCategoryOpen] = useState(false)
+  const [isCreateSubcategoryOpen, setIsCreateSubcategoryOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] =
@@ -393,6 +405,8 @@ function Transactions() {
   const createTransferMutation = useCreateTransfer()
   const updateTransactionMutation = useUpdateTransaction()
   const deleteTransactionMutation = useDeleteTransaction()
+  const createCategoryMutation = useCreateCategory()
+  const createSubcategoryMutation = useCreateSubcategory()
 
   const accountsQuery = useAccounts()
   const categoriesQuery = useCategories()
@@ -429,6 +443,22 @@ function Transactions() {
       amount: '',
       date: '',
       description: '',
+    },
+  })
+
+  const categoryCreateForm = useForm<CategoryCreateFormData>({
+    resolver: zodResolver(categoryCreateSchema),
+    defaultValues: {
+      name: '',
+      type: '',
+    },
+  })
+
+  const subcategoryCreateForm = useForm<SubcategoryCreateFormData>({
+    resolver: zodResolver(subcategoryCreateSchema),
+    defaultValues: {
+      categoryId: '',
+      name: '',
     },
   })
 
@@ -773,6 +803,33 @@ function Transactions() {
     isCreateOpen,
     primaryAccountId,
     setValue,
+  ])
+
+  useEffect(() => {
+    if (!isCreateCategoryOpen) {
+      return
+    }
+    categoryCreateForm.reset({
+      name: '',
+      type: createType || '',
+    })
+  }, [categoryCreateForm, createType, isCreateCategoryOpen])
+
+  useEffect(() => {
+    if (!isCreateSubcategoryOpen) {
+      return
+    }
+    const fallbackCategoryId =
+      createCategoryId || availableCategories[0]?.id || ''
+    subcategoryCreateForm.reset({
+      categoryId: fallbackCategoryId,
+      name: '',
+    })
+  }, [
+    availableCategories,
+    createCategoryId,
+    isCreateSubcategoryOpen,
+    subcategoryCreateForm,
   ])
 
   useEffect(() => {
@@ -2537,8 +2594,10 @@ function Transactions() {
                     name="accountId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
+                        value={field.value ? field.value : '__none__'}
+                        onValueChange={(value) =>
+                          field.onChange(value === '__none__' ? '' : value)
+                        }
                       >
                         <SelectTrigger
                           id="transaction-account"
@@ -2549,6 +2608,9 @@ function Transactions() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__" className="hidden">
+                            Selecione
+                          </SelectItem>
                           {(accountsQuery.data ?? []).map((account) => (
                             <SelectItem key={account.id} value={account.id}>
                               {account.name}
@@ -2596,8 +2658,14 @@ function Transactions() {
                     name="categoryId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
+                        value={field.value ? field.value : '__none__'}
+                        onValueChange={(value) => {
+                          if (value === '__create__') {
+                            setIsCreateCategoryOpen(true)
+                            return
+                          }
+                          field.onChange(value === '__none__' ? '' : value)
+                        }}
                       >
                         <SelectTrigger
                           id="transaction-category"
@@ -2608,11 +2676,17 @@ function Transactions() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__" className="hidden">
+                            Selecione
+                          </SelectItem>
                           {availableCategories.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}
                             </SelectItem>
                           ))}
+                          <SelectItem value="__create__">
+                            + Nova categoria
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     )}
@@ -2633,7 +2707,9 @@ function Transactions() {
                       <Select
                         value={field.value ? field.value : 'none'}
                         onValueChange={(value) =>
-                          field.onChange(value === 'none' ? '' : value)
+                          value === '__create__'
+                            ? setIsCreateSubcategoryOpen(true)
+                            : field.onChange(value === 'none' ? '' : value)
                         }
                         disabled={!createCategoryId}
                       >
@@ -2657,6 +2733,9 @@ function Transactions() {
                               </SelectItem>
                             ),
                           )}
+                          <SelectItem value="__create__">
+                            + Nova subcategoria
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     )}
@@ -2903,6 +2982,217 @@ function Transactions() {
         </div>
       )}
 
+      {isCreateCategoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsCreateCategoryOpen(false)}
+          />
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Nova categoria</h3>
+              <p className="text-sm text-muted-foreground">
+                Crie uma categoria sem sair da transação.
+              </p>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={categoryCreateForm.handleSubmit(async (formData) => {
+                try {
+                  const created = await createCategoryMutation.mutateAsync({
+                    name: formData.name,
+                    type: formData.type,
+                  })
+                  setIsCreateCategoryOpen(false)
+                  categoryCreateForm.reset()
+                  setValue('categoryId', created.id, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  })
+                } catch (error: unknown) {
+                  categoryCreateForm.setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao criar categoria. Tente novamente.',
+                    }),
+                  })
+                }
+              })}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="transaction-category-new-name">Nome</Label>
+                <Input
+                  id="transaction-category-new-name"
+                  placeholder="Ex: Alimentação"
+                  className="h-10"
+                  aria-invalid={!!categoryCreateForm.formState.errors.name}
+                  {...categoryCreateForm.register('name')}
+                />
+                {categoryCreateForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">
+                    {categoryCreateForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="transaction-category-new-type">Tipo</Label>
+                <select
+                  id="transaction-category-new-type"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  aria-invalid={!!categoryCreateForm.formState.errors.type}
+                  {...categoryCreateForm.register('type')}
+                >
+                  <option value="">Selecione</option>
+                  <option value="income">Receita</option>
+                  <option value="expense">Despesa</option>
+                </select>
+                {categoryCreateForm.formState.errors.type && (
+                  <p className="text-sm text-destructive">
+                    {categoryCreateForm.formState.errors.type.message}
+                  </p>
+                )}
+              </div>
+
+              {categoryCreateForm.formState.errors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {categoryCreateForm.formState.errors.root.message}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsCreateCategoryOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={createCategoryMutation.isPending}
+                >
+                  {createCategoryMutation.isPending ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isCreateSubcategoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsCreateSubcategoryOpen(false)}
+          />
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Nova subcategoria</h3>
+              <p className="text-sm text-muted-foreground">
+                Crie uma subcategoria sem sair da transação.
+              </p>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={subcategoryCreateForm.handleSubmit(async (formData) => {
+                try {
+                  const created = await createSubcategoryMutation.mutateAsync({
+                    categoryId: formData.categoryId,
+                    name: formData.name,
+                  })
+                  setIsCreateSubcategoryOpen(false)
+                  subcategoryCreateForm.reset()
+                  setValue('subcategoryId', created.id, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  })
+                } catch (error: unknown) {
+                  subcategoryCreateForm.setError('root', {
+                    message: getApiErrorMessage(error, {
+                      defaultMessage:
+                        'Erro ao criar subcategoria. Tente novamente.',
+                    }),
+                  })
+                }
+              })}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="transaction-subcategory-new-category">
+                  Categoria
+                </Label>
+                <select
+                  id="transaction-subcategory-new-category"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  aria-invalid={
+                    !!subcategoryCreateForm.formState.errors.categoryId
+                  }
+                  {...subcategoryCreateForm.register('categoryId')}
+                >
+                  <option value="">Selecione</option>
+                  {availableCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {subcategoryCreateForm.formState.errors.categoryId && (
+                  <p className="text-sm text-destructive">
+                    {subcategoryCreateForm.formState.errors.categoryId.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="transaction-subcategory-new-name">Nome</Label>
+                <Input
+                  id="transaction-subcategory-new-name"
+                  placeholder="Ex: Supermercado"
+                  className="h-10"
+                  aria-invalid={!!subcategoryCreateForm.formState.errors.name}
+                  {...subcategoryCreateForm.register('name')}
+                />
+                {subcategoryCreateForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">
+                    {subcategoryCreateForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              {subcategoryCreateForm.formState.errors.root?.message && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {subcategoryCreateForm.formState.errors.root.message}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsCreateSubcategoryOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={createSubcategoryMutation.isPending}
+                >
+                  {createSubcategoryMutation.isPending
+                    ? 'Salvando...'
+                    : 'Salvar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isTransferOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
@@ -2980,8 +3270,10 @@ function Transactions() {
                     name="fromAccountId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
+                        value={field.value ? field.value : '__none__'}
+                        onValueChange={(value) =>
+                          field.onChange(value === '__none__' ? '' : value)
+                        }
                       >
                         <SelectTrigger
                           id="transfer-from-account"
@@ -2993,6 +3285,9 @@ function Transactions() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__" className="hidden">
+                            Selecione
+                          </SelectItem>
                           {(accountsQuery.data ?? []).map((account) => (
                             <SelectItem key={account.id} value={account.id}>
                               {account.name}
@@ -3030,8 +3325,10 @@ function Transactions() {
                     name="toAccountId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
+                        value={field.value ? field.value : '__none__'}
+                        onValueChange={(value) =>
+                          field.onChange(value === '__none__' ? '' : value)
+                        }
                       >
                         <SelectTrigger
                           id="transfer-to-account"
@@ -3043,6 +3340,9 @@ function Transactions() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__" className="hidden">
+                            Selecione
+                          </SelectItem>
                           {(accountsQuery.data ?? []).map((account) => (
                             <SelectItem key={account.id} value={account.id}>
                               {account.name}
@@ -3406,8 +3706,10 @@ function Transactions() {
                     name="accountId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
+                        value={field.value ? field.value : '__none__'}
+                        onValueChange={(value) =>
+                          field.onChange(value === '__none__' ? '' : value)
+                        }
                       >
                         <SelectTrigger
                           id="transaction-edit-account"
@@ -3418,6 +3720,9 @@ function Transactions() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__" className="hidden">
+                            Selecione
+                          </SelectItem>
                           {(accountsQuery.data ?? []).map((account) => (
                             <SelectItem key={account.id} value={account.id}>
                               {account.name}
@@ -3465,8 +3770,10 @@ function Transactions() {
                     name="categoryId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
+                        value={field.value ? field.value : '__none__'}
+                        onValueChange={(value) =>
+                          field.onChange(value === '__none__' ? '' : value)
+                        }
                       >
                         <SelectTrigger
                           id="transaction-edit-category"
@@ -3477,6 +3784,9 @@ function Transactions() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__" className="hidden">
+                            Selecione
+                          </SelectItem>
                           {availableCategories.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}
