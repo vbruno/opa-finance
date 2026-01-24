@@ -14,6 +14,7 @@ import {
   useDeleteAccount,
   useUpdateAccount,
 } from '@/features/accounts'
+import { useUserPreference } from '@/hooks/useUserPreference'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
 import {
@@ -260,7 +261,16 @@ function Accounts() {
     })
   }
 
-  const pageSize = 10
+  const [pageSize, setPageSize] = useUserPreference<number>('accountsPageSize', 10, {
+    serialize: (value) => String(value),
+    deserialize: (raw) => {
+      const parsed = Number(raw)
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return 10
+      }
+      return Math.min(50, Math.max(5, Math.floor(parsed)))
+    },
+  })
   const totalPages = Math.max(1, Math.ceil(sortedAccounts.length / pageSize))
   const safePage = Math.min(currentPage, totalPages)
   const paginatedAccounts =
@@ -1021,6 +1031,46 @@ function Accounts() {
             Pagina {safePage} de {totalPages}
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-[110px]">
+              <select
+                className="h-11 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm sm:h-9"
+                value={String(pageSize)}
+                onChange={(event) => {
+                  const nextSize = Number(event.target.value)
+                  setPageSize(nextSize)
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      page: 1,
+                    }),
+                    replace: false,
+                  })
+                }}
+                aria-label="Quantidade de linhas"
+              >
+                {[5, 10, 20, 30, 50].map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+                <svg
+                  viewBox="0 0 16 16"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 6l4 4 4-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </div>
             <Button
               variant="outline"
               className="h-11 w-full sm:h-9 sm:w-auto"
