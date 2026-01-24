@@ -28,6 +28,7 @@ import {
   type Category,
   type Subcategory,
 } from '@/features/categories'
+import { useUserPreference } from '@/hooks/useUserPreference'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   categoryCreateSchema,
@@ -87,7 +88,8 @@ function Categories() {
   const subCreateParentRef = useRef<HTMLSelectElement | null>(null)
   const subEditNameRef = useRef<HTMLInputElement | null>(null)
   const lastCreatedCategoryRef = useRef<Category | null>(null)
-  const lastSubcategoryParentIdRef = useRef<string | null>(null)
+  const [lastSubcategoryParentId, setLastSubcategoryParentId] =
+    useUserPreference<string | null>('lastSubcategoryParent', null)
 
   const categoriesQuery = useCategories()
 
@@ -395,13 +397,29 @@ function Categories() {
     if (isMutating || userCategories.length === 0) {
       return
     }
-    const lastSubcategoryParentId = lastSubcategoryParentIdRef.current
     if (lastSubcategoryParentId) {
       const match = categories.find(
         (category) => category.id === lastSubcategoryParentId,
       )
       if (match) {
         setSubcategoryParent(match)
+      } else if (lastCreatedCategoryRef.current) {
+        const lastCreatedCategory = lastCreatedCategoryRef.current
+        const createdMatch = categories.find(
+          (category) => category.id === lastCreatedCategory?.id,
+        )
+        setSubcategoryParent(createdMatch ?? lastCreatedCategory ?? null)
+      } else if (primaryExpandedCategoryId) {
+        const parent = categories.find(
+          (category) => category.id === primaryExpandedCategoryId,
+        )
+        if (parent) {
+          setSubcategoryParent(parent)
+        } else {
+          setSubcategoryParent(userCategories[0])
+        }
+      } else {
+        setSubcategoryParent(userCategories[0])
       }
     } else if (lastCreatedCategoryRef.current) {
       const lastCreatedCategory = lastCreatedCategoryRef.current
@@ -424,6 +442,7 @@ function Categories() {
   }, [
     categories,
     isMutating,
+    lastSubcategoryParentId,
     primaryExpandedCategoryId,
     subCreateForm,
     userCategories,
@@ -1333,7 +1352,7 @@ function Categories() {
                     categoryId: subcategoryParent.id,
                     name: formData.name,
                   })
-                  lastSubcategoryParentIdRef.current = subcategoryParent.id
+                  setLastSubcategoryParentId(subcategoryParent.id)
                   setIsSubCreateOpen(false)
                   subCreateForm.reset()
                 } catch (error: unknown) {
@@ -1359,6 +1378,7 @@ function Categories() {
                     )
                     if (nextParent) {
                       setSubcategoryParent(nextParent)
+                      setLastSubcategoryParentId(nextParent.id)
                     }
                   }}
                 >
