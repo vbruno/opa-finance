@@ -2691,7 +2691,26 @@ function Transactions() {
                         >
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent
+                          onKeyDown={(event) => {
+                            if (
+                              event.key.length !== 1 ||
+                              event.altKey ||
+                              event.ctrlKey ||
+                              event.metaKey
+                            ) {
+                              return
+                            }
+                            const key = event.key.toLowerCase()
+                            const match = availableCategories.find((category) =>
+                              category.name.toLowerCase().startsWith(key),
+                            )
+                            if (match) {
+                              event.preventDefault()
+                              field.onChange(match.id)
+                            }
+                          }}
+                        >
                           <SelectItem value="__none__" className="hidden">
                             Selecione
                           </SelectItem>
@@ -2737,7 +2756,27 @@ function Transactions() {
                         >
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent
+                          onKeyDown={(event) => {
+                            if (
+                              event.key.length !== 1 ||
+                              event.altKey ||
+                              event.ctrlKey ||
+                              event.metaKey
+                            ) {
+                              return
+                            }
+                            const key = event.key.toLowerCase()
+                            const match = (createSubcategoriesQuery.data ?? []).find(
+                              (subcategory) =>
+                                subcategory.name.toLowerCase().startsWith(key),
+                            )
+                            if (match) {
+                              event.preventDefault()
+                              field.onChange(match.id)
+                            }
+                          }}
+                        >
                           <SelectItem value="none">Sem subcategoria</SelectItem>
                           {(createSubcategoriesQuery.data ?? []).map(
                             (subcategory) => (
