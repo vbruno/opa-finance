@@ -69,6 +69,7 @@ function Categories() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isCascadeDeleting, setIsCascadeDeleting] = useState(false)
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([])
   const [isSubCreateOpen, setIsSubCreateOpen] = useState(false)
   const [isSubEditOpen, setIsSubEditOpen] = useState(false)
@@ -193,19 +194,37 @@ function Categories() {
     enabled:
       debouncedNormalizedSearch.length > 0 && userCategories.length > 0,
   })
-  const filteredCategories = userCategories.filter((category) => {
-    const matchesName = normalizedSearch
-      ? normalizeSearch(category.name).includes(normalizedSearch)
-      : true
-    const subcategories = searchSubcategoriesQuery.data?.[category.id] ?? []
-    const matchesSubcategory =
-      debouncedNormalizedSearch.length > 0 &&
-      subcategories.some((subcategory) =>
-        normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
-      )
-    const matchesType = typeFilter ? category.type === typeFilter : true
-    return (matchesName || matchesSubcategory) && matchesType
-  })
+  const filteredCategories = useMemo(() => {
+    const typeRank: Record<string, number> = {
+      income: 0,
+      expense: 1,
+    }
+    return userCategories
+      .filter((category) => {
+        const matchesName = normalizedSearch
+          ? normalizeSearch(category.name).includes(normalizedSearch)
+          : true
+        const subcategories = searchSubcategoriesQuery.data?.[category.id] ?? []
+        const matchesSubcategory =
+          debouncedNormalizedSearch.length > 0 &&
+          subcategories.some((subcategory) =>
+            normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
+          )
+        const matchesType = typeFilter ? category.type === typeFilter : true
+        return (matchesName || matchesSubcategory) && matchesType
+      })
+      .sort((a, b) => {
+        const typeDiff = (typeRank[a.type] ?? 99) - (typeRank[b.type] ?? 99)
+        if (typeDiff !== 0) return typeDiff
+        return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+      })
+  }, [
+    debouncedNormalizedSearch,
+    normalizedSearch,
+    searchSubcategoriesQuery.data,
+    typeFilter,
+    userCategories,
+  ])
   const categoryMatchIds = useMemo(() => {
     if (!normalizedSearch.length) {
       return []
@@ -250,7 +269,8 @@ function Categories() {
     deleteCategoryMutation.isPending ||
     createSubcategoryMutation.isPending ||
     updateSubcategoryMutation.isPending ||
-    deleteSubcategoryMutation.isPending
+    deleteSubcategoryMutation.isPending ||
+    isCascadeDeleting
   const errorMessage = categoriesQuery.isError
     ? getApiErrorMessage(categoriesQuery.error, {
       defaultMessage: 'Erro ao carregar categorias.',
@@ -505,6 +525,48 @@ function Categories() {
           >
             <SlidersHorizontal className="size-4" />
           </Button>
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30 sm:hidden disabled:pointer-events-none disabled:opacity-50"
+            disabled={filteredCategories.length === 0}
+            aria-label={
+              expandedCategoryIds.length === filteredCategories.length &&
+              filteredCategories.length > 0
+                ? 'Recolher todas as categorias'
+                : 'Expandir todas as categorias'
+            }
+            onClick={() => {
+              setHasManualSearchExpandOverride(true)
+              const shouldCollapse =
+                expandedCategoryIds.length === filteredCategories.length &&
+                filteredCategories.length > 0
+              setExpandedCategoryIds(
+                shouldCollapse
+                  ? []
+                  : filteredCategories.map((category) => category.id),
+              )
+            }}
+          >
+            <svg
+              viewBox="0 0 16 16"
+              className={`h-4 w-4 ${
+                expandedCategoryIds.length === filteredCategories.length &&
+                filteredCategories.length > 0
+                  ? '-rotate-90'
+                  : 'rotate-90'
+              }`}
+              aria-hidden="true"
+            >
+              <path
+                d="M6 4l4 4-4 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <div className="relative">
             <Button
               variant="default"
@@ -865,7 +927,55 @@ function Categories() {
           <table className="min-w-[640px] w-full text-left text-sm">
             <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-4 py-3">Categoria</th>
+                <th className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-50"
+                      disabled={filteredCategories.length === 0}
+                      aria-label={
+                        expandedCategoryIds.length === filteredCategories.length &&
+                        filteredCategories.length > 0
+                          ? 'Recolher todas as categorias'
+                          : 'Expandir todas as categorias'
+                      }
+                      onClick={() => {
+                        setHasManualSearchExpandOverride(true)
+                        const shouldCollapse =
+                          expandedCategoryIds.length ===
+                            filteredCategories.length &&
+                          filteredCategories.length > 0
+                        setExpandedCategoryIds(
+                          shouldCollapse
+                            ? []
+                            : filteredCategories.map((category) => category.id),
+                        )
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 16 16"
+                        className={`h-4 w-4 ${
+                          expandedCategoryIds.length ===
+                            filteredCategories.length &&
+                          filteredCategories.length > 0
+                                ? 'rotate-90'
+                                : ''
+                        }`}
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M6 4l4 4-4 4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <span>Categoria</span>
+                  </div>
+                </th>
                 <th className="w-[1%] px-4 py-3 whitespace-nowrap">Tipo</th>
                 <th className="w-[1%] px-4 py-3 whitespace-nowrap">Ações</th>
               </tr>
@@ -1289,7 +1399,9 @@ function Categories() {
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Excluir categoria</h3>
               <p className="text-sm text-muted-foreground">
-                Tem certeza que deseja excluir "{selectedCategory.name}"?
+                {isCascadeDeleting
+                  ? `Excluindo tudo da categoria "${selectedCategory.name}"`
+                  : `Tem certeza que deseja excluir "${selectedCategory.name}"?`}
               </p>
             </div>
 
@@ -1298,41 +1410,95 @@ function Categories() {
                 {deleteError}
               </div>
             )}
+            {deleteError?.toLowerCase().includes('subcategorias') && (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Essa categoria possui subcategorias. Você pode removê-las e
+                depois excluir a categoria.
+              </div>
+            )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsDeleteConfirmOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                className="w-full sm:w-auto"
-                onClick={async () => {
-                  setDeleteError(null)
-                  try {
-                    await deleteCategoryMutation.mutateAsync(
-                      selectedCategory.id,
-                    )
-                    setIsDeleteConfirmOpen(false)
-                    setSelectedCategory(null)
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              {deleteError?.toLowerCase().includes('subcategorias') && (
+                <Button
+                  variant="destructive"
+                  className="w-full sm:w-auto"
+                  disabled={isCascadeDeleting || deleteCategoryMutation.isPending}
+                  onClick={async () => {
+                    if (!selectedCategory) {
+                      return
+                    }
+                    setIsCascadeDeleting(true)
                     setDeleteError(null)
-                  } catch (error: unknown) {
-                    setDeleteError(
-                      getApiErrorMessage(error, {
-                        defaultMessage:
-                          'Erro ao excluir categoria. Tente novamente.',
-                      }),
-                    )
+                    try {
+                      const subcategories = await fetchSubcategories(
+                        selectedCategory.id,
+                      )
+                      await Promise.all(
+                        subcategories.map((subcategory) =>
+                          deleteSubcategoryMutation.mutateAsync({
+                            id: subcategory.id,
+                            categoryId: selectedCategory.id,
+                          }),
+                        ),
+                      )
+                      await deleteCategoryMutation.mutateAsync(
+                        selectedCategory.id,
+                      )
+                      setIsDeleteConfirmOpen(false)
+                      setSelectedCategory(null)
+                    } catch (error: unknown) {
+                      setDeleteError(
+                        getApiErrorMessage(error, {
+                          defaultMessage:
+                            'Erro ao excluir subcategorias. Tente novamente.',
+                        }),
+                      )
+                    } finally {
+                      setIsCascadeDeleting(false)
+                    }
+                  }}
+                >
+                  {isCascadeDeleting ? 'Excluindo tudo...' : 'Excluir tudo'}
+                </Button>
+              )}
+              {!deleteError?.toLowerCase().includes('subcategorias') && (
+                <Button
+                  variant="destructive"
+                  className="w-full sm:w-auto"
+                  onClick={async () => {
+                    setDeleteError(null)
+                    try {
+                      await deleteCategoryMutation.mutateAsync(
+                        selectedCategory.id,
+                      )
+                      setIsDeleteConfirmOpen(false)
+                      setSelectedCategory(null)
+                      setDeleteError(null)
+                    } catch (error: unknown) {
+                      setDeleteError(
+                        getApiErrorMessage(error, {
+                          defaultMessage:
+                            'Erro ao excluir categoria. Tente novamente.',
+                        }),
+                      )
+                    }
+                  }}
+                  disabled={
+                    deleteCategoryMutation.isPending || isCascadeDeleting
                   }
-                }}
-                disabled={deleteCategoryMutation.isPending}
-              >
-                {deleteCategoryMutation.isPending
-                  ? 'Excluindo...'
-                  : 'Excluir'}
-              </Button>
+                >
+                  {deleteCategoryMutation.isPending
+                    ? 'Excluindo...'
+                    : 'Excluir'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
