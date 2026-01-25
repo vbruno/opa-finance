@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "npm: dev (front)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/opa-finance-front"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": ".+"
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v|vite v|  VITE v|> Local:|  Local:",
+          "endsPattern": "Local:|Network:"
+        }
+      }
+    },
+    {
+      "label": "kill: dev server (front)",
+      "type": "shell",
+      "command": "lsof -ti tcp:5173 | xargs -r kill",
+      "problemMatcher": []
+    }
+  ]
+}
