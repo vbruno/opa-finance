@@ -78,7 +78,14 @@ export function useCreateCategory() {
       const response = await api.post<Category>('/categories', payload)
       return response.data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData<Category[]>(categoriesKey, (prev) => {
+        const list = prev ?? []
+        if (list.some((item) => item.id === data.id)) {
+          return list
+        }
+        return [...list, data]
+      })
       queryClient.invalidateQueries({ queryKey: categoriesKey })
     },
   })
@@ -119,7 +126,22 @@ export function useCreateSubcategory() {
       const response = await api.post<Subcategory>('/subcategories', payload)
       return response.data
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      const updateCache = (queryKey: unknown[]) => {
+        queryClient.setQueryData<Subcategory[]>(queryKey, (prev) => {
+          const list = prev ?? []
+          if (list.some((item) => item.id === data.id)) {
+            return list
+          }
+          return [...list, data]
+        })
+      }
+
+      updateCache(['subcategories', variables.categoryId])
+      updateCache(['subcategories', 'transaction-create', variables.categoryId])
+      updateCache(['subcategories', 'transaction-edit', variables.categoryId])
+      updateCache(['subcategories', 'transaction-filter', variables.categoryId])
+
       queryClient.invalidateQueries({
         queryKey: ['subcategories', variables.categoryId],
       })
