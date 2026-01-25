@@ -270,6 +270,12 @@ function Transactions() {
   const transferAmountRef = useRef<HTMLInputElement | null>(null)
   const editAmountRef = useRef<HTMLInputElement | null>(null)
   const descriptionInputRef = useRef<HTMLInputElement | null>(null)
+  const dateInputRef = useRef<HTMLInputElement | null>(null)
+  const createCategorySelectRef = useRef<HTMLButtonElement | null>(null)
+  const createSubcategorySelectRef = useRef<HTMLButtonElement | null>(null)
+  const subcategoryNameRef = useRef<HTMLInputElement | null>(null)
+  const categoryNameRef = useRef<HTMLInputElement | null>(null)
+  const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const deleteModalRef = useRef<HTMLDivElement | null>(null)
   const bulkDeleteModalRef = useRef<HTMLDivElement | null>(null)
@@ -296,14 +302,12 @@ function Transactions() {
       event.preventDefault()
     }
   }
-  const handleMobileDateClick: MouseEventHandler<HTMLInputElement> = (
-    event,
-  ) => {
-    if (!isMobile) {
+  const handleDateClick: MouseEventHandler<HTMLInputElement> = (event) => {
+    const target = event.currentTarget
+    if (typeof target.showPicker !== 'function') {
       return
     }
-    const target = event.currentTarget
-    if (typeof target.showPicker === 'function') {
+    if (isMobile || event.detail > 0) {
       target.showPicker()
     }
   }
@@ -651,6 +655,9 @@ function Transactions() {
   }
 
   const handleDateFocus = (event: FocusEvent<HTMLInputElement>) => {
+    if (!isMobile) {
+      return
+    }
     const input = event.currentTarget
     if (typeof input.showPicker === 'function') {
       input.showPicker()
@@ -712,6 +719,32 @@ function Transactions() {
       replace: false,
     })
   }
+
+  const resetCreateForm = useCallback(() => {
+    isCreateFromDuplicate.current = false
+    lastCreateCategoryId.current = null
+    pendingCategorySelection.current = null
+    pendingSubcategorySelection.current = null
+    reset({
+      accountId: primaryAccountId || '',
+      categoryId: '',
+      subcategoryId: '',
+      type: '',
+      amount: '',
+      date: formatDateInput(new Date()),
+      description: '',
+      notes: '',
+    })
+    clearErrors()
+  }, [clearErrors, primaryAccountId, reset])
+
+  const handleClearCreateForm = () => {
+    resetCreateForm()
+  }
+
+  const handleCloseCreateModal = useCallback(() => {
+    setIsCreateOpen(false)
+  }, [])
 
   const filterSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-filter', categoryFilter],
@@ -868,10 +901,15 @@ function Transactions() {
       ) {
         setValue('accountId', primaryAccountId)
       }
+      const isDuplicate = isCreateFromDuplicate.current
       if (isCreateFromDuplicate.current) {
         isCreateFromDuplicate.current = false
       }
-      descriptionInputRef.current?.focus()
+      if (isDuplicate) {
+        dateInputRef.current?.focus()
+      } else {
+        descriptionInputRef.current?.focus()
+      }
     }
   }, [
     clearErrors,
@@ -889,6 +927,10 @@ function Transactions() {
       name: '',
       type: createType || '',
     })
+    const focusId = window.setTimeout(() => {
+      categoryTypeRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusId)
   }, [categoryCreateForm, createType, isCreateCategoryOpen])
 
   useEffect(() => {
@@ -901,6 +943,10 @@ function Transactions() {
       categoryId: fallbackCategoryId,
       name: '',
     })
+    const focusId = window.setTimeout(() => {
+      subcategoryNameRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusId)
   }, [
     categories,
     createCategoryId,
@@ -1064,7 +1110,7 @@ function Transactions() {
       }
 
       if (isCreateOpen) {
-        setIsCreateOpen(false)
+        handleCloseCreateModal()
         return
       }
 
@@ -1076,6 +1122,7 @@ function Transactions() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [
+    handleCloseCreateModal,
     isCreateOpen,
     isCreateCategoryOpen,
     isCreateSubcategoryOpen,
@@ -1334,6 +1381,7 @@ function Transactions() {
       return
     }
     isCreateFromDuplicate.current = true
+    lastCreateCategoryId.current = transaction.categoryId
     reset({
       accountId: transaction.accountId,
       categoryId: transaction.categoryId,
@@ -1727,7 +1775,7 @@ function Transactions() {
                     }),
                   })
                 }
-                onClick={handleMobileDateClick}
+                onClick={handleDateClick}
                 onKeyDown={handleMobileDateKeyDown}
                 onPaste={handleMobileDatePaste}
               />
@@ -1749,7 +1797,7 @@ function Transactions() {
                     }),
                   })
                 }
-                onClick={handleMobileDateClick}
+                onClick={handleDateClick}
                 onKeyDown={handleMobileDateKeyDown}
                 onPaste={handleMobileDatePaste}
               />
@@ -2633,7 +2681,7 @@ function Transactions() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
             className="fixed inset-0"
-            onClick={() => setIsCreateOpen(false)}
+            onClick={handleCloseCreateModal}
           />
           <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
@@ -2660,8 +2708,8 @@ function Transactions() {
                     description: formData.description?.trim() || null,
                     notes: formData.notes?.trim() || null,
                   })
+                  resetCreateForm()
                   setIsCreateOpen(false)
-                  reset()
                 } catch (error: unknown) {
                   setError('root', {
                     message: getApiErrorMessage(error, {
@@ -2715,19 +2763,28 @@ function Transactions() {
 
                 <div className="space-y-2">
                   <Label htmlFor="transaction-date">Data</Label>
-                  <Input
-                    id="transaction-date"
-                    type="date"
-                    className="h-10"
-                    aria-invalid={!!errors.date}
-                    onFocus={handleDateFocus}
-                    inputMode={isMobile ? 'none' : undefined}
-                    tabIndex={6}
-                    {...register('date')}
-                    onClick={handleMobileDateClick}
-                    onKeyDown={handleMobileDateKeyDown}
-                    onPaste={handleMobileDatePaste}
-                  />
+                  {(() => {
+                    const dateRegister = register('date')
+                    return (
+                      <Input
+                        id="transaction-date"
+                        type="date"
+                        className="h-10"
+                        aria-invalid={!!errors.date}
+                        onFocus={handleDateFocus}
+                        inputMode={isMobile ? 'none' : undefined}
+                        tabIndex={6}
+                        {...dateRegister}
+                        ref={(element) => {
+                          dateRegister.ref(element)
+                          dateInputRef.current = element
+                        }}
+                        onClick={handleDateClick}
+                        onKeyDown={handleMobileDateKeyDown}
+                        onPaste={handleMobileDatePaste}
+                      />
+                    )
+                  })()}
                   {errors.date && (
                     <p className="text-sm text-destructive">
                       {errors.date.message}
@@ -2758,6 +2815,7 @@ function Transactions() {
                           className="h-10"
                           aria-invalid={!!errors.categoryId}
                           tabIndex={4}
+                          ref={createCategorySelectRef}
                         >
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
@@ -2823,6 +2881,7 @@ function Transactions() {
                           className="h-10"
                           aria-invalid={!!errors.subcategoryId}
                           tabIndex={5}
+                          ref={createSubcategorySelectRef}
                         >
                           <SelectValue />
                         </SelectTrigger>
@@ -3085,22 +3144,32 @@ function Transactions() {
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsCreateOpen(false)}
+                  className="w-full sm:w-auto h-12 sm:h-auto"
+                  onClick={handleClearCreateForm}
                 >
-                  Cancelar
+                  Limpar
                 </Button>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={isSubmitting}
-                >
-                  Salvar
-                </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto h-12 sm:h-auto"
+                    onClick={handleCloseCreateModal}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto h-12 sm:h-auto"
+                    disabled={isSubmitting}
+                  >
+                    Salvar
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
@@ -3136,6 +3205,7 @@ function Transactions() {
                     shouldDirty: true,
                     shouldTouch: true,
                   })
+                  createCategorySelectRef.current?.focus()
                 } catch (error: unknown) {
                   categoryCreateForm.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -3147,36 +3217,54 @@ function Transactions() {
               })}
             >
               <div className="space-y-2">
-                <Label htmlFor="transaction-category-new-name">Nome</Label>
-                <Input
-                  id="transaction-category-new-name"
-                  placeholder="Ex: Alimentação"
-                  className="h-10"
-                  aria-invalid={!!categoryCreateForm.formState.errors.name}
-                  {...categoryCreateForm.register('name')}
-                />
-                {categoryCreateForm.formState.errors.name && (
+                <Label htmlFor="transaction-category-new-type">Tipo</Label>
+                {(() => {
+                  const typeRegister = categoryCreateForm.register('type')
+                  return (
+                    <select
+                      id="transaction-category-new-type"
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      aria-invalid={!!categoryCreateForm.formState.errors.type}
+                      {...typeRegister}
+                      ref={(element) => {
+                        typeRegister.ref(element)
+                        categoryTypeRef.current = element
+                      }}
+                    >
+                      <option value="">Selecione</option>
+                      <option value="income">Receita</option>
+                      <option value="expense">Despesa</option>
+                    </select>
+                  )
+                })()}
+                {categoryCreateForm.formState.errors.type && (
                   <p className="text-sm text-destructive">
-                    {categoryCreateForm.formState.errors.name.message}
+                    {categoryCreateForm.formState.errors.type.message}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="transaction-category-new-type">Tipo</Label>
-                <select
-                  id="transaction-category-new-type"
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                  aria-invalid={!!categoryCreateForm.formState.errors.type}
-                  {...categoryCreateForm.register('type')}
-                >
-                  <option value="">Selecione</option>
-                  <option value="income">Receita</option>
-                  <option value="expense">Despesa</option>
-                </select>
-                {categoryCreateForm.formState.errors.type && (
+                <Label htmlFor="transaction-category-new-name">Nome</Label>
+                {(() => {
+                  const nameRegister = categoryCreateForm.register('name')
+                  return (
+                    <Input
+                      id="transaction-category-new-name"
+                      placeholder="Ex: Alimentação"
+                      className="h-10"
+                      aria-invalid={!!categoryCreateForm.formState.errors.name}
+                      {...nameRegister}
+                      ref={(element) => {
+                        nameRegister.ref(element)
+                        categoryNameRef.current = element
+                      }}
+                    />
+                  )
+                })()}
+                {categoryCreateForm.formState.errors.name && (
                   <p className="text-sm text-destructive">
-                    {categoryCreateForm.formState.errors.type.message}
+                    {categoryCreateForm.formState.errors.name.message}
                   </p>
                 )}
               </div>
@@ -3245,6 +3333,7 @@ function Transactions() {
                       shouldTouch: true,
                     })
                   }
+                  createSubcategorySelectRef.current?.focus()
                 } catch (error: unknown) {
                   subcategoryCreateForm.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -3283,13 +3372,22 @@ function Transactions() {
 
               <div className="space-y-2">
                 <Label htmlFor="transaction-subcategory-new-name">Nome</Label>
-                <Input
-                  id="transaction-subcategory-new-name"
-                  placeholder="Ex: Supermercado"
-                  className="h-10"
-                  aria-invalid={!!subcategoryCreateForm.formState.errors.name}
-                  {...subcategoryCreateForm.register('name')}
-                />
+                {(() => {
+                  const nameRegister = subcategoryCreateForm.register('name')
+                  return (
+                    <Input
+                      id="transaction-subcategory-new-name"
+                      placeholder="Ex: Supermercado"
+                      className="h-10"
+                      aria-invalid={!!subcategoryCreateForm.formState.errors.name}
+                      {...nameRegister}
+                      ref={(element) => {
+                        nameRegister.ref(element)
+                        subcategoryNameRef.current = element
+                      }}
+                    />
+                  )
+                })()}
                 {subcategoryCreateForm.formState.errors.name && (
                   <p className="text-sm text-destructive">
                     {subcategoryCreateForm.formState.errors.name.message}
@@ -3505,7 +3603,7 @@ function Transactions() {
                     onFocus={handleDateFocus}
                     inputMode={isMobile ? 'none' : undefined}
                     {...transferForm.register('date')}
-                    onClick={handleMobileDateClick}
+                    onClick={handleDateClick}
                     onKeyDown={handleMobileDateKeyDown}
                     onPaste={handleMobileDatePaste}
                   />
@@ -3884,7 +3982,7 @@ function Transactions() {
                     inputMode={isMobile ? 'none' : undefined}
                     tabIndex={6}
                     {...editRegister('date')}
-                    onClick={handleMobileDateClick}
+                    onClick={handleDateClick}
                     onKeyDown={handleMobileDateKeyDown}
                     onPaste={handleMobileDatePaste}
                   />
