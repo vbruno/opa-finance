@@ -21,6 +21,12 @@
           "endsPattern": "Local:|Network:"
         }
       }
+    },
+    {
+      "label": "kill: dev server (front)",
+      "type": "shell",
+      "command": "lsof -ti tcp:5173 | xargs -r kill",
+      "problemMatcher": []
     }
   ]
 }
