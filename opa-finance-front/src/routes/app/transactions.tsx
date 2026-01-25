@@ -37,6 +37,7 @@ import {
   useCategories,
   useCreateCategory,
   useCreateSubcategory,
+  type Subcategory,
 } from '@/features/categories'
 import {
   useCreateTransaction,
@@ -227,6 +228,13 @@ function Transactions() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateCategoryOpen, setIsCreateCategoryOpen] = useState(false)
   const [isCreateSubcategoryOpen, setIsCreateSubcategoryOpen] = useState(false)
+  const [lastCreatedSubcategory, setLastCreatedSubcategory] =
+    useState<Subcategory | null>(null)
+  const pendingCategorySelection = useRef<string | null>(null)
+  const pendingSubcategorySelection = useRef<{
+    categoryId: string
+    subcategoryId: string
+  } | null>(null)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] =
@@ -526,12 +534,33 @@ function Transactions() {
     enabled: Boolean(createCategoryId),
   })
 
+  const createSubcategories = useMemo(() => {
+    const items = createSubcategoriesQuery.data ?? []
+    const next = [...items]
+    if (
+      lastCreatedSubcategory &&
+      lastCreatedSubcategory.categoryId === createCategoryId &&
+      !next.some((item) => item.id === lastCreatedSubcategory.id)
+    ) {
+      next.push(lastCreatedSubcategory)
+    }
+    return next.sort((a, b) =>
+      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
+    )
+  }, [createCategoryId, createSubcategoriesQuery.data, lastCreatedSubcategory])
+
   const editSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-edit', editCategoryId],
     queryFn: () => fetchSubcategories(editCategoryId ?? ''),
     enabled: Boolean(editCategoryId),
   })
 
+  const editSubcategories = useMemo(() => {
+    const items = editSubcategoriesQuery.data ?? []
+    return [...items].sort((a, b) =>
+      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
+    )
+  }, [editSubcategoriesQuery.data])
   const suggestionsQueryText = debouncedCreateDescription
   const trimmedSuggestionsQueryText = suggestionsQueryText.trim()
   const shouldFilterSuggestions =
@@ -695,6 +724,8 @@ function Transactions() {
       setValue('type', '')
       setValue('subcategoryId', '')
       lastCreateCategoryId.current = null
+      pendingCategorySelection.current = null
+      pendingSubcategorySelection.current = null
       return
     }
 
@@ -706,7 +737,35 @@ function Transactions() {
     if (createCategory?.type) {
       setValue('type', createCategory.type)
     }
+
   }, [createCategory?.type, createCategoryId, setValue])
+
+  useEffect(() => {
+    const pending = pendingCategorySelection.current
+    if (!pending) {
+      return
+    }
+    if (!categories.some((category) => category.id === pending)) {
+      return
+    }
+    setValue('categoryId', pending, { shouldDirty: true, shouldTouch: true })
+    pendingCategorySelection.current = null
+  }, [categories, setValue])
+
+  useEffect(() => {
+    const pending = pendingSubcategorySelection.current
+    if (!pending || pending.categoryId !== createCategoryId) {
+      return
+    }
+    if (!createSubcategories.some((subcategory) => subcategory.id === pending.subcategoryId)) {
+      return
+    }
+    setValue('subcategoryId', pending.subcategoryId, {
+      shouldDirty: true,
+      shouldTouch: true,
+    })
+    pendingSubcategorySelection.current = null
+  }, [createCategoryId, createSubcategories, setValue])
 
   useEffect(() => {
     if (!editCategoryId) {
@@ -2789,7 +2848,7 @@ function Transactions() {
                           }}
                         >
                           <SelectItem value="none">Sem subcategoria</SelectItem>
-                          {(createSubcategoriesQuery.data ?? []).map(
+                          {createSubcategories.map(
                             (subcategory) => (
                               <SelectItem
                                 key={subcategory.id}
@@ -3072,6 +3131,7 @@ function Transactions() {
                   })
                   setIsCreateCategoryOpen(false)
                   categoryCreateForm.reset()
+                  pendingCategorySelection.current = created.id
                   setValue('categoryId', created.id, {
                     shouldDirty: true,
                     shouldTouch: true,
@@ -3171,12 +3231,20 @@ function Transactions() {
                     categoryId: formData.categoryId,
                     name: formData.name,
                   })
+                  setLastCreatedSubcategory(created)
                   setIsCreateSubcategoryOpen(false)
                   subcategoryCreateForm.reset()
-                  setValue('subcategoryId', created.id, {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                  })
+                  pendingSubcategorySelection.current = {
+                    categoryId: created.categoryId,
+                    subcategoryId: created.id,
+                  }
+                  if (createCategoryId !== created.categoryId) {
+                    lastCreateCategoryId.current = created.categoryId
+                    setValue('categoryId', created.categoryId, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                 } catch (error: unknown) {
                   subcategoryCreateForm.setError('root', {
                     message: getApiErrorMessage(error, {
@@ -3894,7 +3962,7 @@ function Transactions() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Sem subcategoria</SelectItem>
-                          {(editSubcategoriesQuery.data ?? []).map(
+                          {editSubcategories.map(
                             (subcategory) => (
                               <SelectItem
                                 key={subcategory.id}
