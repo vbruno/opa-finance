@@ -1,5 +1,4 @@
 // src/modules/auth/auth.routes.ts
-import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
@@ -21,8 +20,6 @@ import {
 export async function authRoutes(app: FastifyInstance) {
   const service = new AuthService(app, app.db);
   const authTag = ["Auth"];
-  const hashSecret = (value: string) =>
-    createHash("sha256").update(value).digest("hex").slice(0, 8);
 
   /* -------------------------------------------------------------------------- */
   /*                                   REGISTER                                 */
@@ -64,18 +61,6 @@ export async function authRoutes(app: FastifyInstance) {
 
       const accessToken = service.generateAccessToken(user.id);
       const refreshToken = service.generateRefreshToken(user.id);
-      const loginDecoded = app.jwt.decode(refreshToken) as {
-        iat?: number;
-        exp?: number;
-        sub?: string;
-      } | null;
-      console.info("[auth] login refresh token", {
-        tokenTail: refreshToken.slice(-6),
-        iat: loginDecoded?.iat,
-        exp: loginDecoded?.exp,
-        refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
-      });
-
       const cookieOptions = {
         path: "/",
         httpOnly: true,
@@ -169,46 +154,19 @@ export async function authRoutes(app: FastifyInstance) {
       let payload: { sub: string };
 
       if (!req.cookies?.refreshToken) {
-        console.warn("[auth] refresh missing cookie", {
-          refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
-        });
         reply.clearCookie("refreshToken", { path: "/" });
         throw new UnauthorizedProblem("Missing refresh token", req.url);
       }
 
       try {
-        console.info("[auth] refresh attempt", {
-          tokenTail: req.cookies.refreshToken.slice(-6),
-          refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
-        });
-        console.info("[auth] refresh verify", {
-          keyHash: hashSecret(env.REFRESH_TOKEN_SECRET),
-          onlyCookie: true,
-        });
         payload = app.jwt.verify<{ sub: string }>(req.cookies.refreshToken, {
           key: env.REFRESH_TOKEN_SECRET,
         });
       } catch (error) {
         const err = error as { code?: string; message?: string };
-        const decoded = app.jwt.decode(req.cookies.refreshToken) as {
-          iat?: number;
-          exp?: number;
-          sub?: string;
-        } | null;
-        console.warn("[auth] refresh invalid", {
-          tokenTail: req.cookies.refreshToken.slice(-6),
-          iat: decoded?.iat,
-          exp: decoded?.exp,
-          errCode: err.code,
-          errMessage: err.message,
-          refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
-        });
+        void err;
         if (process.env.NODE_ENV !== "production") {
           try {
-            console.info("[auth] refresh verify fallback", {
-              keyHash: hashSecret(env.JWT_SECRET),
-              onlyCookie: true,
-            });
             payload = app.jwt.verify<{ sub: string }>(req.cookies.refreshToken, {
               key: env.JWT_SECRET,
             });
