@@ -1,6 +1,6 @@
 // src/modules/auth/auth.routes.ts
-import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import { env } from "../../core/config/env";
@@ -64,7 +64,11 @@ export async function authRoutes(app: FastifyInstance) {
 
       const accessToken = service.generateAccessToken(user.id);
       const refreshToken = service.generateRefreshToken(user.id);
-      const loginDecoded = app.jwt.decode(refreshToken) as { iat?: number; exp?: number; sub?: string } | null;
+      const loginDecoded = app.jwt.decode(refreshToken) as {
+        iat?: number;
+        exp?: number;
+        sub?: string;
+      } | null;
       console.info("[auth] login refresh token", {
         tokenTail: refreshToken.slice(-6),
         iat: loginDecoded?.iat,
@@ -177,18 +181,22 @@ export async function authRoutes(app: FastifyInstance) {
           tokenTail: req.cookies.refreshToken.slice(-6),
           refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
         });
+        console.info("[auth] refresh verify", {
+          keyHash: hashSecret(env.REFRESH_TOKEN_SECRET),
+          onlyCookie: true,
+        });
         payload = await req.jwtVerify<{ sub: string }>({
           decode: {},
-          verify: {
-            onlyCookie: true,
-            key: env.REFRESH_TOKEN_SECRET,
-          },
+          onlyCookie: true,
+          key: env.REFRESH_TOKEN_SECRET,
         });
       } catch (error) {
         const err = error as { code?: string; message?: string };
-        const decoded = app.jwt.decode(req.cookies.refreshToken) as
-          | { iat?: number; exp?: number; sub?: string }
-          | null;
+        const decoded = app.jwt.decode(req.cookies.refreshToken) as {
+          iat?: number;
+          exp?: number;
+          sub?: string;
+        } | null;
         console.warn("[auth] refresh invalid", {
           tokenTail: req.cookies.refreshToken.slice(-6),
           iat: decoded?.iat,
@@ -199,12 +207,14 @@ export async function authRoutes(app: FastifyInstance) {
         });
         if (process.env.NODE_ENV !== "production") {
           try {
+            console.info("[auth] refresh verify fallback", {
+              keyHash: hashSecret(env.JWT_SECRET),
+              onlyCookie: true,
+            });
             payload = await req.jwtVerify<{ sub: string }>({
               decode: {},
-              verify: {
-                onlyCookie: true,
-                key: env.JWT_SECRET,
-              },
+              onlyCookie: true,
+              key: env.JWT_SECRET,
             });
           } catch {
             reply.clearCookie("refreshToken", { path: "/" });
