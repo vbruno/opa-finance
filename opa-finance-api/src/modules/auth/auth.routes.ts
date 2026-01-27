@@ -185,9 +185,7 @@ export async function authRoutes(app: FastifyInstance) {
           keyHash: hashSecret(env.REFRESH_TOKEN_SECRET),
           onlyCookie: true,
         });
-        payload = await req.jwtVerify<{ sub: string }>({
-          decode: {},
-          onlyCookie: true,
+        payload = app.jwt.verify<{ sub: string }>(req.cookies.refreshToken, {
           key: env.REFRESH_TOKEN_SECRET,
         });
       } catch (error) {
@@ -211,9 +209,7 @@ export async function authRoutes(app: FastifyInstance) {
               keyHash: hashSecret(env.JWT_SECRET),
               onlyCookie: true,
             });
-            payload = await req.jwtVerify<{ sub: string }>({
-              decode: {},
-              onlyCookie: true,
+            payload = app.jwt.verify<{ sub: string }>(req.cookies.refreshToken, {
               key: env.JWT_SECRET,
             });
           } catch {
