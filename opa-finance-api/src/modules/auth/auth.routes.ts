@@ -64,8 +64,11 @@ export async function authRoutes(app: FastifyInstance) {
 
       const accessToken = service.generateAccessToken(user.id);
       const refreshToken = service.generateRefreshToken(user.id);
+      const loginDecoded = app.jwt.decode(refreshToken) as { iat?: number; exp?: number; sub?: string } | null;
       console.info("[auth] login refresh token", {
         tokenTail: refreshToken.slice(-6),
+        iat: loginDecoded?.iat,
+        exp: loginDecoded?.exp,
         refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
       });
 
@@ -181,9 +184,17 @@ export async function authRoutes(app: FastifyInstance) {
             key: env.REFRESH_TOKEN_SECRET,
           },
         });
-      } catch {
+      } catch (error) {
+        const err = error as { code?: string; message?: string };
+        const decoded = app.jwt.decode(req.cookies.refreshToken) as
+          | { iat?: number; exp?: number; sub?: string }
+          | null;
         console.warn("[auth] refresh invalid", {
           tokenTail: req.cookies.refreshToken.slice(-6),
+          iat: decoded?.iat,
+          exp: decoded?.exp,
+          errCode: err.code,
+          errMessage: err.message,
           refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
         });
         if (process.env.NODE_ENV !== "production") {
