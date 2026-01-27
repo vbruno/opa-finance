@@ -1,5 +1,6 @@
 // src/modules/auth/auth.routes.ts
 import { eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 
 import { env } from "../../core/config/env";
@@ -20,6 +21,8 @@ import {
 export async function authRoutes(app: FastifyInstance) {
   const service = new AuthService(app, app.db);
   const authTag = ["Auth"];
+  const hashSecret = (value: string) =>
+    createHash("sha256").update(value).digest("hex").slice(0, 8);
 
   /* -------------------------------------------------------------------------- */
   /*                                   REGISTER                                 */
@@ -61,6 +64,10 @@ export async function authRoutes(app: FastifyInstance) {
 
       const accessToken = service.generateAccessToken(user.id);
       const refreshToken = service.generateRefreshToken(user.id);
+      console.info("[auth] login refresh token", {
+        tokenTail: refreshToken.slice(-6),
+        refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
+      });
 
       const cookieOptions = {
         path: "/",
@@ -155,11 +162,18 @@ export async function authRoutes(app: FastifyInstance) {
       let payload: { sub: string };
 
       if (!req.cookies?.refreshToken) {
+        console.warn("[auth] refresh missing cookie", {
+          refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
+        });
         reply.clearCookie("refreshToken", { path: "/" });
         throw new UnauthorizedProblem("Missing refresh token", req.url);
       }
 
       try {
+        console.info("[auth] refresh attempt", {
+          tokenTail: req.cookies.refreshToken.slice(-6),
+          refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
+        });
         payload = await req.jwtVerify<{ sub: string }>({
           decode: {},
           verify: {
@@ -168,6 +182,10 @@ export async function authRoutes(app: FastifyInstance) {
           },
         });
       } catch {
+        console.warn("[auth] refresh invalid", {
+          tokenTail: req.cookies.refreshToken.slice(-6),
+          refreshSecret: hashSecret(env.REFRESH_TOKEN_SECRET),
+        });
         if (process.env.NODE_ENV !== "production") {
           try {
             payload = await req.jwtVerify<{ sub: string }>({
