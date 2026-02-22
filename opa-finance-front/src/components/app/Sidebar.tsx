@@ -15,7 +15,8 @@ import { useEffect } from 'react'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/features/auth'
-import { APP_GIT_COMMIT, APP_VERSION } from '@/generated/app-version'
+import { useApiVersion } from '@/features/system'
+import { APP_VERSION } from '@/generated/app-version'
 import { useUserPreference } from '@/hooks/useUserPreference'
 
 const appNavItems = [
@@ -74,7 +75,9 @@ function SidebarNav({
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
+  const { data: apiVersion } = useApiVersion()
   const isDark = theme === 'dark'
+  const versionsLabel = `v${APP_VERSION} / ${apiVersion ? `v${apiVersion.version}` : 'API indisponível'}`
   const [isSensitiveHidden, setIsSensitiveHidden] = useUserPreference(
     'hideSensitive',
     false,
@@ -165,7 +168,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 Sair
               </Button>
               <p className="pt-1 text-center text-xs text-muted-foreground">
-                v{APP_VERSION} ({APP_GIT_COMMIT})
+                {versionsLabel}
               </p>
             </div>
           </div>
@@ -243,7 +246,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     Sair
                   </Button>
                   <p className="pt-1 text-center text-xs text-muted-foreground">
-                    v{APP_VERSION} ({APP_GIT_COMMIT})
+                    {versionsLabel}
                   </p>
                 </div>
               </div>

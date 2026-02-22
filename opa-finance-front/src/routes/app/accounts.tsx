@@ -99,10 +99,15 @@ function Accounts() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [isPrimaryConfirmOpen, setIsPrimaryConfirmOpen] = useState(false)
+  const [isTogglingDashboardVisibility, setIsTogglingDashboardVisibility] =
+    useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,
   )
+  const [dashboardVisibilityError, setDashboardVisibilityError] = useState<
+    string | null
+  >(null)
   const [isSettingPrimary, setIsSettingPrimary] = useState(false)
   const [primaryError, setPrimaryError] = useState<string | null>(null)
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
@@ -245,6 +250,32 @@ function Accounts() {
     }
   }
 
+  const handleToggleDashboardVisibility = async () => {
+    if (!selectedAccount || isTogglingDashboardVisibility) {
+      return
+    }
+
+    setDashboardVisibilityError(null)
+    setIsTogglingDashboardVisibility(true)
+    try {
+      await updateAccountMutation.mutateAsync({
+        id: selectedAccount.id,
+        payload: {
+          isHiddenOnDashboard: !selectedAccount.isHiddenOnDashboard,
+        },
+      })
+    } catch (error: unknown) {
+      setDashboardVisibilityError(
+        getApiErrorMessage(error, {
+          defaultMessage:
+            'Erro ao atualizar visibilidade no dashboard. Tente novamente.',
+        }),
+      )
+    } finally {
+      setIsTogglingDashboardVisibility(false)
+    }
+  }
+
   function handleSort(nextKey: 'name' | 'type' | 'balance') {
     navigate({
       search: (prev) => {
@@ -298,6 +329,7 @@ function Accounts() {
   useEffect(() => {
     setDeleteError(null)
     setDeleteBlockedReason(null)
+    setDashboardVisibilityError(null)
   }, [selectedAccountId])
 
   useEffect(() => {
@@ -691,6 +723,11 @@ function Accounts() {
                           Principal
                         </span>
                       )}
+                      {account.isHiddenOnDashboard && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          Oculta no dashboard
+                        </span>
+                      )}
                     </div>
                   </div>
                   <input
@@ -935,6 +972,11 @@ function Accounts() {
                           {account.isPrimary && (
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                               Principal
+                            </span>
+                          )}
+                          {account.isHiddenOnDashboard && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                              Oculta no dashboard
                             </span>
                           )}
                         </div>
@@ -1272,11 +1314,18 @@ function Accounts() {
                 <h3 className="text-lg font-semibold">
                   {selectedAccount.name}
                 </h3>
-                {selectedAccount.isPrimary && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                    Principal
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedAccount.isPrimary && (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                      Principal
+                    </span>
+                  )}
+                  {selectedAccount.isHiddenOnDashboard && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                      Oculta no dashboard
+                    </span>
+                  )}
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
                 Detalhes da conta
@@ -1305,9 +1354,35 @@ function Accounts() {
                   {dateFormatter.format(new Date(selectedAccount.createdAt))}
                 </span>
               </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted-foreground">Dashboard</span>
+                <span className="font-medium">
+                  {selectedAccount.isHiddenOnDashboard ? 'Oculta' : 'Visível'}
+                </span>
+              </div>
             </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="w-full sm:w-auto">
+                <Button
+                  variant={
+                    selectedAccount.isHiddenOnDashboard
+                      ? 'default'
+                      : 'secondary'
+                  }
+                  className="w-full sm:w-auto"
+                  onClick={handleToggleDashboardVisibility}
+                  disabled={
+                    isTogglingDashboardVisibility || selectedAccount.isPrimary
+                  }
+                >
+                  {isTogglingDashboardVisibility
+                    ? 'Salvando...'
+                    : selectedAccount.isHiddenOnDashboard
+                      ? 'Mostrar'
+                      : 'Ocultar'}
+                </Button>
+              </div>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
                 <Button
                   variant="destructive"
@@ -1339,6 +1414,11 @@ function Accounts() {
             {deleteError && (
               <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {deleteError}
+              </div>
+            )}
+            {dashboardVisibilityError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {dashboardVisibilityError}
               </div>
             )}
           </div>

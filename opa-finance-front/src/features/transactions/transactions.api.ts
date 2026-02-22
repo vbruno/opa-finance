@@ -44,6 +44,7 @@ export type TransactionsQueryParams = {
   amountMin?: number
   amountMax?: number
   amountOp?: 'gt' | 'gte' | 'lt' | 'lte'
+  excludeHiddenAccounts?: boolean
   sort?:
     | 'date'
     | 'description'
@@ -79,6 +80,7 @@ export type TransactionsSummaryQueryParams = {
   categoryId?: string
   subcategoryId?: string
   type?: TransactionType
+  excludeHiddenAccounts?: boolean
 }
 
 export type TopCategoriesQueryParams = {
@@ -87,6 +89,7 @@ export type TopCategoriesQueryParams = {
   accountId?: string
   type?: TransactionType
   groupBy?: TopCategoriesGroupBy
+  excludeHiddenAccounts?: boolean
 }
 
 export type TransactionDescriptionsQueryParams = {

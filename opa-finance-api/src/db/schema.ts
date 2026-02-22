@@ -54,6 +54,7 @@ export const accounts = pgTable("accounts", {
   color: text("color"),
   icon: text("icon"),
   isPrimary: boolean("is_primary").notNull().default(false),
+  isHiddenOnDashboard: boolean("is_hidden_on_dashboard").notNull().default(false),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

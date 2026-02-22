@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "version:generate": "node ./scripts/generate-version.mjs",
+    "predev": "npm run version:generate",
+    "prebuild": "npm run version:generate",
     "dev": "NODE_ENV=development tsx watch src/server.ts",
     "start": "NODE_ENV=production node dist/server.js",
     "build": "tsc",

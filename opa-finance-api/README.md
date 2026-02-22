@@ -104,6 +104,8 @@ Entidades principais:
 - Saldo não é armazenado → calculado por:
   `initial_balance + soma(transactions.amount)`
 - Não excluir se houver transações
+- Conta pode ser marcada como oculta no dashboard (`isHiddenOnDashboard`)
+- Conta principal não pode ser ocultada; ao definir principal, a conta fica visível no dashboard
 
 ### **Categories**
 - Personalizadas por usuário  
@@ -176,6 +178,7 @@ Tipos suportados:
 - filtros  
 - top gastos (categoria/subcategoria)  
 - dashboard mensal  
+- suporte a `excludeHiddenAccounts` em queries de dashboard
 
 ### 🔄 Transfers
 - Transferência entre contas
@@ -238,6 +241,15 @@ Em `development`/`test`, a documentação Swagger fica disponível em:
 ```
 http://localhost:3333/docs
 ```
+
+### 🔖 Versão da API
+
+- Endpoint: `GET /version`
+- Retorna:
+  - `version`
+  - `commit`
+  - `buildTime`
+- O backend gera metadados de versão em `predev` e `prebuild` via `npm run version:generate`.
 
 ---
 

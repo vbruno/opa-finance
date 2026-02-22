@@ -8,6 +8,7 @@ export type Account = {
   type: string
   currentBalance: number
   isPrimary?: boolean
+  isHiddenOnDashboard?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -16,6 +17,7 @@ export type AccountPayload = {
   name?: string
   type?: string
   isPrimary?: boolean
+  isHiddenOnDashboard?: boolean
 }
 
 const accountsKey = ['accounts']

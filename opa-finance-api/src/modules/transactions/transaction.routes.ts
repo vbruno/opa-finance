@@ -99,6 +99,7 @@ export async function transactionRoutes(app: FastifyInstance) {
             amountOp: { type: "string", example: "gte" },
             amountMin: { type: "number" },
             amountMax: { type: "number" },
+            excludeHiddenAccounts: { type: "boolean", example: true },
           },
         },
         response: {
@@ -280,6 +281,7 @@ export async function transactionRoutes(app: FastifyInstance) {
             accountId: { type: "string" },
             categoryId: { type: "string" },
             subcategoryId: { type: "string" },
+            excludeHiddenAccounts: { type: "boolean", example: true },
           },
         },
         response: {
@@ -323,6 +325,7 @@ export async function transactionRoutes(app: FastifyInstance) {
             accountId: { type: "string" },
             type: { type: "string", example: "expense" },
             groupBy: { type: "string", example: "category" },
+            excludeHiddenAccounts: { type: "boolean", example: true },
           },
         },
         response: {

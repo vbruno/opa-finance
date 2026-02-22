@@ -110,11 +110,16 @@ function Dashboard() {
 
   const accountsQuery = useAccounts()
   const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
+  const dashboardAccounts = useMemo(
+    () => accounts.filter((account) => !account.isHiddenOnDashboard),
+    [accounts],
+  )
   const primaryAccount =
-    accounts.find((account) => account.isPrimary) ?? accounts[0]
+    dashboardAccounts.find((account) => account.isPrimary) ??
+    dashboardAccounts[0]
   const isAccountParamAll = accountParam === 'all'
   const isAccountParamValid = accountParam
-    ? accounts.some((account) => account.id === accountParam)
+    ? dashboardAccounts.some((account) => account.id === accountParam)
     : false
   const resolvedAccountId =
     !accountParam || isAccountParamAll
@@ -134,6 +139,7 @@ function Dashboard() {
       startDate,
       endDate,
       accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      excludeHiddenAccounts: true,
     },
     { enabled: canQueryAccount },
   )
@@ -144,6 +150,7 @@ function Dashboard() {
       startDate,
       endDate,
       accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      excludeHiddenAccounts: true,
       sort: 'date',
       dir: 'desc',
     },
@@ -154,6 +161,7 @@ function Dashboard() {
       startDate,
       endDate,
       accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      excludeHiddenAccounts: true,
       type: 'expense',
       groupBy: expenseGroupBy,
     },
@@ -164,13 +172,14 @@ function Dashboard() {
       startDate,
       endDate,
       accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      excludeHiddenAccounts: true,
       type: 'income',
       groupBy: incomeGroupBy,
     },
     { enabled: canQueryAccount },
   )
 
-  const visibleAccounts = [...accounts].sort((a, b) => {
+  const visibleAccounts = [...dashboardAccounts].sort((a, b) => {
     const aPrimary = a.isPrimary ? 1 : 0
     const bPrimary = b.isPrimary ? 1 : 0
     if (aPrimary !== bPrimary) {
@@ -217,6 +226,7 @@ function Dashboard() {
       startDate,
       endDate,
       accountId: isAccountParamAll ? undefined : resolvedAccountId || undefined,
+      excludeHiddenAccounts: true,
       categoryId:
         selectedTopCategory?.groupBy === 'category'
           ? selectedTopCategory.id
@@ -281,7 +291,9 @@ function Dashboard() {
     if (!accountParam || accountParam === 'all') {
       return
     }
-    const hasAccount = accounts.some((account) => account.id === accountParam)
+    const hasAccount = dashboardAccounts.some(
+      (account) => account.id === accountParam,
+    )
     if (!hasAccount) {
       navigate({
         search: (prev) => ({
@@ -291,7 +303,7 @@ function Dashboard() {
         replace: true,
       })
     }
-  }, [accountParam, accounts, navigate, primaryAccount?.id])
+  }, [accountParam, dashboardAccounts, navigate, primaryAccount?.id])
 
   useEffect(() => {
     if (selectedTransaction) {
@@ -446,7 +458,7 @@ function Dashboard() {
               onChange={(event) => handleAccountChange(event.target.value)}
             >
               <option value="all">Todas as contas</option>
-              {accounts.map((account) => (
+              {dashboardAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
@@ -954,7 +966,9 @@ function Dashboard() {
               !accountsQuery.isError &&
               visibleAccounts.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma conta cadastrada.
+                  {accounts.length === 0
+                    ? 'Nenhuma conta cadastrada.'
+                    : 'Nenhuma conta visível no dashboard.'}
                 </p>
               )}
             {!showAccountsSkeleton &&

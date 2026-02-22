@@ -40,6 +40,15 @@ export class TransactionService {
     return this.unaccentAvailable;
   }
 
+  private hiddenDashboardAccountsFilter(userId: string) {
+    return sql`${transactions.accountId} in (
+      select ${accounts.id}
+      from ${accounts}
+      where ${accounts.userId} = ${userId}
+        and ${accounts.isHiddenOnDashboard} = false
+    )`;
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                               VALIDADORES                                   */
   /* -------------------------------------------------------------------------- */
@@ -168,6 +177,7 @@ export class TransactionService {
     if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
     if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
     if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
+    if (query.excludeHiddenAccounts) filters.push(this.hiddenDashboardAccountsFilter(userId));
 
     if (query.amountOp && query.amount !== undefined) {
       const amountValue = query.amount.toString();
@@ -484,6 +494,9 @@ export class TransactionService {
     if (query.subcategoryId) {
       filters.push(eq(transactions.subcategoryId, query.subcategoryId));
     }
+    if (query.excludeHiddenAccounts) {
+      filters.push(this.hiddenDashboardAccountsFilter(userId));
+    }
 
     const [incomeRow] = await this.app.db
       .select({
@@ -530,6 +543,9 @@ export class TransactionService {
 
     if (query.accountId) {
       filters.push(eq(transactions.accountId, query.accountId));
+    }
+    if (query.excludeHiddenAccounts) {
+      filters.push(this.hiddenDashboardAccountsFilter(userId));
     }
 
     const typeFilter = (query.type ?? "expense") as TransactionType;

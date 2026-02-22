@@ -212,11 +212,13 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 ## 🚀 Deploy / Containerizacao
 
 - Build de producao: `npm run build` gera `dist/`.
+- Versionamento do frontend: `prebuild` executa `npm run version:generate` e gera `src/generated/app-version.ts`.
 - Servir `dist/` com Nginx (SPA) e fallback para `index.html`.
 - Proxy recomendado no Nginx:
   - `VITE_API_URL=/api`
   - Nginx encaminha `/api/` -> `http://opa-finance-api:3333/`
 - `VITE_API_URL` e build-time; qualquer alteracao exige rebuild do frontend.
+- Sidebar exibe versão em linha única: `v(frontend) / v(api)`; a versão da API vem de `GET /version`.
 
 ---
 
@@ -249,6 +251,8 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 
 - Dashboard usa skeletons para KPIs, últimas transações, top categorias e contas.
 - No bloco de contas do dashboard, há um totalizador com a soma das contas listadas.
+- Contas marcadas como ocultas no dashboard não aparecem no seletor/lista do dashboard e não entram no total de contas do bloco.
+- As métricas do dashboard (resumo, últimas transações e top categorias) podem excluir contas ocultas via flag `excludeHiddenAccounts`.
 - Na tela de contas, o rodapé da tabela exibe o total dos saldos das contas filtradas.
 - Na tela de contas, é possível selecionar contas; se 1+ selecionadas, o rodapé mostra "Parcial" com a soma das selecionadas e o contador de selecionadas.
 - No dashboard, as últimas transações abrem um modal de detalhes ao clicar.
@@ -283,6 +287,8 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 - Alterar categoria remove subcategoria
 - Valores sempre positivos (tipo define fluxo)
 - Transferências são criadas na tela de transações (modal dedicado)
+- Contas podem ser marcadas como "Oculta no dashboard" na tela de detalhes da conta.
+- Conta principal não pode ficar oculta no dashboard (regra validada no backend).
 
 ---
 

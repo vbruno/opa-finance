@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { APP_BUILD_TIME, APP_GIT_COMMIT, APP_VERSION } from "../../generated/app-version";
 
 export async function systemRoutes(app: FastifyInstance) {
   app.get(
@@ -23,6 +24,34 @@ export async function systemRoutes(app: FastifyInstance) {
     },
     () => {
       return { status: "ok" };
+    },
+  );
+
+  app.get(
+    "/version",
+    {
+      schema: {
+        tags: ["Health"],
+        summary: "Versão da API",
+        description: "Retorna versão, commit e data de build da API.",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              version: { type: "string" },
+              commit: { type: "string" },
+              buildTime: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    () => {
+      return {
+        version: APP_VERSION,
+        commit: APP_GIT_COMMIT,
+        buildTime: APP_BUILD_TIME,
+      };
     },
   );
 

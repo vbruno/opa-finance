@@ -8,7 +8,7 @@ export default [
     ignores: ["drizzle.config.js"],
   },
   {
-    ignores: ["dist/**", "node_modules/**", "eslint.config.*"],
+    ignores: ["dist/**", "node_modules/**", "eslint.config.*", "scripts/**/*.mjs"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

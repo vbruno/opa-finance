@@ -107,6 +107,10 @@ Ele serve como referência contínua para garantir **consistência**, **previsib
   - Frontend deve exibir mensagem amigável e impedir a remoção
 - Tipos de conta devem seguir os valores da API:
   - `cash`, `checking_account`, `savings_account`, `credit_card`, `investment`
+- Visibilidade no dashboard:
+  - Conta pode ser marcada como oculta no dashboard (`isHiddenOnDashboard`).
+  - Conta principal não pode ser ocultada.
+  - No dashboard, contas ocultas não aparecem no seletor/lista e não entram nas métricas quando `excludeHiddenAccounts=true`.
 - Listagem de contas:
   - Filtros por nome/tipo são client-side
   - Ordenação por coluna é client-side

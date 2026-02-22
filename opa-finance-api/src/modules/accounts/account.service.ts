@@ -27,6 +27,7 @@ export class AccountService {
       accounts.color,
       accounts.icon,
       accounts.isPrimary,
+      accounts.isHiddenOnDashboard,
       accounts.createdAt,
       accounts.updatedAt,
     ];
@@ -53,6 +54,7 @@ export class AccountService {
           .limit(1);
 
         const shouldBePrimary = data.isPrimary === true || !currentPrimary;
+        const shouldHideOnDashboard = shouldBePrimary ? false : (data.isHiddenOnDashboard ?? false);
 
         if (shouldBePrimary) {
           await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
@@ -60,7 +62,13 @@ export class AccountService {
 
         const [created] = await tx
           .insert(accounts)
-          .values({ ...data, initialBalance: 0, isPrimary: shouldBePrimary, userId })
+          .values({
+            ...data,
+            initialBalance: 0,
+            isPrimary: shouldBePrimary,
+            isHiddenOnDashboard: shouldHideOnDashboard,
+            userId,
+          })
           .returning();
 
         return created;
@@ -148,6 +156,13 @@ export class AccountService {
 
     try {
       await this.app.db.transaction(async (tx: typeof this.app.db) => {
+        if (current.isPrimary === true && data.isHiddenOnDashboard === true) {
+          throw new ConflictProblem(
+            "A conta principal não pode ser ocultada no dashboard.",
+            `/accounts/${id}`,
+          );
+        }
+
         if (data.isPrimary === false && current.isPrimary === true) {
           throw new ConflictProblem(
             "A conta principal não pode ser desmarcada sem definir outra conta principal.",
@@ -155,11 +170,17 @@ export class AccountService {
           );
         }
 
+        const updateData: UpdateAccountInput = { ...data };
         if (data.isPrimary === true) {
           await tx.update(accounts).set({ isPrimary: false }).where(eq(accounts.userId, userId));
+          updateData.isHiddenOnDashboard = false;
         }
 
-        const [row] = await tx.update(accounts).set(data).where(eq(accounts.id, id)).returning();
+        const [row] = await tx
+          .update(accounts)
+          .set(updateData)
+          .where(eq(accounts.id, id))
+          .returning();
         return row;
       });
 
@@ -182,7 +203,7 @@ export class AccountService {
 
         const [row] = await tx
           .update(accounts)
-          .set({ isPrimary: true })
+          .set({ isPrimary: true, isHiddenOnDashboard: false })
           .where(eq(accounts.id, id))
           .returning();
 

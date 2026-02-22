@@ -83,6 +83,7 @@ export const listTransactionsQuerySchema = z
     amountOp: z.enum(["gt", "gte", "lt", "lte"]).optional(),
     amountMin: z.coerce.number().optional(),
     amountMax: z.coerce.number().optional(),
+    excludeHiddenAccounts: z.coerce.boolean().optional(),
   })
   .refine((data) => !data.startDate || !data.endDate || data.startDate <= data.endDate, {
     message: "Data inicial não pode ser maior que a data final",
@@ -153,6 +154,7 @@ export const summaryTransactionsQuerySchema = z.object({
   categoryId: z.uuid().optional(),
   subcategoryId: z.uuid().optional(),
   type: z.enum(transactionTypes).optional(),
+  excludeHiddenAccounts: z.coerce.boolean().optional(),
 });
 
 export type SummaryTransactionsQuery = z.infer<typeof summaryTransactionsQuerySchema>;
@@ -175,6 +177,7 @@ export const topCategoriesQuerySchema = z.object({
   accountId: z.uuid().optional(),
   type: z.enum(transactionTypes).optional(),
   groupBy: z.enum(["category", "subcategory"]).default("category"),
+  excludeHiddenAccounts: z.coerce.boolean().optional(),
 });
 
 export type TopCategoriesQuery = z.infer<typeof topCategoriesQuerySchema>;
