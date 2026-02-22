@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "version:generate": "node ./scripts/generate-version.mjs",
+    "prebuild": "npm run version:generate",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

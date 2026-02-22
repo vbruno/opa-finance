@@ -87,5 +87,15 @@ export default [
     },
   },
 
+  // 🔹 Node scripts
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
   prettier,
 ]

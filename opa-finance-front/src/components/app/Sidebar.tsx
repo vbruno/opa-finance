@@ -15,6 +15,7 @@ import { useEffect } from 'react'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/features/auth'
+import { APP_GIT_COMMIT, APP_VERSION } from '@/generated/app-version'
 import { useUserPreference } from '@/hooks/useUserPreference'
 
 const appNavItems = [
@@ -163,6 +164,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               >
                 Sair
               </Button>
+              <p className="pt-1 text-center text-xs text-muted-foreground">
+                v{APP_VERSION} ({APP_GIT_COMMIT})
+              </p>
             </div>
           </div>
         </div>
@@ -238,6 +242,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   >
                     Sair
                   </Button>
+                  <p className="pt-1 text-center text-xs text-muted-foreground">
+                    v{APP_VERSION} ({APP_GIT_COMMIT})
+                  </p>
                 </div>
               </div>
             </div>
