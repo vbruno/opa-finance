@@ -371,14 +371,18 @@ function Transactions() {
   const [amountDraft, setAmountDraft] = useState(amountFilter)
   const debouncedDescription = useDebouncedValue(descriptionDraft, 500)
   const debouncedAmount = useDebouncedValue(amountDraft, 500)
+  const effectiveDescriptionFilter = debouncedDescription.trim()
+  const effectiveAmountFilter = debouncedAmount.trim()
   const canSearchNotes =
     !amountMode && descriptionDraft.trim().length > 0
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const parsedAmountFilter = amountMode
-    ? parseAmountFilter(amountFilter)
+    ? parseAmountFilter(effectiveAmountFilter)
     : null
   const isAmountFilterInvalid =
-    amountMode && amountFilter.trim().length > 0 && !parsedAmountFilter
+    amountMode &&
+    amountDraft.trim().length > 0 &&
+    !parseAmountFilter(amountDraft.trim())
   const amountFilterErrorMessage = isAmountFilterInvalid
     ? 'Filtro por valor aceita apenas números ou expressões válidas.'
     : ''
@@ -395,10 +399,10 @@ function Transactions() {
         ? undefined
         : notesOnly
           ? undefined
-          : descriptionFilter || undefined,
+          : effectiveDescriptionFilter || undefined,
       notes:
-        !amountMode && (includeNotes || notesOnly) && descriptionFilter
-          ? descriptionFilter
+        !amountMode && (includeNotes || notesOnly) && effectiveDescriptionFilter
+          ? effectiveDescriptionFilter
           : undefined,
       amount: parsedAmountFilter?.amount,
       amountMin: parsedAmountFilter?.amountMin,
@@ -1263,14 +1267,14 @@ function Transactions() {
     if (amountMode) {
       return
     }
-    if (debouncedDescription === descriptionFilter) {
+    const trimmedValue = descriptionDraft.trim()
+    if (trimmedValue === descriptionFilter) {
       return
     }
     if (isClearingDescription.current) {
       isClearingDescription.current = false
       return
     }
-    const trimmedValue = debouncedDescription.trim()
     navigate({
       search: (prev) => ({
         ...prev,
@@ -1280,20 +1284,20 @@ function Transactions() {
       }),
       replace: true,
     })
-  }, [amountMode, debouncedDescription, descriptionFilter, navigate])
+  }, [amountMode, descriptionDraft, descriptionFilter, navigate])
 
   useEffect(() => {
     if (!amountMode) {
       return
     }
-    if (debouncedAmount === amountFilter) {
+    const trimmedValue = amountDraft.trim()
+    if (trimmedValue === amountFilter) {
       return
     }
     if (isClearingAmount.current) {
       isClearingAmount.current = false
       return
     }
-    const trimmedValue = debouncedAmount.trim()
     navigate({
       search: (prev) => ({
         ...prev,
@@ -1302,7 +1306,7 @@ function Transactions() {
       }),
       replace: true,
     })
-  }, [amountMode, debouncedAmount, amountFilter, navigate])
+  }, [amountDraft, amountFilter, amountMode, navigate])
 
   useEffect(() => {
     if (hasHiddenFilters) {
@@ -1314,13 +1318,40 @@ function Transactions() {
 
   useEffect(() => {
     const nextPage = totalPages > 0 ? Math.min(page, totalPages) : page
-    if (nextPage !== page) {
-      navigate({
-        search: (prev) => ({ ...prev, page: nextPage }),
-        replace: true,
-      })
+    const nextSort = sortKey ?? 'date'
+    const nextDirection = sortKey ? sortDirection : 'desc'
+    const shouldSyncSearch =
+      search.page !== nextPage ||
+      search.limit !== limit ||
+      search.sort !== nextSort ||
+      search.dir !== nextDirection
+
+    if (!shouldSyncSearch) {
+      return
     }
-  }, [navigate, page, totalPages])
+
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        page: nextPage,
+        limit,
+        sort: nextSort,
+        dir: nextDirection,
+      }),
+      replace: true,
+    })
+  }, [
+    limit,
+    navigate,
+    page,
+    search.dir,
+    search.limit,
+    search.page,
+    search.sort,
+    sortDirection,
+    sortKey,
+    totalPages,
+  ])
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -1345,20 +1376,6 @@ function Transactions() {
     selectAllRef.current.indeterminate =
       hasSelection && !allSelected
   }, [allSelected, hasSelection])
-
-  useEffect(() => {
-    if (sortKey) {
-      return
-    }
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        sort: 'date',
-        dir: 'desc',
-      }),
-      replace: true,
-    })
-  }, [navigate, sortKey])
 
   const handleOpenEdit = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
