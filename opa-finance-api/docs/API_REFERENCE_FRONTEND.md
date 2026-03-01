@@ -376,7 +376,7 @@ Retorna o usuário autenticado (sem listar outros usuários).
     }
   ],
   "page": 1,
-  "limit": 10,
+  "limit": 10
 }
 ```
 
@@ -526,7 +526,7 @@ Lista todas as contas do usuário.
     "userId": "uuid",
     "name": "Conta Corrente",
     "type": "checking_account",
-    "currentBalance": 1250.50,
+    "currentBalance": 1250.5,
     "isPrimary": false,
     "color": "#3B82F6",
     "icon": "wallet",
@@ -552,7 +552,7 @@ Obtém uma conta específica.
   "userId": "uuid",
   "name": "Conta Corrente",
   "type": "checking_account",
-  "currentBalance": 1250.50,
+  "currentBalance": 1250.5,
   "isPrimary": false,
   "color": "#3B82F6",
   "icon": "wallet",
@@ -594,7 +594,7 @@ Atualiza uma conta.
   "userId": "uuid",
   "name": "Conta Corrente Principal",
   "type": "checking_account",
-  "currentBalance": 1250.50,
+  "currentBalance": 1250.5,
   "isPrimary": true,
   "color": "#10B981",
   "icon": "bank",
@@ -648,7 +648,7 @@ Define uma conta como principal (desmarca a anterior automaticamente).
   "userId": "uuid",
   "name": "Conta Corrente",
   "type": "checking_account",
-  "currentBalance": 1250.50,
+  "currentBalance": 1250.5,
   "isPrimary": true,
   "color": "#3B82F6",
   "icon": "wallet",
@@ -1006,7 +1006,7 @@ Cria uma nova transação.
   "categoryId": "uuid",
   "subcategoryId": "uuid", // opcional
   "type": "expense",
-  "amount": 150.50,
+  "amount": 150.5,
   "date": "2025-01-15",
   "description": "Compra no supermercado", // opcional
   "notes": "Notas adicionais" // opcional
@@ -1028,7 +1028,7 @@ Cria uma nova transação.
   "categoryId": "uuid",
   "subcategoryId": "uuid",
   "type": "expense",
-  "amount": 150.50,
+  "amount": 150.5,
   "date": "2025-01-15",
   "description": "Compra no supermercado",
   "notes": "Notas adicionais",
@@ -1092,7 +1092,7 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
       "subcategoryId": "uuid",
       "subcategoryName": "Supermercado",
       "type": "expense",
-      "amount": 150.50,
+      "amount": 150.5,
       "date": "2025-01-15",
       "description": "Compra no supermercado",
       "notes": null,
@@ -1130,7 +1130,7 @@ Obtém uma transação específica.
   "categoryId": "uuid",
   "subcategoryId": "uuid",
   "type": "expense",
-  "amount": 150.50,
+  "amount": 150.5,
   "date": "2025-01-15",
   "description": "Compra no supermercado",
   "notes": null,
@@ -1160,7 +1160,7 @@ Atualiza uma transação.
   "categoryId": "uuid", // opcional
   "subcategoryId": "uuid", // opcional (pode ser null)
   "type": "expense", // opcional
-  "amount": 200.00, // opcional
+  "amount": 200.0, // opcional
   "date": "2025-01-16", // opcional
   "description": "Nova descrição", // opcional
   "notes": "Novas notas" // opcional
@@ -1177,7 +1177,7 @@ Atualiza uma transação.
   "categoryId": "uuid",
   "subcategoryId": "uuid",
   "type": "expense",
-  "amount": 200.00,
+  "amount": 200.0,
   "date": "2025-01-16",
   "description": "Nova descrição",
   "notes": "Novas notas",
@@ -1251,9 +1251,9 @@ GET /transactions/summary?startDate=2025-01-01&endDate=2025-01-31
 
 ```json
 {
-  "income": 5000.00,
-  "expense": 3200.50,
-  "balance": 1799.50
+  "income": 5000.0,
+  "expense": 3200.5,
+  "balance": 1799.5
 }
 ```
 
@@ -1291,7 +1291,7 @@ GET /transactions/top-categories?startDate=2025-01-01&endDate=2025-01-31
   {
     "id": "uuid",
     "name": "Alimentação",
-    "totalAmount": 1200.50,
+    "totalAmount": 1200.5,
     "percentage": 42.5
   }
 ]
@@ -1311,7 +1311,7 @@ GET /transactions/top-categories?startDate=2025-01-01&endDate=2025-01-31
     "name": "Supermercado",
     "categoryId": "uuid-cat",
     "categoryName": "Alimentação",
-    "totalAmount": 800.00,
+    "totalAmount": 800.0,
     "percentage": 28.3
   }
 ]
@@ -1377,7 +1377,7 @@ Cria uma transferência entre contas.
 {
   "fromAccountId": "uuid",
   "toAccountId": "uuid",
-  "amount": 500.00,
+  "amount": 500.0,
   "date": "2025-01-15",
   "description": "Transferência para poupança" // opcional
 }
@@ -1401,7 +1401,7 @@ Cria uma transferência entre contas.
     "accountId": "uuid-from",
     "categoryId": "uuid-transfer-category",
     "type": "expense",
-    "amount": 500.00,
+    "amount": 500.0,
     "date": "2025-01-15",
     "description": "Transferência para poupança",
     "transferId": "uuid-transfer-id",
@@ -1413,7 +1413,7 @@ Cria uma transferência entre contas.
     "accountId": "uuid-to",
     "categoryId": "uuid-transfer-category",
     "type": "income",
-    "amount": 500.00,
+    "amount": 500.0,
     "date": "2025-01-15",
     "description": "Transferência para poupança",
     "transferId": "uuid-transfer-id",
@@ -1499,35 +1499,35 @@ Onde:
 
 ```typescript
 // 1. Registrar
-const registerRes = await fetch('/auth/register', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+const registerRes = await fetch("/auth/register", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    name: 'João Silva',
-    email: 'joao@example.com',
-    password: 'MinhaSenh@123',
-    confirmPassword: 'MinhaSenh@123'
-  })
+    name: "João Silva",
+    email: "joao@example.com",
+    password: "MinhaSenh@123",
+    confirmPassword: "MinhaSenh@123",
+  }),
 });
 const { accessToken } = await registerRes.json();
 
 // 2. Armazenar token
-localStorage.setItem('accessToken', accessToken);
+localStorage.setItem("accessToken", accessToken);
 ```
 
 ### 2. Criar Conta
 
 ```typescript
-const accountRes = await fetch('/accounts', {
-  method: 'POST',
+const accountRes = await fetch("/accounts", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
   },
   body: JSON.stringify({
-    name: 'Conta Corrente',
-    type: 'checking_account'
-  })
+    name: "Conta Corrente",
+    type: "checking_account",
+  }),
 });
 const account = await accountRes.json();
 ```
@@ -1535,16 +1535,16 @@ const account = await accountRes.json();
 ### 3. Criar Categoria
 
 ```typescript
-const categoryRes = await fetch('/categories', {
-  method: 'POST',
+const categoryRes = await fetch("/categories", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
   },
   body: JSON.stringify({
-    name: 'Alimentação',
-    type: 'expense'
-  })
+    name: "Alimentação",
+    type: "expense",
+  }),
 });
 const category = await categoryRes.json();
 ```
@@ -1552,20 +1552,20 @@ const category = await categoryRes.json();
 ### 4. Criar Transação
 
 ```typescript
-const transactionRes = await fetch('/transactions', {
-  method: 'POST',
+const transactionRes = await fetch("/transactions", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
   },
   body: JSON.stringify({
     accountId: account.id,
     categoryId: category.id,
-    type: 'expense',
-    amount: 150.50,
-    date: '2025-01-15',
-    description: 'Compra no supermercado'
-  })
+    type: "expense",
+    amount: 150.5,
+    date: "2025-01-15",
+    description: "Compra no supermercado",
+  }),
 });
 const transaction = await transactionRes.json();
 ```
@@ -1574,12 +1574,12 @@ const transaction = await transactionRes.json();
 
 ```typescript
 const listRes = await fetch(
-  '/transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=expense',
+  "/transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=expense",
   {
     headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  }
+      Authorization: `Bearer ${accessToken}`,
+    },
+  },
 );
 const { data, page, limit, total } = await listRes.json();
 ```
@@ -1588,12 +1588,12 @@ const { data, page, limit, total } = await listRes.json();
 
 ```typescript
 // Quando receber 401, tentar renovar
-const refreshRes = await fetch('/auth/refresh', {
-  method: 'POST',
-  credentials: 'include' // importante para enviar cookie
+const refreshRes = await fetch("/auth/refresh", {
+  method: "POST",
+  credentials: "include", // importante para enviar cookie
 });
 const { accessToken: newToken } = await refreshRes.json();
-localStorage.setItem('accessToken', newToken);
+localStorage.setItem("accessToken", newToken);
 ```
 
 ---
@@ -1608,19 +1608,19 @@ async function apiCall(url: string, options: RequestInit) {
     const res = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`,
-        ...options.headers
-      }
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+        ...options.headers,
+      },
     });
 
     if (res.status === 401) {
       // Tentar renovar token
-      const refreshRes = await fetch('/auth/refresh', {
-        method: 'POST',
-        credentials: 'include'
+      const refreshRes = await fetch("/auth/refresh", {
+        method: "POST",
+        credentials: "include",
       });
-      
+
       if (refreshRes.ok) {
         const { accessToken } = await refreshRes.json();
         setToken(accessToken);
@@ -1640,7 +1640,7 @@ async function apiCall(url: string, options: RequestInit) {
 
     return await res.json();
   } catch (error) {
-    console.error('API Error:', error);
+    console.error("API Error:", error);
     throw error;
   }
 }

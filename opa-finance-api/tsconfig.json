@@ -14,8 +14,7 @@
     "rootDir": "src",
     "outDir": "dist",
 
-    "ignoreDeprecations": "5.0",
-
+    "ignoreDeprecations": "5.0"
   },
   "include": ["src", "src/@types"],
   "exclude": ["node_modules", "dist"]

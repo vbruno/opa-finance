@@ -1,9 +1,11 @@
 # Plano de Containerizacao do Backend
 
 ## Objetivo
+
 Padronizar a execucao do backend em containers na VPS com Portainer, com build via Docker Compose, variaveis de ambiente via `env_file` e estrategia de migrations clara.
 
 ## Escopo
+
 - Dockerfile (multi-stage)
 - .dockerignore
 - docker-compose para Portainer (build do repo)
@@ -14,6 +16,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 ## Plano
 
 ### 1) Dockerfile e .dockerignore
+
 - Manter Dockerfile multi-stage:
   - `deps`: instala dependencias
   - `build`: compila TypeScript
@@ -22,6 +25,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - .dockerignore deve excluir `node_modules`, `test`, `.env`, `.git`.
 
 ### 2) Variaveis de ambiente
+
 - Definir e documentar:
   - `DATABASE_URL`
   - `JWT_SECRET`
@@ -36,6 +40,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - Em producao com proxy reverso, deixar `CORS_ORIGINS` vazio desabilita CORS.
 
 ### 3) docker-compose (Portainer)
+
 - Build direto do repo no Portainer (Stack).
 - Usar rede externa `opa-finance-net` (comunicacao interna com o frontend).
 - `DATABASE_URL` aponta para o container `postgres_infra` (rede interna do banco).
@@ -44,6 +49,7 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - O frontend fica em outra subpasta do repo e nao participa do build do backend.
 
 ### 3.1) Passo a passo no Portainer (Stack)
+
 1. Acesse **Stacks** > **Add stack**.
 2. Escolha o metodo **Git repository**.
 3. Informe o repo: `https://github.com/vbruno/opa-finance.git` e branch `main`.
@@ -52,12 +58,14 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 6. Deploy da stack.
 
 ### 4) Migrations
+
 - Temporario: rodar `npm run db:migrate -- --config drizzle.config.js` no start da API.
 - Depois do primeiro deploy, voltar para o service dedicado `migrate`.
 - Nao rodar `db:generate` em producao; gerar migrations em dev/CI.
 - Garantir que migrations estao dentro do container (`src/db/migrations`).
 
 ### 5) Healthcheck
+
 - Endpoint `/health` retorna `{ status: "ok" }`.
 - Pode ser usado para readiness/liveness.
 - Adicionar `HEALTHCHECK` no Dockerfile (opcional).
@@ -65,15 +73,18 @@ Padronizar a execucao do backend em containers na VPS com Portainer, com build v
 - Ajustar `retries` e `timeout` para tolerar migrations longas (ex.: 5 retries, 10s).
 
 ### 6) Logs
+
 - Produção com `LOG_LEVEL` configuravel.
 - Manter `logger` ativo apenas em `NODE_ENV=production`.
 
 ### 7) CI/CD (basico)
+
 - Build da imagem com tag por commit.
 - Push para registry (Docker Hub, GHCR, etc.).
 - Deploy no host com compose ou orchestrator.
 
 ## Proximos passos sugeridos
+
 1. Criar `docker-compose.yml` (Postgres + API).
 2. Adicionar `/health` no Fastify.
 3. Documentar comandos de build e run no README.

@@ -1,5 +1,5 @@
+# 🏦 Backend — Sistema de Controle Financeiro
 
-# 🏦 Backend — Sistema de Controle Financeiro  
 Fastify • TypeScript • Drizzle ORM • PostgreSQL • JWT • Zod
 
 Este backend faz parte do sistema de controle financeiro projetado para permitir que usuários acompanhem seus gastos, receitas e tenham visão clara sobre sua vida financeira.
@@ -9,6 +9,7 @@ O projeto segue arquitetura modular, autenticação JWT moderna e banco normaliz
 ---
 
 ## 📌 Índice
+
 - [Tecnologias](#tecnologias)
 - [Arquitetura](#arquitetura)
 - [Módulos do Sistema](#módulos-do-sistema)
@@ -27,6 +28,7 @@ O projeto segue arquitetura modular, autenticação JWT moderna e banco normaliz
 ## 🚀 Tecnologias
 
 ### **Backend**
+
 - Fastify
 - TypeScript
 - Zod (validação)
@@ -37,7 +39,8 @@ O projeto segue arquitetura modular, autenticação JWT moderna e banco normaliz
 - PostgreSQL
 
 ### **Infraestrutura**
-- Docker + Docker Compose  
+
+- Docker + Docker Compose
 - Nginx (proxy reverso)
 - Certbot (HTTPS)
 - Portainer (gestão da VPS)
@@ -68,15 +71,17 @@ src/
 ```
 
 Camadas:
-- **Routes** → define rotas  
-- **Controller** → recebe requisições  
-- **Service** → implementa regras de negócio  
-- **Repository** → comunicação com o banco  
-- **Schemas** → validações Zod  
+
+- **Routes** → define rotas
+- **Controller** → recebe requisições
+- **Service** → implementa regras de negócio
+- **Repository** → comunicação com o banco
+- **Schemas** → validações Zod
 
 Autenticação:
-- Access token → memória/headers  
-- Refresh token → cookie httpOnly + secure  
+
+- Access token → memória/headers
+- Refresh token → cookie httpOnly + secure
 - Backend **stateless**
 
 ---
@@ -90,17 +95,19 @@ ERD completo está disponível em:
 ```
 
 Entidades principais:
-- users  
-- accounts  
-- categories  
-- subcategories  
-- transactions  
+
+- users
+- accounts
+- categories
+- subcategories
+- transactions
 
 ---
 
 ## 📜 Regras de Negócio
 
 ### **Accounts**
+
 - Saldo não é armazenado → calculado por:
   `initial_balance + soma(transactions.amount)`
 - Não excluir se houver transações
@@ -108,25 +115,29 @@ Entidades principais:
 - Conta principal não pode ser ocultada; ao definir principal, a conta fica visível no dashboard
 
 ### **Categories**
-- Personalizadas por usuário  
-- Obrigatórias na transação  
+
+- Personalizadas por usuário
+- Obrigatórias na transação
 - Não excluir se usada
 
 ### **Subcategories**
-- Herdam automaticamente o tipo da categoria  
-- Opcional nas transações  
-- Nome pode repetir em categorias diferentes  
+
+- Herdam automaticamente o tipo da categoria
+- Opcional nas transações
+- Nome pode repetir em categorias diferentes
 - Não excluir se usada
 
 ### **Transactions**
-- category_id obrigatório  
-- subcategory_id opcional  
-- Mudar categoria remove subcategoria  
-- Soma no saldo da conta  
-- Paginação obrigatória  
+
+- category_id obrigatório
+- subcategory_id opcional
+- Mudar categoria remove subcategoria
+- Soma no saldo da conta
+- Paginação obrigatória
 - transfer_id opcional (vincula transações de transferências)
 
 ### **Transfers**
+
 - Transferência entre contas do mesmo usuário
 - Implementada como duas transações (débito na origem, crédito no destino)
 - Utiliza categoria de sistema "Transferência"
@@ -134,53 +145,62 @@ Entidades principais:
 - Contas de origem e destino devem ser diferentes
 
 ### **Autenticação**
-- Refresh token seguro em cookie httpOnly  
-- Access token curto retornado no body  
-- Senhas criptografadas com bcrypt  
+
+- Refresh token seguro em cookie httpOnly
+- Access token curto retornado no body
+- Senhas criptografadas com bcrypt
 
 ---
 
 ## 🧩 Módulos do Sistema
 
 ### 🔐 Auth
-- Registro  
-- Login  
-- Refresh  
-- Logout  
-- `/me`  
+
+- Registro
+- Login
+- Refresh
+- Logout
+- `/me`
 
 ### 🏦 Accounts
+
 Personalizáveis:
-- nome  
-- tipo  
-- cor  
-- ícone  
+
+- nome
+- tipo
+- cor
+- ícone
 
 Tipos suportados:
-- cash  
-- checking_account  
-- savings_account  
-- credit_card  
-- investment  
+
+- cash
+- checking_account
+- savings_account
+- credit_card
+- investment
 
 ### 🗂 Categories
-- income / expense  
-- cor opcional  
+
+- income / expense
+- cor opcional
 
 ### 🧩 Subcategories
-- herdadas da categoria  
-- opcionais  
-- personalizadas  
+
+- herdadas da categoria
+- opcionais
+- personalizadas
 
 ### 💸 Transactions
-- CRUD completo  
-- paginação  
-- filtros  
-- top gastos (categoria/subcategoria)  
-- dashboard mensal  
+
+- CRUD completo
+- paginação
+- filtros
+- top gastos (categoria/subcategoria)
+- dashboard mensal
 - suporte a `excludeHiddenAccounts` em queries de dashboard
 
 ### 🔄 Transfers
+
 - Transferência entre contas
 - Validação de acesso às contas
 - Operação atômica
@@ -197,17 +217,20 @@ Tipos suportados:
 ## 📦 Instalação e Execução
 
 ### 1️⃣ Clonar repositório
+
 ```sh
 git clone https://github.com/SEU_USUARIO/NOME_DO_REPO.git
 cd opa-finance-api
 ```
 
 ### 2️⃣ Instalar dependências
+
 ```sh
 npm install
 ```
 
-### 3️⃣ Configurar ambiente  
+### 3️⃣ Configurar ambiente
+
 Crie o arquivo `.env`:
 
 ```
@@ -224,6 +247,7 @@ LOG_LEVEL="info"
 Niveis de log suportados: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`.
 
 ### 4️⃣ Rodar migrations
+
 ```sh
 npm run db:migrate
 ```
@@ -231,11 +255,13 @@ npm run db:migrate
 > Após rodar as migrations, inicie o backend normalmente.
 
 ### 5️⃣ Rodar servidor
+
 ```sh
 npm run dev
 ```
 
 ### 📖 Swagger
+
 Em `development`/`test`, a documentação Swagger fica disponível em:
 
 ```
@@ -299,38 +325,41 @@ src/
 ## 🧪 Testes
 
 Ferramentas:
-- Vitest  
-- fastify.inject  
-- SQLite para testes  
+
+- Vitest
+- fastify.inject
+- SQLite para testes
 
 Testes:
-- Unitários  
-- Integração  
-- Banco  
-- Segurança  
+
+- Unitários
+- Integração
+- Banco
+- Segurança
 
 ---
 
 ## 🗺 Roadmap Atual
 
-1. Backend base + auth  
-2. Accounts  
-3. Categories  
-4. Subcategories  
-5. Transactions  
-6. Transfers ✅  
-7. Dashboard  
-8. Testes  
-9. Documentação  
-10. Frontend  
-11. Deploy VPS  
-12. Pós-MVP  
+1. Backend base + auth
+2. Accounts
+3. Categories
+4. Subcategories
+5. Transactions
+6. Transfers ✅
+7. Dashboard
+8. Testes
+9. Documentação
+10. Frontend
+11. Deploy VPS
+12. Pós-MVP
 
 ---
 
 ## 👨‍💻 Autor
 
 **Bruno S Velho**
+
 - Email: bruno.velho@gmail.com
 - GitHub: https://github.com/vbruno
 - LinkedIn: https://www.linkedin.com/in/brunovelho/

@@ -1,13 +1,14 @@
-
 # Módulo: Accounts
 
 ## Responsabilidades
+
 - Criar contas
 - Editar contas
 - Listar contas
 - Definir conta principal
 
 ## Regras
+
 - Saldo calculado automaticamente
 - Conta sempre inicia com saldo 0
 - Não excluir conta com transações
@@ -18,4 +19,5 @@
 - Deve existir sempre uma conta principal enquanto houver contas
 
 ## Campos
+
 - name, type, color, icon, isPrimary, currentBalance (calculado)
