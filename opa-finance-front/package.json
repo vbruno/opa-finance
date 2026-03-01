@@ -1,11 +1,15 @@
 {
   "name": "opa-finance-front",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "versioning": {
+    "cycleStartCommitCount": 263
+  },
   "type": "module",
   "scripts": {
     "version:generate": "node ./scripts/generate-version.mjs",
-    "prebuild": "npm run version:generate",
+    "predev": "NODE_ENV=development npm run version:generate",
+    "prebuild": "NODE_ENV=production npm run version:generate",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

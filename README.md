@@ -45,6 +45,8 @@ opa-finance/
 
 ## 🧩 Documentação
 
+- Guia da documentacao raiz: [docs/README.md](docs/README.md)
+- Contrato de versionamento: [docs/versionamento.md](docs/versionamento.md)
 - Backend: [opa-finance-api/README.md](opa-finance-api/README.md)
 - Frontend: [opa-finance-front/README.md](opa-finance-front/README.md)
 - Guia do Frontend: [opa-finance-front/doc/FRONTEND_GUIDE.md](opa-finance-front/doc/FRONTEND_GUIDE.md)
@@ -57,6 +59,8 @@ opa-finance/
   - [Subcategories](opa-finance-api/docs/modules/modules_subcategories.md)
   - [Transactions](opa-finance-api/docs/modules/modules_transactions.md)
   - [Transfers](opa-finance-api/docs/modules/modules_transfers.md)
+
+Materiais historicos e operacionais da raiz foram movidos para `docs-hidden/`.
 
 ## 🧪 Testes
 
@@ -71,6 +75,10 @@ opa-finance/
 
 - `npm run dev` — servidor local
 - `npm run db:migrate` — migrations
+
+### Monorepo
+
+- `./scripts/version-cycle.sh` — menu interativo para iniciar novo ciclo em `dev`, promover `dev` para `main` ou consultar a versao calculada atual
 
 ### Frontend
 
