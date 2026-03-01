@@ -56,6 +56,7 @@ npm run db:migrate
 Quando precisar rodar testes:
 
 ```sh
+./scripts/db-tunnel.sh
 npm run db:test:migrate
 npm run test
 ```
@@ -140,11 +141,21 @@ O ambiente de testes deve continuar separado do banco de `dev`.
 Fluxo comum:
 
 ```sh
+./scripts/db-tunnel.sh
 npm run db:test:migrate
 npm run test
 ```
 
 Nao use o banco de `dev` para testes automatizados.
+
+Se precisar resetar um ambiente remoto com mais seguranca, prefira os atalhos explicitos:
+
+```sh
+npm run db:reset:dev
+npm run db:reset:test
+```
+
+Deixe `npm run db:reset` apenas para quando quiser escolher o alvo manualmente.
 
 ## Validacao apos o sync
 

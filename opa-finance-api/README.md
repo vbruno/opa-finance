@@ -234,15 +234,28 @@ npm install
 Crie o arquivo `.env`:
 
 ```
-DATABASE_URL="postgres://user:pass@localhost:5432/finance"
-# Exemplo remoto:
-# DATABASE_URL="postgres://user:pass@db.host.com:5432/finance"
+DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/api_finance_dev"
+DATABASE_URL_TEST="postgresql://USER:PASSWORD@localhost:5432/api_finance_test"
 JWT_SECRET="sua_chave_segura"
 REFRESH_TOKEN_SECRET="outra_chave_segura"
 LOG_LEVEL="info"
+CORS_ORIGINS="*"
+SSH_HOST="user@server"
+SSH_KEY="~/.ssh/id_ed25519"
+SSH_CONTAINER_NAME="postgres_infra"
+SSH_POSTGRES_USER="api_finance_api"
+SSH_POSTGRES_DB="api_finance"
+SSH_POSTGRES_DEV_DB="api_finance_dev"
+SSH_POSTGRES_TEST_DB="api_finance_test"
 ```
 
 > 📌 **Onde colocar:** crie o arquivo `.env` **na raiz do backend** (pasta `opa-finance-api/`).
+
+Convencao de ambientes:
+
+- `prod`: `SSH_POSTGRES_DB`
+- `dev`: `DATABASE_URL` e `SSH_POSTGRES_DEV_DB`
+- `test`: `DATABASE_URL_TEST` e `SSH_POSTGRES_TEST_DB`
 
 Niveis de log suportados: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`.
 
@@ -319,8 +332,17 @@ src/
 ## 📜 Scripts
 
 - `npm run dev` — servidor local
-- `npm run db:migrate` — aplica migrations no banco
-- `npm run test` — executa testes
+- `npm run db:migrate` — aplica migrations no banco de `dev`
+- `npm run db:test:migrate` — aplica migrations no banco de `test`
+- `npm run db:studio` — abre Drizzle Studio para o banco de `dev`
+- `npm run db:test:studio` — abre Drizzle Studio para o banco de `test`
+- `npm run db:reset` — reset interativo remoto de `prod`, `dev` ou `test`
+- `npm run db:reset:dev` — reset remoto direto do banco de `dev`
+- `npm run db:reset:test` — reset remoto direto do banco de `test`
+- `npm run db:reset:prod` — reset remoto direto do banco de `prod`
+- `npm run db:archive` — backup/restore interativo remoto
+- `npm run db:sync:dev` — espelha `prod` em `dev`
+- `npm run test` — executa testes no banco de `test`
 
 ## 📄 Documentação
 
@@ -340,7 +362,7 @@ Ferramentas:
 
 - Vitest
 - fastify.inject
-- SQLite para testes
+- PostgreSQL dedicado para testes
 
 Testes:
 
