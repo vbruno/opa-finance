@@ -12,6 +12,8 @@ export default defineConfig({
       shuffle: false,
     },
 
+    fileParallelism: false,
+
     /**
      * ⏱️ Tempo alto por causa de:
      * - PostgreSQL remoto

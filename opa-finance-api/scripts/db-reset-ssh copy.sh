@@ -51,7 +51,7 @@ reset_db() {
   local DB_NAME="$1"
 
   echo ""
-  echo "🧹 Resetando schemas PUBLIC e DRIZZLE do banco: $DB_NAME..."
+  echo "🧹 Resetando schema PUBLIC do banco: $DB_NAME..."
 
   ssh -i "$SSH_KEY_PATH" "$SSH_HOST" << EOF
   # Corrigir dono do schema
@@ -65,12 +65,37 @@ reset_db() {
   docker exec $SSH_CONTAINER_NAME \
     psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "CREATE SCHEMA public;"
 
-  # Remover schema drizzle para limpar o controle de migrations
+  # =====================================================
+  #                 FIX DO SCHEMA DRIZZLE  
+  # =====================================================
+
+  # Criar schema drizzle se não existir
   docker exec $SSH_CONTAINER_NAME \
-    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "DROP SCHEMA IF EXISTS drizzle CASCADE;"
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "CREATE SCHEMA IF NOT EXISTS drizzle;"
+
+  # Transferir propriedade
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER SCHEMA drizzle OWNER TO $SSH_POSTGRES_USER;"
+
+  # Permissões principais
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "GRANT USAGE, CREATE ON SCHEMA drizzle TO $SSH_POSTGRES_USER;"
+
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA drizzle TO $SSH_POSTGRES_USER;"
+
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA drizzle TO $SSH_POSTGRES_USER;"
+
+  # Default privileges
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA drizzle GRANT ALL PRIVILEGES ON TABLES TO $SSH_POSTGRES_USER;"
+
+  docker exec $SSH_CONTAINER_NAME \
+    psql -U $SSH_POSTGRES_USER -d $DB_NAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA drizzle GRANT ALL PRIVILEGES ON SEQUENCES TO $SSH_POSTGRES_USER;"
 EOF
 
-  echo "✔️ Banco $DB_NAME resetado com sucesso!"
+  echo "✔️ Banco $DB_NAME resetado e FIX drizzle aplicado!"
 }
 
 # -------------------------
