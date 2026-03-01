@@ -9,6 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  ShortcutLabel,
+  ShortcutTooltip,
+} from '@/components/ui/shortcut-hint'
+import {
   useAccounts,
   useCreateAccount,
   useDeleteAccount,
@@ -269,6 +273,24 @@ function Accounts() {
     }
   }
 
+  const openAccountDeleteConfirm = () => {
+    setDeleteBlockedReason(null)
+    setDeleteError(null)
+    setIsDeleteConfirmOpen(true)
+  }
+
+  const openAccountEdit = () => {
+    if (!selectedAccount) {
+      return
+    }
+    resetEdit({
+      name: selectedAccount.name,
+      type: selectedAccount.type,
+      confirm: false,
+    })
+    setIsEditOpen(true)
+  }
+
   function handleSort(nextKey: 'name' | 'type' | 'balance') {
     navigate({
       search: (prev) => {
@@ -468,6 +490,71 @@ function Accounts() {
   }, [isDeleteConfirmOpen, isEditOpen, selectedAccount])
 
   useEffect(() => {
+    if (
+      !selectedAccount ||
+      isEditOpen ||
+      isDeleteConfirmOpen ||
+      isPrimaryConfirmOpen
+    ) {
+      return
+    }
+
+    function handleDetailShortcut(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toLowerCase()
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+
+      if (key === 'r') {
+        event.preventDefault()
+        openAccountDeleteConfirm()
+        return
+      }
+
+      if (key === 'e') {
+        event.preventDefault()
+        openAccountEdit()
+        return
+      }
+
+      const visibilityShortcutKey = selectedAccount.isHiddenOnDashboard
+        ? 'm'
+        : 'o'
+
+      if (
+        key === visibilityShortcutKey &&
+        !selectedAccount.isPrimary &&
+        !isTogglingDashboardVisibility
+      ) {
+        event.preventDefault()
+        void handleToggleDashboardVisibility()
+      }
+    }
+
+    window.addEventListener('keydown', handleDetailShortcut, true)
+    return () => window.removeEventListener('keydown', handleDetailShortcut, true)
+  }, [
+    handleToggleDashboardVisibility,
+    isDeleteConfirmOpen,
+    isEditOpen,
+    isPrimaryConfirmOpen,
+    isTogglingDashboardVisibility,
+    selectedAccount,
+  ])
+
+  useEffect(() => {
     const hasOpenModal =
       isCreateOpen || isEditOpen || isDeleteConfirmOpen || !!selectedAccount
     if (!hasOpenModal) {
@@ -510,6 +597,143 @@ function Accounts() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isCreateOpen, isEditOpen, isDeleteConfirmOpen, selectedAccount, navigate])
 
+  useEffect(() => {
+    const hasOpenModal =
+      isCreateOpen ||
+      isEditOpen ||
+      isDeleteConfirmOpen ||
+      isPrimaryConfirmOpen ||
+      !!selectedAccount
+    if (hasOpenModal) {
+      return
+    }
+
+    function handleCreateShortcut(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toLowerCase()
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      if (event.key.toLowerCase() !== 'n') {
+        return
+      }
+
+      event.preventDefault()
+      reset()
+      setIsCreateOpen(true)
+    }
+
+    window.addEventListener('keydown', handleCreateShortcut, true)
+    return () =>
+      window.removeEventListener('keydown', handleCreateShortcut, true)
+  }, [
+    isCreateOpen,
+    isDeleteConfirmOpen,
+    isEditOpen,
+    isPrimaryConfirmOpen,
+    reset,
+    selectedAccount,
+  ])
+
+  const submitCreateAccount = handleSubmit(async (formData) => {
+    try {
+      await createAccountMutation.mutateAsync({
+        name: formData.name,
+        type: formData.type,
+      })
+      setIsCreateOpen(false)
+      reset()
+    } catch (error: unknown) {
+      setError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao criar conta. Tente novamente.',
+        }),
+      })
+    }
+  })
+
+  const submitEditAccount = handleEditSubmit(async (formData) => {
+    if (!selectedAccount) {
+      return
+    }
+    try {
+      await updateAccountMutation.mutateAsync({
+        id: selectedAccount.id,
+        payload: {
+          name: formData.name,
+          type: formData.type,
+        },
+      })
+      setIsEditOpen(false)
+      navigate({
+        search: (prev) => ({ ...prev, id: undefined }),
+        replace: true,
+      })
+      resetEdit()
+    } catch (error: unknown) {
+      setEditError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao atualizar conta. Tente novamente.',
+        }),
+      })
+    }
+  })
+
+  useEffect(() => {
+    if (!isCreateOpen) {
+      return
+    }
+
+    function handleCreateShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault()
+        void submitCreateAccount()
+      }
+    }
+
+    window.addEventListener('keydown', handleCreateShortcut, true)
+    return () => window.removeEventListener('keydown', handleCreateShortcut, true)
+  }, [isCreateOpen, submitCreateAccount])
+
+  useEffect(() => {
+    if (!isEditOpen) {
+      return
+    }
+
+    function handleEditShortcut(event: KeyboardEvent) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === 'p' &&
+        selectedAccount &&
+        !selectedAccount.isPrimary &&
+        !isSettingPrimary
+      ) {
+        event.preventDefault()
+        setPrimaryError(null)
+        setIsPrimaryConfirmOpen(true)
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault()
+        void submitEditAccount()
+      }
+    }
+
+    window.addEventListener('keydown', handleEditShortcut, true)
+    return () => window.removeEventListener('keydown', handleEditShortcut, true)
+  }, [isEditOpen, isSettingPrimary, selectedAccount, submitEditAccount])
+
   function getErrorStatus(error: unknown) {
     if (!error || typeof error !== 'object' || !('response' in error)) {
       return undefined
@@ -542,14 +766,16 @@ function Accounts() {
           >
             <SlidersHorizontal className="size-4" />
           </Button>
-          <Button
-            onClick={() => {
-              reset()
-              setIsCreateOpen(true)
-            }}
-          >
-            Nova conta
-          </Button>
+          <ShortcutTooltip label="Atalho: N">
+            <Button
+              onClick={() => {
+                reset()
+                setIsCreateOpen(true)
+              }}
+            >
+              <ShortcutLabel label="Nova conta" shortcutIndex={0} />
+            </Button>
+          </ShortcutTooltip>
         </div>
       </div>
 
@@ -1195,22 +1421,7 @@ function Accounts() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={handleSubmit(async (formData) => {
-                try {
-                  await createAccountMutation.mutateAsync({
-                    name: formData.name,
-                    type: formData.type,
-                  })
-                  setIsCreateOpen(false)
-                  reset()
-                } catch (error: unknown) {
-                  setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage: 'Erro ao criar conta. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitCreateAccount}
             >
               <div className="space-y-2">
                 <Label htmlFor="account-name">Nome</Label>
@@ -1263,15 +1474,17 @@ function Accounts() {
                   />
                   Confirmo que os dados estão corretos
                 </label>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={!confirmValue || isSubmitting}
-                >
-                  {isSubmitting || createAccountMutation.isPending
-                    ? 'Criando...'
-                    : 'Criar conta'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={!confirmValue || isSubmitting}
+                  >
+                    {isSubmitting || createAccountMutation.isPending
+                      ? 'Criando...'
+                      : 'Criar conta'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
               {errors.confirm && (
                 <p className="text-sm text-destructive">
@@ -1357,51 +1570,54 @@ function Accounts() {
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="w-full sm:w-auto">
-                <Button
-                  variant={
+                <ShortcutTooltip
+                  label={
                     selectedAccount.isHiddenOnDashboard
-                      ? 'default'
-                      : 'secondary'
-                  }
-                  className="w-full sm:w-auto"
-                  onClick={handleToggleDashboardVisibility}
-                  disabled={
-                    isTogglingDashboardVisibility || selectedAccount.isPrimary
+                      ? 'Atalho: M'
+                      : 'Atalho: O'
                   }
                 >
-                  {isTogglingDashboardVisibility
-                    ? 'Salvando...'
-                    : selectedAccount.isHiddenOnDashboard
-                      ? 'Mostrar'
-                      : 'Ocultar'}
-                </Button>
+                  <Button
+                    variant={
+                      selectedAccount.isHiddenOnDashboard
+                        ? 'default'
+                        : 'secondary'
+                    }
+                    className="w-full sm:w-auto"
+                    onClick={handleToggleDashboardVisibility}
+                    disabled={
+                      isTogglingDashboardVisibility || selectedAccount.isPrimary
+                    }
+                  >
+                    {isTogglingDashboardVisibility ? (
+                      'Salvando...'
+                    ) : selectedAccount.isHiddenOnDashboard ? (
+                      <ShortcutLabel label="Mostrar" shortcutIndex={0} />
+                    ) : (
+                      <ShortcutLabel label="Ocultar" shortcutIndex={0} />
+                    )}
+                  </Button>
+                </ShortcutTooltip>
               </div>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-                <Button
-                  variant="destructive"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    setDeleteBlockedReason(null)
-                    setDeleteError(null)
-                    setIsDeleteConfirmOpen(true)
-                  }}
-                >
-                  Excluir
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    resetEdit({
-                      name: selectedAccount.name,
-                      type: selectedAccount.type,
-                      confirm: false,
-                    })
-                    setIsEditOpen(true)
-                  }}
-                >
-                  Editar
-                </Button>
+                <ShortcutTooltip label="Atalho: R">
+                  <Button
+                    variant="destructive"
+                    className="w-full sm:w-auto"
+                    onClick={openAccountDeleteConfirm}
+                  >
+                    <ShortcutLabel label="Excluir" shortcutIndex={6} />
+                  </Button>
+                </ShortcutTooltip>
+                <ShortcutTooltip label="Atalho: E">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={openAccountEdit}
+                  >
+                    <ShortcutLabel label="Editar" shortcutIndex={0} />
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </div>
             {deleteError && (
@@ -1444,13 +1660,15 @@ function Accounts() {
             )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsDeleteConfirmOpen(false)}
-              >
-                Cancelar
-              </Button>
+              <ShortcutTooltip label="Atalho: Esc">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </ShortcutTooltip>
               <Button
                 variant="destructive"
                 className="w-full sm:w-auto"
@@ -1513,30 +1731,7 @@ function Accounts() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={handleEditSubmit(async (formData) => {
-                try {
-                  await updateAccountMutation.mutateAsync({
-                    id: selectedAccount.id,
-                    payload: {
-                      name: formData.name,
-                      type: formData.type,
-                    },
-                  })
-                  setIsEditOpen(false)
-                  navigate({
-                    search: (prev) => ({ ...prev, id: undefined }),
-                    replace: true,
-                  })
-                  resetEdit()
-                } catch (error: unknown) {
-                  setEditError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao atualizar conta. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitEditAccount}
             >
               <div className="space-y-2">
                 <Label htmlFor="edit-account-name">Nome</Label>
@@ -1589,33 +1784,37 @@ function Accounts() {
                   />
                   Confirmo que os dados estão corretos
                 </label>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={!confirmEditValue || isEditSubmitting}
-                >
-                  {isEditSubmitting || updateAccountMutation.isPending
-                    ? 'Salvando...'
-                    : 'Salvar alterações'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={!confirmEditValue || isEditSubmitting}
+                  >
+                    {isEditSubmitting || updateAccountMutation.isPending
+                      ? 'Salvando...'
+                      : 'Salvar alterações'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    setPrimaryError(null)
-                    setIsPrimaryConfirmOpen(true)
-                  }}
-                  disabled={selectedAccount.isPrimary || isSettingPrimary}
-                >
-                  {selectedAccount.isPrimary
-                    ? 'Conta principal'
-                    : isSettingPrimary
-                      ? 'Definindo...'
-                      : 'Definir como principal'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+P">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setPrimaryError(null)
+                      setIsPrimaryConfirmOpen(true)
+                    }}
+                    disabled={selectedAccount.isPrimary || isSettingPrimary}
+                  >
+                    {selectedAccount.isPrimary
+                      ? 'Conta principal'
+                      : isSettingPrimary
+                        ? 'Definindo...'
+                        : 'Definir como principal'}
+                  </Button>
+                </ShortcutTooltip>
                 {selectedAccount.isPrimary && (
                   <span className="text-xs font-semibold text-emerald-600">
                     Principal ativa
@@ -1658,14 +1857,16 @@ function Accounts() {
             )}
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsPrimaryConfirmOpen(false)}
-                disabled={isSettingPrimary}
-              >
-                Cancelar
-              </Button>
+              <ShortcutTooltip label="Atalho: Esc">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsPrimaryConfirmOpen(false)}
+                  disabled={isSettingPrimary}
+                >
+                  Cancelar
+                </Button>
+              </ShortcutTooltip>
               <Button
                 className="w-full sm:w-auto"
                 onClick={handleSetPrimaryAccount}

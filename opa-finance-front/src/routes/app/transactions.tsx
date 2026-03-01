@@ -25,6 +25,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  ShortcutLabel,
+  ShortcutTooltip,
+} from '@/components/ui/shortcut-hint'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -728,6 +732,30 @@ function Transactions() {
     setIsCreateOpen(false)
   }, [])
 
+  const submitCreateTransaction = handleSubmit(async (formData) => {
+    try {
+      const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
+      await createTransactionMutation.mutateAsync({
+        accountId: formData.accountId,
+        categoryId: formData.categoryId,
+        subcategoryId: formData.subcategoryId ? formData.subcategoryId : null,
+        type: formData.type as Transaction['type'],
+        amount: parsedAmount,
+        date: formData.date,
+        description: formData.description?.trim() || null,
+        notes: formData.notes?.trim() || null,
+      })
+      resetCreateForm()
+      setIsCreateOpen(false)
+    } catch (error: unknown) {
+      setError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao criar transação. Tente novamente.',
+        }),
+      })
+    }
+  })
+
   const filterSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-filter', categoryFilter],
     queryFn: () => fetchSubcategories(categoryFilter ?? ''),
@@ -1040,6 +1068,39 @@ function Transactions() {
       window.removeEventListener('keydown', handleModalShortcut, true)
     }
   }, [isCreateOpen, isEditOpen])
+
+  useEffect(() => {
+    if (!isCreateOpen || isCreateCategoryOpen || isCreateSubcategoryOpen) {
+      return
+    }
+
+    const handleCreateActionShortcut = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey) {
+        if (event.shiftKey && event.key.toLowerCase() === 'l') {
+          event.preventDefault()
+          handleClearCreateForm()
+          return
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          void submitCreateTransaction()
+        }
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleCreateActionShortcut, true)
+    return () => {
+      window.removeEventListener('keydown', handleCreateActionShortcut, true)
+    }
+  }, [
+    handleClearCreateForm,
+    handleCloseCreateModal,
+    isCreateCategoryOpen,
+    isCreateOpen,
+    isCreateSubcategoryOpen,
+    submitCreateTransaction,
+  ])
 
   useEffect(() => {
     if (isDeleteConfirmOpen) {
@@ -1404,6 +1465,71 @@ function Transactions() {
     transferForm.reset()
   }
 
+  const submitTransferForm = transferForm.handleSubmit(async (formData) => {
+    try {
+      const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
+
+      if (transferEditContext) {
+        await Promise.all([
+          updateTransactionMutation.mutateAsync({
+            id: transferEditContext.expenseId,
+            payload: {
+              accountId: formData.fromAccountId,
+              amount: parsedAmount,
+              date: formData.date,
+              description: formData.description?.trim() || null,
+            },
+          }),
+          updateTransactionMutation.mutateAsync({
+            id: transferEditContext.incomeId,
+            payload: {
+              accountId: formData.toAccountId,
+              amount: parsedAmount,
+              date: formData.date,
+              description: formData.description?.trim() || null,
+            },
+          }),
+        ])
+      } else {
+        await createTransferMutation.mutateAsync({
+          fromAccountId: formData.fromAccountId,
+          toAccountId: formData.toAccountId,
+          amount: parsedAmount,
+          date: formData.date,
+          description: formData.description?.trim() || null,
+        })
+      }
+
+      handleCloseTransferModal()
+    } catch (error: unknown) {
+      transferForm.setError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: transferEditContext
+            ? 'Erro ao atualizar transferência. Tente novamente.'
+            : 'Erro ao criar transferência. Tente novamente.',
+        }),
+      })
+    }
+  })
+
+  useEffect(() => {
+    if (!isTransferOpen) {
+      return
+    }
+
+    const handleTransferShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault()
+        void submitTransferForm()
+      }
+    }
+
+    window.addEventListener('keydown', handleTransferShortcut, true)
+    return () => {
+      window.removeEventListener('keydown', handleTransferShortcut, true)
+    }
+  }, [isTransferOpen, submitTransferForm])
+
   const handleSwapTransferAccounts = () => {
     const fromAccountId = transferForm.getValues('fromAccountId')
     const toAccountId = transferForm.getValues('toAccountId')
@@ -1561,6 +1687,63 @@ function Transactions() {
     setDeleteError(null)
     setIsDeleteConfirmOpen(true)
   }
+
+  useEffect(() => {
+    if (!selectedTransaction || isEditOpen || isDeleteConfirmOpen) {
+      return
+    }
+
+    const handleDetailShortcut = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toLowerCase()
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+
+      if (key === 'd' && !selectedTransaction.transferId) {
+        event.preventDefault()
+        handleOpenDuplicate(selectedTransaction)
+        return
+      }
+
+      if (key === 'e') {
+        event.preventDefault()
+        if (selectedTransaction.transferId) {
+          void handleOpenEditTransfer(selectedTransaction)
+        } else {
+          handleOpenEdit(selectedTransaction)
+        }
+        return
+      }
+
+      if (key === 'r') {
+        event.preventDefault()
+        handleOpenDelete(selectedTransaction)
+      }
+    }
+
+    window.addEventListener('keydown', handleDetailShortcut, true)
+    return () => {
+      window.removeEventListener('keydown', handleDetailShortcut, true)
+    }
+  }, [
+    handleOpenDuplicate,
+    handleOpenEditTransfer,
+    isDeleteConfirmOpen,
+    isEditOpen,
+    selectedTransaction,
+  ])
 
   return (
     <div className="space-y-6">
@@ -2706,32 +2889,7 @@ function Transactions() {
 
             <form
               className="mt-6 space-y-4 pb-10 sm:pb-0"
-              onSubmit={handleSubmit(async (formData) => {
-                try {
-                  const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
-                  await createTransactionMutation.mutateAsync({
-                    accountId: formData.accountId,
-                    categoryId: formData.categoryId,
-                    subcategoryId: formData.subcategoryId
-                      ? formData.subcategoryId
-                      : null,
-                    type: formData.type as Transaction['type'],
-                    amount: parsedAmount,
-                    date: formData.date,
-                    description: formData.description?.trim() || null,
-                    notes: formData.notes?.trim() || null,
-                  })
-                  resetCreateForm()
-                  setIsCreateOpen(false)
-                } catch (error: unknown) {
-                  setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao criar transação. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitCreateTransaction}
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -3159,23 +3317,28 @@ function Transactions() {
               )}
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto h-12 sm:h-auto"
-                  onClick={handleClearCreateForm}
-                >
-                  Limpar
-                </Button>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Shift+L">
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full sm:w-auto h-12 sm:h-auto"
-                    onClick={handleCloseCreateModal}
+                    onClick={handleClearCreateForm}
                   >
-                    Cancelar
+                    Limpar
                   </Button>
+                </ShortcutTooltip>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                  <ShortcutTooltip label="Atalho: Esc">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto h-12 sm:h-auto"
+                      onClick={handleCloseCreateModal}
+                    >
+                      Cancelar
+                    </Button>
+                  </ShortcutTooltip>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
                   <Button
                     type="submit"
                     className="w-full sm:w-auto h-12 sm:h-auto"
@@ -3183,6 +3346,7 @@ function Transactions() {
                   >
                     Salvar
                   </Button>
+                </ShortcutTooltip>
                 </div>
               </div>
             </form>
@@ -3290,14 +3454,16 @@ function Transactions() {
               )}
 
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsCreateCategoryOpen(false)}
-                >
-                  Cancelar
-                </Button>
+                <ShortcutTooltip label="Atalho: Esc">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setIsCreateCategoryOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </ShortcutTooltip>
                 <Button
                   type="submit"
                   className="w-full sm:w-auto"
@@ -3418,14 +3584,16 @@ function Transactions() {
               )}
 
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsCreateSubcategoryOpen(false)}
-                >
-                  Cancelar
-                </Button>
+                <ShortcutTooltip label="Atalho: Esc">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setIsCreateSubcategoryOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </ShortcutTooltip>
                 <Button
                   type="submit"
                   className="w-full sm:w-auto"
@@ -3460,50 +3628,7 @@ function Transactions() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={transferForm.handleSubmit(async (formData) => {
-                try {
-                  const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
-                  if (transferEditContext) {
-                    await Promise.all([
-                      updateTransactionMutation.mutateAsync({
-                        id: transferEditContext.expenseId,
-                        payload: {
-                          accountId: formData.fromAccountId,
-                          amount: parsedAmount,
-                          date: formData.date,
-                          description: formData.description?.trim() || null,
-                        },
-                      }),
-                      updateTransactionMutation.mutateAsync({
-                        id: transferEditContext.incomeId,
-                        payload: {
-                          accountId: formData.toAccountId,
-                          amount: parsedAmount,
-                          date: formData.date,
-                          description: formData.description?.trim() || null,
-                        },
-                      }),
-                    ])
-                  } else {
-                    await createTransferMutation.mutateAsync({
-                      fromAccountId: formData.fromAccountId,
-                      toAccountId: formData.toAccountId,
-                      amount: parsedAmount,
-                      date: formData.date,
-                      description: formData.description?.trim() || null,
-                    })
-                  }
-                  handleCloseTransferModal()
-                } catch (error: unknown) {
-                  transferForm.setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage: transferEditContext
-                        ? 'Erro ao atualizar transferência. Tente novamente.'
-                        : 'Erro ao criar transferência. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitTransferForm}
             >
               <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
                 <div className="space-y-2">
@@ -3679,21 +3804,25 @@ function Transactions() {
               )}
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={handleCloseTransferModal}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={transferForm.formState.isSubmitting}
-                >
-                  {transferEditContext ? 'Salvar' : 'Transferir'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Esc">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={handleCloseTransferModal}
+                  >
+                    Cancelar
+                  </Button>
+                </ShortcutTooltip>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={transferForm.formState.isSubmitting}
+                  >
+                    {transferEditContext ? 'Salvar' : 'Transferir'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </form>
           </div>
@@ -3849,45 +3978,51 @@ function Transactions() {
                       {isRepeatTransferLoading ? 'Carregando...' : 'Repetir'}
                     </Button>
                   ) : (
+                    <ShortcutTooltip label="Atalho: D">
+                      <Button
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={() => handleOpenDuplicate(selectedTransaction)}
+                      >
+                        <ShortcutLabel label="Duplicar" shortcutIndex={0} />
+                      </Button>
+                    </ShortcutTooltip>
+                  )}
+                  <ShortcutTooltip label="Atalho: E">
                     <Button
                       variant="outline"
                       className="w-full sm:w-auto"
-                      onClick={() => handleOpenDuplicate(selectedTransaction)}
-                    >
-                      Duplicar
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    autoFocus
-                    disabled={
-                      Boolean(selectedTransaction.transferId) &&
-                      isEditTransferLoading
-                    }
-                    aria-busy={
-                      Boolean(selectedTransaction.transferId) &&
-                      isEditTransferLoading
-                    }
-                    onClick={() => {
-                      if (selectedTransaction.transferId) {
-                        handleOpenEditTransfer(selectedTransaction)
-                      } else {
-                        handleOpenEdit(selectedTransaction)
+                      autoFocus
+                      disabled={
+                        Boolean(selectedTransaction.transferId) &&
+                        isEditTransferLoading
                       }
-                    }}
-                  >
-                    {selectedTransaction.transferId && isEditTransferLoading
-                      ? 'Carregando...'
-                      : 'Editar'}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="w-full sm:w-auto"
-                    onClick={() => handleOpenDelete(selectedTransaction)}
-                  >
-                    Excluir
-                  </Button>
+                      aria-busy={
+                        Boolean(selectedTransaction.transferId) &&
+                        isEditTransferLoading
+                      }
+                      onClick={() => {
+                        if (selectedTransaction.transferId) {
+                          handleOpenEditTransfer(selectedTransaction)
+                        } else {
+                          handleOpenEdit(selectedTransaction)
+                        }
+                      }}
+                    >
+                      {selectedTransaction.transferId && isEditTransferLoading
+                        ? 'Carregando...'
+                        : <ShortcutLabel label="Editar" shortcutIndex={0} />}
+                    </Button>
+                  </ShortcutTooltip>
+                  <ShortcutTooltip label="Atalho: R">
+                    <Button
+                      variant="destructive"
+                      className="w-full sm:w-auto"
+                      onClick={() => handleOpenDelete(selectedTransaction)}
+                    >
+                      <ShortcutLabel label="Excluir" shortcutIndex={6} />
+                    </Button>
+                  </ShortcutTooltip>
                 </div>
               </div>
             </div>
@@ -4187,21 +4322,25 @@ function Transactions() {
               )}
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsEditOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={isEditSubmitting}
-                >
-                  Atualizar
-                </Button>
+                <ShortcutTooltip label="Atalho: Esc">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setIsEditOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </ShortcutTooltip>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={isEditSubmitting}
+                  >
+                    Atualizar
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </form>
           </div>
@@ -4234,13 +4373,15 @@ function Transactions() {
             )}
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsDeleteConfirmOpen(false)}
-              >
-                Cancelar
-              </Button>
+              <ShortcutTooltip label="Atalho: Esc">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </ShortcutTooltip>
               <Button
                 variant="destructive"
                 className="w-full sm:w-auto"
@@ -4294,14 +4435,16 @@ function Transactions() {
             )}
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsBulkDeleteOpen(false)}
-                disabled={isBulkDeleting}
-              >
-                Cancelar
-              </Button>
+              <ShortcutTooltip label="Atalho: Esc">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsBulkDeleteOpen(false)}
+                  disabled={isBulkDeleting}
+                >
+                  Cancelar
+                </Button>
+              </ShortcutTooltip>
               <Button
                 variant="destructive"
                 className="w-full sm:w-auto"

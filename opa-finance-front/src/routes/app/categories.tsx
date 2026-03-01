@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import {
   fetchSubcategories,
   useCategories,
@@ -277,6 +278,93 @@ function Categories() {
       })
     : null
 
+  const submitCreateCategoryForm = form.handleSubmit(async (formData) => {
+    try {
+      const created = await createCategoryMutation.mutateAsync({
+        name: formData.name,
+        type: formData.type,
+      })
+      lastCreatedCategoryRef.current = created
+      setLastCategoryType(created.type)
+      setIsCreateOpen(false)
+      form.reset()
+    } catch (error: unknown) {
+      form.setError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao criar categoria. Tente novamente.',
+        }),
+      })
+    }
+  })
+
+  const submitCreateSubcategoryForm = subCreateForm.handleSubmit(
+    async (formData) => {
+      try {
+        if (!subcategoryParent) {
+          throw new Error('Categoria não selecionada')
+        }
+        await createSubcategoryMutation.mutateAsync({
+          categoryId: subcategoryParent.id,
+          name: formData.name,
+        })
+        setLastSubcategoryParentId(subcategoryParent.id)
+        setIsSubCreateOpen(false)
+        subCreateForm.reset()
+      } catch (error: unknown) {
+        subCreateForm.setError('root', {
+          message: getApiErrorMessage(error, {
+            defaultMessage: 'Erro ao criar subcategoria. Tente novamente.',
+          }),
+        })
+      }
+    },
+  )
+
+  const submitEditCategoryForm = editForm.handleSubmit(async (formData) => {
+    try {
+      if (!selectedCategory) {
+        return
+      }
+      await updateCategoryMutation.mutateAsync({
+        id: selectedCategory.id,
+        name: formData.name,
+      })
+      setIsEditOpen(false)
+      setSelectedCategory(null)
+      editForm.reset()
+    } catch (error: unknown) {
+      editForm.setError('root', {
+        message: getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao atualizar categoria. Tente novamente.',
+        }),
+      })
+    }
+  })
+
+  const submitEditSubcategoryForm = subEditForm.handleSubmit(
+    async (formData) => {
+      try {
+        if (!selectedSubcategory || !subcategoryParent) {
+          return
+        }
+        await updateSubcategoryMutation.mutateAsync({
+          id: selectedSubcategory.id,
+          name: formData.name,
+          categoryId: subcategoryParent.id,
+        })
+        setIsSubEditOpen(false)
+        setSelectedSubcategory(null)
+        subEditForm.reset()
+      } catch (error: unknown) {
+        subEditForm.setError('root', {
+          message: getApiErrorMessage(error, {
+            defaultMessage: 'Erro ao atualizar subcategoria. Tente novamente.',
+          }),
+        })
+      }
+    },
+  )
+
   useEffect(() => {
     if (!isCreateOpen) {
       return
@@ -414,6 +502,79 @@ function Categories() {
     isSubDeleteConfirmOpen,
   ])
 
+  useEffect(() => {
+    if (!isCreateOpen) {
+      return
+    }
+
+    function handleCreateShortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter') {
+        return
+      }
+
+      event.preventDefault()
+      void submitCreateCategoryForm()
+    }
+
+    window.addEventListener('keydown', handleCreateShortcut)
+    return () => window.removeEventListener('keydown', handleCreateShortcut)
+  }, [isCreateOpen, submitCreateCategoryForm])
+
+  useEffect(() => {
+    if (!isSubCreateOpen) {
+      return
+    }
+
+    function handleSubCreateShortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter') {
+        return
+      }
+
+      event.preventDefault()
+      void submitCreateSubcategoryForm()
+    }
+
+    window.addEventListener('keydown', handleSubCreateShortcut)
+    return () =>
+      window.removeEventListener('keydown', handleSubCreateShortcut)
+  }, [isSubCreateOpen, submitCreateSubcategoryForm])
+
+  useEffect(() => {
+    if (!isEditOpen) {
+      return
+    }
+
+    function handleEditShortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter') {
+        return
+      }
+
+      event.preventDefault()
+      void submitEditCategoryForm()
+    }
+
+    window.addEventListener('keydown', handleEditShortcut)
+    return () => window.removeEventListener('keydown', handleEditShortcut)
+  }, [isEditOpen, submitEditCategoryForm])
+
+  useEffect(() => {
+    if (!isSubEditOpen) {
+      return
+    }
+
+    function handleSubEditShortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter') {
+        return
+      }
+
+      event.preventDefault()
+      void submitEditSubcategoryForm()
+    }
+
+    window.addEventListener('keydown', handleSubEditShortcut)
+    return () => window.removeEventListener('keydown', handleSubEditShortcut)
+  }, [isSubEditOpen, submitEditSubcategoryForm])
+
   const openCategoryCreate = useCallback(() => {
     form.reset({
       name: '',
@@ -479,6 +640,20 @@ function Categories() {
     subCreateForm,
     userCategories,
   ])
+
+  const toggleCategoryExpansion = useCallback(
+    (categoryId: string) => {
+      if (normalizedSearch.length > 0) {
+        setHasManualSearchExpandOverride(true)
+      }
+      setExpandedCategoryIds((prev) =>
+        prev.includes(categoryId)
+          ? prev.filter((id) => id !== categoryId)
+          : [...prev, categoryId],
+      )
+    },
+    [normalizedSearch.length],
+  )
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -586,33 +761,37 @@ function Categories() {
                   onClick={() => setIsCreateMenuOpen(false)}
                 />
                 <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-md border bg-background p-2 shadow-lg">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    title="Atalho: C"
-                    onClick={() => {
-                      setIsCreateMenuOpen(false)
-                      openCategoryCreate()
-                    }}
-                  >
-                    <span className="flex flex-1 items-center justify-between">
-                      Categoria
-                    </span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    disabled={isMutating || userCategories.length === 0}
-                    title="Atalho: S"
-                    onClick={() => {
-                      setIsCreateMenuOpen(false)
-                      openSubcategoryCreate()
-                    }}
-                  >
-                    <span className="flex flex-1 items-center justify-between">
-                      Subcategoria
-                    </span>
-                  </Button>
+                  <ShortcutTooltip label="Atalho: C">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setIsCreateMenuOpen(false)
+                        openCategoryCreate()
+                      }}
+                    >
+                      <span className="flex flex-1 items-center justify-between">
+                        Categoria
+                        <span className="text-xs text-muted-foreground">C</span>
+                      </span>
+                    </Button>
+                  </ShortcutTooltip>
+                  <ShortcutTooltip label="Atalho: S">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      disabled={isMutating || userCategories.length === 0}
+                      onClick={() => {
+                        setIsCreateMenuOpen(false)
+                        openSubcategoryCreate()
+                      }}
+                    >
+                      <span className="flex flex-1 items-center justify-between">
+                        Subcategoria
+                        <span className="text-xs text-muted-foreground">S</span>
+                      </span>
+                    </Button>
+                  </ShortcutTooltip>
                 </div>
               </>
             )}
@@ -738,7 +917,10 @@ function Categories() {
               key={category.id}
               className="rounded-lg border bg-background p-3"
             >
-              <div className="flex items-start justify-between gap-2">
+              <div
+                className="flex cursor-pointer items-start justify-between gap-2"
+                onClick={() => toggleCategoryExpansion(category.id)}
+              >
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -749,15 +931,9 @@ function Categories() {
                         : 'Mostrar subcategorias'
                     }
                     aria-expanded={expandedCategoryIds.includes(category.id)}
-                    onClick={() => {
-                      if (normalizedSearch.length > 0) {
-                        setHasManualSearchExpandOverride(true)
-                      }
-                      setExpandedCategoryIds((prev) =>
-                        prev.includes(category.id)
-                          ? prev.filter((id) => id !== category.id)
-                          : [...prev, category.id],
-                      )
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      toggleCategoryExpansion(category.id)
                     }}
                   >
                     <svg
@@ -793,7 +969,8 @@ function Categories() {
                     className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
                     disabled={category.system}
                     aria-label="Editar categoria"
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation()
                       setSelectedCategory(category)
                       editForm.reset({ name: category.name })
                       setIsEditOpen(true)
@@ -807,7 +984,8 @@ function Categories() {
                     className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
                     disabled={category.system}
                     aria-label="Excluir categoria"
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation()
                       setSelectedCategory(category)
                       setDeleteError(null)
                       setIsDeleteConfirmOpen(true)
@@ -1010,7 +1188,10 @@ function Categories() {
                 !errorMessage &&
                 filteredCategories.map((category) => (
                   <Fragment key={category.id}>
-                    <tr className="border-t">
+                    <tr
+                      className="cursor-pointer border-t transition hover:bg-muted/10"
+                      onClick={() => toggleCategoryExpansion(category.id)}
+                    >
                       <td className="px-4 py-3 font-medium">
                         <div className="flex items-center gap-2">
                           <button
@@ -1024,15 +1205,9 @@ function Categories() {
                             aria-expanded={expandedCategoryIds.includes(
                               category.id,
                             )}
-                            onClick={() => {
-                              if (normalizedSearch.length > 0) {
-                                setHasManualSearchExpandOverride(true)
-                              }
-                              setExpandedCategoryIds((prev) =>
-                                prev.includes(category.id)
-                                  ? prev.filter((id) => id !== category.id)
-                                  : [...prev, category.id],
-                              )
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              toggleCategoryExpansion(category.id)
                             }}
                           >
                             <svg
@@ -1076,7 +1251,8 @@ function Categories() {
                             className="cursor-pointer border border-amber-200 bg-amber-100 text-amber-800 hover:border-amber-300 hover:bg-amber-200 hover:brightness-95"
                             disabled={category.system}
                             aria-label="Editar categoria"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation()
                               setSelectedCategory(category)
                               editForm.reset({ name: category.name })
                               setIsEditOpen(true)
@@ -1090,7 +1266,8 @@ function Categories() {
                             className="cursor-pointer border border-rose-200 bg-rose-100 text-rose-700 hover:border-rose-500 hover:bg-rose-600 hover:text-rose-50 hover:shadow-sm dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:ring-1 dark:ring-rose-400/40 dark:hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-rose-50 dark:hover:ring-rose-300"
                             disabled={category.system}
                             aria-label="Excluir categoria"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation()
                               setSelectedCategory(category)
                               setDeleteError(null)
                               setIsDeleteConfirmOpen(true)
@@ -1256,25 +1433,7 @@ function Categories() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={form.handleSubmit(async (formData) => {
-                try {
-                  const created = await createCategoryMutation.mutateAsync({
-                    name: formData.name,
-                    type: formData.type,
-                  })
-                  lastCreatedCategoryRef.current = created
-                  setLastCategoryType(created.type)
-                  setIsCreateOpen(false)
-                  form.reset()
-                } catch (error: unknown) {
-                  form.setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao criar categoria. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitCreateCategoryForm}
             >
               <div className="space-y-2">
                 <Label htmlFor="category-name">Nome</Label>
@@ -1322,15 +1481,17 @@ function Categories() {
               )}
 
               <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={createCategoryMutation.isPending}
-                >
-                  {createCategoryMutation.isPending
-                    ? 'Criando...'
-                    : 'Criar categoria'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={createCategoryMutation.isPending}
+                  >
+                    {createCategoryMutation.isPending
+                      ? 'Criando...'
+                      : 'Criar categoria'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </form>
           </div>
@@ -1352,24 +1513,7 @@ function Categories() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={editForm.handleSubmit(async (formData) => {
-                try {
-                  await updateCategoryMutation.mutateAsync({
-                    id: selectedCategory.id,
-                    name: formData.name,
-                  })
-                  setIsEditOpen(false)
-                  setSelectedCategory(null)
-                  editForm.reset()
-                } catch (error: unknown) {
-                  editForm.setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao atualizar categoria. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitEditCategoryForm}
             >
               <div className="space-y-2">
                 <Label htmlFor="category-edit-name">Nome</Label>
@@ -1398,13 +1542,17 @@ function Categories() {
               )}
 
               <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={updateCategoryMutation.isPending}
-                >
-                  {updateCategoryMutation.isPending ? 'Salvando...' : 'Salvar'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={updateCategoryMutation.isPending}
+                  >
+                    {updateCategoryMutation.isPending
+                      ? 'Salvando...'
+                      : 'Salvar'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </form>
           </div>
@@ -1440,13 +1588,15 @@ function Categories() {
             )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsDeleteConfirmOpen(false)}
-              >
-                Cancelar
-              </Button>
+              <ShortcutTooltip label="Atalho: Esc">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </ShortcutTooltip>
               {deleteError?.toLowerCase().includes('subcategorias') && (
                 <Button
                   variant="destructive"
@@ -1546,27 +1696,7 @@ function Categories() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={subCreateForm.handleSubmit(async (formData) => {
-                try {
-                  if (!subcategoryParent) {
-                    throw new Error('Categoria não selecionada')
-                  }
-                  await createSubcategoryMutation.mutateAsync({
-                    categoryId: subcategoryParent.id,
-                    name: formData.name,
-                  })
-                  setLastSubcategoryParentId(subcategoryParent.id)
-                  setIsSubCreateOpen(false)
-                  subCreateForm.reset()
-                } catch (error: unknown) {
-                  subCreateForm.setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao criar subcategoria. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitCreateSubcategoryForm}
             >
               <div className="space-y-2">
                 <Label htmlFor="subcategory-parent">Categoria</Label>
@@ -1624,15 +1754,17 @@ function Categories() {
               )}
 
               <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={createSubcategoryMutation.isPending}
-                >
-                  {createSubcategoryMutation.isPending
-                    ? 'Criando...'
-                    : 'Criar subcategoria'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={createSubcategoryMutation.isPending}
+                  >
+                    {createSubcategoryMutation.isPending
+                      ? 'Criando...'
+                      : 'Criar subcategoria'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </form>
           </div>
@@ -1657,25 +1789,7 @@ function Categories() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={subEditForm.handleSubmit(async (formData) => {
-                try {
-                  await updateSubcategoryMutation.mutateAsync({
-                    id: selectedSubcategory.id,
-                    name: formData.name,
-                    categoryId: subcategoryParent.id,
-                  })
-                  setIsSubEditOpen(false)
-                  setSelectedSubcategory(null)
-                  subEditForm.reset()
-                } catch (error: unknown) {
-                  subEditForm.setError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao atualizar subcategoria. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitEditSubcategoryForm}
             >
               <div className="space-y-2">
                 <Label htmlFor="subcategory-edit-name">Nome</Label>
@@ -1704,15 +1818,17 @@ function Categories() {
               )}
 
               <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={updateSubcategoryMutation.isPending}
-                >
-                  {updateSubcategoryMutation.isPending
-                    ? 'Salvando...'
-                    : 'Salvar'}
-                </Button>
+                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={updateSubcategoryMutation.isPending}
+                  >
+                    {updateSubcategoryMutation.isPending
+                      ? 'Salvando...'
+                      : 'Salvar'}
+                  </Button>
+                </ShortcutTooltip>
               </div>
             </form>
           </div>
@@ -1740,13 +1856,15 @@ function Categories() {
             )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setIsSubDeleteConfirmOpen(false)}
-              >
-                Cancelar
-              </Button>
+              <ShortcutTooltip label="Atalho: Esc">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsSubDeleteConfirmOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </ShortcutTooltip>
               <Button
                 className="w-full sm:w-auto"
                 onClick={async () => {
