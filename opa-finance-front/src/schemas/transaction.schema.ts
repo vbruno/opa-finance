@@ -22,9 +22,7 @@ export const transactionCreateSchema = z.object({
     .min(1, 'Selecione o tipo da transacao.')
     .refine(
       (value) =>
-        transactionTypes.includes(
-          value as (typeof transactionTypes)[number],
-        ),
+        transactionTypes.includes(value as (typeof transactionTypes)[number]),
       {
         message: 'Selecione o tipo da transacao.',
       },
@@ -32,12 +30,15 @@ export const transactionCreateSchema = z.object({
   amount: z
     .string()
     .min(1, 'Informe o valor.')
-    .refine((value) => {
-      const parsed = parseCurrencyInput(value)
-      return parsed !== null && !Number.isNaN(parsed) && parsed > 0
-    }, {
-      message: 'Informe um valor valido.',
-    }),
+    .refine(
+      (value) => {
+        const parsed = parseCurrencyInput(value)
+        return parsed !== null && !Number.isNaN(parsed) && parsed > 0
+      },
+      {
+        message: 'Informe um valor valido.',
+      },
+    ),
   date: z
     .string()
     .min(1, 'Informe a data.')

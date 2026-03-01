@@ -1,8 +1,4 @@
-import {
-  Outlet,
-  createFileRoute,
-  redirect,
-} from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { Header } from '@/components/app/Header'

@@ -22,9 +22,7 @@ export const changePasswordSchema = z
         passwordRegex,
         'Nova senha deve conter maiúscula, minúscula, número e caractere especial',
       ),
-    confirmNewPassword: z
-      .string()
-      .min(1, 'Confirmação de senha é obrigatória'),
+    confirmNewPassword: z.string().min(1, 'Confirmação de senha é obrigatória'),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     message: 'As senhas não coincidem',

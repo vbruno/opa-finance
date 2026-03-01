@@ -163,10 +163,7 @@ export function useUpdateSubcategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
-      id,
-      name,
-    }: SubcategoryUpdatePayload) => {
+    mutationFn: async ({ id, name }: SubcategoryUpdatePayload) => {
       const response = await api.put<Subcategory>(`/subcategories/${id}`, {
         name,
       })

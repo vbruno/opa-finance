@@ -7,10 +7,10 @@ Este padrão foi definido para evitar erros comuns (502, SSL quebrado, DNS confu
 ⸻
 
 🎯 Objetivo do Padrão
- • Usar 1 única rede pública (gateway) para entrada HTTP/HTTPS
- • Usar redes privadas por sistema para comunicação interna (API ↔ DB)
- • Centralizar SSL, DNS e exposição pública no Nginx Proxy Manager
- • Evitar IP fixo, evitando problemas em rede Docker
+• Usar 1 única rede pública (gateway) para entrada HTTP/HTTPS
+• Usar redes privadas por sistema para comunicação interna (API ↔ DB)
+• Centralizar SSL, DNS e exposição pública no Nginx Proxy Manager
+• Evitar IP fixo, evitando problemas em rede Docker
 
 ⸻
 
@@ -23,13 +23,13 @@ Nome padrão:
 proxy-net
 
 Responsabilidade:
- • Receber tráfego externo (HTTP / HTTPS)
- • Permitir comunicação do proxy com frontends e APIs
+• Receber tráfego externo (HTTP / HTTPS)
+• Permitir comunicação do proxy com frontends e APIs
 
 Containers que DEVEM estar nessa rede:
- • nginx-proxy-manager
- • frontends
- • APIs expostas
+• nginx-proxy-manager
+• frontends
+• APIs expostas
 
 ⸻
 
@@ -44,36 +44,36 @@ opa-auth-internal
 opa-blog-internal
 
 Responsabilidade:
- • Comunicação interna entre API e banco
- • Não exposta à internet
- • Não acessível pelo proxy
+• Comunicação interna entre API e banco
+• Não exposta à internet
+• Não acessível pelo proxy
 
 Containers típicos:
- • API
- • Banco de dados
+• API
+• Banco de dados
 
 ⸻
 
 🗺️ Visão Geral da Arquitetura
 
 Internet
-   │
-   ▼
+│
+▼
 Nginx Proxy Manager (proxy-net)
-   │
-   ├── Frontend (proxy-net)
-   │
-   └── API (proxy-net + internal-net)
-           │
-           └── Banco (internal-net)
+│
+├── Frontend (proxy-net)
+│
+└── API (proxy-net + internal-net)
+│
+└── Banco (internal-net)
 
 ⸻
 
 🛠️ Pré-requisitos
- • Docker instalado
- • Portainer (opcional, mas recomendado)
- • Domínio configurado apontando para o IP da VPS
- • DNS tipo A ou wildcard funcionando
+• Docker instalado
+• Portainer (opcional, mas recomendado)
+• Domínio configurado apontando para o IP da VPS
+• DNS tipo A ou wildcard funcionando
 
 ⸻
 
@@ -92,27 +92,21 @@ docker network ls
 version: "3.9"
 
 services:
-  nginx-proxy-manager:
-    image: jc21/nginx-proxy-manager:latest
-    container_name: nginx-proxy-manager
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "81:81"
-      - "443:443"
-    volumes:
-      - nginx_proxy_manager_data:/data
-      - nginx_proxy_manager_letsencrypt:/etc/letsencrypt
-    networks:
-      - proxy-net
+nginx-proxy-manager:
+image: jc21/nginx-proxy-manager:latest
+container_name: nginx-proxy-manager
+restart: unless-stopped
+ports: - "80:80" - "81:81" - "443:443"
+volumes: - nginx_proxy_manager_data:/data - nginx_proxy_manager_letsencrypt:/etc/letsencrypt
+networks: - proxy-net
 
 volumes:
-  nginx_proxy_manager_data:
-  nginx_proxy_manager_letsencrypt:
+nginx_proxy_manager_data:
+nginx_proxy_manager_letsencrypt:
 
 networks:
-  proxy-net:
-    external: true
+proxy-net:
+external: true
 
 ⚠️ Nunca colocar o NPM em redes internas.
 
@@ -121,15 +115,14 @@ networks:
 🎨 3. Frontend (Exemplo)
 
 services:
-  opa-finance-frontend:
-    image: opa-finance-frontend:latest
-    container_name: opa-finance-frontend
-    networks:
-      - proxy-net
+opa-finance-frontend:
+image: opa-finance-frontend:latest
+container_name: opa-finance-frontend
+networks: - proxy-net
 
 networks:
-  proxy-net:
-    external: true
+proxy-net:
+external: true
 
 ⸻
 
@@ -138,79 +131,76 @@ networks:
 API
 
 services:
-  opa-finance-api:
-    image: opa-finance-api:latest
-    container_name: opa-finance-api
-    networks:
-      - proxy-net
-      - opa-finance-internal
+opa-finance-api:
+image: opa-finance-api:latest
+container_name: opa-finance-api
+networks: - proxy-net - opa-finance-internal
 
 Banco
 
 services:
-  finance-db:
-    image: postgres:16
-    container_name: finance-db
-    environment:
-      POSTGRES_DB: finance
-      POSTGRES_USER: finance
-      POSTGRES_PASSWORD: secret
-    networks:
-      - opa-finance-internal
+finance-db:
+image: postgres:16
+container_name: finance-db
+environment:
+POSTGRES_DB: finance
+POSTGRES_USER: finance
+POSTGRES_PASSWORD: secret
+networks: - opa-finance-internal
 
 Networks
 
 networks:
-  proxy-net:
-    external: true
-  opa-finance-internal:
-    driver: bridge
+proxy-net:
+external: true
+opa-finance-internal:
+driver: bridge
 
 ⸻
 
 🌍 5. Configuração no Nginx Proxy Manager
 
 Frontend
- • Domain: finance.opadev.com
- • Scheme: http
- • Forward Hostname: opa-finance-frontend
- • Port: 80
+• Domain: finance.opadev.com
+• Scheme: http
+• Forward Hostname: opa-finance-frontend
+• Port: 80
 
 API
- • Domain: api.finance.opadev.com
- • Scheme: http
- • Forward Hostname: opa-finance-api
- • Port: 3333
+• Domain: api.finance.opadev.com
+• Scheme: http
+• Forward Hostname: opa-finance-api
+• Port: 3333
 
 ⚠️ Sempre testar HTTP antes de ativar SSL.
 
 ⸻
 
 🔐 6. SSL (Regras)
- • Solicitar SSL somente após HTTP funcionar
- • Não usar IP no proxy
- • Não usar custom nginx inicialmente
- • HSTS somente após estabilidade
+• Solicitar SSL somente após HTTP funcionar
+• Não usar IP no proxy
+• Não usar custom nginx inicialmente
+• HSTS somente após estabilidade
 
 ⸻
 
 🚫 Erros Comuns (Evitar)
- • Criar uma rede por serviço exposto
- • Usar IP fixo no proxy
- • Colocar banco na rede pública
- • Apagar arquivos manualmente em /data/nginx
- • Criar SSL antes de validar HTTP
+• Criar uma rede por serviço exposto
+• Usar IP fixo no proxy
+• Colocar banco na rede pública
+• Apagar arquivos manualmente em /data/nginx
+• Criar SSL antes de validar HTTP
 
 ⸻
 
 ✅ Checklist para Novo Serviço
- • Serviço conectado à proxy-net
- • (Opcional) Rede interna criada
- • API conecta proxy-net + internal-net
- • Banco conecta apenas internal-net
- • Proxy criado usando hostname Docker
- • HTTP testado
- • SSL ativado
+• Serviço conectado à proxy-net
+• (Opcional) Rede interna criada
+• API conecta proxy-net + internal-net
+• Banco conecta apenas internal-net
+• Proxy criado usando hostname Docker
+• HTTP testado
+• SSL ativado
 
 ⸻
 

@@ -77,16 +77,13 @@ export const Route = createFileRoute('/app/accounts')({
       )
       .optional(),
     page: z
-      .preprocess(
-        (value) => {
-          const parsed = Number(value)
-          if (!Number.isFinite(parsed) || parsed < 1) {
-            return undefined
-          }
-          return Math.floor(parsed)
-        },
-        z.number().int().min(1),
-      )
+      .preprocess((value) => {
+        const parsed = Number(value)
+        if (!Number.isFinite(parsed) || parsed < 1) {
+          return undefined
+        }
+        return Math.floor(parsed)
+      }, z.number().int().min(1))
       .optional(),
   }),
   component: Accounts,
@@ -145,10 +142,7 @@ function Accounts() {
     reset: resetEdit,
     watch: watchEdit,
     setError: setEditError,
-    formState: {
-      errors: editErrors,
-      isSubmitting: isEditSubmitting,
-    },
+    formState: { errors: editErrors, isSubmitting: isEditSubmitting },
   } = useForm<AccountUpdateFormData>({
     resolver: zodResolver(accountUpdateSchema),
     defaultValues: {
@@ -241,8 +235,7 @@ function Accounts() {
     } catch (error: unknown) {
       setPrimaryError(
         getApiErrorMessage(error, {
-          defaultMessage:
-            'Erro ao definir conta principal. Tente novamente.',
+          defaultMessage: 'Erro ao definir conta principal. Tente novamente.',
         }),
       )
     } finally {
@@ -280,8 +273,7 @@ function Accounts() {
     navigate({
       search: (prev) => {
         const isSame = prev.sort === nextKey
-        const nextDirection =
-          isSame && prev.dir === 'asc' ? 'desc' : 'asc'
+        const nextDirection = isSame && prev.dir === 'asc' ? 'desc' : 'asc'
         return {
           ...prev,
           sort: nextKey,
@@ -292,16 +284,20 @@ function Accounts() {
     })
   }
 
-  const [pageSize, setPageSize] = useUserPreference<number>('accountsPageSize', 10, {
-    serialize: (value) => String(value),
-    deserialize: (raw) => {
-      const parsed = Number(raw)
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        return 10
-      }
-      return Math.min(50, Math.max(5, Math.floor(parsed)))
+  const [pageSize, setPageSize] = useUserPreference<number>(
+    'accountsPageSize',
+    10,
+    {
+      serialize: (value) => String(value),
+      deserialize: (raw) => {
+        const parsed = Number(raw)
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          return 10
+        }
+        return Math.min(50, Math.max(5, Math.floor(parsed)))
+      },
     },
-  })
+  )
   const totalPages = Math.max(1, Math.ceil(sortedAccounts.length / pageSize))
   const safePage = Math.min(currentPage, totalPages)
   const paginatedAccounts =
@@ -536,7 +532,9 @@ function Accounts() {
 
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            variant={hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'}
+            variant={
+              hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'
+            }
             size="icon"
             className="h-10 w-10 sm:hidden"
             aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -556,8 +554,9 @@ function Accounts() {
       </div>
 
       <div
-        className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'
-          } desktop-force-block`}
+        className={`rounded-lg border bg-card p-4 ${
+          isFiltersOpen ? 'block' : 'hidden'
+        } desktop-force-block`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
@@ -762,7 +761,9 @@ function Accounts() {
                     <p className="text-xs uppercase text-muted-foreground">
                       Saldo
                     </p>
-                    <p className={`sensitive text-sm font-semibold ${balanceClass}`}>
+                    <p
+                      className={`sensitive text-sm font-semibold ${balanceClass}`}
+                    >
                       {`$ ${formatCurrencyValue(displayBalance)}`}
                     </p>
                   </div>
@@ -813,16 +814,14 @@ function Accounts() {
                       : totalFilteredBalance) < 0
                       ? 'sensitive font-semibold text-rose-600'
                       : (selectedCount >= 1
-                        ? selectedTotal
-                        : totalFilteredBalance) > 0
+                            ? selectedTotal
+                            : totalFilteredBalance) > 0
                         ? 'sensitive font-semibold text-emerald-600'
                         : 'sensitive font-semibold text-muted-foreground'
                   }
                 >
                   {`$ ${formatCurrencyValue(
-                    selectedCount >= 1
-                      ? selectedTotal
-                      : totalFilteredBalance,
+                    selectedCount >= 1 ? selectedTotal : totalFilteredBalance,
                   )}`}
                 </span>
               </div>
@@ -882,8 +881,9 @@ function Accounts() {
                   </button>
                 </th>
                 <th
-                  className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${isRefreshingAccounts ? 'text-emerald-600' : ''
-                    }`}
+                  className={`w-[1%] px-4 py-3 text-right whitespace-nowrap ${
+                    isRefreshingAccounts ? 'text-emerald-600' : ''
+                  }`}
                 >
                   <button
                     className="inline-flex items-center gap-2 text-right"
@@ -1043,12 +1043,12 @@ function Accounts() {
                     accountsQuery.isLoading || accountsQuery.isError
                       ? 'px-4 py-3 text-right font-semibold text-muted-foreground'
                       : (selectedCount >= 1
-                        ? selectedTotal
-                        : totalFilteredBalance) < 0
+                            ? selectedTotal
+                            : totalFilteredBalance) < 0
                         ? 'sensitive px-4 py-3 text-right font-semibold text-rose-600'
                         : (selectedCount >= 1
-                          ? selectedTotal
-                          : totalFilteredBalance) > 0
+                              ? selectedTotal
+                              : totalFilteredBalance) > 0
                           ? 'sensitive px-4 py-3 text-right font-semibold text-emerald-600'
                           : 'sensitive px-4 py-3 text-right font-semibold text-muted-foreground'
                   }
@@ -1056,10 +1056,10 @@ function Accounts() {
                   {accountsQuery.isLoading || accountsQuery.isError
                     ? '--'
                     : `$ ${formatCurrencyValue(
-                      selectedCount >= 1
-                        ? selectedTotal
-                        : totalFilteredBalance,
-                    )}`}
+                        selectedCount >= 1
+                          ? selectedTotal
+                          : totalFilteredBalance,
+                      )}`}
                 </td>
               </tr>
             </tfoot>
@@ -1097,11 +1097,7 @@ function Accounts() {
                 ))}
               </select>
               <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-                <svg
-                  viewBox="0 0 16 16"
-                  className="h-4 w-4"
-                  aria-hidden="true"
-                >
+                <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
                   <path
                     d="M4 6l4 4 4-4"
                     fill="none"
@@ -1210,8 +1206,7 @@ function Accounts() {
                 } catch (error: unknown) {
                   setError('root', {
                     message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao criar conta. Tente novamente.',
+                      defaultMessage: 'Erro ao criar conta. Tente novamente.',
                     }),
                   })
                 }
@@ -1327,9 +1322,7 @@ function Accounts() {
                   )}
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Detalhes da conta
-              </p>
+              <p className="text-sm text-muted-foreground">Detalhes da conta</p>
             </div>
 
             <div className="mt-6 grid gap-4 text-sm">
@@ -1437,9 +1430,7 @@ function Accounts() {
             tabIndex={-1}
           >
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold">
-                Confirmar exclusão
-              </h3>
+              <h3 className="text-lg font-semibold">Confirmar exclusão</h3>
               <p className="text-sm text-muted-foreground">
                 Tem certeza que deseja excluir a conta{' '}
                 <span className="font-medium">{selectedAccount.name}</span>?
@@ -1466,9 +1457,7 @@ function Accounts() {
                 disabled={deleteAccountMutation.isPending}
                 onClick={async () => {
                   try {
-                    await deleteAccountMutation.mutateAsync(
-                      selectedAccount.id,
-                    )
+                    await deleteAccountMutation.mutateAsync(selectedAccount.id)
                     setIsDeleteConfirmOpen(false)
                     navigate({
                       search: (prev) => ({ ...prev, id: undefined }),

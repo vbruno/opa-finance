@@ -11,7 +11,8 @@ export const categoryCreateSchema = z.object({
     .string()
     .min(1, 'Selecione o tipo da categoria.')
     .refine(
-      (value) => categoryTypes.includes(value as (typeof categoryTypes)[number]),
+      (value) =>
+        categoryTypes.includes(value as (typeof categoryTypes)[number]),
       {
         message: 'Selecione o tipo da categoria.',
       },

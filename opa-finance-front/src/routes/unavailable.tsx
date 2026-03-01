@@ -67,14 +67,15 @@ function UnavailableScreen() {
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted-foreground">Status do servidor:</span>
           <span
-            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold ${status === 'checking'
-              ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-              : status === 'online'
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                : status === 'offline'
-                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                  : 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
-              }`}
+            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold ${
+              status === 'checking'
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                : status === 'online'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                  : status === 'offline'
+                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                    : 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
+            }`}
           >
             {status === 'checking'
               ? 'Verificando...'

@@ -60,9 +60,12 @@ VITE_API_URL=http://localhost:3333
 ## 🚀 Como rodar
 
 1. Instalar dependências
-  - `npm install`
+
+- `npm install`
+
 2. Iniciar app
-  - `npm run dev`
+
+- `npm run dev`
 
 ## 🏗 Build e preview
 
@@ -99,6 +102,7 @@ VITE_API_URL=http://localhost:3333
 ## 👨‍💻 Autor
 
 **Bruno S Velho**
+
 - Email: bruno.velho@gmail.com
 - GitHub: https://github.com/vbruno
 - LinkedIn: https://www.linkedin.com/in/brunovelho/

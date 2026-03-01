@@ -25,7 +25,10 @@ const appNavItems = [
   { to: '/app/transactions', label: 'Transações', icon: Receipt },
 ]
 
-const desktopNavItems = [{ to: '/app', label: 'Dashboard', icon: Home }, ...appNavItems]
+const desktopNavItems = [
+  { to: '/app', label: 'Dashboard', icon: Home },
+  ...appNavItems,
+]
 
 const mobileNavItems = [
   { to: '/app', label: 'Dashboard', icon: Home },
@@ -84,7 +87,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   )
 
   useEffect(() => {
-    document.documentElement.classList.toggle('hide-sensitive', isSensitiveHidden)
+    document.documentElement.classList.toggle(
+      'hide-sensitive',
+      isSensitiveHidden,
+    )
   }, [isSensitiveHidden])
 
   function handleToggleSensitive() {
@@ -140,9 +146,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   size="icon"
                   className="flex-1"
                   aria-label={
-                    isSensitiveHidden
-                      ? 'Mostrar valores'
-                      : 'Ocultar valores'
+                    isSensitiveHidden ? 'Mostrar valores' : 'Ocultar valores'
                   }
                   onClick={handleToggleSensitive}
                 >

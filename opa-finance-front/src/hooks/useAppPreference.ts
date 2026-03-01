@@ -10,8 +10,8 @@ type PreferenceOptions<T> = {
   deserialize?: Deserialize<T>
 }
 
-const defaultSerialize = <T,>(value: T) => JSON.stringify(value)
-const defaultDeserialize = <T,>(raw: string) => JSON.parse(raw) as T
+const defaultSerialize = <T>(value: T) => JSON.stringify(value)
+const defaultDeserialize = <T>(raw: string) => JSON.parse(raw) as T
 
 function readPreference<T>(
   storageKey: string,

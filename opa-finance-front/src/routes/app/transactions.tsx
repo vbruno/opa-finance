@@ -78,28 +78,22 @@ import {
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
     page: z
-      .preprocess(
-        (value) => {
-          const parsed = Number(value)
-          if (!Number.isFinite(parsed) || parsed < 1) {
-            return undefined
-          }
-          return Math.floor(parsed)
-        },
-        z.number().int().min(1),
-      )
+      .preprocess((value) => {
+        const parsed = Number(value)
+        if (!Number.isFinite(parsed) || parsed < 1) {
+          return undefined
+        }
+        return Math.floor(parsed)
+      }, z.number().int().min(1))
       .optional(),
     limit: z
-      .preprocess(
-        (value) => {
-          const parsed = Number(value)
-          if (!Number.isFinite(parsed) || parsed < 1) {
-            return undefined
-          }
-          return Math.floor(parsed)
-        },
-        z.number().int().min(1).max(100),
-      )
+      .preprocess((value) => {
+        const parsed = Number(value)
+        if (!Number.isFinite(parsed) || parsed < 1) {
+          return undefined
+        }
+        return Math.floor(parsed)
+      }, z.number().int().min(1).max(100))
       .optional(),
     type: z
       .preprocess(
@@ -118,55 +112,46 @@ export const Route = createFileRoute('/app/transactions')({
     subcategoryId: z.string().optional(),
     description: z.string().optional(),
     includeNotes: z
-      .preprocess(
-        (value) => {
-          if (typeof value === 'boolean') {
-            return value
-          }
-          if (value === 'true' || value === '1') {
-            return true
-          }
-          if (value === 'false' || value === '0') {
-            return false
-          }
-          return undefined
-        },
-        z.boolean().optional(),
-      )
+      .preprocess((value) => {
+        if (typeof value === 'boolean') {
+          return value
+        }
+        if (value === 'true' || value === '1') {
+          return true
+        }
+        if (value === 'false' || value === '0') {
+          return false
+        }
+        return undefined
+      }, z.boolean().optional())
       .optional(),
     notesOnly: z
-      .preprocess(
-        (value) => {
-          if (typeof value === 'boolean') {
-            return value
-          }
-          if (value === 'true' || value === '1') {
-            return true
-          }
-          if (value === 'false' || value === '0') {
-            return false
-          }
-          return undefined
-        },
-        z.boolean().optional(),
-      )
+      .preprocess((value) => {
+        if (typeof value === 'boolean') {
+          return value
+        }
+        if (value === 'true' || value === '1') {
+          return true
+        }
+        if (value === 'false' || value === '0') {
+          return false
+        }
+        return undefined
+      }, z.boolean().optional())
       .optional(),
     amountMode: z
-      .preprocess(
-        (value) => {
-          if (typeof value === 'boolean') {
-            return value
-          }
-          if (value === 'true' || value === '1') {
-            return true
-          }
-          if (value === 'false' || value === '0') {
-            return false
-          }
-          return undefined
-        },
-        z.boolean().optional(),
-      )
+      .preprocess((value) => {
+        if (typeof value === 'boolean') {
+          return value
+        }
+        if (value === 'true' || value === '1') {
+          return true
+        }
+        if (value === 'false' || value === '0') {
+          return false
+        }
+        return undefined
+      }, z.boolean().optional())
       .optional(),
     amount: z.string().optional(),
     sort: z
@@ -366,15 +351,13 @@ function Transactions() {
     startDateFilter ||
     endDateFilter
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
-  const [descriptionDraft, setDescriptionDraft] =
-    useState(descriptionFilter)
+  const [descriptionDraft, setDescriptionDraft] = useState(descriptionFilter)
   const [amountDraft, setAmountDraft] = useState(amountFilter)
   const debouncedDescription = useDebouncedValue(descriptionDraft, 500)
   const debouncedAmount = useDebouncedValue(amountDraft, 500)
   const effectiveDescriptionFilter = debouncedDescription.trim()
   const effectiveAmountFilter = debouncedAmount.trim()
-  const canSearchNotes =
-    !amountMode && descriptionDraft.trim().length > 0
+  const canSearchNotes = !amountMode && descriptionDraft.trim().length > 0
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const parsedAmountFilter = amountMode
     ? parseAmountFilter(effectiveAmountFilter)
@@ -486,10 +469,7 @@ function Transactions() {
     watch: watchEdit,
     setError: setEditError,
     setValue: setEditValue,
-    formState: {
-      errors: editErrors,
-      isSubmitting: isEditSubmitting,
-    },
+    formState: { errors: editErrors, isSubmitting: isEditSubmitting },
   } = useForm<TransactionCreateFormData>({
     resolver: zodResolver(transactionCreateSchema),
     defaultValues: {
@@ -589,7 +569,9 @@ function Transactions() {
       limit: 20,
     },
     {
-      enabled: Boolean(isCreateOpen && createAccountId && shouldFilterSuggestions),
+      enabled: Boolean(
+        isCreateOpen && createAccountId && shouldFilterSuggestions,
+      ),
     },
   )
   const descriptionSuggestions = (() => {
@@ -619,7 +601,7 @@ function Transactions() {
     () => (isAmountFilterInvalid ? [] : rawTransactions),
     [isAmountFilterInvalid, rawTransactions],
   )
-  const total = isAmountFilterInvalid ? 0 : transactionsQuery.data?.total ?? 0
+  const total = isAmountFilterInvalid ? 0 : (transactionsQuery.data?.total ?? 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const selectedTransactions = transactions.filter((transaction) =>
@@ -631,13 +613,10 @@ function Transactions() {
   const hasSelection = selectedCount > 0
   const selectedTotal = selectedTransactions.reduce((acc, transaction) => {
     const signedAmount =
-      transaction.type === 'income'
-        ? transaction.amount
-        : -transaction.amount
+      transaction.type === 'income' ? transaction.amount : -transaction.amount
     return acc + signedAmount
   }, 0)
-  const selectedAverage =
-    selectedCount >= 1 ? selectedTotal / selectedCount : 0
+  const selectedAverage = selectedCount >= 1 ? selectedTotal / selectedCount : 0
   const amountTone = (value: number) => {
     if (value > 0) return 'text-emerald-600'
     if (value < 0) return 'text-rose-600'
@@ -712,8 +691,7 @@ function Transactions() {
     navigate({
       search: (prev) => {
         const isSame = prev.sort === nextKey
-        const nextDirection =
-          isSame && prev.dir === 'asc' ? 'desc' : 'asc'
+        const nextDirection = isSame && prev.dir === 'asc' ? 'desc' : 'asc'
         return {
           ...prev,
           sort: nextKey,
@@ -774,7 +752,6 @@ function Transactions() {
     if (createCategory?.type) {
       setValue('type', createCategory.type)
     }
-
   }, [createCategory?.type, createCategoryId, setValue])
 
   useEffect(() => {
@@ -794,7 +771,11 @@ function Transactions() {
     if (!pending || pending.categoryId !== createCategoryId) {
       return
     }
-    if (!createSubcategories.some((subcategory) => subcategory.id === pending.subcategoryId)) {
+    if (
+      !createSubcategories.some(
+        (subcategory) => subcategory.id === pending.subcategoryId,
+      )
+    ) {
       return
     }
     setValue('subcategoryId', pending.subcategoryId, {
@@ -915,13 +896,7 @@ function Transactions() {
         descriptionInputRef.current?.focus()
       }
     }
-  }, [
-    clearErrors,
-    createAccountId,
-    isCreateOpen,
-    primaryAccountId,
-    setValue,
-  ])
+  }, [clearErrors, createAccountId, isCreateOpen, primaryAccountId, setValue])
 
   useEffect(() => {
     if (!isCreateCategoryOpen) {
@@ -942,7 +917,9 @@ function Transactions() {
       return
     }
     const fallbackCategoryId =
-      createCategoryId || categories.find((category) => !category.system)?.id || ''
+      createCategoryId ||
+      categories.find((category) => !category.system)?.id ||
+      ''
     subcategoryCreateForm.reset({
       categoryId: fallbackCategoryId,
       name: '',
@@ -997,48 +974,57 @@ function Transactions() {
 
     const fieldMap = isEditOpen
       ? {
-        Digit1: 'transaction-edit-account',
-        Digit2: 'transaction-edit-category',
-        Digit3: 'transaction-edit-subcategory',
-        Digit4: 'transaction-edit-date',
-        Digit5: 'transaction-edit-amount',
-        Digit6: 'transaction-edit-description',
-        Digit7: 'transaction-edit-notes',
-        Numpad1: 'transaction-edit-account',
-        Numpad2: 'transaction-edit-category',
-        Numpad3: 'transaction-edit-subcategory',
-        Numpad4: 'transaction-edit-date',
-        Numpad5: 'transaction-edit-amount',
-        Numpad6: 'transaction-edit-description',
-        Numpad7: 'transaction-edit-notes',
-      }
+          Digit1: 'transaction-edit-account',
+          Digit2: 'transaction-edit-category',
+          Digit3: 'transaction-edit-subcategory',
+          Digit4: 'transaction-edit-date',
+          Digit5: 'transaction-edit-amount',
+          Digit6: 'transaction-edit-description',
+          Digit7: 'transaction-edit-notes',
+          Numpad1: 'transaction-edit-account',
+          Numpad2: 'transaction-edit-category',
+          Numpad3: 'transaction-edit-subcategory',
+          Numpad4: 'transaction-edit-date',
+          Numpad5: 'transaction-edit-amount',
+          Numpad6: 'transaction-edit-description',
+          Numpad7: 'transaction-edit-notes',
+        }
       : {
-        Digit1: 'transaction-account',
-        Digit2: 'transaction-category',
-        Digit3: 'transaction-subcategory',
-        Digit4: 'transaction-date',
-        Digit5: 'transaction-amount',
-        Digit6: 'transaction-description',
-        Digit7: 'transaction-notes',
-        Numpad1: 'transaction-account',
-        Numpad2: 'transaction-category',
-        Numpad3: 'transaction-subcategory',
-        Numpad4: 'transaction-date',
-        Numpad5: 'transaction-amount',
-        Numpad6: 'transaction-description',
-        Numpad7: 'transaction-notes',
-      }
+          Digit1: 'transaction-account',
+          Digit2: 'transaction-category',
+          Digit3: 'transaction-subcategory',
+          Digit4: 'transaction-date',
+          Digit5: 'transaction-amount',
+          Digit6: 'transaction-description',
+          Digit7: 'transaction-notes',
+          Numpad1: 'transaction-account',
+          Numpad2: 'transaction-category',
+          Numpad3: 'transaction-subcategory',
+          Numpad4: 'transaction-date',
+          Numpad5: 'transaction-amount',
+          Numpad6: 'transaction-description',
+          Numpad7: 'transaction-notes',
+        }
 
     const handleModalShortcut = (event: KeyboardEvent) => {
       if (!event.altKey || event.metaKey || event.ctrlKey) {
         return
       }
       const keyLookup =
-        event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3' ||
-          event.code === 'Digit4' || event.code === 'Digit5' || event.code === 'Digit6' ||
-          event.code === 'Digit7' || event.code === 'Numpad1' || event.code === 'Numpad2' ||
-          event.code === 'Numpad3' || event.code === 'Numpad4' || event.code === 'Numpad5' ||
-          event.code === 'Numpad6' || event.code === 'Numpad7'
+        event.code === 'Digit1' ||
+        event.code === 'Digit2' ||
+        event.code === 'Digit3' ||
+        event.code === 'Digit4' ||
+        event.code === 'Digit5' ||
+        event.code === 'Digit6' ||
+        event.code === 'Digit7' ||
+        event.code === 'Numpad1' ||
+        event.code === 'Numpad2' ||
+        event.code === 'Numpad3' ||
+        event.code === 'Numpad4' ||
+        event.code === 'Numpad5' ||
+        event.code === 'Numpad6' ||
+        event.code === 'Numpad7'
           ? event.code
           : event.key
       const fieldId = fieldMap[keyLookup as keyof typeof fieldMap]
@@ -1209,10 +1195,7 @@ function Transactions() {
     setAmountDraft(amountFilter)
   }, [amountFilter])
 
-  const handleCopyValue = async (
-    value: number,
-    label: 'average' | 'total',
-  ) => {
+  const handleCopyValue = async (value: number, label: 'average' | 'total') => {
     const formatted = formatCurrencyValue(value)
     if (!navigator?.clipboard?.writeText) {
       return
@@ -1358,7 +1341,9 @@ function Transactions() {
       if (prev.size === 0) {
         return prev
       }
-      const idsOnPage = new Set(transactions.map((transaction) => transaction.id))
+      const idsOnPage = new Set(
+        transactions.map((transaction) => transaction.id),
+      )
       const next = new Set<string>()
       prev.forEach((id) => {
         if (idsOnPage.has(id)) {
@@ -1373,8 +1358,7 @@ function Transactions() {
     if (!selectAllRef.current) {
       return
     }
-    selectAllRef.current.indeterminate =
-      hasSelection && !allSelected
+    selectAllRef.current.indeterminate = hasSelection && !allSelected
   }, [allSelected, hasSelection])
 
   const handleOpenEdit = (transaction: Transaction) => {
@@ -1586,7 +1570,9 @@ function Transactions() {
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
           <Button
-            variant={hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'}
+            variant={
+              hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'
+            }
             size="icon"
             className="h-10 w-10 sm:hidden"
             aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -1719,7 +1705,9 @@ function Transactions() {
                         search: (prev) => ({
                           ...prev,
                           includeNotes: event.target.checked ? true : undefined,
-                          notesOnly: event.target.checked ? prev.notesOnly : undefined,
+                          notesOnly: event.target.checked
+                            ? prev.notesOnly
+                            : undefined,
                           page: 1,
                         }),
                       })
@@ -1739,7 +1727,9 @@ function Transactions() {
                         search: (prev) => ({
                           ...prev,
                           notesOnly: event.target.checked ? true : undefined,
-                          includeNotes: event.target.checked ? true : prev.includeNotes,
+                          includeNotes: event.target.checked
+                            ? true
+                            : prev.includeNotes,
                           page: 1,
                         }),
                       })
@@ -1758,14 +1748,18 @@ function Transactions() {
                         search: (prev) => ({
                           ...prev,
                           amountMode: event.target.checked ? true : undefined,
-                          amount: event.target.checked ? prev.amount : undefined,
+                          amount: event.target.checked
+                            ? prev.amount
+                            : undefined,
                           description: event.target.checked
                             ? undefined
                             : prev.description,
                           includeNotes: event.target.checked
                             ? undefined
                             : prev.includeNotes,
-                          notesOnly: event.target.checked ? undefined : prev.notesOnly,
+                          notesOnly: event.target.checked
+                            ? undefined
+                            : prev.notesOnly,
                           page: 1,
                         }),
                       })
@@ -1953,7 +1947,9 @@ function Transactions() {
                 onChange={(event) => {
                   if (event.target.checked) {
                     setSelectedIds(
-                      new Set(transactions.map((transaction) => transaction.id)),
+                      new Set(
+                        transactions.map((transaction) => transaction.id),
+                      ),
                     )
                     return
                   }
@@ -1984,7 +1980,9 @@ function Transactions() {
                       role="button"
                       tabIndex={0}
                       title="Clique para copiar"
-                      onClick={() => handleCopyValue(selectedAverage, 'average')}
+                      onClick={() =>
+                        handleCopyValue(selectedAverage, 'average')
+                      }
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
@@ -2158,7 +2156,9 @@ function Transactions() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`sensitive text-base font-semibold ${amountClass}`}>
+                  <span
+                    className={`sensitive text-base font-semibold ${amountClass}`}
+                  >
                     {formatCurrencyValue(transaction.amount)}
                   </span>
                 </div>
@@ -2269,19 +2269,17 @@ function Transactions() {
             </span>
             <Select
               value={String(limit)}
-              onValueChange={(value) =>
-                {
-                  const nextLimit = Number(value)
-                  setLimitPreference(nextLimit)
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      limit: nextLimit,
-                      page: 1,
-                    }),
-                  })
-                }
-              }
+              onValueChange={(value) => {
+                const nextLimit = Number(value)
+                setLimitPreference(nextLimit)
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    limit: nextLimit,
+                    page: 1,
+                  }),
+                })
+              }}
             >
               <SelectTrigger
                 className="h-9 w-[84px] bg-background px-2 text-xs dark:border-muted/80"
@@ -2471,7 +2469,10 @@ function Transactions() {
                   !isAmountFilterInvalid &&
                   transactions.length === 0 && (
                     <tr>
-                      <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
+                      <td
+                        className="px-4 py-5 text-muted-foreground"
+                        colSpan={8}
+                      >
                         Nenhuma transação encontrada.
                       </td>
                     </tr>
@@ -2601,19 +2602,17 @@ function Transactions() {
             <div className="flex items-center gap-3">
               <Select
                 value={String(limit)}
-                onValueChange={(value) =>
-                  {
-                    const nextLimit = Number(value)
-                    setLimitPreference(nextLimit)
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        limit: nextLimit,
-                        page: 1,
-                      }),
-                    })
-                  }
-                }
+                onValueChange={(value) => {
+                  const nextLimit = Number(value)
+                  setLimitPreference(nextLimit)
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      limit: nextLimit,
+                      page: 1,
+                    }),
+                  })
+                }}
               >
                 <SelectTrigger
                   className="h-8 w-[72px] bg-background px-2 text-xs dark:border-muted/80"
@@ -2696,10 +2695,7 @@ function Transactions() {
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={handleCloseCreateModal}
-          />
+          <div className="fixed inset-0" onClick={handleCloseCreateModal} />
           <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">Nova transação</h3>
@@ -2913,9 +2909,10 @@ function Transactions() {
                               return
                             }
                             const key = event.key.toLowerCase()
-                            const match = (createSubcategoriesQuery.data ?? []).find(
-                              (subcategory) =>
-                                subcategory.name.toLowerCase().startsWith(key),
+                            const match = (
+                              createSubcategoriesQuery.data ?? []
+                            ).find((subcategory) =>
+                              subcategory.name.toLowerCase().startsWith(key),
                             )
                             if (match) {
                               event.preventDefault()
@@ -2924,16 +2921,14 @@ function Transactions() {
                           }}
                         >
                           <SelectItem value="none">Sem subcategoria</SelectItem>
-                          {createSubcategories.map(
-                            (subcategory) => (
-                              <SelectItem
-                                key={subcategory.id}
-                                value={subcategory.id}
-                              >
-                                {subcategory.name}
-                              </SelectItem>
-                            ),
-                          )}
+                          {createSubcategories.map((subcategory) => (
+                            <SelectItem
+                              key={subcategory.id}
+                              value={subcategory.id}
+                            >
+                              {subcategory.name}
+                            </SelectItem>
+                          ))}
                           <SelectItem value="__create__">
                             + Nova subcategoria
                           </SelectItem>
@@ -3086,7 +3081,7 @@ function Transactions() {
                       {isDescriptionSuggestionsOpen && (
                         <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
                           {filteredDescriptionSuggestionsQuery.isLoading ||
-                            baseDescriptionSuggestionsQuery.isLoading ? (
+                          baseDescriptionSuggestionsQuery.isLoading ? (
                             <div className="px-3 py-2 text-sm text-muted-foreground">
                               {shouldFilterSuggestions
                                 ? 'Buscando sugestões...'
@@ -3102,10 +3097,12 @@ function Transactions() {
                               <button
                                 key={suggestion}
                                 type="button"
-                                className={`flex w-full items-center px-3 py-2 text-left text-sm ${suggestion === descriptionSuggestions[activeSuggestionIndex]
-                                  ? 'bg-muted/60'
-                                  : 'hover:bg-muted/40'
-                                  }`}
+                                className={`flex w-full items-center px-3 py-2 text-left text-sm ${
+                                  suggestion ===
+                                  descriptionSuggestions[activeSuggestionIndex]
+                                    ? 'bg-muted/60'
+                                    : 'hover:bg-muted/40'
+                                }`}
                                 onMouseDown={(event) => {
                                   event.preventDefault()
                                   setValue('description', suggestion, {
@@ -3396,7 +3393,9 @@ function Transactions() {
                       id="transaction-subcategory-new-name"
                       placeholder="Ex: Supermercado"
                       className="h-10"
-                      aria-invalid={!!subcategoryCreateForm.formState.errors.name}
+                      aria-invalid={
+                        !!subcategoryCreateForm.formState.errors.name
+                      }
                       {...nameRegister}
                       ref={(element) => {
                         nameRegister.ref(element)
@@ -3444,10 +3443,7 @@ function Transactions() {
 
       {isTransferOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={handleCloseTransferModal}
-          />
+          <div className="fixed inset-0" onClick={handleCloseTransferModal} />
           <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">
@@ -3466,8 +3462,7 @@ function Transactions() {
               className="mt-6 space-y-4"
               onSubmit={transferForm.handleSubmit(async (formData) => {
                 try {
-                  const parsedAmount =
-                    parseCurrencyInput(formData.amount) ?? 0
+                  const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
                   if (transferEditContext) {
                     await Promise.all([
                       updateTransactionMutation.mutateAsync({
@@ -3502,10 +3497,9 @@ function Transactions() {
                 } catch (error: unknown) {
                   transferForm.setError('root', {
                     message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        transferEditContext
-                          ? 'Erro ao atualizar transferência. Tente novamente.'
-                          : 'Erro ao criar transferência. Tente novamente.',
+                      defaultMessage: transferEditContext
+                        ? 'Erro ao atualizar transferência. Tente novamente.'
+                        : 'Erro ao criar transferência. Tente novamente.',
                     }),
                   })
                 }
@@ -3740,8 +3734,8 @@ function Transactions() {
                     onClick={() =>
                       handleCopyDetail(
                         selectedTransaction.description ||
-                        categoryMap.get(selectedTransaction.categoryId) ||
-                        'Sem descrição',
+                          categoryMap.get(selectedTransaction.categoryId) ||
+                          'Sem descrição',
                         'description',
                       )
                     }
@@ -3903,10 +3897,7 @@ function Transactions() {
 
       {isEditOpen && selectedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsEditOpen(false)}
-          />
+          <div className="fixed inset-0" onClick={() => setIsEditOpen(false)} />
           <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div>
               <h3 className="text-lg font-semibold">Editar transação</h3>
@@ -4077,16 +4068,14 @@ function Transactions() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Sem subcategoria</SelectItem>
-                          {editSubcategories.map(
-                            (subcategory) => (
-                              <SelectItem
-                                key={subcategory.id}
-                                value={subcategory.id}
-                              >
-                                {subcategory.name}
-                              </SelectItem>
-                            ),
-                          )}
+                          {editSubcategories.map((subcategory) => (
+                            <SelectItem
+                              key={subcategory.id}
+                              value={subcategory.id}
+                            >
+                              {subcategory.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}
@@ -4158,9 +4147,7 @@ function Transactions() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="transaction-edit-description">
-                  Descrição
-                </Label>
+                <Label htmlFor="transaction-edit-description">Descrição</Label>
                 <Input
                   id="transaction-edit-description"
                   placeholder="Ex: Supermercado"
@@ -4432,7 +4419,9 @@ function evaluateArithmeticExpression(value: string): number | null {
   return evaluateTokens(tokens)
 }
 
-function tokenizeExpression(value: string): Array<number | '+' | '-' | '*' | '/'> | null {
+function tokenizeExpression(
+  value: string,
+): Array<number | '+' | '-' | '*' | '/'> | null {
   const input = value.trim()
   if (!input) {
     return null
@@ -4505,8 +4494,7 @@ function evaluateTokens(
       if (op === '/' && next === 0) {
         return null
       }
-      values[values.length - 1] =
-        op === '*' ? current * next : current / next
+      values[values.length - 1] = op === '*' ? current * next : current / next
     } else {
       operations.push(op)
       values.push(next)

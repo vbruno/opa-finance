@@ -67,7 +67,9 @@ function Categories() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null,
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isCascadeDeleting, setIsCascadeDeleting] = useState(false)
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([])
@@ -77,8 +79,9 @@ function Categories() {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
   const [selectedSubcategory, setSelectedSubcategory] =
     useState<Subcategory | null>(null)
-  const [subcategoryParent, setSubcategoryParent] =
-    useState<Category | null>(null)
+  const [subcategoryParent, setSubcategoryParent] = useState<Category | null>(
+    null,
+  )
   const [subDeleteError, setSubDeleteError] = useState<string | null>(null)
   const [hasManualSearchExpandOverride, setHasManualSearchExpandOverride] =
     useState(false)
@@ -91,8 +94,9 @@ function Categories() {
   const lastCreatedCategoryRef = useRef<Category | null>(null)
   const [lastSubcategoryParentId, setLastSubcategoryParentId] =
     useUserPreference<string | null>('lastSubcategoryParent', null)
-  const [lastCategoryType, setLastCategoryType] =
-    useUserPreference<string | null>('lastCategoryType', null)
+  const [lastCategoryType, setLastCategoryType] = useUserPreference<
+    string | null
+  >('lastCategoryType', null)
 
   const categoriesQuery = useCategories()
 
@@ -191,8 +195,7 @@ function Categories() {
       )
       return Object.fromEntries(entries) as Record<string, Subcategory[]>
     },
-    enabled:
-      debouncedNormalizedSearch.length > 0 && userCategories.length > 0,
+    enabled: debouncedNormalizedSearch.length > 0 && userCategories.length > 0,
   })
   const filteredCategories = useMemo(() => {
     const typeRank: Record<string, number> = {
@@ -208,7 +211,9 @@ function Categories() {
         const matchesSubcategory =
           debouncedNormalizedSearch.length > 0 &&
           subcategories.some((subcategory) =>
-            normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
+            normalizeSearch(subcategory.name).includes(
+              debouncedNormalizedSearch,
+            ),
           )
         const matchesType = typeFilter ? category.type === typeFilter : true
         return (matchesName || matchesSubcategory) && matchesType
@@ -241,18 +246,13 @@ function Categories() {
     }
     return userCategories
       .filter((category) => {
-        const subcategories =
-          searchSubcategoriesQuery.data?.[category.id] ?? []
+        const subcategories = searchSubcategoriesQuery.data?.[category.id] ?? []
         return subcategories.some((subcategory) =>
           normalizeSearch(subcategory.name).includes(debouncedNormalizedSearch),
         )
       })
       .map((category) => category.id)
-  }, [
-    debouncedNormalizedSearch,
-    searchSubcategoriesQuery.data,
-    userCategories,
-  ])
+  }, [debouncedNormalizedSearch, searchSubcategoriesQuery.data, userCategories])
   const searchExpandIds = useMemo(() => {
     if (!normalizedSearch.length) {
       return []
@@ -273,8 +273,8 @@ function Categories() {
     isCascadeDeleting
   const errorMessage = categoriesQuery.isError
     ? getApiErrorMessage(categoriesQuery.error, {
-      defaultMessage: 'Erro ao carregar categorias.',
-    })
+        defaultMessage: 'Erro ao carregar categorias.',
+      })
     : null
 
   useEffect(() => {
@@ -517,7 +517,9 @@ function Categories() {
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
           <Button
-            variant={hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'}
+            variant={
+              hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'
+            }
             size="icon"
             className="h-10 w-10 sm:hidden"
             aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -619,8 +621,9 @@ function Categories() {
       </div>
 
       <div
-        className={`rounded-lg border bg-card p-4 ${isFiltersOpen ? 'block' : 'hidden'
-          } desktop-force-block`}
+        className={`rounded-lg border bg-card p-4 ${
+          isFiltersOpen ? 'block' : 'hidden'
+        } desktop-force-block`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <h3 className="text-base font-semibold">Filtros</h3>
@@ -678,7 +681,11 @@ function Categories() {
                     <option value="expense">Despesa</option>
                   </select>
                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-                    <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 16 16"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
                       <path
                         d="M4 6l4 4 4-4"
                         fill="none"
@@ -693,7 +700,7 @@ function Categories() {
               </div>
               <div className="flex h-10 items-center sm:w-auto sm:items-end sm:justify-end">
                 <Button
-                  variant='destructive'
+                  variant="destructive"
                   size="icon"
                   disabled={!hasActiveFilters}
                   aria-label="Limpar filtros"
@@ -755,10 +762,11 @@ function Categories() {
                   >
                     <svg
                       viewBox="0 0 16 16"
-                      className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
-                        ? 'rotate-90'
-                        : ''
-                        }`}
+                      className={`h-4 w-4 transition-transform duration-200 ${
+                        expandedCategoryIds.includes(category.id)
+                          ? 'rotate-90'
+                          : ''
+                      }`}
                       aria-hidden="true"
                     >
                       <path
@@ -881,8 +889,8 @@ function Categories() {
                       ))}
                   {!expandedQueriesById[category.id]?.isLoading &&
                     !expandedQueriesById[category.id]?.isError &&
-                    (expandedQueriesById[category.id]?.data ?? [])
-                      .length === 0 && (
+                    (expandedQueriesById[category.id]?.data ?? []).length ===
+                      0 && (
                       <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
                         Nenhuma subcategoria cadastrada.
                       </div>
@@ -934,7 +942,8 @@ function Categories() {
                       className="flex h-6 w-6 cursor-pointer items-center justify-center rounded border text-xs text-muted-foreground transition hover:bg-muted/40 dark:border-muted-foreground/40 dark:text-muted-foreground dark:ring-1 dark:ring-muted-foreground/30 dark:hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-50"
                       disabled={filteredCategories.length === 0}
                       aria-label={
-                        expandedCategoryIds.length === filteredCategories.length &&
+                        expandedCategoryIds.length ===
+                          filteredCategories.length &&
                         filteredCategories.length > 0
                           ? 'Recolher todas as categorias'
                           : 'Expandir todas as categorias'
@@ -958,8 +967,8 @@ function Categories() {
                           expandedCategoryIds.length ===
                             filteredCategories.length &&
                           filteredCategories.length > 0
-                                ? 'rotate-90'
-                                : ''
+                            ? 'rotate-90'
+                            : ''
                         }`}
                         aria-hidden="true"
                       >
@@ -1012,7 +1021,9 @@ function Categories() {
                                 ? 'Ocultar subcategorias'
                                 : 'Mostrar subcategorias'
                             }
-                            aria-expanded={expandedCategoryIds.includes(category.id)}
+                            aria-expanded={expandedCategoryIds.includes(
+                              category.id,
+                            )}
                             onClick={() => {
                               if (normalizedSearch.length > 0) {
                                 setHasManualSearchExpandOverride(true)
@@ -1026,10 +1037,11 @@ function Categories() {
                           >
                             <svg
                               viewBox="0 0 16 16"
-                              className={`h-4 w-4 transition-transform duration-200 ${expandedCategoryIds.includes(category.id)
-                                ? 'rotate-90'
-                                : ''
-                                }`}
+                              className={`h-4 w-4 transition-transform duration-200 ${
+                                expandedCategoryIds.includes(category.id)
+                                  ? 'rotate-90'
+                                  : ''
+                              }`}
                               aria-hidden="true"
                             >
                               <path
@@ -1093,14 +1105,20 @@ function Categories() {
                       <>
                         {expandedQueriesById[category.id]?.isLoading && (
                           <tr className="border-t">
-                            <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
+                            <td
+                              colSpan={3}
+                              className="px-4 py-3 text-sm text-muted-foreground"
+                            >
                               Carregando subcategorias...
                             </td>
                           </tr>
                         )}
                         {expandedQueriesById[category.id]?.isError && (
                           <tr className="border-t">
-                            <td colSpan={3} className="px-4 py-3 text-sm text-destructive">
+                            <td
+                              colSpan={3}
+                              className="px-4 py-3 text-sm text-destructive"
+                            >
                               Erro ao carregar subcategorias. Tente novamente.
                             </td>
                           </tr>
@@ -1110,9 +1128,14 @@ function Categories() {
                           [...(expandedQueriesById[category.id]?.data ?? [])]
                             .sort((a, b) => a.name.localeCompare(b.name))
                             .map((subcategory) => (
-                              <tr key={subcategory.id} className="border-t bg-muted/10">
+                              <tr
+                                key={subcategory.id}
+                                className="border-t bg-muted/10"
+                              >
                                 <td className="px-4 py-3 text-sm">
-                                  <span className="text-muted-foreground">—</span>{' '}
+                                  <span className="text-muted-foreground">
+                                    —
+                                  </span>{' '}
                                   {subcategory.name}
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
@@ -1136,7 +1159,9 @@ function Categories() {
                                       onClick={() => {
                                         setSubcategoryParent(category)
                                         setSelectedSubcategory(subcategory)
-                                        subEditForm.reset({ name: subcategory.name })
+                                        subEditForm.reset({
+                                          name: subcategory.name,
+                                        })
                                         setIsSubEditOpen(true)
                                       }}
                                     >
@@ -1165,7 +1190,10 @@ function Categories() {
                           (expandedQueriesById[category.id]?.data ?? [])
                             .length === 0 && (
                             <tr className="border-t">
-                              <td colSpan={3} className="px-4 py-3 text-sm text-muted-foreground">
+                              <td
+                                colSpan={3}
+                                className="px-4 py-3 text-sm text-muted-foreground"
+                              >
                                 Nenhuma subcategoria cadastrada.
                               </td>
                             </tr>
@@ -1209,7 +1237,6 @@ function Categories() {
           </table>
         </div>
       </div>
-
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1312,10 +1339,7 @@ function Categories() {
 
       {isEditOpen && selectedCategory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsEditOpen(false)}
-          />
+          <div className="fixed inset-0" onClick={() => setIsEditOpen(false)} />
           <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -1379,9 +1403,7 @@ function Categories() {
                   className="w-full sm:w-auto"
                   disabled={updateCategoryMutation.isPending}
                 >
-                  {updateCategoryMutation.isPending
-                    ? 'Salvando...'
-                    : 'Salvar'}
+                  {updateCategoryMutation.isPending ? 'Salvando...' : 'Salvar'}
                 </Button>
               </div>
             </form>
@@ -1418,18 +1440,20 @@ function Categories() {
             )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsDeleteConfirmOpen(false)}
-                >
-                  Cancelar
-                </Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
               {deleteError?.toLowerCase().includes('subcategorias') && (
                 <Button
                   variant="destructive"
                   className="w-full sm:w-auto"
-                  disabled={isCascadeDeleting || deleteCategoryMutation.isPending}
+                  disabled={
+                    isCascadeDeleting || deleteCategoryMutation.isPending
+                  }
                   onClick={async () => {
                     if (!selectedCategory) {
                       return
@@ -1728,12 +1752,10 @@ function Categories() {
                 onClick={async () => {
                   setSubDeleteError(null)
                   try {
-                    await deleteSubcategoryMutation.mutateAsync(
-                      {
-                        id: selectedSubcategory.id,
-                        categoryId: subcategoryParent.id,
-                      },
-                    )
+                    await deleteSubcategoryMutation.mutateAsync({
+                      id: selectedSubcategory.id,
+                      categoryId: subcategoryParent.id,
+                    })
                     setIsSubDeleteConfirmOpen(false)
                     setSelectedSubcategory(null)
                     setSubDeleteError(null)

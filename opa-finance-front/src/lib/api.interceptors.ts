@@ -57,7 +57,8 @@ api.interceptors.response.use(
     const originalRequest = error.config
     const originalUrl = String(originalRequest?.url || '')
     const isAuthEndpoint =
-      originalUrl.includes('/auth/login') || originalUrl.includes('/auth/refresh')
+      originalUrl.includes('/auth/login') ||
+      originalUrl.includes('/auth/refresh')
 
     if (!error.response) {
       if (!isBackendUnavailable) {

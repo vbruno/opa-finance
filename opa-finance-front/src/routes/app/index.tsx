@@ -82,12 +82,12 @@ function Dashboard() {
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(true)
   const [isTopExpensesOpen, setIsTopExpensesOpen] = useState(false)
   const [isTopIncomeOpen, setIsTopIncomeOpen] = useState(false)
-  const [expenseGroupBy, setExpenseGroupBy] = useState<'category' | 'subcategory'>(
-    'category',
-  )
-  const [incomeGroupBy, setIncomeGroupBy] = useState<'category' | 'subcategory'>(
-    'category',
-  )
+  const [expenseGroupBy, setExpenseGroupBy] = useState<
+    'category' | 'subcategory'
+  >('category')
+  const [incomeGroupBy, setIncomeGroupBy] = useState<
+    'category' | 'subcategory'
+  >('category')
   const [selectedTopCategory, setSelectedTopCategory] = useState<{
     id: string
     name: string
@@ -127,12 +127,9 @@ function Dashboard() {
       : isAccountParamValid
         ? accountParam
         : primaryAccount?.id
-  const effectiveAccountId = isAccountParamAll
-    ? ''
-    : resolvedAccountId || ''
+  const effectiveAccountId = isAccountParamAll ? '' : resolvedAccountId || ''
   const canQueryAccount =
-    accountsQuery.isSuccess &&
-    (isAccountParamAll || Boolean(resolvedAccountId))
+    accountsQuery.isSuccess && (isAccountParamAll || Boolean(resolvedAccountId))
 
   const summaryQuery = useTransactionsSummary(
     {
@@ -453,7 +450,7 @@ function Dashboard() {
               value={
                 isAccountParamAll
                   ? 'all'
-                  : resolvedAccountId ?? primaryAccount?.id ?? ''
+                  : (resolvedAccountId ?? primaryAccount?.id ?? '')
               }
               onChange={(event) => handleAccountChange(event.target.value)}
             >
@@ -725,9 +722,7 @@ function Dashboard() {
                     </div>
                   ))}
                 {topExpensesError && (
-                  <p className="text-sm text-destructive">
-                    {topExpensesError}
-                  </p>
+                  <p className="text-sm text-destructive">{topExpensesError}</p>
                 )}
                 {!showTopExpensesSkeleton &&
                   !topExpensesError &&
@@ -855,9 +850,7 @@ function Dashboard() {
                     </div>
                   ))}
                 {topIncomeError && (
-                  <p className="text-sm text-destructive">
-                    {topIncomeError}
-                  </p>
+                  <p className="text-sm text-destructive">{topIncomeError}</p>
                 )}
                 {!showTopIncomeSkeleton &&
                   !topIncomeError &&
@@ -1026,19 +1019,24 @@ function Dashboard() {
           <div className="relative w-full max-w-2xl rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-lg font-semibold">
-                  Últimos lançamentos
-                </h3>
+                <h3 className="text-lg font-semibold">Últimos lançamentos</h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedTopCategory.name}
                 </p>
               </div>
-              <Button asChild variant="outline" size="sm" className="self-start">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="self-start"
+              >
                 <Link
                   to="/app/transactions"
                   search={{
                     page: 1,
-                    accountId: isAccountParamAll ? undefined : resolvedAccountId,
+                    accountId: isAccountParamAll
+                      ? undefined
+                      : resolvedAccountId,
                     startDate,
                     endDate,
                     categoryId:
@@ -1071,7 +1069,7 @@ function Dashboard() {
               {!topCategoryTransactionsQuery.isLoading &&
                 !topCategoryTransactionsQuery.isError &&
                 (topCategoryTransactionsQuery.data?.data ?? []).length ===
-                0 && (
+                  0 && (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma transação encontrada no período.
                   </p>
@@ -1237,13 +1235,7 @@ function Dashboard() {
 }
 
 function getDateRange(
-  period:
-    | 'month'
-    | 'previousMonth'
-    | 'last7'
-    | 'last15'
-    | 'last30'
-    | 'custom',
+  period: 'month' | 'previousMonth' | 'last7' | 'last15' | 'last30' | 'custom',
   customStartDate: string,
   customEndDate: string,
 ) {

@@ -16,9 +16,12 @@ export const accountCreateSchema = z.object({
   type: z
     .string()
     .min(1, 'Selecione o tipo da conta.')
-    .refine((value) => accountTypes.includes(value as typeof accountTypes[number]), {
-      message: 'Selecione o tipo da conta.',
-    }),
+    .refine(
+      (value) => accountTypes.includes(value as (typeof accountTypes)[number]),
+      {
+        message: 'Selecione o tipo da conta.',
+      },
+    ),
   confirm: z.boolean().refine((value) => value, {
     message: 'Confirme os dados antes de criar a conta.',
   }),
@@ -34,9 +37,12 @@ export const accountUpdateSchema = z.object({
   type: z
     .string()
     .min(1, 'Selecione o tipo da conta.')
-    .refine((value) => accountTypes.includes(value as typeof accountTypes[number]), {
-      message: 'Selecione o tipo da conta.',
-    }),
+    .refine(
+      (value) => accountTypes.includes(value as (typeof accountTypes)[number]),
+      {
+        message: 'Selecione o tipo da conta.',
+      },
+    ),
   confirm: z.boolean().refine((value) => value, {
     message: 'Confirme os dados antes de salvar.',
   }),

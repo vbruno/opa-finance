@@ -19,12 +19,15 @@ export const transferCreateSchema = z
     amount: z
       .string()
       .min(1, 'Informe o valor.')
-      .refine((value) => {
-        const parsed = parseCurrencyInput(value)
-        return parsed !== null && !Number.isNaN(parsed) && parsed > 0
-      }, {
-        message: 'Informe um valor valido.',
-      }),
+      .refine(
+        (value) => {
+          const parsed = parseCurrencyInput(value)
+          return parsed !== null && !Number.isNaN(parsed) && parsed > 0
+        },
+        {
+          message: 'Informe um valor valido.',
+        },
+      ),
     date: z
       .string()
       .min(1, 'Informe a data.')

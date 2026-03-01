@@ -242,7 +242,10 @@ export function useUpdateTransaction() {
       id: string
       payload: TransactionUpdatePayload
     }) => {
-      const response = await api.put<Transaction>(`/transactions/${id}`, payload)
+      const response = await api.put<Transaction>(
+        `/transactions/${id}`,
+        payload,
+      )
       return response.data
     },
     onSuccess: (_data, variables) => {

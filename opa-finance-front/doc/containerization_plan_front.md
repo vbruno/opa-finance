@@ -48,7 +48,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: "/api"
+        VITE_API_URL: '/api'
     restart: unless-stopped
     networks:
       - proxy-net

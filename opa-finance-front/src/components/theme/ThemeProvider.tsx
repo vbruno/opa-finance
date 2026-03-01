@@ -37,10 +37,7 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useAppPreference<Theme>(
-    'theme',
-    getInitialTheme(),
-  )
+  const [theme, setTheme] = useAppPreference<Theme>('theme', getInitialTheme())
 
   useEffect(() => {
     applyTheme(theme)

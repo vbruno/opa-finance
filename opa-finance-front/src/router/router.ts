@@ -1,12 +1,12 @@
-import { createRouter } from "@tanstack/react-router"
+import { createRouter } from '@tanstack/react-router'
 
-import { routeTree } from "../routeTree.gen"
+import { routeTree } from '../routeTree.gen'
 
 export const router = createRouter({
   routeTree,
 })
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   // Required by TanStack Router module augmentation.
   // eslint-disable-next-line no-unused-vars
   interface Register {

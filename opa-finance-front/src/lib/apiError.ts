@@ -28,7 +28,8 @@ export function getApiErrorMessage(
 
   const apiError = error as ApiError
   const status = apiError.response?.status
-  const detail = apiError.response?.data?.detail || apiError.response?.data?.title
+  const detail =
+    apiError.response?.data?.detail || apiError.response?.data?.title
 
   if (status === 401) {
     return invalidCredentialsMessage

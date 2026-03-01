@@ -103,10 +103,12 @@ Padronizamos preferências usando hooks:
   - Ex.: tema do app.
 
 Regra geral:
+
 - Preferências pessoais → `useUserPreference`.
 - Preferências globais do app → `useAppPreference`.
 
 Exemplo aplicado:
+
 - Limite de paginação em Transações usa `useUserPreference('transactionsPageSize')`.
 
 ---

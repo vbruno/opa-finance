@@ -6,7 +6,12 @@ import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getUser, updateUser, useChangePassword, type User } from '@/features/auth'
+import {
+  getUser,
+  updateUser,
+  useChangePassword,
+  type User,
+} from '@/features/auth'
 import { useUpdateProfile } from '@/features/profile'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
@@ -126,21 +131,13 @@ function Profile() {
 
           <div className="space-y-2">
             <Label htmlFor="profile-email">Email</Label>
-            <Input
-              id="profile-email"
-              value={user?.email ?? ''}
-              disabled
-            />
+            <Input id="profile-email" value={user?.email ?? ''} disabled />
           </div>
         </div>
 
         <div className="mt-4 space-y-2">
           <Label htmlFor="profile-created">Cadastro</Label>
-          <Input
-            id="profile-created"
-            value={createdAtLabel}
-            disabled
-          />
+          <Input id="profile-created" value={createdAtLabel} disabled />
         </div>
 
         {profileForm.formState.errors.root?.message && (
