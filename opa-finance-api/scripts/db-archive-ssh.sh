@@ -1,14 +1,31 @@
 #!/bin/bash
 set -e
 
+ENV_FILE="$(cd "$(dirname "$0")/.." && pwd)/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ Erro: arquivo .env nao encontrado em $ENV_FILE"
+  exit 1
+fi
+
 echo "📂 Carregando variáveis do .env..."
-export $(grep -v '^#' .env | xargs)
+set -a
+. "$ENV_FILE"
+set +a
 
 # ---------- AJUSTE DA CHAVE SSH (~ EXPANDIDO) ----------
 SSH_KEY_PATH="${SSH_KEY/#\~/$HOME}"
 
 # ---------- VALIDAR VARIÁVEIS OBRIGATÓRIAS ----------
-REQUIRED_VARS=("SSH_HOST" "SSH_KEY" "SSH_CONTAINER_NAME" "SSH_POSTGRES_USER" "SSH_POSTGRES_DB" "SSH_POSTGRES_TEST_DB")
+REQUIRED_VARS=(
+  "SSH_HOST"
+  "SSH_KEY"
+  "SSH_CONTAINER_NAME"
+  "SSH_POSTGRES_USER"
+  "SSH_POSTGRES_DB"
+  "SSH_POSTGRES_DEV_DB"
+  "SSH_POSTGRES_TEST_DB"
+)
 
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!var}" ]; then
@@ -29,6 +46,13 @@ confirmar_letra() {
   local input="$1"
   local first_char="$(echo "$input" | cut -c1 | tr '[:upper:]' '[:lower:]')"
   [ "$first_char" = "s" ]
+}
+
+gerar_codigo_confirmacao() {
+  local letra numeros
+  letra="$(LC_ALL=C tr -dc 'A-Z' </dev/urandom | head -c 1)"
+  numeros="$(LC_ALL=C tr -dc '0-9' </dev/urandom | head -c 3)"
+  printf "%s%s" "$letra" "$numeros"
 }
 
 testar_conexao() {
@@ -54,11 +78,12 @@ selecionar_banco() {
   echo "Qual banco deseja usar?"
   echo ""
   echo "  1️⃣  Banco de PRODUÇÃO"
-  echo "  2️⃣  Banco de TESTE"
-  echo "  3️⃣  Cancelar"
+  echo "  2️⃣  Banco de DEV"
+  echo "  3️⃣  Banco de TESTE"
+  echo "  4️⃣  Cancelar"
   echo ""
 
-  read -p "Escolha uma opção (1/2/3): " OPCAO_BANCO
+  read -p "Escolha uma opção (1/2/3/4): " OPCAO_BANCO
 
   case "$OPCAO_BANCO" in
     1)
@@ -66,10 +91,14 @@ selecionar_banco() {
       TARGET_LABEL="produção"
       ;;
     2)
+      TARGET_DB="$SSH_POSTGRES_DEV_DB"
+      TARGET_LABEL="dev"
+      ;;
+    3)
       TARGET_DB="$SSH_POSTGRES_TEST_DB"
       TARGET_LABEL="teste"
       ;;
-    3)
+    4)
       echo "❌ Operação cancelada."
       exit 0
       ;;
@@ -176,6 +205,17 @@ restaurar_backup() {
       echo "❌ Nome incorreto. Operação cancelada."
       exit 1
     fi
+  fi
+
+  echo ""
+  CONFIRM_CODE="$(gerar_codigo_confirmacao)"
+  echo "⚠️ CONFIRMAÇÃO EXTRA — Digite o código abaixo para continuar:"
+  echo "    ➜ $CONFIRM_CODE"
+  read -p "> " CONFIRM3
+
+  if [ "$CONFIRM3" != "$CONFIRM_CODE" ]; then
+    echo "❌ Código incorreto. Operação cancelada."
+    exit 1
   fi
 
   testar_conexao

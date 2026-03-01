@@ -1,14 +1,31 @@
 #!/bin/bash
 set -e
 
+ENV_FILE="$(cd "$(dirname "$0")/.." && pwd)/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ Erro: arquivo .env nao encontrado em $ENV_FILE"
+  exit 1
+fi
+
 echo "📂 Carregando variáveis do .env..."
-export $(grep -v '^#' .env | xargs)
+set -a
+. "$ENV_FILE"
+set +a
 
 # ---------- AJUSTE DA CHAVE SSH (~ EXPANDIDO) ----------
 SSH_KEY_PATH="${SSH_KEY/#\~/$HOME}"
 
 # ---------- VALIDAR VARIÁVEIS OBRIGATÓRIAS ----------
-REQUIRED_VARS=("SSH_HOST" "SSH_KEY" "SSH_CONTAINER_NAME" "SSH_POSTGRES_USER" "SSH_POSTGRES_DB" "SSH_POSTGRES_TEST_DB")
+REQUIRED_VARS=(
+  "SSH_HOST"
+  "SSH_KEY"
+  "SSH_CONTAINER_NAME"
+  "SSH_POSTGRES_USER"
+  "SSH_POSTGRES_DB"
+  "SSH_POSTGRES_DEV_DB"
+  "SSH_POSTGRES_TEST_DB"
+)
 
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!var}" ]; then
@@ -81,11 +98,11 @@ echo "============================================"
 echo "     🧨 RESET DE BANCO VIA SSH (SEGURO)     "
 echo "============================================"
 echo ""
-echo "O que deseja resetar?"
+echo "Qual banco deseja usar?"
 echo ""
-echo "  1️⃣  Resetar SOMENTE banco de PRODUÇÃO"
-echo "  2️⃣  Resetar SOMENTE banco de TESTE"
-echo "  3️⃣  Resetar AMBOS (Produção + Teste)"
+echo "  1️⃣  Banco de PRODUÇÃO"
+echo "  2️⃣  Banco de DEV"
+echo "  3️⃣  Banco de TESTE"
 echo "  4️⃣  Cancelar"
 echo ""
 
@@ -93,8 +110,8 @@ read -p "Escolha uma opção (1/2/3/4): " OPCAO
 
 case "$OPCAO" in
   1) TARGET_LIST="$SSH_POSTGRES_DB" ;;
-  2) TARGET_LIST="$SSH_POSTGRES_TEST_DB" ;;
-  3) TARGET_LIST="$SSH_POSTGRES_DB $SSH_POSTGRES_TEST_DB" ;;
+  2) TARGET_LIST="$SSH_POSTGRES_DEV_DB" ;;
+  3) TARGET_LIST="$SSH_POSTGRES_TEST_DB" ;;
   4) echo "❌ Operação cancelada."; exit 0 ;;
   *) echo "❌ Opção inválida."; exit 1 ;;
 esac
