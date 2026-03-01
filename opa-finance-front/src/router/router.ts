@@ -7,6 +7,8 @@ export const router = createRouter({
 })
 
 declare module "@tanstack/react-router" {
+  // Required by TanStack Router module augmentation.
+  // eslint-disable-next-line no-unused-vars
   interface Register {
     router: typeof router
   }
