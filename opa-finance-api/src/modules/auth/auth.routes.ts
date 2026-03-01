@@ -293,10 +293,10 @@ export async function authRoutes(app: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              strength: { type: "number" },
+              strength: { type: "string" },
             },
             example: {
-              strength: 4,
+              strength: "muito forte",
             },
           },
         },

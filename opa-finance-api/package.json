@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:reset": "bash ./scripts/db-reset-ssh.sh",
     "db:archive": "bash ./scripts/db-archive-ssh.sh",
+    "db:sync:dev": "bash ./scripts/db-sync-prod-to-dev-ssh.sh",
     "db:integrity": "./scripts/db-integrity.sh",
     "db:studio": "drizzle-kit studio",
     "db:test:migrate": "bash ./scripts/db-test-migrate.sh",

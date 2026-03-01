@@ -6,6 +6,21 @@ import { TransferService } from "./transfer.service";
 export async function transferRoutes(app: FastifyInstance) {
   const service = new TransferService(app);
   const transferTag = ["Transfers"];
+  const transferTransactionProperties = {
+    id: { type: "string" },
+    userId: { type: "string" },
+    accountId: { type: "string" },
+    categoryId: { type: "string" },
+    subcategoryId: { type: "string", nullable: true },
+    type: { type: "string" },
+    amount: { type: "number" },
+    date: { type: "string" },
+    description: { type: "string", nullable: true },
+    notes: { type: "string", nullable: true },
+    transferId: { type: "string", nullable: true },
+    createdAt: { type: "string" },
+    updatedAt: { type: "string", nullable: true },
+  };
 
   app.post(
     "/transfers",
@@ -32,18 +47,26 @@ export async function transferRoutes(app: FastifyInstance) {
             type: "object",
             properties: {
               id: { type: "string" },
-              fromAccount: { type: "object" },
-              toAccount: { type: "object" },
+              fromAccount: {
+                type: "object",
+                properties: transferTransactionProperties,
+              },
+              toAccount: {
+                type: "object",
+                properties: transferTransactionProperties,
+              },
             },
             example: {
               id: "uuid",
               fromAccount: {
                 id: "uuid",
+                accountId: "uuid",
                 type: "expense",
                 amount: 200,
               },
               toAccount: {
                 id: "uuid",
+                accountId: "uuid",
                 type: "income",
                 amount: 200,
               },

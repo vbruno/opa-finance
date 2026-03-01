@@ -1,1 +1,1 @@
-ALTER TABLE "transactions" ADD COLUMN "notes" text;
+ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "notes" text;

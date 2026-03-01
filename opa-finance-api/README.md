@@ -260,6 +260,18 @@ npm run db:migrate
 npm run dev
 ```
 
+## 🔄 Espelhamento de producao para dev
+
+Para manter um banco de desenvolvimento remoto sem rodar Docker local, o projeto inclui um script de espelhamento seguro:
+
+```sh
+npm run db:sync:dev
+```
+
+Detalhes do fluxo de trabalho para devs, ambientes, backup, sanitizacao e validacao estao em:
+
+- [docs/guia_fluxo_trabalho_devs.md](docs/guia_fluxo_trabalho_devs.md)
+
 ### 📖 Swagger
 
 Em `development`/`test`, a documentação Swagger fica disponível em:
