@@ -38,7 +38,9 @@ ENV_FILE="$(cd "$(dirname "$0")/.." && pwd)/.env"
 [ ! -f "$ENV_FILE" ] && echo "❌ .env não encontrado em $ENV_FILE" && exit 1
 
 echo "📂 Carregando variáveis do .env..."
-export $(grep -v '^#' "$ENV_FILE" | xargs)
+set -a
+. "$ENV_FILE"
+set +a
 
 # ==============================
 # LOGS
