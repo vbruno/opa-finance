@@ -146,3 +146,7 @@ temp/
 
 # Notes files
 notes.md
+
+# Local database backups
+backups/*
+!backups/.gitkeep
