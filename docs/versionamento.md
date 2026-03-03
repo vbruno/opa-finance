@@ -135,3 +135,4 @@ Validacoes aplicadas:
 Observacao:
 
 - o push para `origin` continua manual, de proposito, para manter a publicacao sob controle
+- os arquivos `src/generated/app-version.ts` de frontend e backend sao artefatos gerados e nao precisam ser versionados no Git

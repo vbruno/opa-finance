@@ -214,7 +214,7 @@ enquanto as rotas (`src/routes/*`) focam na UI e orquestracao.
 ## 🚀 Deploy / Containerizacao
 
 - Build de producao: `npm run build` gera `dist/`.
-- Versionamento do frontend: `prebuild` executa `npm run version:generate` e gera `src/generated/app-version.ts`.
+- Versionamento do frontend: `prebuild` executa `npm run version:generate` e gera `src/generated/app-version.ts` como artefato local, sem necessidade de versionar esse arquivo no Git.
 - Servir `dist/` com Nginx (SPA) e fallback para `index.html`.
 - Proxy recomendado no Nginx:
   - `VITE_API_URL=/api`
