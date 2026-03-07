@@ -3137,7 +3137,7 @@ function Transactions() {
                       <Input
                         id="transaction-amount"
                         type="text"
-                        inputMode="numeric"
+                        inputMode="decimal"
                         placeholder="$ 0,00"
                         className="h-10"
                         ref={createAmountRef}
