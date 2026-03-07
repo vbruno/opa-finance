@@ -16,9 +16,7 @@ function isFastifyValidationError(error: Error & { code?: string; statusCode?: n
   return error.code === "FST_ERR_VALIDATION" || error.statusCode === 400;
 }
 
-function routeRequiresBearerAuth(req: {
-  routeOptions?: { schema?: { security?: unknown } };
-}) {
+function routeRequiresBearerAuth(req: { routeOptions?: { schema?: { security?: unknown } } }) {
   const security = req.routeOptions?.schema?.security;
   return Array.isArray(security) && security.length > 0;
 }

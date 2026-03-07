@@ -120,7 +120,6 @@ Esse fluxo:
 - calcula a versao de release atual
 - faz merge `--ff-only` de `dev` para `main`
 - regenera `app-version.ts` em modo de producao
-- cria um commit local de release se os arquivos gerados mudarem
 - cria a tag da release no estado final preparado para producao
 
 Validacoes aplicadas:
