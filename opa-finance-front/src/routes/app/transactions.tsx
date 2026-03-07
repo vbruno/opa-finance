@@ -18,7 +18,7 @@ import {
   type KeyboardEventHandler,
   type MouseEventHandler,
 } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, type ControllerRenderProps, useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -61,6 +61,7 @@ import {
   formatCurrencyInput,
   formatCurrencyValue,
   parseCurrencyInput,
+  sanitizeExpressionInput,
 } from '@/lib/utils'
 import {
   categoryCreateSchema,
@@ -473,6 +474,7 @@ function Transactions() {
     watch: watchEdit,
     setError: setEditError,
     setValue: setEditValue,
+    clearErrors: clearEditErrors,
     formState: { errors: editErrors, isSubmitting: isEditSubmitting },
   } = useForm<TransactionCreateFormData>({
     resolver: zodResolver(transactionCreateSchema),
@@ -731,6 +733,39 @@ function Transactions() {
   const handleCloseCreateModal = useCallback(() => {
     setIsCreateOpen(false)
   }, [])
+
+  const handleCreateAmountChange = useCallback(
+    (rawValue: string, onChange: SetStringValue) => {
+      if (rawValue.trimStart().startsWith('=')) {
+        onChange(sanitizeExpressionInput(rawValue))
+        return
+      }
+      onChange(formatCurrencyInput(rawValue))
+    },
+    [],
+  )
+
+  const handleCreateAmountBlur = useCallback(
+    (value: string, onChange: SetStringValue) => {
+      const trimmed = value.trim()
+      if (!trimmed.startsWith('=')) {
+        return
+      }
+
+      const parsed = parseCurrencyInput(trimmed)
+      if (parsed === null || Number.isNaN(parsed) || parsed <= 0) {
+        setError('amount', {
+          type: 'manual',
+          message: 'Informe uma expressão válida.',
+        })
+        return
+      }
+
+      onChange(`$ ${formatCurrencyValue(parsed)}`)
+      clearErrors('amount')
+    },
+    [clearErrors, setError],
+  )
 
   const submitCreateTransaction = handleSubmit(async (formData) => {
     try {
@@ -3142,11 +3177,23 @@ function Transactions() {
                         className="h-10"
                         ref={createAmountRef}
                         value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            formatCurrencyInput(event.target.value),
+                        onChange={(event) => {
+                          handleCreateAmountChange(
+                            event.target.value,
+                            field.onChange,
                           )
-                        }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === '=') {
+                            event.preventDefault()
+                            field.onChange('=')
+                            clearErrors('amount')
+                          }
+                        }}
+                        onBlur={() => {
+                          handleCreateAmountBlur(field.value, field.onChange)
+                          field.onBlur()
+                        }}
                         aria-invalid={!!errors.amount}
                         tabIndex={3}
                       />
@@ -3764,11 +3811,19 @@ function Transactions() {
                         className="h-10"
                         ref={transferAmountRef}
                         value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            formatCurrencyInput(event.target.value),
+                        onChange={(event) => {
+                          handleCreateAmountChange(
+                            event.target.value,
+                            field.onChange,
                           )
-                        }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === '=') {
+                            event.preventDefault()
+                            field.onChange('=')
+                            transferForm.clearErrors('amount')
+                          }
+                        }}
                         aria-invalid={!!transferForm.formState.errors.amount}
                       />
                     )}
@@ -4263,11 +4318,19 @@ function Transactions() {
                         className="h-10"
                         ref={editAmountRef}
                         value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            formatCurrencyInput(event.target.value),
+                        onChange={(event) => {
+                          handleCreateAmountChange(
+                            event.target.value,
+                            field.onChange,
                           )
-                        }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === '=') {
+                            event.preventDefault()
+                            field.onChange('=')
+                            clearEditErrors('amount')
+                          }
+                        }}
                         aria-invalid={!!editErrors.amount}
                         tabIndex={3}
                       />
@@ -4502,6 +4565,9 @@ type AmountFilterResult = {
   amountMax?: number
   amountOp?: 'gt' | 'gte' | 'lt' | 'lte'
 }
+
+type SetStringValue =
+  ControllerRenderProps<TransactionCreateFormData, 'amount'>['onChange']
 
 function parseAmountFilter(value: string): AmountFilterResult | null {
   const trimmed = value.trim()
