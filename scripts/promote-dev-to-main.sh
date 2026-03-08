@@ -6,6 +6,11 @@ DEV_BRANCH="${1:-dev}"
 
 cd "$ROOT_DIR"
 
+if [ "$DEV_BRANCH" = "main" ]; then
+  echo "Erro: DEV_BRANCH nao pode ser 'main' neste fluxo."
+  exit 1
+fi
+
 tem_remote_origin() {
   git remote get-url origin >/dev/null 2>&1
 }
@@ -161,8 +166,11 @@ echo "  - tag local inexistente antes da criacao"
 echo "  - arquivos de versao regenerados localmente antes da tag"
 
 if ! tem_remote_origin; then
+  git branch -d "$DEV_BRANCH"
+
   echo
   echo "Remote 'origin' nao configurado. Push nao pode ser executado automaticamente."
+  echo "Branch local '${DEV_BRANCH}' removida."
   exit 0
 fi
 
@@ -171,18 +179,32 @@ printf "Deseja publicar agora no remoto 'origin' (main + tag %s)? [Y/n] " "$TAG_
 read -r PUSH_CONFIRM
 
 if [[ "$PUSH_CONFIRM" =~ ^[Nn]$ ]]; then
+  git branch -d "$DEV_BRANCH"
+
   echo
   echo "Push pulado por escolha do usuario."
+  echo "Branch local '${DEV_BRANCH}' removida."
   echo "Para publicar manualmente:"
   echo "  git push origin main"
   echo "  git push origin ${TAG_NAME}"
+  echo "  git push origin --delete ${DEV_BRANCH}"
   exit 0
 fi
 
 git push origin main
 git push origin "$TAG_NAME"
 
+if git show-ref --verify --quiet "refs/remotes/origin/$DEV_BRANCH"; then
+  git push origin --delete "$DEV_BRANCH"
+fi
+
+git branch -d "$DEV_BRANCH"
+
 echo
 echo "Push concluido com sucesso:"
 echo "  - main em origin/main"
 echo "  - tag ${TAG_NAME} em origin"
+echo "  - branch local '${DEV_BRANCH}' removida"
+if git remote get-url origin >/dev/null 2>&1; then
+  echo "  - branch remota '${DEV_BRANCH}' removida (se existia em origin)"
+fi
