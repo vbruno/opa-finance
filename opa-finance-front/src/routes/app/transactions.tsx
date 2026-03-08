@@ -254,6 +254,11 @@ function Transactions() {
     useState(false)
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
+  const [isCreateCategoryTreeOpen, setIsCreateCategoryTreeOpen] = useState(false)
+  const [createCategoryTreeSearch, setCreateCategoryTreeSearch] = useState('')
+  const CREATE_CATEGORY_TREE_NONE = '__none__'
+  const CREATE_CATEGORY_TREE_CREATE_CATEGORY = '__create_category__'
+  const CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY = '__create_subcategory__'
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
@@ -262,7 +267,8 @@ function Transactions() {
   const descriptionInputRef = useRef<HTMLInputElement | null>(null)
   const dateInputRef = useRef<HTMLInputElement | null>(null)
   const createCategorySelectRef = useRef<HTMLButtonElement | null>(null)
-  const createSubcategorySelectRef = useRef<HTMLButtonElement | null>(null)
+  const createCategoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
+  const createCategoryTreeContentRef = useRef<HTMLDivElement | null>(null)
   const subcategoryNameRef = useRef<HTMLInputElement | null>(null)
   const categoryNameRef = useRef<HTMLInputElement | null>(null)
   const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
@@ -491,6 +497,7 @@ function Transactions() {
   })
 
   const createCategoryId = watch('categoryId')
+  const createSubcategoryId = watch('subcategoryId')
   const createType = watch('type')
   const createAccountId = watch('accountId')
   const createDescription = watch('description') ?? ''
@@ -510,6 +517,10 @@ function Transactions() {
       return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
     })
   }, [categories])
+  const createCategoryIdsKey = useMemo(
+    () => availableCategories.map((category) => category.id).join('|'),
+    [availableCategories],
+  )
   const accounts = accountsQuery.data ?? []
   const primaryAccountId =
     accounts.find((account) => account.isPrimary)?.id ?? accounts[0]?.id ?? ''
@@ -522,26 +533,84 @@ function Transactions() {
     (category) => category.id === editCategoryId,
   )
 
-  const createSubcategoriesQuery = useQuery({
-    queryKey: ['subcategories', 'transaction-create', createCategoryId],
-    queryFn: () => fetchSubcategories(createCategoryId ?? ''),
-    enabled: Boolean(createCategoryId),
+  const createAllSubcategoriesQuery = useQuery({
+    queryKey: ['subcategories', 'transaction-create-all', createCategoryIdsKey],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        availableCategories.map(async (category) => {
+          const subcategories = await fetchSubcategories(category.id)
+          return [category.id, subcategories] as const
+        }),
+      )
+      return Object.fromEntries(entries) as Record<string, Subcategory[]>
+    },
+    enabled: Boolean(isCreateOpen && availableCategories.length),
   })
 
-  const createSubcategories = useMemo(() => {
-    const items = createSubcategoriesQuery.data ?? []
-    const next = [...items]
-    if (
-      lastCreatedSubcategory &&
-      lastCreatedSubcategory.categoryId === createCategoryId &&
-      !next.some((item) => item.id === lastCreatedSubcategory.id)
-    ) {
-      next.push(lastCreatedSubcategory)
+  const createSubcategoriesByCategory = useMemo(() => {
+    const source = createAllSubcategoriesQuery.data ?? {}
+    const next: Record<string, Subcategory[]> = {}
+    Object.entries(source).forEach(([categoryId, items]) => {
+      next[categoryId] = [...items].sort((a, b) =>
+        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
+      )
+    })
+
+    if (lastCreatedSubcategory) {
+      const list = next[lastCreatedSubcategory.categoryId] ?? []
+      if (!list.some((item) => item.id === lastCreatedSubcategory.id)) {
+        next[lastCreatedSubcategory.categoryId] = [...list, lastCreatedSubcategory]
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
+          )
+      }
     }
-    return next.sort((a, b) =>
-      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
-    )
-  }, [createCategoryId, createSubcategoriesQuery.data, lastCreatedSubcategory])
+
+    return next
+  }, [createAllSubcategoriesQuery.data, lastCreatedSubcategory])
+
+  const createSubcategories = useMemo(
+    () => createSubcategoriesByCategory[createCategoryId] ?? [],
+    [createCategoryId, createSubcategoriesByCategory],
+  )
+
+  const createCategoryTreeOptions = useMemo(() => {
+    const query = normalizeText(createCategoryTreeSearch.trim())
+    const options: Array<
+      | { value: string; label: string; level: 'category' }
+      | { value: string; label: string; level: 'subcategory' }
+    > = []
+
+    availableCategories.forEach((category) => {
+      const subcategories = createSubcategoriesByCategory[category.id] ?? []
+      const categoryMatches = normalizeText(category.name).includes(query)
+      const matchedSubcategories = query
+        ? subcategories.filter((subcategory) =>
+            normalizeText(subcategory.name).includes(query),
+          )
+        : subcategories
+
+      if (query && !categoryMatches && matchedSubcategories.length === 0) {
+        return
+      }
+
+      options.push({
+        value: `category:${category.id}`,
+        label: category.name,
+        level: 'category',
+      })
+
+      matchedSubcategories.forEach((subcategory) => {
+        options.push({
+          value: `subcategory:${category.id}:${subcategory.id}`,
+          label: `${subcategory.name} · ${category.name}`,
+          level: 'subcategory',
+        })
+      })
+    })
+
+    return options
+  }, [availableCategories, createCategoryTreeSearch, createSubcategoriesByCategory])
 
   const editSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-edit', editCategoryId],
@@ -713,6 +782,7 @@ function Transactions() {
     lastCreateCategoryId.current = null
     pendingCategorySelection.current = null
     pendingSubcategorySelection.current = null
+    setCreateCategoryTreeSearch('')
     reset({
       accountId: primaryAccountId || '',
       categoryId: '',
@@ -732,6 +802,8 @@ function Transactions() {
 
   const handleCloseCreateModal = useCallback(() => {
     setIsCreateOpen(false)
+    setIsCreateCategoryTreeOpen(false)
+    setCreateCategoryTreeSearch('')
   }, [])
 
   const handleCreateAmountChange = useCallback(
@@ -1016,6 +1088,209 @@ function Transactions() {
     transferFromAccountId,
   ])
 
+  const focusCreateCategoryOption = useCallback((direction: 'up' | 'down') => {
+    const content = createCategoryTreeContentRef.current
+    if (!content) {
+      return
+    }
+
+    const options = Array.from(
+      content.querySelectorAll<HTMLElement>('[role="option"]'),
+    ).filter(
+      (option) =>
+        option.offsetParent !== null &&
+        option.getAttribute('aria-disabled') !== 'true' &&
+        !option.hasAttribute('data-disabled'),
+    )
+
+    if (options.length === 0) {
+      return
+    }
+
+    const selectedIndex = options.findIndex(
+      (option) =>
+        option.getAttribute('aria-selected') === 'true' ||
+        option.getAttribute('data-state') === 'checked',
+    )
+
+    const nextIndex =
+      selectedIndex === -1
+        ? direction === 'down'
+          ? 0
+          : options.length - 1
+        : direction === 'down'
+          ? Math.min(selectedIndex + 1, options.length - 1)
+          : Math.max(selectedIndex - 1, 0)
+
+    options[nextIndex]?.focus({ preventScroll: true })
+  }, [])
+
+  const getCreateCategoryTreeValue = useCallback(() => {
+    if (!createCategoryId) {
+      return CREATE_CATEGORY_TREE_NONE
+    }
+    if (createSubcategoryId) {
+      return `subcategory:${createCategoryId}:${createSubcategoryId}`
+    }
+    return `category:${createCategoryId}`
+  }, [
+    CREATE_CATEGORY_TREE_NONE,
+    createCategoryId,
+    createSubcategoryId,
+  ])
+
+  const handleCreateCategoryTreeOpenChange = useCallback((open: boolean) => {
+    setIsCreateCategoryTreeOpen(open)
+    if (!open) {
+      setCreateCategoryTreeSearch('')
+      return
+    }
+    window.requestAnimationFrame(() => {
+      createCategoryTreeSearchInputRef.current?.focus()
+    })
+  }, [])
+
+  const handleCreateCategoryTreeSelectValueChange = useCallback(
+    (
+      value: string,
+      onCategoryChange: ControllerRenderProps<
+        TransactionCreateFormData,
+        'categoryId'
+      >['onChange'],
+    ) => {
+      if (value === CREATE_CATEGORY_TREE_CREATE_CATEGORY) {
+        setCreateCategoryTreeSearch('')
+        setIsCreateCategoryOpen(true)
+        return
+      }
+      if (value === CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY) {
+        setCreateCategoryTreeSearch('')
+        setIsCreateSubcategoryOpen(true)
+        return
+      }
+      if (value === CREATE_CATEGORY_TREE_NONE) {
+        setCreateCategoryTreeSearch('')
+        onCategoryChange('')
+        setValue('subcategoryId', '', {
+          shouldDirty: true,
+          shouldTouch: true,
+        })
+        return
+      }
+
+      setCreateCategoryTreeSearch('')
+      if (value.startsWith('subcategory:')) {
+        const [, categoryId, subcategoryId] = value.split(':')
+        lastCreateCategoryId.current = categoryId ?? null
+        onCategoryChange(categoryId ?? '')
+        setValue('subcategoryId', subcategoryId ?? '', {
+          shouldDirty: true,
+          shouldTouch: true,
+        })
+        return
+      }
+
+      const [, categoryId] = value.split(':')
+      onCategoryChange(categoryId ?? '')
+      setValue('subcategoryId', '', {
+        shouldDirty: true,
+        shouldTouch: true,
+      })
+    },
+    [
+      CREATE_CATEGORY_TREE_CREATE_CATEGORY,
+      CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY,
+      CREATE_CATEGORY_TREE_NONE,
+      setValue,
+    ],
+  )
+
+  const handleCreateCategoryTreeSearchKeyDownCapture: KeyboardEventHandler<HTMLInputElement> =
+    useCallback(
+      (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault()
+          event.stopPropagation()
+          focusCreateCategoryOption('down')
+          return
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault()
+          event.stopPropagation()
+          focusCreateCategoryOption('up')
+          return
+        }
+        event.stopPropagation()
+      },
+      [focusCreateCategoryOption],
+    )
+
+  const findVisibleSiblingOption = useCallback(
+    (
+      element: HTMLElement,
+      direction: 'prev' | 'next',
+    ): HTMLElement | null => {
+      let sibling: Element | null =
+        direction === 'prev'
+          ? element.previousElementSibling
+          : element.nextElementSibling
+
+      while (sibling) {
+        if (
+          sibling instanceof HTMLElement &&
+          sibling.getAttribute('role') === 'option' &&
+          sibling.offsetParent !== null &&
+          sibling.getAttribute('aria-disabled') !== 'true' &&
+          !sibling.hasAttribute('data-disabled')
+        ) {
+          return sibling
+        }
+        sibling =
+          direction === 'prev'
+            ? sibling.previousElementSibling
+            : sibling.nextElementSibling
+      }
+
+      return null
+    },
+    [],
+  )
+
+  const handleCreateCategoryTreeItemKeyDown = useCallback(
+    (event: Parameters<KeyboardEventHandler<HTMLDivElement>>[0]) => {
+      if (event.key === 'Backspace') {
+        event.preventDefault()
+        event.stopPropagation()
+        window.requestAnimationFrame(() => {
+          createCategoryTreeSearchInputRef.current?.focus()
+        })
+        return
+      }
+      const current = event.currentTarget as HTMLElement
+      if (event.key === 'ArrowDown') {
+        const nextOption = findVisibleSiblingOption(current, 'next')
+        if (nextOption) {
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+        createCategoryTreeSearchInputRef.current?.focus()
+        return
+      }
+      if (event.key !== 'ArrowUp') {
+        return
+      }
+      const previousOption = findVisibleSiblingOption(current, 'prev')
+      if (previousOption) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      createCategoryTreeSearchInputRef.current?.focus()
+    },
+    [findVisibleSiblingOption],
+  )
+
   useEffect(() => {
     if (isEditOpen) {
       const editDescriptionInput = document.getElementById(
@@ -1196,6 +1471,14 @@ function Transactions() {
       }
 
       if (isCreateOpen) {
+        if (isDescriptionSuggestionsOpen) {
+          setIsDescriptionSuggestionsOpen(false)
+          return
+        }
+        if (isCreateCategoryTreeOpen) {
+          setIsCreateCategoryTreeOpen(false)
+          return
+        }
         handleCloseCreateModal()
         return
       }
@@ -1210,6 +1493,8 @@ function Transactions() {
   }, [
     handleCloseCreateModal,
     isCreateOpen,
+    isCreateCategoryTreeOpen,
+    isDescriptionSuggestionsOpen,
     isCreateCategoryOpen,
     isCreateSubcategoryOpen,
     isTransferOpen,
@@ -2926,7 +3211,7 @@ function Transactions() {
               className="mt-6 space-y-4 pb-10 sm:pb-0"
               onSubmit={submitCreateTransaction}
             >
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="transaction-account">Conta</Label>
                   <Controller
@@ -2999,63 +3284,96 @@ function Transactions() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="transaction-category">Categoria</Label>
+                  <Label htmlFor="transaction-category">Categoria/Subcategoria</Label>
                   <Controller
                     control={control}
                     name="categoryId"
                     render={({ field }) => (
                       <Select
-                        value={field.value ? field.value : '__none__'}
-                        onValueChange={(value) => {
-                          if (value === '__create__') {
-                            setIsCreateCategoryOpen(true)
-                            return
-                          }
-                          field.onChange(value === '__none__' ? '' : value)
-                        }}
+                        open={isCreateCategoryTreeOpen}
+                        value={getCreateCategoryTreeValue()}
+                        onValueChange={(value) =>
+                          handleCreateCategoryTreeSelectValueChange(
+                            value,
+                            field.onChange,
+                          )
+                        }
+                        onOpenChange={handleCreateCategoryTreeOpenChange}
                       >
                         <SelectTrigger
                           id="transaction-category"
-                          className="h-10"
+                          className="h-10 [&>span]:truncate"
                           aria-invalid={!!errors.categoryId}
                           tabIndex={4}
                           ref={createCategorySelectRef}
                         >
-                          <SelectValue placeholder="Selecione" />
+                          <SelectValue placeholder="Selecione categoria/subcategoria" />
                         </SelectTrigger>
                         <SelectContent
-                          onKeyDown={(event) => {
-                            if (
-                              event.key.length !== 1 ||
-                              event.altKey ||
-                              event.ctrlKey ||
-                              event.metaKey
-                            ) {
-                              return
-                            }
-                            const key = event.key.toLowerCase()
-                            const match = availableCategories.find((category) =>
-                              category.name.toLowerCase().startsWith(key),
-                            )
-                            if (match) {
-                              event.preventDefault()
-                              field.onChange(match.id)
-                            }
+                          ref={createCategoryTreeContentRef}
+                          onEscapeKeyDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setIsCreateCategoryTreeOpen(false)
                           }}
                         >
-                          <SelectItem value="__none__" className="hidden">
+                          <div className="px-2 pb-2">
+                            <Input
+                              placeholder="Buscar categoria ou subcategoria..."
+                              className="h-9"
+                              value={createCategoryTreeSearch}
+                              onChange={(event) =>
+                                setCreateCategoryTreeSearch(event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                event.stopPropagation()
+                                event.nativeEvent.stopImmediatePropagation?.()
+                              }}
+                              onKeyDownCapture={
+                                handleCreateCategoryTreeSearchKeyDownCapture
+                              }
+                              ref={createCategoryTreeSearchInputRef}
+                            />
+                          </div>
+                          <SelectItem
+                            value={CREATE_CATEGORY_TREE_NONE}
+                            className="hidden"
+                          >
                             Selecione
                           </SelectItem>
-                          {availableCategories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__create__">
+                          <SelectItem
+                            value={CREATE_CATEGORY_TREE_CREATE_CATEGORY}
+                            onKeyDown={handleCreateCategoryTreeItemKeyDown}
+                          >
                             + Nova categoria
                           </SelectItem>
+                          <SelectItem
+                            value={CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY}
+                            onKeyDown={handleCreateCategoryTreeItemKeyDown}
+                          >
+                            + Nova subcategoria
+                          </SelectItem>
+                          {createCategoryTreeOptions.map((option) => (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              onKeyDown={handleCreateCategoryTreeItemKeyDown}
+                              className={
+                                option.level === 'subcategory'
+                                  ? 'pl-10 text-muted-foreground'
+                                  : 'font-medium'
+                              }
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                          {createCategoryTreeOptions.length === 0 && (
+                            <div className="px-2 py-2 text-sm text-muted-foreground">
+                              Nenhuma categoria/subcategoria encontrada.
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     )}
@@ -3066,78 +3384,9 @@ function Transactions() {
                     </p>
                   )}
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-subcategory">Subcategoria</Label>
-                  <Controller
-                    control={control}
-                    name="subcategoryId"
-                    render={({ field }) => (
-                      <Select
-                        value={field.value ? field.value : 'none'}
-                        onValueChange={(value) =>
-                          value === '__create__'
-                            ? setIsCreateSubcategoryOpen(true)
-                            : field.onChange(value === 'none' ? '' : value)
-                        }
-                        disabled={!createCategoryId}
-                      >
-                        <SelectTrigger
-                          id="transaction-subcategory"
-                          className="h-10"
-                          aria-invalid={!!errors.subcategoryId}
-                          tabIndex={5}
-                          ref={createSubcategorySelectRef}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent
-                          onKeyDown={(event) => {
-                            if (
-                              event.key.length !== 1 ||
-                              event.altKey ||
-                              event.ctrlKey ||
-                              event.metaKey
-                            ) {
-                              return
-                            }
-                            const key = event.key.toLowerCase()
-                            const match = (
-                              createSubcategoriesQuery.data ?? []
-                            ).find((subcategory) =>
-                              subcategory.name.toLowerCase().startsWith(key),
-                            )
-                            if (match) {
-                              event.preventDefault()
-                              field.onChange(match.id)
-                            }
-                          }}
-                        >
-                          <SelectItem value="none">Sem subcategoria</SelectItem>
-                          {createSubcategories.map((subcategory) => (
-                            <SelectItem
-                              key={subcategory.id}
-                              value={subcategory.id}
-                            >
-                              {subcategory.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__create__">
-                            + Nova subcategoria
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.subcategoryId && (
-                    <p className="text-sm text-destructive">
-                      {errors.subcategoryId.message}
-                    </p>
-                  )}
-                </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="transaction-type">Tipo</Label>
                   <input type="hidden" {...register('type')} />
@@ -3277,6 +3526,8 @@ function Transactions() {
                             setIsDescriptionSuggestionsOpen(false)
                           }
                           if (event.key === 'Escape') {
+                            event.preventDefault()
+                            event.stopPropagation()
                             setIsDescriptionSuggestionsOpen(false)
                           }
                         }}
@@ -3560,7 +3811,7 @@ function Transactions() {
                       shouldTouch: true,
                     })
                   }
-                  createSubcategorySelectRef.current?.focus()
+                  createCategorySelectRef.current?.focus()
                 } catch (error: unknown) {
                   subcategoryCreateForm.setError('root', {
                     message: getApiErrorMessage(error, {
