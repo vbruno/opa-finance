@@ -259,6 +259,8 @@ function Transactions() {
   const [isEditAccountSelectOpen, setIsEditAccountSelectOpen] = useState(false)
   const [isTransferFromAccountSelectOpen, setIsTransferFromAccountSelectOpen] =
     useState(false)
+  const [isTransferToAccountSelectOpen, setIsTransferToAccountSelectOpen] =
+    useState(false)
   const [createCategoryTreeSearch, setCreateCategoryTreeSearch] = useState('')
   const [isEditCategoryTreeOpen, setIsEditCategoryTreeOpen] = useState(false)
   const [editCategoryTreeSearch, setEditCategoryTreeSearch] = useState('')
@@ -1722,6 +1724,10 @@ function Transactions() {
       }
 
       if (isTransferOpen) {
+        if (isTransferToAccountSelectOpen) {
+          setIsTransferToAccountSelectOpen(false)
+          return
+        }
         if (isTransferFromAccountSelectOpen) {
           setIsTransferFromAccountSelectOpen(false)
           return
@@ -1777,6 +1783,7 @@ function Transactions() {
     isCreateSubcategoryOpen,
     isTransferOpen,
     isTransferFromAccountSelectOpen,
+    isTransferToAccountSelectOpen,
     isEditOpen,
     isEditAccountSelectOpen,
     isEditCategoryTreeOpen,
@@ -2060,6 +2067,8 @@ function Transactions() {
   }
 
   const handleCloseTransferModal = () => {
+    setIsTransferFromAccountSelectOpen(false)
+    setIsTransferToAccountSelectOpen(false)
     setIsTransferOpen(false)
     setTransferEditContext(null)
     setTransferEditError(null)
@@ -4310,10 +4319,12 @@ function Transactions() {
                     name="toAccountId"
                     render={({ field }) => (
                       <Select
+                        open={isTransferToAccountSelectOpen}
                         value={field.value ? field.value : '__none__'}
                         onValueChange={(value) =>
                           field.onChange(value === '__none__' ? '' : value)
                         }
+                        onOpenChange={setIsTransferToAccountSelectOpen}
                       >
                         <SelectTrigger
                           id="transfer-to-account"
@@ -4328,6 +4339,7 @@ function Transactions() {
                           onEscapeKeyDown={(event) => {
                             event.preventDefault()
                             event.stopPropagation()
+                            setIsTransferToAccountSelectOpen(false)
                           }}
                         >
                           <SelectItem value="__none__" className="hidden">

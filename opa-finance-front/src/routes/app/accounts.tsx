@@ -498,6 +498,7 @@ function Accounts() {
     ) {
       return
     }
+    const detailAccount = selectedAccount
 
     function handleDetailShortcut(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) {
@@ -529,13 +530,11 @@ function Accounts() {
         return
       }
 
-      const visibilityShortcutKey = selectedAccount.isHiddenOnDashboard
-        ? 'm'
-        : 'o'
+      const visibilityShortcutKey = detailAccount.isHiddenOnDashboard ? 'm' : 'o'
 
       if (
         key === visibilityShortcutKey &&
-        !selectedAccount.isPrimary &&
+        !detailAccount.isPrimary &&
         !isTogglingDashboardVisibility
       ) {
         event.preventDefault()
