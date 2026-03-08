@@ -66,13 +66,13 @@ if ! git merge-base --is-ancestor main "$DEV_BRANCH"; then
   exit 1
 fi
 
-RELEASE_VERSION="$(node - "$ROOT_DIR" <<'EOF'
+RELEASE_VERSION="$(node - "$ROOT_DIR" "$DEV_BRANCH" <<'EOF'
 const { execSync } = require('node:child_process')
 const { readFileSync } = require('node:fs')
 const { resolve } = require('node:path')
 
 const rootDir = process.argv[2]
-const devBranch = process.env.DEV_BRANCH_NAME
+const devBranch = process.argv[3]
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf-8'))
@@ -113,7 +113,7 @@ if (
 
 process.stdout.write(getReleaseVersion(apiPkg))
 EOF
-)" DEV_BRANCH_NAME="$DEV_BRANCH"
+)"
 
 TAG_NAME="v${RELEASE_VERSION}"
 
