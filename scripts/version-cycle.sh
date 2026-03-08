@@ -98,7 +98,7 @@ executar_inicio_ciclo_dev() {
 executar_promocao_main() {
   echo ""
   echo "⚠️  Esta operacao vai promover '$DEV_BRANCH' para 'main',"
-  echo "    criar a tag da release e regenerar as versoes em modo producao."
+  echo "    criar a tag da release, regenerar versoes e oferecer push para o remoto."
   echo ""
 
   read -r -p "Digite SIM para continuar (qualquer valor começando com S): " CONFIRM
@@ -118,7 +118,7 @@ echo ""
 echo "O que deseja fazer?"
 echo ""
 echo "  1️⃣  Iniciar novo ciclo em '$DEV_BRANCH' (sobe MINOR e zera PATCH)"
-echo "  2️⃣  Promover '$DEV_BRANCH' para 'main' (merge/tag local, push manual)"
+echo "  2️⃣  Promover '$DEV_BRANCH' para 'main' (merge/tag local + push opcional)"
 echo "  3️⃣  Mostrar versão calculada atual"
 echo "  4️⃣  Cancelar"
 echo ""

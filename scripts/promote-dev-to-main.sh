@@ -159,7 +159,30 @@ echo "  - merge fast-forward valido"
 echo "  - bases de versao e ciclo alinhados entre frontend e backend"
 echo "  - tag local inexistente antes da criacao"
 echo "  - arquivos de versao regenerados localmente antes da tag"
+
+if ! tem_remote_origin; then
+  echo
+  echo "Remote 'origin' nao configurado. Push nao pode ser executado automaticamente."
+  exit 0
+fi
+
 echo
-echo "Proximo passo sugerido:"
-echo "  git push origin main"
-echo "  git push origin ${TAG_NAME}"
+printf "Deseja publicar agora no remoto 'origin' (main + tag %s)? [Y/n] " "$TAG_NAME"
+read -r PUSH_CONFIRM
+
+if [[ "$PUSH_CONFIRM" =~ ^[Nn]$ ]]; then
+  echo
+  echo "Push pulado por escolha do usuario."
+  echo "Para publicar manualmente:"
+  echo "  git push origin main"
+  echo "  git push origin ${TAG_NAME}"
+  exit 0
+fi
+
+git push origin main
+git push origin "$TAG_NAME"
+
+echo
+echo "Push concluido com sucesso:"
+echo "  - main em origin/main"
+echo "  - tag ${TAG_NAME} em origin"
