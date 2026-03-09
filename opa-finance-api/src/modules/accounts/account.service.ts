@@ -92,6 +92,24 @@ export class AccountService {
           })
           .returning();
 
+        const { initialBalance, ...rest } = created;
+        void initialBalance;
+        const createdWithBalance = {
+          ...rest,
+          currentBalance: 0,
+        };
+
+        await this.audit.log(
+          {
+            userId,
+            entityType: "account",
+            entityId: createdWithBalance.id,
+            action: "create",
+            afterData: this.toAuditAccount(createdWithBalance),
+          },
+          tx,
+        );
+
         return created;
       });
 
@@ -101,14 +119,6 @@ export class AccountService {
         ...rest,
         currentBalance: 0,
       };
-
-      await this.audit.log({
-        userId,
-        entityType: "account",
-        entityId: result.id,
-        action: "create",
-        afterData: this.toAuditAccount(result),
-      });
 
       return result;
     } catch (error) {

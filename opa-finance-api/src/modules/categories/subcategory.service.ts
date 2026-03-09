@@ -51,22 +51,29 @@ export class SubcategoryService {
 
     const inheritedColor = data.color ?? category.color ?? null;
 
-    const [sub] = await this.app.db
-      .insert(subcategories)
-      .values({
-        userId,
-        categoryId: data.categoryId,
-        name: data.name,
-        color: inheritedColor,
-      })
-      .returning();
+    const [sub] = await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      const [created] = await txDb
+        .insert(subcategories)
+        .values({
+          userId,
+          categoryId: data.categoryId,
+          name: data.name,
+          color: inheritedColor,
+        })
+        .returning();
 
-    await this.audit.log({
-      userId,
-      entityType: "subcategory",
-      entityId: sub.id,
-      action: "create",
-      afterData: this.toAuditSubcategory(sub),
+      await this.audit.log(
+        {
+          userId,
+          entityType: "subcategory",
+          entityId: created.id,
+          action: "create",
+          afterData: this.toAuditSubcategory(created),
+        },
+        txDb,
+      );
+
+      return [created];
     });
 
     return sub;

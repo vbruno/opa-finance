@@ -1,4 +1,4 @@
-import { boolean, pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
 
@@ -12,6 +12,7 @@ export const categories = pgTable("categories", {
   name: varchar("name", { length: 255 }).notNull(),
   type: categoryType("type").notNull(),
   system: boolean("system").notNull().default(false),
+  color: text("color"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

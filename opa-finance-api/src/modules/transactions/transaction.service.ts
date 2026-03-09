@@ -174,28 +174,35 @@ export class TransactionService {
     // regra: type deve ser igual ao tipo da categoria
     this.validateTypeMatchesCategory(data.type, cat);
 
-    // cria transação
-    const [tx] = await this.app.db
-      .insert(transactions)
-      .values({
-        userId,
-        accountId,
-        categoryId,
-        subcategoryId: subcategoryId ?? null,
-        type: data.type,
-        amount: data.amount.toString(), // decimal
-        date: data.date,
-        description: data.description ?? null,
-        notes: data.notes ?? null,
-      })
-      .returning();
+    // cria transação + auditoria na mesma transação
+    const [tx] = await this.app.db.transaction(async (db: typeof this.app.db) => {
+      const [created] = await db
+        .insert(transactions)
+        .values({
+          userId,
+          accountId,
+          categoryId,
+          subcategoryId: subcategoryId ?? null,
+          type: data.type,
+          amount: data.amount.toString(), // decimal
+          date: data.date,
+          description: data.description ?? null,
+          notes: data.notes ?? null,
+        })
+        .returning();
 
-    await this.audit.log({
-      userId,
-      entityType: "transaction",
-      entityId: tx.id,
-      action: "create",
-      afterData: this.toAuditTransaction(tx),
+      await this.audit.log(
+        {
+          userId,
+          entityType: "transaction",
+          entityId: created.id,
+          action: "create",
+          afterData: this.toAuditTransaction(created),
+        },
+        db,
+      );
+
+      return [created];
     });
 
     return {

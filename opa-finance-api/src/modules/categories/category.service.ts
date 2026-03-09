@@ -20,6 +20,7 @@ export class CategoryService {
       name: category.name,
       type: category.type,
       system: category.system,
+      color: category.color,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
     };
@@ -38,23 +39,30 @@ export class CategoryService {
       throw new ConflictProblem("Já existe uma categoria de sistema com esse nome.", "/categories");
     }
 
-    const [category] = await this.app.db
-      .insert(categories)
-      .values({
-        userId,
-        name: data.name,
-        type: data.type,
-        system: false,
-        color: data.color ?? null,
-      })
-      .returning();
+    const [category] = await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      const [created] = await txDb
+        .insert(categories)
+        .values({
+          userId,
+          name: data.name,
+          type: data.type,
+          system: false,
+          color: data.color ?? null,
+        })
+        .returning();
 
-    await this.audit.log({
-      userId,
-      entityType: "category",
-      entityId: category.id,
-      action: "create",
-      afterData: this.toAuditCategory(category),
+      await this.audit.log(
+        {
+          userId,
+          entityType: "category",
+          entityId: created.id,
+          action: "create",
+          afterData: this.toAuditCategory(created),
+        },
+        txDb,
+      );
+
+      return [created];
     });
 
     return category;

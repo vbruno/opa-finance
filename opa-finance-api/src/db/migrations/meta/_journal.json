@@ -71,6 +71,13 @@
       "when": 1773062773134,
       "tag": "0009_gifted_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773065039563,
+      "tag": "0010_lame_loki",
+      "breakpoints": true
     }
   ]
 }
