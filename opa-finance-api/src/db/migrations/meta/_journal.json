@@ -57,6 +57,20 @@
       "when": 1768700000000,
       "tag": "0005_hide_accounts_on_dashboard",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773062731077,
+      "tag": "0008_flaky_susan_delgado",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773062773134,
+      "tag": "0009_gifted_power_man",
+      "breakpoints": true
     }
   ]
 }

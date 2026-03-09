@@ -59,6 +59,7 @@ opa-finance/
   - [Subcategories](opa-finance-api/docs/modules/modules_subcategories.md)
   - [Transactions](opa-finance-api/docs/modules/modules_transactions.md)
   - [Transfers](opa-finance-api/docs/modules/modules_transfers.md)
+  - [Audit](opa-finance-api/docs/modules/modules_audit.md)
 
 Materiais historicos e operacionais da raiz foram movidos para `docs-hidden/`.
 

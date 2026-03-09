@@ -205,6 +205,12 @@ Tipos suportados:
 - Validação de acesso às contas
 - Operação atômica
 
+### 🧾 Audit
+
+- Trilhas de auditoria para operacoes de negocio
+- Registro de `create`, `update` e `delete`
+- Suporte a rastreabilidade por usuario
+
 ---
 
 ## ✅ Pré-requisitos
@@ -355,6 +361,7 @@ src/
   - [Subcategories](docs/modules/modules_subcategories.md)
   - [Transactions](docs/modules/modules_transactions.md)
   - [Transfers](docs/modules/modules_transfers.md)
+  - [Audit](docs/modules/modules_audit.md)
 
 ## 🧪 Testes
 

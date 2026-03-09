@@ -9,6 +9,7 @@ import {
   ValidationProblem,
 } from "../../core/errors/problems";
 import { accounts, categories, subcategories, transactions } from "../../db/schema";
+import { AuditService } from "../audit/audit.service";
 import { TransactionType } from "./transaction.enums";
 import type {
   CreateTransactionInput,
@@ -20,7 +21,11 @@ import type {
 } from "./transaction.schemas";
 
 export class TransactionService {
-  constructor(private app: FastifyInstance) {}
+  private audit: AuditService;
+
+  constructor(private app: FastifyInstance) {
+    this.audit = new AuditService(app);
+  }
 
   private unaccentAvailable?: boolean;
 
@@ -47,6 +52,41 @@ export class TransactionService {
       where ${accounts.userId} = ${userId}
         and ${accounts.isHiddenOnDashboard} = false
     )`;
+  }
+
+  private toAuditTransaction(
+    tx: Pick<
+      typeof transactions.$inferSelect,
+      | "id"
+      | "userId"
+      | "accountId"
+      | "categoryId"
+      | "subcategoryId"
+      | "type"
+      | "amount"
+      | "date"
+      | "description"
+      | "notes"
+      | "transferId"
+      | "createdAt"
+      | "updatedAt"
+    >,
+  ) {
+    return {
+      id: tx.id,
+      userId: tx.userId,
+      accountId: tx.accountId,
+      categoryId: tx.categoryId,
+      subcategoryId: tx.subcategoryId,
+      type: tx.type,
+      amount: Number(tx.amount),
+      date: tx.date,
+      description: tx.description,
+      notes: tx.notes,
+      transferId: tx.transferId,
+      createdAt: tx.createdAt,
+      updatedAt: tx.updatedAt,
+    };
   }
 
   /* -------------------------------------------------------------------------- */
@@ -149,6 +189,14 @@ export class TransactionService {
         notes: data.notes ?? null,
       })
       .returning();
+
+    await this.audit.log({
+      userId,
+      entityType: "transaction",
+      entityId: tx.id,
+      action: "create",
+      afterData: this.toAuditTransaction(tx),
+    });
 
     return {
       ...tx,
@@ -353,6 +401,9 @@ export class TransactionService {
       };
 
       const rowsToUpdate = related.length > 0 ? related : [tx];
+      const rowsBeforeUpdate = rowsToUpdate.map((row: (typeof rowsToUpdate)[number]) =>
+        this.toAuditTransaction(row),
+      );
 
       const updatedRows = await this.app.db.transaction(async (db: typeof this.app.db) => {
         const results = [];
@@ -368,6 +419,26 @@ export class TransactionService {
             })
             .where(eq(transactions.id, row.id))
             .returning();
+
+          const before =
+            rowsBeforeUpdate.find((item: (typeof rowsBeforeUpdate)[number]) => item.id === updated.id) ??
+            null;
+          await this.audit.log(
+            {
+              userId,
+              entityType: "transaction",
+              entityId: updated.id,
+              action: "update",
+              beforeData: before,
+              afterData: this.toAuditTransaction(updated),
+              metadata: {
+                transferId: tx.transferId,
+                operation: "transfer-update",
+              },
+            },
+            db,
+          );
+
           results.push(updated);
         }
         return results;
@@ -411,21 +482,37 @@ export class TransactionService {
 
     this.validateTypeMatchesCategory(finalType, finalCategory);
 
-    const [updated] = await this.app.db
-      .update(transactions)
-      .set({
-        categoryId: data.categoryId ?? tx.categoryId,
-        subcategoryId: data.subcategoryId ?? tx.subcategoryId,
-        accountId: data.accountId ?? tx.accountId,
-        type: finalType,
-        amount: data.amount?.toString() ?? tx.amount,
-        date: data.date ?? tx.date,
-        description: data.description ?? tx.description,
-        notes: data.notes ?? tx.notes,
-        updatedAt: new Date(),
-      })
-      .where(eq(transactions.id, id))
-      .returning();
+    const [updated] = await this.app.db.transaction(async (db: typeof this.app.db) => {
+      const [updatedRow] = await db
+        .update(transactions)
+        .set({
+          categoryId: data.categoryId ?? tx.categoryId,
+          subcategoryId: data.subcategoryId ?? tx.subcategoryId,
+          accountId: data.accountId ?? tx.accountId,
+          type: finalType,
+          amount: data.amount?.toString() ?? tx.amount,
+          date: data.date ?? tx.date,
+          description: data.description ?? tx.description,
+          notes: data.notes ?? tx.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(transactions.id, id))
+        .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "transaction",
+          entityId: updatedRow.id,
+          action: "update",
+          beforeData: this.toAuditTransaction(tx),
+          afterData: this.toAuditTransaction(updatedRow),
+        },
+        db,
+      );
+
+      return [updatedRow];
+    });
 
     return {
       ...updated,
@@ -439,26 +526,74 @@ export class TransactionService {
 
   async delete(id: string, userId: string) {
     const tx = await this.getOne(id, userId);
+    const txBeforeDelete = this.toAuditTransaction(tx);
 
     if (!tx.transferId) {
-      await this.app.db.delete(transactions).where(eq(transactions.id, id));
+      await this.app.db.transaction(async (db: typeof this.app.db) => {
+        await db.delete(transactions).where(eq(transactions.id, id));
+        await this.audit.log(
+          {
+            userId,
+            entityType: "transaction",
+            entityId: id,
+            action: "delete",
+            beforeData: txBeforeDelete,
+          },
+          db,
+        );
+      });
       return { message: "Transação removida com sucesso." };
     }
 
     const related = await this.app.db
-      .select({ id: transactions.id })
+      .select()
       .from(transactions)
       .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
 
     if (related.length <= 1) {
-      await this.app.db.delete(transactions).where(eq(transactions.id, id));
+      await this.app.db.transaction(async (db: typeof this.app.db) => {
+        await db.delete(transactions).where(eq(transactions.id, id));
+        await this.audit.log(
+          {
+            userId,
+            entityType: "transaction",
+            entityId: id,
+            action: "delete",
+            beforeData: txBeforeDelete,
+            metadata: {
+              transferId: tx.transferId,
+              operation: "transfer-incomplete-delete",
+            },
+          },
+          db,
+        );
+      });
       return { message: "Transação removida. Transferência incompleta foi ajustada." };
     }
 
     await this.app.db.transaction(async (db: typeof this.app.db) => {
+      const toDelete = related.map((row: (typeof related)[number]) => this.toAuditTransaction(row));
+
       await db
         .delete(transactions)
         .where(and(eq(transactions.transferId, tx.transferId), eq(transactions.userId, userId)));
+
+      for (const row of toDelete) {
+        await this.audit.log(
+          {
+            userId,
+            entityType: "transaction",
+            entityId: row.id,
+            action: "delete",
+            beforeData: row,
+            metadata: {
+              transferId: tx.transferId,
+              operation: "transfer-delete",
+            },
+          },
+          db,
+        );
+      }
     });
 
     return { message: "Transferência removida com sucesso." };
