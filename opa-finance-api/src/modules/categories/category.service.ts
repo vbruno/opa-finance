@@ -4,9 +4,26 @@ import type { FastifyInstance } from "fastify";
 import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/errors/problems";
 
 import { categories, subcategories } from "../../db/schema";
+import { AuditService } from "../audit/audit.service";
 import { CreateCategoryInput } from "./category.schemas";
 export class CategoryService {
-  constructor(private app: FastifyInstance) {}
+  private audit: AuditService;
+
+  constructor(private app: FastifyInstance) {
+    this.audit = new AuditService(app);
+  }
+
+  private toAuditCategory(category: typeof categories.$inferSelect) {
+    return {
+      id: category.id,
+      userId: category.userId,
+      name: category.name,
+      type: category.type,
+      system: category.system,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
+    };
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                                   CREATE                                   */
@@ -31,6 +48,14 @@ export class CategoryService {
         color: data.color ?? null,
       })
       .returning();
+
+    await this.audit.log({
+      userId,
+      entityType: "category",
+      entityId: category.id,
+      action: "create",
+      afterData: this.toAuditCategory(category),
+    });
 
     return category;
   }
@@ -82,15 +107,31 @@ export class CategoryService {
       );
     }
 
-    const [updated] = await this.app.db
-      .update(categories)
-      .set({
-        name: data.name ?? category.name,
-        color: data.color ?? category.color,
-        updatedAt: new Date(),
-      })
-      .where(eq(categories.id, id))
-      .returning();
+    const [updated] = await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      const [updatedRow] = await txDb
+        .update(categories)
+        .set({
+          name: data.name ?? category.name,
+          color: data.color ?? category.color,
+          updatedAt: new Date(),
+        })
+        .where(eq(categories.id, id))
+        .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "category",
+          entityId: updatedRow.id,
+          action: "update",
+          beforeData: this.toAuditCategory(category),
+          afterData: this.toAuditCategory(updatedRow),
+        },
+        txDb,
+      );
+
+      return [updatedRow];
+    });
 
     return updated;
   }
@@ -122,7 +163,19 @@ export class CategoryService {
       );
     }
 
-    await this.app.db.delete(categories).where(eq(categories.id, id));
+    await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      await txDb.delete(categories).where(eq(categories.id, id));
+      await this.audit.log(
+        {
+          userId,
+          entityType: "category",
+          entityId: id,
+          action: "delete",
+          beforeData: this.toAuditCategory(category),
+        },
+        txDb,
+      );
+    });
 
     return { message: "Categoria removida com sucesso." };
   }

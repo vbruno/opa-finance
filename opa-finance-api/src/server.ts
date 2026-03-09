@@ -11,6 +11,7 @@ import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
 
 import { accountRoutes } from "./modules/accounts/account.routes";
+import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
 import { systemRoutes } from "./modules/system/system.routes";
@@ -110,6 +111,7 @@ async function start() {
   // Rotas
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(auditRoutes);
   app.register(accountRoutes);
   app.register(categoryRoutes);
   app.register(transactionRoutes);

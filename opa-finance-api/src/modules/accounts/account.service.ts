@@ -5,10 +5,15 @@ import type { FastifyInstance } from "fastify";
 import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/errors/problems";
 
 import { accounts, transactions } from "../../db/schema";
+import { AuditService } from "../audit/audit.service";
 import type { CreateAccountInput, UpdateAccountInput } from "./account.schemas";
 
 export class AccountService {
-  constructor(private app: FastifyInstance) {}
+  private audit: AuditService;
+
+  constructor(private app: FastifyInstance) {
+    this.audit = new AuditService(app);
+  }
 
   private buildCurrentBalanceExpr() {
     return sql<number>`(coalesce(sum(case
@@ -39,6 +44,22 @@ export class AccountService {
         throw new ConflictProblem("Já existe uma conta principal para este usuário.", path);
       }
     }
+  }
+
+  private toAuditAccount(account: Awaited<ReturnType<AccountService["getOne"]>>) {
+    return {
+      id: account.id,
+      userId: account.userId,
+      name: account.name,
+      type: account.type,
+      color: account.color,
+      icon: account.icon,
+      isPrimary: account.isPrimary,
+      isHiddenOnDashboard: account.isHiddenOnDashboard,
+      currentBalance: account.currentBalance,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    };
   }
 
   /* -------------------------------------------------------------------------- */
@@ -76,10 +97,20 @@ export class AccountService {
 
       const { initialBalance, ...rest } = account;
       void initialBalance;
-      return {
+      const result = {
         ...rest,
         currentBalance: 0,
       };
+
+      await this.audit.log({
+        userId,
+        entityType: "account",
+        entityId: result.id,
+        action: "create",
+        afterData: this.toAuditAccount(result),
+      });
+
+      return result;
     } catch (error) {
       this.handlePrimaryConflict(error, "/accounts");
       throw error;
@@ -153,6 +184,7 @@ export class AccountService {
   /* -------------------------------------------------------------------------- */
   async update(id: string, userId: string, data: UpdateAccountInput) {
     const current = await this.getOne(id, userId); // já valida 404 e 403
+    const currentAudit = this.toAuditAccount(current);
 
     try {
       await this.app.db.transaction(async (tx: typeof this.app.db) => {
@@ -181,6 +213,50 @@ export class AccountService {
           .set(updateData)
           .where(eq(accounts.id, id))
           .returning();
+
+        const currentBalanceExpr = this.buildCurrentBalanceExpr();
+        const [updatedWithBalance] = await tx
+          .select({
+            account: accounts,
+            currentBalance: currentBalanceExpr,
+          })
+          .from(accounts)
+          .leftJoin(
+            transactions,
+            and(eq(transactions.accountId, accounts.id), eq(transactions.userId, accounts.userId)),
+          )
+          .where(eq(accounts.id, id))
+          .groupBy(...this.accountGroupByColumns());
+
+        if (updatedWithBalance?.account) {
+          const { initialBalance, ...rest } = updatedWithBalance.account;
+          void initialBalance;
+          await this.audit.log(
+            {
+              userId,
+              entityType: "account",
+              entityId: rest.id,
+              action: "update",
+              beforeData: currentAudit,
+              afterData: this.toAuditAccount({
+                ...rest,
+                currentBalance: Number(updatedWithBalance.currentBalance),
+              }),
+            },
+            tx,
+          );
+        } else if (row) {
+          await this.audit.log(
+            {
+              userId,
+              entityType: "account",
+              entityId: row.id,
+              action: "update",
+              beforeData: currentAudit,
+            },
+            tx,
+          );
+        }
         return row;
       });
 
@@ -195,7 +271,8 @@ export class AccountService {
   /*                               SET PRIMARY                                  */
   /* -------------------------------------------------------------------------- */
   async setPrimary(id: string, userId: string) {
-    await this.getOne(id, userId);
+    const current = await this.getOne(id, userId);
+    const currentAudit = this.toAuditAccount(current);
 
     try {
       await this.app.db.transaction(async (tx: typeof this.app.db) => {
@@ -206,6 +283,52 @@ export class AccountService {
           .set({ isPrimary: true, isHiddenOnDashboard: false })
           .where(eq(accounts.id, id))
           .returning();
+
+        const currentBalanceExpr = this.buildCurrentBalanceExpr();
+        const [updatedWithBalance] = await tx
+          .select({
+            account: accounts,
+            currentBalance: currentBalanceExpr,
+          })
+          .from(accounts)
+          .leftJoin(
+            transactions,
+            and(eq(transactions.accountId, accounts.id), eq(transactions.userId, accounts.userId)),
+          )
+          .where(eq(accounts.id, id))
+          .groupBy(...this.accountGroupByColumns());
+
+        if (updatedWithBalance?.account) {
+          const { initialBalance, ...rest } = updatedWithBalance.account;
+          void initialBalance;
+          await this.audit.log(
+            {
+              userId,
+              entityType: "account",
+              entityId: rest.id,
+              action: "update",
+              beforeData: currentAudit,
+              afterData: this.toAuditAccount({
+                ...rest,
+                currentBalance: Number(updatedWithBalance.currentBalance),
+              }),
+              metadata: { operation: "set-primary" },
+            },
+            tx,
+          );
+        } else if (row) {
+          await this.audit.log(
+            {
+              userId,
+              entityType: "account",
+              entityId: row.id,
+              action: "update",
+              beforeData: currentAudit,
+              metadata: { operation: "set-primary" },
+            },
+            tx,
+          );
+        }
 
         return row;
       });
@@ -222,6 +345,7 @@ export class AccountService {
   /* -------------------------------------------------------------------------- */
   async delete(id: string, userId: string) {
     const current = await this.getOne(id, userId);
+    const currentAudit = this.toAuditAccount(current);
 
     if (current.isPrimary === true) {
       throw new ConflictProblem(
@@ -243,7 +367,19 @@ export class AccountService {
       );
     }
 
-    await this.app.db.delete(accounts).where(eq(accounts.id, id));
+    await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      await txDb.delete(accounts).where(eq(accounts.id, id));
+      await this.audit.log(
+        {
+          userId,
+          entityType: "account",
+          entityId: id,
+          action: "delete",
+          beforeData: currentAudit,
+        },
+        txDb,
+      );
+    });
 
     return { message: "Conta removida com sucesso." };
   }

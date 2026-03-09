@@ -421,8 +421,9 @@ export class TransactionService {
             .returning();
 
           const before =
-            rowsBeforeUpdate.find((item: (typeof rowsBeforeUpdate)[number]) => item.id === updated.id) ??
-            null;
+            rowsBeforeUpdate.find(
+              (item: (typeof rowsBeforeUpdate)[number]) => item.id === updated.id,
+            ) ?? null;
           await this.audit.log(
             {
               userId,

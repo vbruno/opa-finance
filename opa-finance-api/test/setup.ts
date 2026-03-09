@@ -9,6 +9,7 @@ import { DB } from "../src/core/plugins/drizzle";
 import { createTestDB } from "../src/core/plugins/drizzle-test";
 import jwtPlugin from "../src/core/plugins/jwt";
 import { accountRoutes } from "../src/modules/accounts/account.routes";
+import { auditRoutes } from "../src/modules/audit/audit.routes";
 import { authRoutes } from "../src/modules/auth/auth.routes";
 import { categoryRoutes } from "../src/modules/categories/category.routes";
 import { transactionRoutes } from "../src/modules/transactions/transaction.routes";
@@ -59,6 +60,7 @@ export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> 
   // Rotas
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(auditRoutes);
   app.register(accountRoutes);
   app.register(categoryRoutes);
   app.register(transactionRoutes);

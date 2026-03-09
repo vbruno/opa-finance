@@ -31,6 +31,24 @@
 - Gravacao deve ocorrer no mesmo fluxo transacional quando aplicavel
 - Nao registrar dados sensiveis no payload de auditoria
 
+## Campos sensiveis proibidos no log
+
+Os campos abaixo sao automaticamente mascarados como `[REDACTED]` quando enviados em
+`before_data`, `after_data` ou `metadata`:
+
+- password
+- passwordHash / password_hash
+- confirmPassword / confirm_password
+- token
+- accessToken / access_token
+- refreshToken / refresh_token
+- authorization
+- jwt
+- secret
+- cookie / set-cookie / set_cookie
+- apiKey / api_key
+- clientSecret / client_secret
+
 ## Campos da tabela audit_logs
 
 - id (uuid)
@@ -51,6 +69,18 @@
 
 ## Endpoints
 
-- Nesta fase, o modulo esta com foco em gravacao interna via service.
-- Endpoint de leitura paginada (`GET /audit-logs`) esta planejado para a proxima etapa.
+GET /audit-logs
 
+### Filtros de listagem
+
+- page, limit
+- entityType (`transaction`, `account`, `category`, `subcategory`)
+- action (`create`, `update`, `delete`)
+- startDate, endDate
+
+### Resposta
+
+- data (lista de eventos)
+- page
+- limit
+- total

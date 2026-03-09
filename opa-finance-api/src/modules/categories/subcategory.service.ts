@@ -2,9 +2,26 @@ import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "../../core/errors/problems";
 import { categories, subcategories } from "../../db/schema";
+import { AuditService } from "../audit/audit.service";
 
 export class SubcategoryService {
-  constructor(private app: FastifyInstance) {}
+  private audit: AuditService;
+
+  constructor(private app: FastifyInstance) {
+    this.audit = new AuditService(app);
+  }
+
+  private toAuditSubcategory(subcategory: typeof subcategories.$inferSelect) {
+    return {
+      id: subcategory.id,
+      userId: subcategory.userId,
+      categoryId: subcategory.categoryId,
+      name: subcategory.name,
+      color: subcategory.color,
+      createdAt: subcategory.createdAt,
+      updatedAt: subcategory.updatedAt,
+    };
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                                   CREATE                                    */
@@ -43,6 +60,14 @@ export class SubcategoryService {
         color: inheritedColor,
       })
       .returning();
+
+    await this.audit.log({
+      userId,
+      entityType: "subcategory",
+      entityId: sub.id,
+      action: "create",
+      afterData: this.toAuditSubcategory(sub),
+    });
 
     return sub;
   }
@@ -95,15 +120,31 @@ export class SubcategoryService {
   async update(id: string, userId: string, data: any) {
     const existingSub = await this.getOne(id, userId);
 
-    const [updated] = await this.app.db
-      .update(subcategories)
-      .set({
-        name: data.name ?? existingSub.name,
-        color: data.color !== undefined ? data.color : existingSub.color,
-        updatedAt: new Date(),
-      })
-      .where(eq(subcategories.id, id))
-      .returning();
+    const [updated] = await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      const [updatedRow] = await txDb
+        .update(subcategories)
+        .set({
+          name: data.name ?? existingSub.name,
+          color: data.color !== undefined ? data.color : existingSub.color,
+          updatedAt: new Date(),
+        })
+        .where(eq(subcategories.id, id))
+        .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "subcategory",
+          entityId: updatedRow.id,
+          action: "update",
+          beforeData: this.toAuditSubcategory(existingSub),
+          afterData: this.toAuditSubcategory(updatedRow),
+        },
+        txDb,
+      );
+
+      return [updatedRow];
+    });
 
     return updated;
   }
@@ -112,9 +153,21 @@ export class SubcategoryService {
   /*                                   DELETE                                    */
   /* -------------------------------------------------------------------------- */
   async delete(id: string, userId: string) {
-    await this.getOne(id, userId);
+    const existing = await this.getOne(id, userId);
 
-    await this.app.db.delete(subcategories).where(eq(subcategories.id, id));
+    await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      await txDb.delete(subcategories).where(eq(subcategories.id, id));
+      await this.audit.log(
+        {
+          userId,
+          entityType: "subcategory",
+          entityId: id,
+          action: "delete",
+          beforeData: this.toAuditSubcategory(existing),
+        },
+        txDb,
+      );
+    });
 
     return { message: "Subcategoria removida com sucesso." };
   }
