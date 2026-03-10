@@ -7,6 +7,7 @@ export const listAuditLogsQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
+    view: z.enum(["raw", "grouped"]).default("raw"),
     entityType: z.enum(auditEntityTypes).optional(),
     action: z.enum(auditActions).optional(),
     startDate: z.string().date().optional(),

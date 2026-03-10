@@ -1,0 +1,407 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-03-11T01:20:00.000Z",
+  "__export_source": "codex.manual.export",
+  "resources": [
+    {
+      "_id": "wrk_opa_finance",
+      "_type": "workspace",
+      "name": "OPA Finance API",
+      "description": "Coleção base para testar a API OPA Finance"
+    },
+    {
+      "_id": "env_opa_finance_base",
+      "_type": "environment",
+      "parentId": "wrk_opa_finance",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:3333",
+        "access_token": "",
+        "refresh_token": "",
+        "account_id": "",
+        "from_account_id": "",
+        "to_account_id": "",
+        "category_id": "",
+        "subcategory_id": "",
+        "transaction_id": "",
+        "user_id": "",
+        "transfer_id": ""
+      }
+    },
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Auth"
+    },
+    {
+      "_id": "req_auth_register",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Register",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/register",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Usuário Teste\",\n  \"email\": \"teste@example.com\",\n  \"password\": \"Senha@123\",\n  \"confirmPassword\": \"Senha@123\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_login",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"teste@example.com\",\n  \"password\": \"Senha@123\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_me",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Me",
+      "method": "GET",
+      "url": "{{ _.base_url }}/auth/me",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_refresh",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Refresh",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/refresh"
+    },
+    {
+      "_id": "req_auth_logout",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Logout",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/logout",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "fld_accounts",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Accounts"
+    },
+    {
+      "_id": "req_accounts_list",
+      "_type": "request",
+      "parentId": "fld_accounts",
+      "name": "List Accounts",
+      "method": "GET",
+      "url": "{{ _.base_url }}/accounts",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_accounts_create",
+      "_type": "request",
+      "parentId": "fld_accounts",
+      "name": "Create Account",
+      "method": "POST",
+      "url": "{{ _.base_url }}/accounts",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Conta Corrente\",\n  \"type\": \"checking_account\",\n  \"initialBalance\": 1000\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_accounts_update",
+      "_type": "request",
+      "parentId": "fld_accounts",
+      "name": "Update Account",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/accounts/{{ _.account_id }}",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Conta Corrente Atualizada\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_accounts_delete",
+      "_type": "request",
+      "parentId": "fld_accounts",
+      "name": "Delete Account",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/accounts/{{ _.account_id }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "fld_categories",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Categories"
+    },
+    {
+      "_id": "req_categories_list",
+      "_type": "request",
+      "parentId": "fld_categories",
+      "name": "List Categories",
+      "method": "GET",
+      "url": "{{ _.base_url }}/categories",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_categories_create",
+      "_type": "request",
+      "parentId": "fld_categories",
+      "name": "Create Category",
+      "method": "POST",
+      "url": "{{ _.base_url }}/categories",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Alimentação\",\n  \"type\": \"expense\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_subcategories_list",
+      "_type": "request",
+      "parentId": "fld_categories",
+      "name": "List Subcategories By Category",
+      "method": "GET",
+      "url": "{{ _.base_url }}/categories/{{ _.category_id }}/subcategories",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "fld_transactions",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Transactions"
+    },
+    {
+      "_id": "req_transactions_list",
+      "_type": "request",
+      "parentId": "fld_transactions",
+      "name": "List Transactions",
+      "method": "GET",
+      "url": "{{ _.base_url }}/transactions?page=1&limit=20",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_transactions_create",
+      "_type": "request",
+      "parentId": "fld_transactions",
+      "name": "Create Transaction",
+      "method": "POST",
+      "url": "{{ _.base_url }}/transactions",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"accountId\": \"{{ _.account_id }}\",\n  \"categoryId\": \"{{ _.category_id }}\",\n  \"subcategoryId\": \"{{ _.subcategory_id }}\",\n  \"type\": \"expense\",\n  \"amount\": 120.5,\n  \"date\": \"2026-03-11\",\n  \"description\": \"Supermercado\",\n  \"notes\": \"Compra do mês\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_transactions_update",
+      "_type": "request",
+      "parentId": "fld_transactions",
+      "name": "Update Transaction",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/transactions/{{ _.transaction_id }}",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"description\": \"Supermercado atualizado\",\n  \"amount\": 130\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_transactions_delete",
+      "_type": "request",
+      "parentId": "fld_transactions",
+      "name": "Delete Transaction",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/transactions/{{ _.transaction_id }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "fld_transfers",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Transfers"
+    },
+    {
+      "_id": "req_transfers_create",
+      "_type": "request",
+      "parentId": "fld_transfers",
+      "name": "Create Transfer",
+      "method": "POST",
+      "url": "{{ _.base_url }}/transfers",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"fromAccountId\": \"{{ _.from_account_id }}\",\n  \"toAccountId\": \"{{ _.to_account_id }}\",\n  \"amount\": 200,\n  \"date\": \"2026-03-11\",\n  \"description\": \"Transferência teste\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "fld_audit",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Audit"
+    },
+    {
+      "_id": "req_audit_list_grouped",
+      "_type": "request",
+      "parentId": "fld_audit",
+      "name": "List Audit Logs (Grouped)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/audit-logs?view=grouped&page=1&limit=20",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_audit_list_raw",
+      "_type": "request",
+      "parentId": "fld_audit",
+      "name": "List Audit Logs (Raw)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/audit-logs?view=raw&page=1&limit=20&entityType=transaction&action=create",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "fld_system",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "System"
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_system",
+      "name": "Health",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health"
+    },
+    {
+      "_id": "req_root",
+      "_type": "request",
+      "parentId": "fld_system",
+      "name": "Root",
+      "method": "GET",
+      "url": "{{ _.base_url }}/"
+    }
+  ]
+}

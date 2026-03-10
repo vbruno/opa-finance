@@ -78,6 +78,13 @@
       "when": 1773065039563,
       "tag": "0010_lame_loki",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773200000000,
+      "tag": "0011_solid_audit_grouped_indexes",
+      "breakpoints": true
     }
   ]
 }

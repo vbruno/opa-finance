@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 
 import type { DB } from "../../src/core/plugins/drizzle";
-import { users, accounts, categories, transactions } from "../../src/db/schema";
+import { users, accounts, categories, transactions, auditLogs } from "../../src/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { buildTestApp } from "../setup";
 
@@ -17,6 +17,7 @@ describe("POST /transfers", () => {
     app = built.app;
     db = built.db;
 
+    await db.delete(auditLogs);
     await db.delete(transactions);
     await db.delete(accounts);
     await db.delete(categories);
@@ -100,6 +101,22 @@ describe("POST /transfers", () => {
 
     expect(allTransactions).toHaveLength(2);
     expect(allTransactions[0].transferId).toBe(allTransactions[1].transferId);
+
+    const createdAuditLogs = await db.select().from(auditLogs).where(eq(auditLogs.userId, user.id));
+
+    expect(createdAuditLogs).toHaveLength(2);
+    expect(createdAuditLogs.every((log) => log.entityType === "transaction")).toBe(true);
+    expect(createdAuditLogs.every((log) => log.action === "create")).toBe(true);
+    expect(
+      createdAuditLogs.every(
+        (log) => (log.metadata as Record<string, unknown>)?.operation === "transfer-create",
+      ),
+    ).toBe(true);
+    expect(
+      createdAuditLogs.every(
+        (log) => (log.metadata as Record<string, unknown>)?.transferId === body.id,
+      ),
+    ).toBe(true);
   });
 
   it("deve falhar ao tentar transferir para a mesma conta (400)", async () => {

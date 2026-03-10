@@ -281,6 +281,66 @@ describe("GET /audit-logs", () => {
     expect(aboveMaxRes.statusCode).toBe(400);
   });
 
+  it("deve agrupar pares de transferencia quando view=grouped", async () => {
+    const { token, user } = await registerAndLogin(
+      app,
+      db,
+      "audit-grouped@test.com",
+      "Audit Grouped",
+    );
+
+    const transferId = crypto.randomUUID();
+
+    await db.insert(auditLogs).values([
+      {
+        userId: user.id,
+        entityType: "transaction",
+        entityId: crypto.randomUUID(),
+        action: "create",
+        afterData: { amount: 100, accountId: crypto.randomUUID() },
+        metadata: { operation: "transfer-create", transferId, side: "fromAccount" },
+        createdAt: new Date("2026-03-15T10:00:00.000Z"),
+      },
+      {
+        userId: user.id,
+        entityType: "transaction",
+        entityId: crypto.randomUUID(),
+        action: "create",
+        afterData: { amount: 100, accountId: crypto.randomUUID() },
+        metadata: { operation: "transfer-create", transferId, side: "toAccount" },
+        createdAt: new Date("2026-03-15T10:00:01.000Z"),
+      },
+      {
+        userId: user.id,
+        entityType: "account",
+        entityId: crypto.randomUUID(),
+        action: "update",
+        beforeData: { name: "Conta A" },
+        afterData: { name: "Conta B" },
+        createdAt: new Date("2026-03-15T11:00:00.000Z"),
+      },
+    ]);
+
+    const groupedRes = await app.inject({
+      method: "GET",
+      url: "/audit-logs?view=grouped&page=1&limit=10",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(groupedRes.statusCode).toBe(200);
+    const groupedBody = groupedRes.json();
+    expect(groupedBody.total).toBe(2);
+    expect(groupedBody.data).toHaveLength(2);
+
+    const groupedTransfer = groupedBody.data.find(
+      (row: (typeof groupedBody.data)[number]) =>
+        row.metadata?.operation === "transfer-create" && row.metadata?.transferId === transferId,
+    );
+    expect(groupedTransfer).toBeDefined();
+    expect(groupedTransfer.metadata?.grouped).toBe(true);
+    expect(groupedTransfer.metadata?.groupSize).toBe(2);
+  });
+
   it("deve retornar 400 quando startDate for maior que endDate", async () => {
     const { token } = await registerAndLogin(app, db, "audit-date@test.com", "Audit Date");
 

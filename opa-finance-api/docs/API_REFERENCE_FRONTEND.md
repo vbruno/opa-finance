@@ -17,6 +17,7 @@ Documentação completa da API para integração com o frontend.
   - [Subcategories](#subcategories)
   - [Transactions](#transactions)
   - [Transfers](#transfers)
+  - [Audit](#audit)
 
 ---
 
@@ -1434,6 +1435,82 @@ Cria uma transferência entre contas.
 - `400` - Validação falhou (contas iguais, valor inválido, etc.)
 - `403` - Conta não pertence ao usuário
 - `404` - Conta não encontrada ou categoria de sistema "Transferência" não existe
+
+---
+
+## 🧾 Audit
+
+### GET `/audit-logs`
+
+Lista logs de auditoria do usuário autenticado com filtros, paginação e modo de visualização.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `page` (number, default: `1`)
+- `limit` (number, `1..100`, default: `20`)
+- `view` (`raw | grouped`, default: `raw`)
+  - `raw`: retorna cada log individual
+  - `grouped`: agrupa pares de transferência (`transfer-create`) em um único evento para listagem
+- `entityType` (`transaction | account | category | subcategory`)
+- `action` (`create | update | delete`)
+- `startDate` (`YYYY-MM-DD`)
+- `endDate` (`YYYY-MM-DD`)
+
+**Response 200:**
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "entityType": "transaction",
+      "entityId": "uuid",
+      "action": "create",
+      "beforeData": null,
+      "afterData": {},
+      "metadata": {},
+      "summary": {
+        "screen": "Transações",
+        "action": "Criação",
+        "description": "Transferência para poupança",
+        "accountName": "Conta Corrente",
+        "categoryName": "Transferência",
+        "subcategoryName": null
+      },
+      "beforeDataFriendly": null,
+      "afterDataFriendly": {
+        "Descrição": "Transferência para poupança",
+        "Valor": "R$ 200,00",
+        "Tipo": "Despesa",
+        "Conta": "Conta Corrente"
+      },
+      "metadataFriendly": {
+        "Operação": "transfer-create",
+        "Lado": "fromAccount",
+        "Transferência": "uuid"
+      },
+      "createdAt": "2026-03-11T12:00:00.000Z"
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 42
+}
+```
+
+**Notas:**
+
+- Prefira `view=grouped` na tela de histórico para reduzir ruído e custo de renderização.
+- Use `summary` e os campos `*Friendly` para interface.
+- Use `beforeData`, `afterData` e `metadata` para debug técnico quando necessário.
+
+**Erros:**
+
+- `400` - Query inválida (ex.: `limit > 100`, intervalo de datas inválido)
+- `401` - Não autenticado
 
 ---
 

@@ -66,6 +66,9 @@ Os campos abaixo sao automaticamente mascarados como `[REDACTED]` quando enviado
 - audit_logs_user_created_at_idx (user_id, created_at)
 - audit_logs_entity_created_at_idx (entity_type, created_at)
 - audit_logs_action_created_at_idx (action, created_at)
+- audit_logs_user_entity_created_at_idx (user_id, entity_type, created_at)
+- audit_logs_user_action_created_at_idx (user_id, action, created_at)
+- audit_logs_user_transfer_id_created_at_idx (user_id, metadata->>'transferId', created_at)
 
 ## Endpoints
 
@@ -74,6 +77,7 @@ GET /audit-logs
 ### Filtros de listagem
 
 - page, limit
+- view (`raw`, `grouped`)
 - entityType (`transaction`, `account`, `category`, `subcategory`)
 - action (`create`, `update`, `delete`)
 - startDate, endDate
@@ -81,6 +85,8 @@ GET /audit-logs
 ### Resposta
 
 - data (lista de eventos)
+- `summary` (campos amigaveis para listagem)
+- `beforeDataFriendly`, `afterDataFriendly`, `metadataFriendly` (campos amigaveis para detalhe)
 - page
 - limit
 - total

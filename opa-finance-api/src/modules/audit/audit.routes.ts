@@ -21,6 +21,7 @@ export async function auditRoutes(app: FastifyInstance) {
           properties: {
             page: { type: "number", example: 1 },
             limit: { type: "number", example: 20 },
+            view: { type: "string", enum: ["raw", "grouped"], example: "grouped" },
             entityType: {
               type: "string",
               enum: ["transaction", "account", "category", "subcategory"],
@@ -47,6 +48,26 @@ export async function auditRoutes(app: FastifyInstance) {
                     beforeData: { type: "object", nullable: true, additionalProperties: true },
                     afterData: { type: "object", nullable: true, additionalProperties: true },
                     metadata: { type: "object", nullable: true, additionalProperties: true },
+                    summary: {
+                      type: "object",
+                      nullable: true,
+                      additionalProperties: true,
+                    },
+                    beforeDataFriendly: {
+                      type: "object",
+                      nullable: true,
+                      additionalProperties: { type: "string" },
+                    },
+                    afterDataFriendly: {
+                      type: "object",
+                      nullable: true,
+                      additionalProperties: { type: "string" },
+                    },
+                    metadataFriendly: {
+                      type: "object",
+                      nullable: true,
+                      additionalProperties: { type: "string" },
+                    },
                     createdAt: { type: "string" },
                   },
                 },

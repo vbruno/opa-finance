@@ -4,6 +4,7 @@ import {
   CreditCard,
   Eye,
   EyeOff,
+  History,
   Home,
   Layers,
   Moon,
@@ -23,6 +24,7 @@ const appNavItems = [
   { to: '/app/accounts', label: 'Contas', icon: CreditCard },
   { to: '/app/categories', label: 'Categorias', icon: Layers },
   { to: '/app/transactions', label: 'Transações', icon: Receipt },
+  { to: '/app/audit', label: 'Histórico', icon: History },
 ]
 
 const desktopNavItems = [

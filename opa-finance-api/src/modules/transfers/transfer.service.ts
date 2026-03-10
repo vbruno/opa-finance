@@ -5,10 +5,30 @@ import type { FastifyInstance } from "fastify";
 import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
 import { transactions, accounts, categories } from "../../db/schema";
+import { AuditService } from "../audit/audit.service";
 import { CreateTransferInput } from "./transfer.schemas";
 
 export class TransferService {
-  constructor(private app: FastifyInstance) {}
+  private audit: AuditService;
+
+  constructor(private app: FastifyInstance) {
+    this.audit = new AuditService(app);
+  }
+
+  private toAuditTransactionPayload(tx: typeof transactions.$inferSelect): Record<string, unknown> {
+    return {
+      id: tx.id,
+      date: tx.date,
+      type: tx.type,
+      amount: Number(tx.amount),
+      description: tx.description,
+      notes: tx.notes,
+      accountId: tx.accountId,
+      categoryId: tx.categoryId,
+      subcategoryId: tx.subcategoryId,
+      transferId: tx.transferId,
+    };
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                               VALIDADORES                                   */
@@ -108,6 +128,38 @@ export class TransferService {
           transferId,
         })
         .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "transaction",
+          entityId: expenseTx.id,
+          action: "create",
+          afterData: this.toAuditTransactionPayload(expenseTx),
+          metadata: {
+            operation: "transfer-create",
+            transferId,
+            side: "fromAccount",
+          },
+        },
+        tx,
+      );
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "transaction",
+          entityId: incomeTx.id,
+          action: "create",
+          afterData: this.toAuditTransactionPayload(incomeTx),
+          metadata: {
+            operation: "transfer-create",
+            transferId,
+            side: "toAccount",
+          },
+        },
+        tx,
+      );
 
       return {
         id: transferId,

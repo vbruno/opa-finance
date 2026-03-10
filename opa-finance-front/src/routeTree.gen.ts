@@ -18,6 +18,7 @@ import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
 import { Route as AppProfileRouteImport } from './routes/app/profile'
 import { Route as AppCategoriesRouteImport } from './routes/app/categories'
+import { Route as AppAuditRouteImport } from './routes/app/audit'
 import { Route as AppAccountsRouteImport } from './routes/app/accounts'
 import { Route as AppAccountsIdRouteImport } from './routes/app/accounts/$id'
 
@@ -66,6 +67,11 @@ const AppCategoriesRoute = AppCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppAccountsRoute = AppAccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/unavailable': typeof UnavailableRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
+  '/app/audit': typeof AppAuditRoute
   '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/unavailable': typeof UnavailableRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
+  '/app/audit': typeof AppAuditRoute
   '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/unavailable': typeof UnavailableRoute
   '/app/accounts': typeof AppAccountsRouteWithChildren
+  '/app/audit': typeof AppAuditRoute
   '/app/categories': typeof AppCategoriesRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/unavailable'
     | '/app/accounts'
+    | '/app/audit'
     | '/app/categories'
     | '/app/profile'
     | '/app/register'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/unavailable'
     | '/app/accounts'
+    | '/app/audit'
     | '/app/categories'
     | '/app/profile'
     | '/app/register'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/unavailable'
     | '/app/accounts'
+    | '/app/audit'
     | '/app/categories'
     | '/app/profile'
     | '/app/register'
@@ -229,6 +241,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCategoriesRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/audit': {
+      id: '/app/audit'
+      path: '/audit'
+      fullPath: '/app/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/accounts': {
       id: '/app/accounts'
       path: '/accounts'
@@ -260,6 +279,7 @@ const AppAccountsRouteWithChildren = AppAccountsRoute._addFileChildren(
 
 interface AppRouteRouteChildren {
   AppAccountsRoute: typeof AppAccountsRouteWithChildren
+  AppAuditRoute: typeof AppAuditRoute
   AppCategoriesRoute: typeof AppCategoriesRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRegisterRoute: typeof AppRegisterRoute
@@ -269,6 +289,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAccountsRoute: AppAccountsRouteWithChildren,
+  AppAuditRoute: AppAuditRoute,
   AppCategoriesRoute: AppCategoriesRoute,
   AppProfileRoute: AppProfileRoute,
   AppRegisterRoute: AppRegisterRoute,
