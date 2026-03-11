@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as AppTrialBalanceRouteImport } from './routes/app/trial-balance'
 import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
 import { Route as AppProfileRouteImport } from './routes/app/profile'
@@ -45,6 +46,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppTrialBalanceRoute = AppTrialBalanceRouteImport.update({
+  id: '/trial-balance',
+  path: '/trial-balance',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppTransactionsRoute = AppTransactionsRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
+  '/app/trial-balance': typeof AppTrialBalanceRoute
   '/app/': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
 }
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
+  '/app/trial-balance': typeof AppTrialBalanceRoute
   '/app': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
 }
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
+  '/app/trial-balance': typeof AppTrialBalanceRoute
   '/app/': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
 }
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
+    | '/app/trial-balance'
     | '/app/'
     | '/app/accounts/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
+    | '/app/trial-balance'
     | '/app'
     | '/app/accounts/$id'
   id:
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
+    | '/app/trial-balance'
     | '/app/'
     | '/app/accounts/$id'
   fileRoutesById: FileRoutesById
@@ -211,6 +223,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/trial-balance': {
+      id: '/app/trial-balance'
+      path: '/trial-balance'
+      fullPath: '/app/trial-balance'
+      preLoaderRoute: typeof AppTrialBalanceRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/transactions': {
@@ -284,6 +303,7 @@ interface AppRouteRouteChildren {
   AppProfileRoute: typeof AppProfileRoute
   AppRegisterRoute: typeof AppRegisterRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
+  AppTrialBalanceRoute: typeof AppTrialBalanceRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -294,6 +314,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppProfileRoute: AppProfileRoute,
   AppRegisterRoute: AppRegisterRoute,
   AppTransactionsRoute: AppTransactionsRoute,
+  AppTrialBalanceRoute: AppTrialBalanceRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

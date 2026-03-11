@@ -17,6 +17,7 @@ Documentação completa da API para integração com o frontend.
   - [Subcategories](#subcategories)
   - [Transactions](#transactions)
   - [Transfers](#transfers)
+  - [Reports](#reports)
   - [Audit](#audit)
 
 ---
@@ -1435,6 +1436,85 @@ Cria uma transferência entre contas.
 - `400` - Validação falhou (contas iguais, valor inválido, etc.)
 - `403` - Conta não pertence ao usuário
 - `404` - Conta não encontrada ou categoria de sistema "Transferência" não existe
+
+---
+
+## 📊 Reports
+
+### GET `/reports/trial-balance`
+
+Retorna o balancete anual agrupado por `tipo > categoria > subcategoria`, com totais mensais e total anual.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `year` (obrigatório, number, ex.: `2026`)
+- `accountIds` (opcional, string com UUIDs separados por vírgula)
+  - exemplo: `accountIds=id1,id2,id3`
+
+**Response 200:**
+
+```json
+{
+  "year": 2026,
+  "accountIds": ["acc-1", "acc-2"],
+  "income": [
+    {
+      "categoryId": "cat-1",
+      "categoryName": "Receita Fixa",
+      "months": [1000, 1000, 1000, 1000, 0, 0, 0, 0, 0, 0, 0, 0],
+      "yearTotal": 4000,
+      "subcategories": [
+        {
+          "subcategoryId": "sub-1",
+          "subcategoryName": "Salário",
+          "months": [1000, 1000, 1000, 1000, 0, 0, 0, 0, 0, 0, 0, 0],
+          "yearTotal": 4000
+        }
+      ]
+    }
+  ],
+  "expense": [
+    {
+      "categoryId": "cat-2",
+      "categoryName": "Moradia",
+      "months": [500, 500, 500, 500, 0, 0, 0, 0, 0, 0, 0, 0],
+      "yearTotal": 2000,
+      "subcategories": [
+        {
+          "subcategoryId": "sub-2",
+          "subcategoryName": "Aluguel",
+          "months": [500, 500, 500, 500, 0, 0, 0, 0, 0, 0, 0, 0],
+          "yearTotal": 2000
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "income": {
+      "months": [1000, 1000, 1000, 1000, 0, 0, 0, 0, 0, 0, 0, 0],
+      "yearTotal": 4000
+    },
+    "expense": {
+      "months": [500, 500, 500, 500, 0, 0, 0, 0, 0, 0, 0, 0],
+      "yearTotal": 2000
+    }
+  }
+}
+```
+
+**Regras importantes:**
+
+- Se `accountIds` não for enviado, considera todas as contas do usuário.
+- Meses sem movimento retornam `0`.
+- Categoria sem subcategoria aparece apenas no subtotal da categoria.
+
+**Erros:**
+
+- `400` - Query inválida (`year` fora do intervalo ou `accountIds` inválidos)
+- `401` - Não autenticado
+- `403` - Conta informada não pertence ao usuário autenticado
 
 ---
 

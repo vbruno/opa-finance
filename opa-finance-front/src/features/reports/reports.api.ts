@@ -1,0 +1,64 @@
+import { useQuery } from '@tanstack/react-query'
+
+import { api } from '@/lib/api'
+
+export type TrialBalanceLine = {
+  categoryId: string
+  categoryName: string
+  months: number[]
+  yearTotal: number
+  subcategories: {
+    subcategoryId: string
+    subcategoryName: string
+    months: number[]
+    yearTotal: number
+  }[]
+}
+
+export type TrialBalanceResponse = {
+  year: number
+  accountIds: string[]
+  income: TrialBalanceLine[]
+  expense: TrialBalanceLine[]
+  totals: {
+    income: {
+      months: number[]
+      yearTotal: number
+    }
+    expense: {
+      months: number[]
+      yearTotal: number
+    }
+  }
+}
+
+export type TrialBalanceQueryParams = {
+  year: number
+  accountIds?: string[]
+}
+
+const trialBalanceKey = ['trial-balance']
+
+export function useTrialBalance(
+  params: TrialBalanceQueryParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [...trialBalanceKey, params],
+    queryFn: async () => {
+      const response = await api.get<TrialBalanceResponse>(
+        '/reports/trial-balance',
+        {
+          params: {
+            year: params.year,
+            accountIds: params.accountIds?.length
+              ? params.accountIds.join(',')
+              : undefined,
+          },
+        },
+      )
+      return response.data
+    },
+    enabled: options?.enabled,
+  })
+}

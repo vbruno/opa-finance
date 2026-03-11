@@ -382,6 +382,26 @@
       ]
     },
     {
+      "_id": "fld_reports",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Reports"
+    },
+    {
+      "_id": "req_reports_trial_balance",
+      "_type": "request",
+      "parentId": "fld_reports",
+      "name": "Get Trial Balance",
+      "method": "GET",
+      "url": "{{ _.base_url }}/reports/trial-balance?year=2026",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
       "_id": "fld_system",
       "_type": "request_group",
       "parentId": "wrk_opa_finance",

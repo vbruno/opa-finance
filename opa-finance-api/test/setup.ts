@@ -12,6 +12,7 @@ import { accountRoutes } from "../src/modules/accounts/account.routes";
 import { auditRoutes } from "../src/modules/audit/audit.routes";
 import { authRoutes } from "../src/modules/auth/auth.routes";
 import { categoryRoutes } from "../src/modules/categories/category.routes";
+import { trialBalanceRoutes } from "../src/modules/reports/trial-balance.routes";
 import { transactionRoutes } from "../src/modules/transactions/transaction.routes";
 import { transferRoutes } from "../src/modules/transfers/transfer.routes";
 import { userRoutes } from "../src/modules/users/user.routes";
@@ -63,6 +64,7 @@ export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> 
   app.register(auditRoutes);
   app.register(accountRoutes);
   app.register(categoryRoutes);
+  app.register(trialBalanceRoutes);
   app.register(transactionRoutes);
   app.register(transferRoutes);
 
