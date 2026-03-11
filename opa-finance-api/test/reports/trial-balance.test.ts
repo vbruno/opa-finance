@@ -336,4 +336,108 @@ describe("GET /reports/trial-balance", () => {
 
     expect(res.statusCode).toBe(401);
   });
+
+  it("deve listar anos com movimentação em ordem decrescente", async () => {
+    const { token, user } = await registerAndLogin(app, db, "bal-years@test.com", "Bal Years");
+
+    const [account] = await db
+      .insert(accounts)
+      .values({ userId: user.id, name: "Conta A", type: "cash", initialBalance: "0" })
+      .returning();
+    const [incomeCategory] = await db
+      .insert(categories)
+      .values({ userId: user.id, name: "Receita", type: "income", system: false })
+      .returning();
+
+    await db.insert(transactions).values([
+      {
+        userId: user.id,
+        accountId: account.id,
+        categoryId: incomeCategory.id,
+        subcategoryId: null,
+        type: "income",
+        amount: "100",
+        date: "2026-01-01",
+      },
+      {
+        userId: user.id,
+        accountId: account.id,
+        categoryId: incomeCategory.id,
+        subcategoryId: null,
+        type: "income",
+        amount: "100",
+        date: "2024-01-01",
+      },
+      {
+        userId: user.id,
+        accountId: account.id,
+        categoryId: incomeCategory.id,
+        subcategoryId: null,
+        type: "income",
+        amount: "100",
+        date: "2025-01-01",
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/reports/trial-balance/years",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ years: [2026, 2025, 2024] });
+  });
+
+  it("deve filtrar anos por conta no endpoint de anos", async () => {
+    const { token, user } = await registerAndLogin(
+      app,
+      db,
+      "bal-years-account@test.com",
+      "Bal Years Account",
+    );
+
+    const [accountA] = await db
+      .insert(accounts)
+      .values({ userId: user.id, name: "Conta A", type: "cash", initialBalance: "0" })
+      .returning();
+    const [accountB] = await db
+      .insert(accounts)
+      .values({ userId: user.id, name: "Conta B", type: "checking_account", initialBalance: "0" })
+      .returning();
+    const [incomeCategory] = await db
+      .insert(categories)
+      .values({ userId: user.id, name: "Receita", type: "income", system: false })
+      .returning();
+
+    await db.insert(transactions).values([
+      {
+        userId: user.id,
+        accountId: accountA.id,
+        categoryId: incomeCategory.id,
+        subcategoryId: null,
+        type: "income",
+        amount: "100",
+        date: "2026-01-01",
+      },
+      {
+        userId: user.id,
+        accountId: accountB.id,
+        categoryId: incomeCategory.id,
+        subcategoryId: null,
+        type: "income",
+        amount: "100",
+        date: "2025-01-01",
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/reports/trial-balance/years?accountIds=${accountA.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ years: [2026] });
+  });
 });

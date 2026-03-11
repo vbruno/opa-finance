@@ -1441,6 +1441,33 @@ Cria uma transferência entre contas.
 
 ## 📊 Reports
 
+### GET `/reports/trial-balance/years`
+
+Retorna a lista de anos que possuem movimentação para o usuário (ou para as contas filtradas).
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `accountIds` (opcional, string com UUIDs separados por vírgula)
+  - exemplo: `accountIds=id1,id2,id3`
+
+**Response 200:**
+
+```json
+{
+  "years": [2026, 2025, 2024]
+}
+```
+
+**Erros:**
+
+- `400` - Query inválida (`accountIds` inválidos)
+- `401` - Não autenticado
+- `403` - Conta informada não pertence ao usuário autenticado
+
+---
+
 ### GET `/reports/trial-balance`
 
 Retorna o balancete anual agrupado por `tipo > categoria > subcategoria`, com totais mensais e total anual.

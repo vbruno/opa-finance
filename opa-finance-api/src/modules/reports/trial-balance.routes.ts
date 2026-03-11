@@ -1,11 +1,50 @@
 import { FastifyInstance } from "fastify";
 
-import { trialBalanceQuerySchema } from "./trial-balance.schemas";
+import { trialBalanceQuerySchema, trialBalanceYearsQuerySchema } from "./trial-balance.schemas";
 import { TrialBalanceService } from "./trial-balance.service";
 
 export async function trialBalanceRoutes(app: FastifyInstance) {
   const service = new TrialBalanceService(app);
   const reportsTag = ["Reports"];
+
+  app.get(
+    "/reports/trial-balance/years",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: reportsTag,
+        summary: "Anos com movimentação para balancete",
+        description:
+          "Retorna os anos que possuem transações para o usuário, com filtro opcional por contas.",
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: "object",
+          properties: {
+            accountIds: {
+              type: "string",
+              example: "uuid-account-1,uuid-account-2",
+              description: "Lista de ids de conta separados por vírgula (opcional).",
+            },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              years: {
+                type: "array",
+                items: { type: "number" },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const query = trialBalanceYearsQuerySchema.parse(req.query);
+      return await service.listYears(req.user.sub, query);
+    },
+  );
 
   app.get(
     "/reports/trial-balance",

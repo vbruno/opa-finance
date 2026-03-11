@@ -37,7 +37,16 @@ export type TrialBalanceQueryParams = {
   accountIds?: string[]
 }
 
+export type TrialBalanceYearsQueryParams = {
+  accountIds?: string[]
+}
+
+export type TrialBalanceYearsResponse = {
+  years: number[]
+}
+
 const trialBalanceKey = ['trial-balance']
+const trialBalanceYearsKey = ['trial-balance-years']
 
 export function useTrialBalance(
   params: TrialBalanceQueryParams,
@@ -52,6 +61,29 @@ export function useTrialBalance(
           params: {
             year: params.year,
             accountIds: params.accountIds?.length
+              ? params.accountIds.join(',')
+              : undefined,
+          },
+        },
+      )
+      return response.data
+    },
+    enabled: options?.enabled,
+  })
+}
+
+export function useTrialBalanceYears(
+  params?: TrialBalanceYearsQueryParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [...trialBalanceYearsKey, params],
+    queryFn: async () => {
+      const response = await api.get<TrialBalanceYearsResponse>(
+        '/reports/trial-balance/years',
+        {
+          params: {
+            accountIds: params?.accountIds?.length
               ? params.accountIds.join(',')
               : undefined,
           },

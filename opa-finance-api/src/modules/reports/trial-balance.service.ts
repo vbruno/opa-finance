@@ -7,6 +7,8 @@ import type {
   TrialBalanceCategory,
   TrialBalanceQuery,
   TrialBalanceResponse,
+  TrialBalanceYearsQuery,
+  TrialBalanceYearsResponse,
 } from "./trial-balance.schemas";
 
 type TrialBalanceType = "income" | "expense";
@@ -48,6 +50,39 @@ export class TrialBalanceService {
         "/reports/trial-balance",
       );
     }
+  }
+
+  async listYears(
+    userId: string,
+    query: TrialBalanceYearsQuery,
+  ): Promise<TrialBalanceYearsResponse> {
+    const requestedAccountIds = query.accountIds ?? [];
+
+    const ownedAccounts = await this.app.db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.userId, userId));
+
+    this.ensureUserOwnsAllAccounts(requestedAccountIds, ownedAccounts);
+
+    const filters = [eq(transactions.userId, userId)];
+    if (requestedAccountIds.length > 0) {
+      filters.push(inArray(transactions.accountId, requestedAccountIds));
+    }
+
+    const rows = await this.app.db
+      .select({
+        year: sql<number>`extract(year from ${transactions.date}::date)::int`,
+      })
+      .from(transactions)
+      .where(and(...filters))
+      .groupBy(sql`extract(year from ${transactions.date}::date)`)
+      .orderBy(sql`extract(year from ${transactions.date}::date) desc`);
+
+    const typedRows = rows as Array<{ year: number }>;
+    return {
+      years: typedRows.map((row) => Number(row.year)).filter((rowYear) => Number.isFinite(rowYear)),
+    };
   }
 
   async get(userId: string, query: TrialBalanceQuery): Promise<TrialBalanceResponse> {
