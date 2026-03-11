@@ -70,14 +70,22 @@ export class TransactionService {
       | "transferId"
       | "createdAt"
       | "updatedAt"
-    >,
+    > & { amount: string | number },
+    names?: {
+      accountName?: string | null;
+      categoryName?: string | null;
+      subcategoryName?: string | null;
+    },
   ) {
     return {
       id: tx.id,
       userId: tx.userId,
       accountId: tx.accountId,
+      accountName: names?.accountName ?? null,
       categoryId: tx.categoryId,
+      categoryName: names?.categoryName ?? null,
       subcategoryId: tx.subcategoryId,
+      subcategoryName: names?.subcategoryName ?? null,
       type: tx.type,
       amount: Number(tx.amount),
       date: tx.date,
@@ -86,6 +94,39 @@ export class TransactionService {
       transferId: tx.transferId,
       createdAt: tx.createdAt,
       updatedAt: tx.updatedAt,
+    };
+  }
+
+  private async resolveAuditNames(
+    userId: string,
+    accountId: string,
+    categoryId: string,
+    subcategoryId: string | null,
+  ) {
+    const [account, category, subcategory] = await Promise.all([
+      this.app.db
+        .select({ name: accounts.name })
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId)))
+        .then((rows: Array<{ name: string }>) => rows[0] ?? null),
+      this.app.db
+        .select({ name: categories.name })
+        .from(categories)
+        .where(eq(categories.id, categoryId))
+        .then((rows: Array<{ name: string }>) => rows[0] ?? null),
+      subcategoryId
+        ? this.app.db
+            .select({ name: subcategories.name })
+            .from(subcategories)
+            .where(and(eq(subcategories.id, subcategoryId), eq(subcategories.userId, userId)))
+            .then((rows: Array<{ name: string }>) => rows[0] ?? null)
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      accountName: account?.name ?? null,
+      categoryName: category?.name ?? null,
+      subcategoryName: subcategory?.name ?? null,
     };
   }
 
@@ -154,14 +195,16 @@ export class TransactionService {
     const { accountId, categoryId, subcategoryId } = data;
 
     // valida conta
-    await this.validateAccount(userId, accountId);
+    const account = await this.validateAccount(userId, accountId);
 
     // valida categoria
     const cat = await this.validateCategory(userId, categoryId);
 
     // valida subcategoria (se enviada)
+    let subcategoryName: string | null = null;
     if (subcategoryId) {
       const sub = await this.validateSubcategory(userId, subcategoryId);
+      subcategoryName = sub.name;
 
       if (sub.categoryId !== categoryId) {
         throw new ConflictProblem(
@@ -197,7 +240,11 @@ export class TransactionService {
           entityType: "transaction",
           entityId: created.id,
           action: "create",
-          afterData: this.toAuditTransaction(created),
+          afterData: this.toAuditTransaction(created, {
+            accountName: account.name,
+            categoryName: cat.name,
+            subcategoryName,
+          }),
         },
         db,
       );
@@ -408,8 +455,16 @@ export class TransactionService {
       };
 
       const rowsToUpdate = related.length > 0 ? related : [tx];
-      const rowsBeforeUpdate = rowsToUpdate.map((row: (typeof rowsToUpdate)[number]) =>
-        this.toAuditTransaction(row),
+      const rowsBeforeUpdate = await Promise.all(
+        rowsToUpdate.map(async (row: (typeof rowsToUpdate)[number]) => {
+          const names = await this.resolveAuditNames(
+            userId,
+            row.accountId,
+            row.categoryId,
+            row.subcategoryId,
+          );
+          return this.toAuditTransaction(row, names);
+        }),
       );
 
       const updatedRows = await this.app.db.transaction(async (db: typeof this.app.db) => {
@@ -431,6 +486,12 @@ export class TransactionService {
             rowsBeforeUpdate.find(
               (item: (typeof rowsBeforeUpdate)[number]) => item.id === updated.id,
             ) ?? null;
+          const namesAfter = await this.resolveAuditNames(
+            userId,
+            updated.accountId,
+            updated.categoryId,
+            updated.subcategoryId,
+          );
           await this.audit.log(
             {
               userId,
@@ -438,7 +499,7 @@ export class TransactionService {
               entityId: updated.id,
               action: "update",
               beforeData: before,
-              afterData: this.toAuditTransaction(updated),
+              afterData: this.toAuditTransaction(updated, namesAfter),
               metadata: {
                 transferId: tx.transferId,
                 operation: "transfer-update",
@@ -466,10 +527,6 @@ export class TransactionService {
     let newCategory = null;
     let newSubcategory = null;
 
-    if (data.accountId) {
-      await this.validateAccount(userId, data.accountId);
-    }
-
     if (data.categoryId) {
       newCategory = await this.validateCategory(userId, data.categoryId);
     }
@@ -487,6 +544,19 @@ export class TransactionService {
 
     const finalType = data.type ?? tx.type;
     const finalCategory = newCategory ?? (await this.validateCategory(userId, tx.categoryId));
+    const finalAccount = data.accountId
+      ? await this.validateAccount(userId, data.accountId)
+      : await this.validateAccount(userId, tx.accountId);
+    const finalSubcategory = data.subcategoryId
+      ? await this.validateSubcategory(userId, data.subcategoryId)
+      : tx.subcategoryId
+        ? await this.validateSubcategory(userId, tx.subcategoryId)
+        : null;
+    const beforeCategory = await this.validateCategory(userId, tx.categoryId);
+    const beforeAccount = await this.validateAccount(userId, tx.accountId);
+    const beforeSubcategory = tx.subcategoryId
+      ? await this.validateSubcategory(userId, tx.subcategoryId)
+      : null;
 
     this.validateTypeMatchesCategory(finalType, finalCategory);
 
@@ -513,8 +583,16 @@ export class TransactionService {
           entityType: "transaction",
           entityId: updatedRow.id,
           action: "update",
-          beforeData: this.toAuditTransaction(tx),
-          afterData: this.toAuditTransaction(updatedRow),
+          beforeData: this.toAuditTransaction(tx, {
+            accountName: beforeAccount.name,
+            categoryName: beforeCategory.name,
+            subcategoryName: beforeSubcategory?.name ?? null,
+          }),
+          afterData: this.toAuditTransaction(updatedRow, {
+            accountName: finalAccount.name,
+            categoryName: finalCategory.name,
+            subcategoryName: finalSubcategory?.name ?? null,
+          }),
         },
         db,
       );
@@ -534,7 +612,13 @@ export class TransactionService {
 
   async delete(id: string, userId: string) {
     const tx = await this.getOne(id, userId);
-    const txBeforeDelete = this.toAuditTransaction(tx);
+    const txDeleteNames = await this.resolveAuditNames(
+      userId,
+      tx.accountId,
+      tx.categoryId,
+      tx.subcategoryId,
+    );
+    const txBeforeDelete = this.toAuditTransaction(tx, txDeleteNames);
 
     if (!tx.transferId) {
       await this.app.db.transaction(async (db: typeof this.app.db) => {
@@ -580,7 +664,17 @@ export class TransactionService {
     }
 
     await this.app.db.transaction(async (db: typeof this.app.db) => {
-      const toDelete = related.map((row: (typeof related)[number]) => this.toAuditTransaction(row));
+      const toDelete = await Promise.all(
+        related.map(async (row: (typeof related)[number]) => {
+          const names = await this.resolveAuditNames(
+            userId,
+            row.accountId,
+            row.categoryId,
+            row.subcategoryId,
+          );
+          return this.toAuditTransaction(row, names);
+        }),
+      );
 
       await db
         .delete(transactions)

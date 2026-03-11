@@ -1,17 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
 import { SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  ShortcutLabel,
-  ShortcutTooltip,
-} from '@/components/ui/shortcut-hint'
+import { ShortcutLabel, ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import {
   useAccounts,
   useCreateAccount,
@@ -247,7 +244,7 @@ function Accounts() {
     }
   }
 
-  const handleToggleDashboardVisibility = async () => {
+  const handleToggleDashboardVisibility = useCallback(async () => {
     if (!selectedAccount || isTogglingDashboardVisibility) {
       return
     }
@@ -271,7 +268,7 @@ function Accounts() {
     } finally {
       setIsTogglingDashboardVisibility(false)
     }
-  }
+  }, [isTogglingDashboardVisibility, selectedAccount, updateAccountMutation])
 
   const openAccountDeleteConfirm = () => {
     setDeleteBlockedReason(null)
@@ -279,7 +276,7 @@ function Accounts() {
     setIsDeleteConfirmOpen(true)
   }
 
-  const openAccountEdit = () => {
+  const openAccountEdit = useCallback(() => {
     if (!selectedAccount) {
       return
     }
@@ -289,7 +286,7 @@ function Accounts() {
       confirm: false,
     })
     setIsEditOpen(true)
-  }
+  }, [resetEdit, selectedAccount])
 
   function handleSort(nextKey: 'name' | 'type' | 'balance') {
     navigate({
@@ -530,7 +527,9 @@ function Accounts() {
         return
       }
 
-      const visibilityShortcutKey = detailAccount.isHiddenOnDashboard ? 'm' : 'o'
+      const visibilityShortcutKey = detailAccount.isHiddenOnDashboard
+        ? 'm'
+        : 'o'
 
       if (
         key === visibilityShortcutKey &&
@@ -543,13 +542,15 @@ function Accounts() {
     }
 
     window.addEventListener('keydown', handleDetailShortcut, true)
-    return () => window.removeEventListener('keydown', handleDetailShortcut, true)
+    return () =>
+      window.removeEventListener('keydown', handleDetailShortcut, true)
   }, [
     handleToggleDashboardVisibility,
     isDeleteConfirmOpen,
     isEditOpen,
     isPrimaryConfirmOpen,
     isTogglingDashboardVisibility,
+    openAccountEdit,
     selectedAccount,
   ])
 
@@ -701,7 +702,8 @@ function Accounts() {
     }
 
     window.addEventListener('keydown', handleCreateShortcut, true)
-    return () => window.removeEventListener('keydown', handleCreateShortcut, true)
+    return () =>
+      window.removeEventListener('keydown', handleCreateShortcut, true)
   }, [isCreateOpen, submitCreateAccount])
 
   useEffect(() => {
@@ -1418,10 +1420,7 @@ function Accounts() {
               </div>
             </div>
 
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitCreateAccount}
-            >
+            <form className="mt-6 space-y-4" onSubmit={submitCreateAccount}>
               <div className="space-y-2">
                 <Label htmlFor="account-name">Nome</Label>
                 <Input
@@ -1728,10 +1727,7 @@ function Accounts() {
               </p>
             </div>
 
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitEditAccount}
-            >
+            <form className="mt-6 space-y-4" onSubmit={submitEditAccount}>
               <div className="space-y-2">
                 <Label htmlFor="edit-account-name">Nome</Label>
                 <Input

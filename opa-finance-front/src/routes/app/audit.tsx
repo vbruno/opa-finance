@@ -35,7 +35,8 @@ export const Route = createFileRoute('/app/audit')({
     entityType: z
       .preprocess(
         (value) =>
-          typeof value === 'string' && entityTypes.includes(value as AuditEntityType)
+          typeof value === 'string' &&
+          entityTypes.includes(value as AuditEntityType)
             ? value
             : undefined,
         z.enum(entityTypes),
@@ -130,7 +131,8 @@ function AuditPage() {
       <div>
         <h1 className="text-2xl font-bold">Histórico</h1>
         <p className="text-sm text-muted-foreground">
-          Lista simples de alterações. Use "Detalhes" para abrir mais informações.
+          Lista simples de alterações. Use "Detalhes" para abrir mais
+          informações.
         </p>
       </div>
 
@@ -148,13 +150,18 @@ function AuditPage() {
         {showFilters ? (
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
             <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Entidade</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Entidade
+              </label>
               <Select
                 value={search.entityType ?? '__all__'}
                 onValueChange={(value) =>
                   setSearch({
                     page: 1,
-                    entityType: value === '__all__' ? undefined : (value as AuditEntityType),
+                    entityType:
+                      value === '__all__'
+                        ? undefined
+                        : (value as AuditEntityType),
                   })
                 }
               >
@@ -172,13 +179,16 @@ function AuditPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Ação</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Ação
+              </label>
               <Select
                 value={search.action ?? '__all__'}
                 onValueChange={(value) =>
                   setSearch({
                     page: 1,
-                    action: value === '__all__' ? undefined : (value as AuditAction),
+                    action:
+                      value === '__all__' ? undefined : (value as AuditAction),
                   })
                 }
               >
@@ -195,7 +205,9 @@ function AuditPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Data inicial</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Data inicial
+              </label>
               <Input
                 type="date"
                 value={search.startDate ?? ''}
@@ -209,7 +221,9 @@ function AuditPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Data final</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Data final
+              </label>
               <Input
                 type="date"
                 value={search.endDate ?? ''}
@@ -223,7 +237,9 @@ function AuditPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Limite</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Limite
+              </label>
               <Select
                 value={String(limit)}
                 onValueChange={(value) =>
@@ -261,7 +277,8 @@ function AuditPage() {
           </div>
         ) : null}
 
-        {!auditLogsQuery.isLoading && (auditLogsQuery.data?.data.length ?? 0) === 0 ? (
+        {!auditLogsQuery.isLoading &&
+        (auditLogsQuery.data?.data.length ?? 0) === 0 ? (
           <div className="rounded-md border p-4 text-sm text-muted-foreground">
             Nenhum evento encontrado para os filtros informados.
           </div>
@@ -293,8 +310,12 @@ function AuditPage() {
                     }}
                   >
                     <span>{screenLabel(log.entityType)}</span>
-                    <span>{log.summary?.action ?? actionLabel(log.action)}</span>
-                    <span className="truncate">{log.summary?.accountName ?? '-'}</span>
+                    <span>
+                      {log.summary?.action ?? actionLabel(log.action)}
+                    </span>
+                    <span className="truncate">
+                      {log.summary?.accountName ?? '-'}
+                    </span>
                     <span className="truncate">
                       {log.summary?.description ?? `ID ${log.entityId}`}
                     </span>
@@ -346,13 +367,15 @@ function AuditPage() {
               <div className="rounded-md border px-3 py-2">
                 <p className="text-xs text-muted-foreground">Tela</p>
                 <p className="mt-0.5 font-medium">
-                  {selectedLog.summary?.screen ?? screenLabel(selectedLog.entityType)}
+                  {selectedLog.summary?.screen ??
+                    screenLabel(selectedLog.entityType)}
                 </p>
               </div>
               <div className="rounded-md border px-3 py-2">
                 <p className="text-xs text-muted-foreground">Tipo</p>
                 <p className="mt-0.5 font-medium">
-                  {selectedLog.summary?.action ?? actionLabel(selectedLog.action)}
+                  {selectedLog.summary?.action ??
+                    actionLabel(selectedLog.action)}
                 </p>
               </div>
               <div className="rounded-md border px-3 py-2">
@@ -383,7 +406,11 @@ function AuditPage() {
             </div>
 
             <div className="mt-3 flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setSelectedLog(null)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedLog(null)}
+              >
                 Fechar
               </Button>
             </div>
@@ -447,7 +474,9 @@ function normalizePreviewData(data: Record<string, unknown> | null) {
     value:
       value === null || value === undefined
         ? '-'
-        : typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+        : typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean'
           ? String(value)
           : JSON.stringify(value),
   }))

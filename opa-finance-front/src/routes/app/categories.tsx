@@ -535,8 +535,7 @@ function Categories() {
     }
 
     window.addEventListener('keydown', handleSubCreateShortcut)
-    return () =>
-      window.removeEventListener('keydown', handleSubCreateShortcut)
+    return () => window.removeEventListener('keydown', handleSubCreateShortcut)
   }, [isSubCreateOpen, submitCreateSubcategoryForm])
 
   useEffect(() => {
@@ -1511,10 +1510,7 @@ function Categories() {
               </div>
             </div>
 
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitEditCategoryForm}
-            >
+            <form className="mt-6 space-y-4" onSubmit={submitEditCategoryForm}>
               <div className="space-y-2">
                 <Label htmlFor="category-edit-name">Nome</Label>
                 <Input

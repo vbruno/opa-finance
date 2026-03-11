@@ -72,9 +72,7 @@ const isProductionBuild = process.env.NODE_ENV === "production";
 const { major, minor } = getVersionParts(packageVersion);
 const patch = getPatchCount(gitCommitCount, cycleStartCommitCount);
 const releaseVersion = `${major}.${minor}.${patch}`;
-const dynamicVersion = isProductionBuild
-  ? releaseVersion
-  : `${releaseVersion}-dev`;
+const dynamicVersion = isProductionBuild ? releaseVersion : `${releaseVersion}-dev`;
 const appVersion = String(process.env.APP_VERSION || dynamicVersion);
 const builtAt = new Date().toISOString();
 

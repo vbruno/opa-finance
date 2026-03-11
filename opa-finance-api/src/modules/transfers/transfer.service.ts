@@ -15,7 +15,14 @@ export class TransferService {
     this.audit = new AuditService(app);
   }
 
-  private toAuditTransactionPayload(tx: typeof transactions.$inferSelect): Record<string, unknown> {
+  private toAuditTransactionPayload(
+    tx: typeof transactions.$inferSelect,
+    names?: {
+      accountName?: string | null;
+      categoryName?: string | null;
+      subcategoryName?: string | null;
+    },
+  ): Record<string, unknown> {
     return {
       id: tx.id,
       date: tx.date,
@@ -24,8 +31,11 @@ export class TransferService {
       description: tx.description,
       notes: tx.notes,
       accountId: tx.accountId,
+      accountName: names?.accountName ?? null,
       categoryId: tx.categoryId,
+      categoryName: names?.categoryName ?? null,
       subcategoryId: tx.subcategoryId,
+      subcategoryName: names?.subcategoryName ?? null,
       transferId: tx.transferId,
     };
   }
@@ -87,10 +97,10 @@ export class TransferService {
     }
 
     // Valida conta de origem
-    await this.validateAccount(userId, data.fromAccountId, "Conta de origem");
+    const fromAccount = await this.validateAccount(userId, data.fromAccountId, "Conta de origem");
 
     // Valida conta de destino
-    await this.validateAccount(userId, data.toAccountId, "Conta de destino");
+    const toAccount = await this.validateAccount(userId, data.toAccountId, "Conta de destino");
 
     // Busca categoria de sistema "Transferência"
     const transferCategory = await this.getTransferCategory();
@@ -135,7 +145,10 @@ export class TransferService {
           entityType: "transaction",
           entityId: expenseTx.id,
           action: "create",
-          afterData: this.toAuditTransactionPayload(expenseTx),
+          afterData: this.toAuditTransactionPayload(expenseTx, {
+            accountName: fromAccount.name,
+            categoryName: transferCategory.name,
+          }),
           metadata: {
             operation: "transfer-create",
             transferId,
@@ -151,7 +164,10 @@ export class TransferService {
           entityType: "transaction",
           entityId: incomeTx.id,
           action: "create",
-          afterData: this.toAuditTransactionPayload(incomeTx),
+          afterData: this.toAuditTransactionPayload(incomeTx, {
+            accountName: toAccount.name,
+            categoryName: transferCategory.name,
+          }),
           metadata: {
             operation: "transfer-create",
             transferId,

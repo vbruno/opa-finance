@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, inArray, lte, sql, SQL } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql, SQL } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
-import { accounts, auditLogs, categories, subcategories } from "../../db/schema";
+import { auditLogs } from "../../db/schema";
 
 export type AuditEntityType = "transaction" | "account" | "category" | "subcategory";
 export type AuditAction = "create" | "update" | "delete";
@@ -102,21 +102,26 @@ export class AuditService {
     return value;
   }
 
-  private buildSummary(
-    row: {
-      entityType: AuditEntityType;
-      action: AuditAction;
-      entityId: string;
-      beforeData: Record<string, unknown> | null;
-      afterData: Record<string, unknown> | null;
-      metadata: Record<string, unknown> | null;
-    },
-    maps: {
-      accountNames: Map<string, string>;
-      categoryNames: Map<string, string>;
-      subcategoryNames: Map<string, string>;
-    },
-  ) {
+  private buildSummary(row: {
+    entityType: AuditEntityType;
+    action: AuditAction;
+    entityId: string;
+    beforeData: Record<string, unknown> | null;
+    afterData: Record<string, unknown> | null;
+    metadata: Record<string, unknown> | null;
+  }) {
+    const accountName =
+      this.getStringValue(row.afterData, "accountName") ??
+      this.getStringValue(row.beforeData, "accountName") ??
+      this.getStringValue(row.metadata, "accountName");
+    const categoryName =
+      this.getStringValue(row.afterData, "categoryName") ??
+      this.getStringValue(row.beforeData, "categoryName") ??
+      this.getStringValue(row.metadata, "categoryName");
+    const subcategoryName =
+      this.getStringValue(row.afterData, "subcategoryName") ??
+      this.getStringValue(row.beforeData, "subcategoryName") ??
+      this.getStringValue(row.metadata, "subcategoryName");
     const accountId =
       this.getStringValue(row.afterData, "accountId") ??
       this.getStringValue(row.beforeData, "accountId") ??
@@ -155,22 +160,13 @@ export class AuditService {
               : "Subcategorias",
       action: row.action === "create" ? "Criação" : row.action === "update" ? "Edição" : "Exclusão",
       description,
-      accountName: accountId ? (maps.accountNames.get(accountId) ?? accountId) : null,
-      categoryName: categoryId ? (maps.categoryNames.get(categoryId) ?? categoryId) : null,
-      subcategoryName: subcategoryId
-        ? (maps.subcategoryNames.get(subcategoryId) ?? subcategoryId)
-        : null,
+      accountName: accountName ?? accountId ?? null,
+      categoryName: categoryName ?? categoryId ?? null,
+      subcategoryName: subcategoryName ?? subcategoryId ?? null,
     };
   }
 
-  private toFriendlyData(
-    data: Record<string, unknown> | null,
-    maps: {
-      accountNames: Map<string, string>;
-      categoryNames: Map<string, string>;
-      subcategoryNames: Map<string, string>;
-    },
-  ) {
+  private toFriendlyData(data: Record<string, unknown> | null) {
     if (!data) {
       return null;
     }
@@ -183,8 +179,11 @@ export class AuditService {
       notes: "Notas",
       amount: "Valor",
       accountId: "Conta",
+      accountName: "Conta",
       categoryId: "Categoria",
+      categoryName: "Categoria",
       subcategoryId: "Subcategoria",
+      subcategoryName: "Subcategoria",
       transferId: "Transferência",
       description: "Descrição",
       operation: "Operação",
@@ -228,13 +227,7 @@ export class AuditService {
 
       let friendlyValue: string;
 
-      if (key === "accountId" && typeof value === "string") {
-        friendlyValue = maps.accountNames.get(value) ?? value;
-      } else if (key === "categoryId" && typeof value === "string") {
-        friendlyValue = maps.categoryNames.get(value) ?? value;
-      } else if (key === "subcategoryId" && typeof value === "string") {
-        friendlyValue = maps.subcategoryNames.get(value) ?? value;
-      } else if (key === "type" && typeof value === "string") {
+      if (key === "type" && typeof value === "string") {
         friendlyValue = value === "income" ? "Receita" : value === "expense" ? "Despesa" : value;
       } else if (key === "date" && typeof value === "string") {
         const date = new Date(`${value}T00:00:00`);
@@ -261,7 +254,7 @@ export class AuditService {
     return output;
   }
 
-  private async enrichRows<
+  private enrichRows<
     T extends {
       entityType: AuditEntityType;
       action: AuditAction;
@@ -271,60 +264,12 @@ export class AuditService {
       metadata: Record<string, unknown> | null;
     },
   >(rows: T[]) {
-    const accountIds = new Set<string>();
-    const categoryIds = new Set<string>();
-    const subcategoryIds = new Set<string>();
-
-    for (const row of rows) {
-      for (const source of [row.beforeData, row.afterData, row.metadata]) {
-        const data = this.getObject(source);
-        const accountId = this.getStringValue(data, "accountId");
-        const categoryId = this.getStringValue(data, "categoryId");
-        const subcategoryId = this.getStringValue(data, "subcategoryId");
-
-        if (accountId) accountIds.add(accountId);
-        if (categoryId) categoryIds.add(categoryId);
-        if (subcategoryId) subcategoryIds.add(subcategoryId);
-      }
-    }
-
-    const [accountRows, categoryRows, subcategoryRows] = await Promise.all([
-      accountIds.size
-        ? this.app.db
-            .select({ id: accounts.id, name: accounts.name })
-            .from(accounts)
-            .where(inArray(accounts.id, Array.from(accountIds)))
-        : Promise.resolve([]),
-      categoryIds.size
-        ? this.app.db
-            .select({ id: categories.id, name: categories.name })
-            .from(categories)
-            .where(inArray(categories.id, Array.from(categoryIds)))
-        : Promise.resolve([]),
-      subcategoryIds.size
-        ? this.app.db
-            .select({ id: subcategories.id, name: subcategories.name })
-            .from(subcategories)
-            .where(inArray(subcategories.id, Array.from(subcategoryIds)))
-        : Promise.resolve([]),
-    ]);
-
-    const accountRowsTyped = accountRows as Array<{ id: string; name: string }>;
-    const categoryRowsTyped = categoryRows as Array<{ id: string; name: string }>;
-    const subcategoryRowsTyped = subcategoryRows as Array<{ id: string; name: string }>;
-
-    const maps = {
-      accountNames: new Map(accountRowsTyped.map((row) => [row.id, row.name])),
-      categoryNames: new Map(categoryRowsTyped.map((row) => [row.id, row.name])),
-      subcategoryNames: new Map(subcategoryRowsTyped.map((row) => [row.id, row.name])),
-    };
-
     return rows.map((row) => ({
       ...row,
-      summary: this.buildSummary(row, maps),
-      beforeDataFriendly: this.toFriendlyData(row.beforeData, maps),
-      afterDataFriendly: this.toFriendlyData(row.afterData, maps),
-      metadataFriendly: this.toFriendlyData(row.metadata, maps),
+      summary: this.buildSummary(row),
+      beforeDataFriendly: this.toFriendlyData(row.beforeData),
+      afterDataFriendly: this.toFriendlyData(row.afterData),
+      metadataFriendly: this.toFriendlyData(row.metadata),
     }));
   }
 
@@ -383,7 +328,7 @@ export class AuditService {
       .limit(limit)
       .offset(offset);
 
-    const enrichedRows = await this.enrichRows(rows);
+    const enrichedRows = this.enrichRows(rows);
 
     return {
       data: enrichedRows,
@@ -499,7 +444,7 @@ export class AuditService {
       };
     });
 
-    const enrichedRows = await this.enrichRows(groupedRows);
+    const enrichedRows = this.enrichRows(groupedRows);
 
     return {
       data: enrichedRows,

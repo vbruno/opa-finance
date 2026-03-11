@@ -75,9 +75,7 @@ function evaluateArithmeticExpression(value: string): number | null {
 
 type ExpressionToken = number | '+' | '-' | '*' | '/' | '(' | ')'
 
-function tokenizeExpression(
-  value: string,
-): ExpressionToken[] | null {
+function tokenizeExpression(value: string): ExpressionToken[] | null {
   const input = value.trim()
   if (!input) {
     return null

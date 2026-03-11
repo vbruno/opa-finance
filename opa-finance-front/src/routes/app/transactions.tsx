@@ -18,16 +18,16 @@ import {
   type KeyboardEventHandler,
   type MouseEventHandler,
 } from 'react'
-import { Controller, type ControllerRenderProps, useForm } from 'react-hook-form'
+import {
+  Controller,
+  type ControllerRenderProps,
+  useForm,
+} from 'react-hook-form'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  ShortcutLabel,
-  ShortcutTooltip,
-} from '@/components/ui/shortcut-hint'
 import {
   Select,
   SelectContent,
@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ShortcutLabel, ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
@@ -53,8 +54,8 @@ import {
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
-import { useUserPreference } from '@/hooks/useUserPreference'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useUserPreference } from '@/hooks/useUserPreference'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
@@ -254,8 +255,10 @@ function Transactions() {
     useState(false)
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
-  const [isCreateCategoryTreeOpen, setIsCreateCategoryTreeOpen] = useState(false)
-  const [isCreateAccountSelectOpen, setIsCreateAccountSelectOpen] = useState(false)
+  const [isCreateCategoryTreeOpen, setIsCreateCategoryTreeOpen] =
+    useState(false)
+  const [isCreateAccountSelectOpen, setIsCreateAccountSelectOpen] =
+    useState(false)
   const [isEditAccountSelectOpen, setIsEditAccountSelectOpen] = useState(false)
   const [isTransferFromAccountSelectOpen, setIsTransferFromAccountSelectOpen] =
     useState(false)
@@ -520,7 +523,10 @@ function Transactions() {
   const editCategoryId = watchEdit('categoryId')
   const editSubcategoryId = watchEdit('subcategoryId')
   const editType = watchEdit('type')
-  const categories = categoriesQuery.data ?? []
+  const categories = useMemo(
+    () => categoriesQuery.data ?? [],
+    [categoriesQuery.data],
+  )
   const availableCategories = useMemo(() => {
     const items = categories.filter((category) => !category.system)
     const typeRank: Record<string, number> = {
@@ -560,7 +566,9 @@ function Transactions() {
       )
       return Object.fromEntries(entries) as Record<string, Subcategory[]>
     },
-    enabled: Boolean((isCreateOpen || isEditOpen) && availableCategories.length),
+    enabled: Boolean(
+      (isCreateOpen || isEditOpen) && availableCategories.length,
+    ),
   })
 
   const createSubcategoriesByCategory = useMemo(() => {
@@ -575,10 +583,12 @@ function Transactions() {
     if (lastCreatedSubcategory) {
       const list = next[lastCreatedSubcategory.categoryId] ?? []
       if (!list.some((item) => item.id === lastCreatedSubcategory.id)) {
-        next[lastCreatedSubcategory.categoryId] = [...list, lastCreatedSubcategory]
-          .sort((a, b) =>
-            a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
-          )
+        next[lastCreatedSubcategory.categoryId] = [
+          ...list,
+          lastCreatedSubcategory,
+        ].sort((a, b) =>
+          a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
+        )
       }
     }
 
@@ -626,7 +636,11 @@ function Transactions() {
     })
 
     return options
-  }, [availableCategories, createCategoryTreeSearch, createSubcategoriesByCategory])
+  }, [
+    availableCategories,
+    createCategoryTreeSearch,
+    createSubcategoriesByCategory,
+  ])
 
   const editCategoryTreeOptions = useMemo(() => {
     const query = normalizeText(editCategoryTreeSearch.trim())
@@ -664,7 +678,11 @@ function Transactions() {
     })
 
     return options
-  }, [availableCategories, createSubcategoriesByCategory, editCategoryTreeSearch])
+  }, [
+    availableCategories,
+    createSubcategoriesByCategory,
+    editCategoryTreeSearch,
+  ])
 
   const suggestionsQueryText = debouncedCreateDescription
   const trimmedSuggestionsQueryText = suggestionsQueryText.trim()
@@ -839,9 +857,9 @@ function Transactions() {
     clearErrors()
   }, [clearErrors, primaryAccountId, reset])
 
-  const handleClearCreateForm = () => {
+  const handleClearCreateForm = useCallback(() => {
     resetCreateForm()
-  }
+  }, [resetCreateForm])
 
   const handleCloseCreateModal = useCallback(() => {
     setIsCreateOpen(false)
@@ -1045,7 +1063,9 @@ function Transactions() {
   }, [
     handleClearFilters,
     hasActiveFilters,
+    isCreateCategoryOpen,
     isCreateOpen,
+    isCreateSubcategoryOpen,
     isTransferOpen,
     isEditOpen,
     isDeleteConfirmOpen,
@@ -1096,7 +1116,9 @@ function Transactions() {
       return
     }
     const fallbackCategoryId =
-      (createSubcategoryModalTarget === 'edit' ? editCategoryId : createCategoryId) ||
+      (createSubcategoryModalTarget === 'edit'
+        ? editCategoryId
+        : createCategoryId) ||
       categories.find((category) => !category.system)?.id ||
       ''
     subcategoryCreateForm.reset({
@@ -1179,11 +1201,7 @@ function Transactions() {
       return `subcategory:${createCategoryId}:${createSubcategoryId}`
     }
     return `category:${createCategoryId}`
-  }, [
-    CREATE_CATEGORY_TREE_NONE,
-    createCategoryId,
-    createSubcategoryId,
-  ])
+  }, [CREATE_CATEGORY_TREE_NONE, createCategoryId, createSubcategoryId])
 
   const handleCreateCategoryTreeOpenChange = useCallback((open: boolean) => {
     setIsCreateCategoryTreeOpen(open)
@@ -1282,7 +1300,11 @@ function Transactions() {
           !event.ctrlKey &&
           !event.metaKey &&
           !event.altKey
-        if (isTypingKey || event.key === 'Backspace' || event.key === 'Delete') {
+        if (
+          isTypingKey ||
+          event.key === 'Backspace' ||
+          event.key === 'Delete'
+        ) {
           event.stopPropagation()
           event.nativeEvent.stopImmediatePropagation?.()
           return
@@ -1293,10 +1315,7 @@ function Transactions() {
     )
 
   const findVisibleSiblingOption = useCallback(
-    (
-      element: HTMLElement,
-      direction: 'prev' | 'next',
-    ): HTMLElement | null => {
+    (element: HTMLElement, direction: 'prev' | 'next'): HTMLElement | null => {
       let sibling: Element | null =
         direction === 'prev'
           ? element.previousElementSibling
@@ -1502,7 +1521,11 @@ function Transactions() {
           !event.ctrlKey &&
           !event.metaKey &&
           !event.altKey
-        if (isTypingKey || event.key === 'Backspace' || event.key === 'Delete') {
+        if (
+          isTypingKey ||
+          event.key === 'Backspace' ||
+          event.key === 'Delete'
+        ) {
           event.stopPropagation()
           event.nativeEvent.stopImmediatePropagation?.()
           return
@@ -2030,41 +2053,47 @@ function Transactions() {
     selectAllRef.current.indeterminate = hasSelection && !allSelected
   }, [allSelected, hasSelection])
 
-  const handleOpenEdit = (transaction: Transaction) => {
-    setSelectedTransaction(transaction)
-    lastEditCategoryId.current = transaction.categoryId
-    resetEdit({
-      accountId: transaction.accountId,
-      categoryId: transaction.categoryId,
-      subcategoryId: transaction.subcategoryId ?? '',
-      type: transaction.type,
-      amount: `$ ${formatCurrencyValue(transaction.amount)}`,
-      date: transaction.date,
-      description: transaction.description ?? '',
-      notes: transaction.notes ?? '',
-    })
-    setIsEditOpen(true)
-  }
+  const handleOpenEdit = useCallback(
+    (transaction: Transaction) => {
+      setSelectedTransaction(transaction)
+      lastEditCategoryId.current = transaction.categoryId
+      resetEdit({
+        accountId: transaction.accountId,
+        categoryId: transaction.categoryId,
+        subcategoryId: transaction.subcategoryId ?? '',
+        type: transaction.type,
+        amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+        date: transaction.date,
+        description: transaction.description ?? '',
+        notes: transaction.notes ?? '',
+      })
+      setIsEditOpen(true)
+    },
+    [resetEdit],
+  )
 
-  const handleOpenDuplicate = (transaction: Transaction) => {
-    if (transaction.transferId) {
-      return
-    }
-    isCreateFromDuplicate.current = true
-    lastCreateCategoryId.current = transaction.categoryId
-    reset({
-      accountId: transaction.accountId,
-      categoryId: transaction.categoryId,
-      subcategoryId: transaction.subcategoryId ?? '',
-      type: transaction.type,
-      amount: `$ ${formatCurrencyValue(transaction.amount)}`,
-      date: formatDateInput(new Date()),
-      description: transaction.description ?? '',
-      notes: transaction.notes ?? '',
-    })
-    setSelectedTransaction(null)
-    setIsCreateOpen(true)
-  }
+  const handleOpenDuplicate = useCallback(
+    (transaction: Transaction) => {
+      if (transaction.transferId) {
+        return
+      }
+      isCreateFromDuplicate.current = true
+      lastCreateCategoryId.current = transaction.categoryId
+      reset({
+        accountId: transaction.accountId,
+        categoryId: transaction.categoryId,
+        subcategoryId: transaction.subcategoryId ?? '',
+        type: transaction.type,
+        amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+        date: formatDateInput(new Date()),
+        description: transaction.description ?? '',
+        notes: transaction.notes ?? '',
+      })
+      setSelectedTransaction(null)
+      setIsCreateOpen(true)
+    },
+    [reset],
+  )
 
   const handleCloseTransferModal = () => {
     setIsTransferFromAccountSelectOpen(false)
@@ -2147,49 +2176,52 @@ function Transactions() {
     transferForm.setValue('toAccountId', fromAccountId)
   }
 
-  const findTransferCounterpart = async (transaction: Transaction) => {
-    if (!transaction.transferId) {
-      return null
-    }
-    const localMatch = transactions.find(
-      (item) =>
-        item.transferId === transaction.transferId &&
-        item.id !== transaction.id,
-    )
-    if (localMatch) {
-      return localMatch
-    }
-    const limit = 100
-    let page = 1
-    let totalPages = 1
-
-    while (page <= totalPages) {
-      const response = await api.get<TransactionsListResponse>(
-        '/transactions',
-        {
-          params: {
-            page,
-            limit,
-            startDate: transaction.date,
-            endDate: transaction.date,
-          },
-        },
-      )
-      const result = response.data
-      totalPages = Math.max(1, Math.ceil(result.total / result.limit))
-      const match = result.data.find(
+  const findTransferCounterpart = useCallback(
+    async (transaction: Transaction) => {
+      if (!transaction.transferId) {
+        return null
+      }
+      const localMatch = transactions.find(
         (item) =>
           item.transferId === transaction.transferId &&
           item.id !== transaction.id,
       )
-      if (match) {
-        return match
+      if (localMatch) {
+        return localMatch
       }
-      page += 1
-    }
+      const limit = 100
+      let page = 1
+      let totalPages = 1
 
-    return null
-  }
+      while (page <= totalPages) {
+        const response = await api.get<TransactionsListResponse>(
+          '/transactions',
+          {
+            params: {
+              page,
+              limit,
+              startDate: transaction.date,
+              endDate: transaction.date,
+            },
+          },
+        )
+        const result = response.data
+        totalPages = Math.max(1, Math.ceil(result.total / result.limit))
+        const match = result.data.find(
+          (item) =>
+            item.transferId === transaction.transferId &&
+            item.id !== transaction.id,
+        )
+        if (match) {
+          return match
+        }
+        page += 1
+      }
+
+      return null
+    },
+    [transactions],
+  )
 
   const handleOpenRepeatTransfer = async (transaction: Transaction) => {
     if (!transaction.transferId) {
@@ -2245,52 +2277,55 @@ function Transactions() {
     }
   }
 
-  const handleOpenEditTransfer = async (transaction: Transaction) => {
-    if (!transaction.transferId) {
-      return
-    }
-    if (isEditTransferLoading) {
-      return
-    }
-    setTransferEditError(null)
-    setIsEditTransferLoading(true)
-    try {
-      const relatedTransfer = await findTransferCounterpart(transaction)
-      if (!relatedTransfer) {
-        setTransferEditError(
-          'Não foi possível localizar a outra conta da transferência.',
-        )
+  const handleOpenEditTransfer = useCallback(
+    async (transaction: Transaction) => {
+      if (!transaction.transferId) {
         return
       }
-      const isExpense = transaction.type === 'expense'
-      const expenseTransaction = isExpense ? transaction : relatedTransfer
-      const incomeTransaction = isExpense ? relatedTransfer : transaction
+      if (isEditTransferLoading) {
+        return
+      }
+      setTransferEditError(null)
+      setIsEditTransferLoading(true)
+      try {
+        const relatedTransfer = await findTransferCounterpart(transaction)
+        if (!relatedTransfer) {
+          setTransferEditError(
+            'Não foi possível localizar a outra conta da transferência.',
+          )
+          return
+        }
+        const isExpense = transaction.type === 'expense'
+        const expenseTransaction = isExpense ? transaction : relatedTransfer
+        const incomeTransaction = isExpense ? relatedTransfer : transaction
 
-      setTransferEditContext({
-        expenseId: expenseTransaction.id,
-        incomeId: incomeTransaction.id,
-      })
+        setTransferEditContext({
+          expenseId: expenseTransaction.id,
+          incomeId: incomeTransaction.id,
+        })
 
-      transferForm.reset({
-        fromAccountId: expenseTransaction.accountId,
-        toAccountId: incomeTransaction.accountId,
-        amount: `$ ${formatCurrencyValue(transaction.amount)}`,
-        date: transaction.date,
-        description: transaction.description ?? '',
-      })
-      setSelectedTransaction(null)
-      setIsTransferOpen(true)
-    } catch (error: unknown) {
-      setTransferEditError(
-        getApiErrorMessage(error, {
-          defaultMessage:
-            'Erro ao carregar os dados da transferência. Tente novamente.',
-        }),
-      )
-    } finally {
-      setIsEditTransferLoading(false)
-    }
-  }
+        transferForm.reset({
+          fromAccountId: expenseTransaction.accountId,
+          toAccountId: incomeTransaction.accountId,
+          amount: `$ ${formatCurrencyValue(transaction.amount)}`,
+          date: transaction.date,
+          description: transaction.description ?? '',
+        })
+        setSelectedTransaction(null)
+        setIsTransferOpen(true)
+      } catch (error: unknown) {
+        setTransferEditError(
+          getApiErrorMessage(error, {
+            defaultMessage:
+              'Erro ao carregar os dados da transferência. Tente novamente.',
+          }),
+        )
+      } finally {
+        setIsEditTransferLoading(false)
+      }
+    },
+    [findTransferCounterpart, isEditTransferLoading, transferForm],
+  )
 
   const handleOpenDelete = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
@@ -2349,6 +2384,7 @@ function Transactions() {
     }
   }, [
     handleOpenDuplicate,
+    handleOpenEdit,
     handleOpenEditTransfer,
     isDeleteConfirmOpen,
     isEditOpen,
@@ -3501,7 +3537,9 @@ function Transactions() {
               className="mt-6 space-y-4 pb-10 sm:pb-0"
               onSubmit={submitCreateTransaction}
             >
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              <div
+                className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}
+              >
                 <div className="space-y-2">
                   <Label htmlFor="transaction-account">Conta</Label>
                   <Controller
@@ -3584,7 +3622,9 @@ function Transactions() {
 
               <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="transaction-category">Categoria/Subcategoria</Label>
+                  <Label htmlFor="transaction-category">
+                    Categoria/Subcategoria
+                  </Label>
                   <Controller
                     control={control}
                     name="categoryId"
@@ -3650,21 +3690,23 @@ function Transactions() {
                           >
                             + Nova subcategoria
                           </SelectItem>
-                          {createCategoryTreeOptions.map((option, optionIndex) => (
-                            <SelectItem
-                              key={option.value}
-                              value={option.value}
-                              onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                              textValue={`option-${optionIndex}`}
-                              className={
-                                option.level === 'subcategory'
-                                  ? 'pl-10 text-muted-foreground'
-                                  : 'font-medium'
-                              }
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
+                          {createCategoryTreeOptions.map(
+                            (option, optionIndex) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                onKeyDown={handleCreateCategoryTreeItemKeyDown}
+                                textValue={`option-${optionIndex}`}
+                                className={
+                                  option.level === 'subcategory'
+                                    ? 'pl-10 text-muted-foreground'
+                                    : 'font-medium'
+                                }
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ),
+                          )}
                           {createCategoryTreeOptions.length === 0 && (
                             <div className="px-2 py-2 text-sm text-muted-foreground">
                               Nenhuma categoria/subcategoria encontrada.
@@ -3682,7 +3724,9 @@ function Transactions() {
                 </div>
               </div>
 
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              <div
+                className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}
+              >
                 <div className="space-y-2">
                   <Label htmlFor="transaction-type">Tipo</Label>
                   <input type="hidden" {...register('type')} />
@@ -3932,15 +3976,15 @@ function Transactions() {
                       Cancelar
                     </Button>
                   </ShortcutTooltip>
-                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
-                  <Button
-                    type="submit"
-                    className="w-full sm:w-auto h-12 sm:h-auto"
-                    disabled={isSubmitting}
-                  >
-                    Salvar
-                  </Button>
-                </ShortcutTooltip>
+                  <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
+                    <Button
+                      type="submit"
+                      className="w-full sm:w-auto h-12 sm:h-auto"
+                      disabled={isSubmitting}
+                    >
+                      Salvar
+                    </Button>
+                  </ShortcutTooltip>
                 </div>
               </div>
             </form>
@@ -4244,10 +4288,7 @@ function Transactions() {
               </p>
             </div>
 
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitTransferForm}
-            >
+            <form className="mt-6 space-y-4" onSubmit={submitTransferForm}>
               <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
                 <div className="space-y-2">
                   <Label htmlFor="transfer-from-account">Conta de origem</Label>
@@ -4651,9 +4692,12 @@ function Transactions() {
                         }
                       }}
                     >
-                      {selectedTransaction.transferId && isEditTransferLoading
-                        ? 'Carregando...'
-                        : <ShortcutLabel label="Editar" shortcutIndex={0} />}
+                      {selectedTransaction.transferId &&
+                      isEditTransferLoading ? (
+                        'Carregando...'
+                      ) : (
+                        <ShortcutLabel label="Editar" shortcutIndex={0} />
+                      )}
                     </Button>
                   </ShortcutTooltip>
                   <ShortcutTooltip label="Atalho: R">
@@ -4789,7 +4833,9 @@ function Transactions() {
 
               <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="transaction-edit-category">Categoria/Subcategoria</Label>
+                  <Label htmlFor="transaction-edit-category">
+                    Categoria/Subcategoria
+                  </Label>
                   <Controller
                     control={editControl}
                     name="categoryId"
@@ -4798,7 +4844,10 @@ function Transactions() {
                         open={isEditCategoryTreeOpen}
                         value={getEditCategoryTreeValue()}
                         onValueChange={(value) =>
-                          handleEditCategoryTreeValueChange(value, field.onChange)
+                          handleEditCategoryTreeValueChange(
+                            value,
+                            field.onChange,
+                          )
                         }
                         onOpenChange={handleEditCategoryTreeOpenChange}
                       >
@@ -4868,21 +4917,23 @@ function Transactions() {
                           >
                             + Nova subcategoria
                           </SelectItem>
-                          {editCategoryTreeOptions.map((option, optionIndex) => (
-                            <SelectItem
-                              key={option.value}
-                              value={option.value}
-                              onKeyDown={handleEditCategoryTreeItemKeyDown}
-                              textValue={`option-${optionIndex}`}
-                              className={
-                                option.level === 'subcategory'
-                                  ? 'pl-10 text-muted-foreground'
-                                  : 'font-medium'
-                              }
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
+                          {editCategoryTreeOptions.map(
+                            (option, optionIndex) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                onKeyDown={handleEditCategoryTreeItemKeyDown}
+                                textValue={`option-${optionIndex}`}
+                                className={
+                                  option.level === 'subcategory'
+                                    ? 'pl-10 text-muted-foreground'
+                                    : 'font-medium'
+                                }
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ),
+                          )}
                           {editCategoryTreeOptions.length === 0 && (
                             <div className="px-2 py-2 text-sm text-muted-foreground">
                               Nenhuma categoria/subcategoria encontrada.
@@ -5193,8 +5244,10 @@ type AmountFilterResult = {
   amountOp?: 'gt' | 'gte' | 'lt' | 'lte'
 }
 
-type SetStringValue =
-  ControllerRenderProps<TransactionCreateFormData, 'amount'>['onChange']
+type SetStringValue = ControllerRenderProps<
+  TransactionCreateFormData,
+  'amount'
+>['onChange']
 
 function parseAmountFilter(value: string): AmountFilterResult | null {
   const trimmed = value.trim()
