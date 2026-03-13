@@ -37,6 +37,7 @@ export class TrialBalanceService {
   private ensureUserOwnsAllAccounts(
     inputAccountIds: string[],
     ownedAccounts: Array<{ id: string }>,
+    errorInstance: string,
   ) {
     if (inputAccountIds.length === 0) {
       return;
@@ -47,7 +48,7 @@ export class TrialBalanceService {
     if (hasForeignAccount) {
       throw new ForbiddenProblem(
         "Uma ou mais contas informadas não pertencem ao usuário.",
-        "/reports/trial-balance",
+        errorInstance,
       );
     }
   }
@@ -63,7 +64,11 @@ export class TrialBalanceService {
       .from(accounts)
       .where(eq(accounts.userId, userId));
 
-    this.ensureUserOwnsAllAccounts(requestedAccountIds, ownedAccounts);
+    this.ensureUserOwnsAllAccounts(
+      requestedAccountIds,
+      ownedAccounts,
+      "/reports/trial-balance/years",
+    );
 
     const filters = [eq(transactions.userId, userId)];
     if (requestedAccountIds.length > 0) {
@@ -96,7 +101,7 @@ export class TrialBalanceService {
       .from(accounts)
       .where(eq(accounts.userId, userId));
 
-    this.ensureUserOwnsAllAccounts(requestedAccountIds, ownedAccounts);
+    this.ensureUserOwnsAllAccounts(requestedAccountIds, ownedAccounts, "/reports/trial-balance");
 
     const filters = [
       eq(transactions.userId, userId),
