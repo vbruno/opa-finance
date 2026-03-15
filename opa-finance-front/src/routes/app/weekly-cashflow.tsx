@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import { useAccounts } from '@/features/accounts'
 import { getUser } from '@/features/auth'
 import {
@@ -23,6 +24,38 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
 
+type WeeklyCashflowGroup = {
+  id: string
+  name: string
+  columnIds: string[]
+}
+
+type GroupDisplayMode = 'group' | 'children' | 'both'
+type VisibleOrderedItem = { itemId: string; topLevelIndex: number }
+type VisibleTableItem = {
+  itemId: string
+  topLevelIndex: number
+  kind: 'group' | 'column'
+  label: string
+}
+type OrderPanelItem =
+  | {
+      kind: 'group'
+      itemId: string
+      topLevelIndex: number
+    }
+  | {
+      kind: 'column'
+      itemId: string
+      topLevelIndex: number
+    }
+  | {
+      kind: 'group-child'
+      itemId: string
+      groupItemId: string
+      topLevelIndex: number
+    }
+
 type WeeklyCashflowViewState = {
   version: 1
   viewId: 'weekly-flow-default'
@@ -31,6 +64,8 @@ type WeeklyCashflowViewState = {
   accountIds?: string[]
   selectedColumnIds?: string[]
   columnOrder?: string[]
+  groups?: WeeklyCashflowGroup[]
+  groupDisplayModes?: Record<string, GroupDisplayMode>
   separatorPositions?: number[]
   separatorPosition?: number | null
   updatedAt?: string
@@ -38,6 +73,7 @@ type WeeklyCashflowViewState = {
 
 const VIEW_STATE_VERSION = 1
 const VIEW_ID = 'weekly-flow-default'
+const GROUP_ITEM_PREFIX = 'group:'
 
 export const Route = createFileRoute('/app/weekly-cashflow')({
   validateSearch: z.object({
@@ -104,6 +140,7 @@ function WeeklyCashflowPage() {
   const accountDropdownRef = useRef<HTMLDivElement | null>(null)
 
   const [isColumnsConfigOpen, setIsColumnsConfigOpen] = useState(false)
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false)
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const deferredColumnSearch = useDeferredValue(columnSearch)
@@ -116,6 +153,16 @@ function WeeklyCashflowPage() {
   const [columnOrder, setColumnOrder] = useState<string[]>(
     persistedViewState?.columnOrder ?? [],
   )
+  const [groups, setGroups] = useState<WeeklyCashflowGroup[]>(
+    persistedViewState?.groups ?? [],
+  )
+  const [groupDisplayModes, setGroupDisplayModes] = useState<
+    Record<string, GroupDisplayMode>
+  >(
+    persistedViewState?.groupDisplayModes ?? {},
+  )
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupColumnIds, setNewGroupColumnIds] = useState<string[]>([])
   const [separatorPositions, setSeparatorPositions] = useState<number[]>(
     normalizeSeparatorPositions(
       persistedViewState?.separatorPositions,
@@ -166,6 +213,153 @@ function WeeklyCashflowPage() {
     const missingIds = selectedColumnIds.filter((id) => !orderedFromState.includes(id))
     return [...orderedFromState, ...missingIds].filter((id) => columnsCatalogById.has(id))
   }, [columnOrder, columnsCatalogById, selectedColumnIds])
+  const groupsNormalized = useMemo(
+    () =>
+      groups
+        .filter((group) => group.name.trim().length > 0 && group.columnIds.length >= 2)
+        .map((group) => ({
+          ...group,
+          itemId: `${GROUP_ITEM_PREFIX}${group.id}`,
+        })),
+    [groups],
+  )
+  const groupsByItemId = useMemo(
+    () => new Map(groupsNormalized.map((group) => [group.itemId, group])),
+    [groupsNormalized],
+  )
+  const groupedColumnOwnerById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const group of groupsNormalized) {
+      for (const columnId of group.columnIds) {
+        if (!map.has(columnId)) {
+          map.set(columnId, group.itemId)
+        }
+      }
+    }
+    return map
+  }, [groupsNormalized])
+  const orderedItems = useMemo(() => {
+    const validIds = new Set<string>([
+      ...selectedColumnsOrdered,
+      ...groupsNormalized.map((group) => group.itemId),
+    ])
+    const fromState = columnOrder.filter((id) => validIds.has(id))
+    const missingColumns = selectedColumnsOrdered.filter((id) => !fromState.includes(id))
+    const missingGroups = groupsNormalized
+      .map((group) => group.itemId)
+      .filter((id) => !fromState.includes(id))
+    return [...fromState, ...missingColumns, ...missingGroups]
+  }, [columnOrder, groupsNormalized, selectedColumnsOrdered])
+  const visibleOrderedItems = useMemo<VisibleOrderedItem[]>(() => {
+    const visible: VisibleOrderedItem[] = []
+    for (let index = 0; index < orderedItems.length; index += 1) {
+      const itemId = orderedItems[index]
+      const group = groupsByItemId.get(itemId)
+      if (group) {
+        const mode = groupDisplayModes[group.id] ?? 'group'
+        if (mode === 'group' || mode === 'both') {
+          visible.push({ itemId, topLevelIndex: index })
+        }
+        if (mode === 'children' || mode === 'both') {
+          for (const columnId of group.columnIds) {
+            if (selectedColumnsOrdered.includes(columnId)) {
+              visible.push({ itemId: columnId, topLevelIndex: index })
+            }
+          }
+        }
+        continue
+      }
+      if (groupedColumnOwnerById.has(itemId)) {
+        continue
+      }
+      visible.push({ itemId, topLevelIndex: index })
+    }
+    return visible
+  }, [
+    groupDisplayModes,
+    groupedColumnOwnerById,
+    groupsByItemId,
+    orderedItems,
+    selectedColumnsOrdered,
+  ])
+  const visibleTableItems = useMemo<VisibleTableItem[]>(() => {
+    const items: VisibleTableItem[] = []
+    for (const { itemId, topLevelIndex } of visibleOrderedItems) {
+      const group = groupsByItemId.get(itemId)
+      if (group) {
+        const safeGroupName = group.name.trim() || 'Grupo'
+        items.push({
+          itemId,
+          topLevelIndex,
+          kind: 'group',
+          label: safeGroupName,
+        })
+        continue
+      }
+
+      const column = columnsCatalogById.get(itemId)
+      if (!column) {
+        continue
+      }
+
+      const ownerGroupItemId = groupedColumnOwnerById.get(itemId)
+      const ownerGroup = ownerGroupItemId
+        ? groupsByItemId.get(ownerGroupItemId)
+        : undefined
+      const baseLabel =
+        column.label.trim() ||
+        column.subcategoryName?.trim() ||
+        column.categoryName.trim() ||
+        'Sem titulo'
+      const label = ownerGroup ? `${ownerGroup.name}: ${baseLabel}` : baseLabel
+
+      items.push({
+        itemId,
+        topLevelIndex,
+        kind: 'column',
+        label,
+      })
+    }
+    return items
+  }, [
+    columnsCatalogById,
+    groupedColumnOwnerById,
+    groupsByItemId,
+    visibleOrderedItems,
+  ])
+  const orderPanelItems = useMemo<OrderPanelItem[]>(() => {
+    const items: OrderPanelItem[] = []
+
+    for (let index = 0; index < orderedItems.length; index += 1) {
+      const itemId = orderedItems[index]
+      const group = groupsByItemId.get(itemId)
+
+      if (group) {
+        items.push({ kind: 'group', itemId, topLevelIndex: index })
+        for (const columnId of group.columnIds) {
+          if (selectedColumnsOrdered.includes(columnId) && columnsCatalogById.has(columnId)) {
+            items.push({
+              kind: 'group-child',
+              itemId: columnId,
+              groupItemId: itemId,
+              topLevelIndex: index,
+            })
+          }
+        }
+        continue
+      }
+
+      if (groupedColumnOwnerById.has(itemId)) {
+        continue
+      }
+
+      if (columnsCatalogById.has(itemId)) {
+        items.push({ kind: 'column', itemId, topLevelIndex: index })
+      }
+    }
+
+    return items
+  }, [columnsCatalogById, groupedColumnOwnerById, groupsByItemId, orderedItems, selectedColumnsOrdered])
 
   const filteredCatalog = useMemo(() => {
     const term = deferredColumnSearch.trim().toLowerCase()
@@ -191,6 +385,13 @@ function WeeklyCashflowPage() {
     () => (weeklyCashflowQuery.data?.weeks ?? []).slice(0, 52),
     [weeklyCashflowQuery.data?.weeks],
   )
+  const selectedNewGroupType = useMemo(() => {
+    if (newGroupColumnIds.length === 0) {
+      return null
+    }
+    const firstSelected = columnsCatalogById.get(newGroupColumnIds[0])
+    return firstSelected?.type ?? null
+  }, [columnsCatalogById, newGroupColumnIds])
   const summary = useMemo(() => {
     const totals = weeks.reduce(
       (acc, week) => {
@@ -301,10 +502,14 @@ function WeeklyCashflowPage() {
     })
   }
 
-  function moveSelectedColumn(columnId: string, direction: 'up' | 'down') {
+  function moveOrderItem(itemId: string, direction: 'up' | 'down') {
     setColumnOrder((previous) => {
-      const current = previous.filter((id) => selectedColumnIds.includes(id))
-      const index = current.indexOf(columnId)
+      const validIds = new Set<string>([
+        ...selectedColumnsOrdered,
+        ...groupsNormalized.map((group) => group.itemId),
+      ])
+      const current = previous.filter((id) => validIds.has(id))
+      const index = current.indexOf(itemId)
       if (index < 0) {
         return previous
       }
@@ -320,11 +525,74 @@ function WeeklyCashflowPage() {
     })
   }
 
-  function addSeparatorItem() {
-    if (selectedColumnsOrdered.length < 2) {
+  function toggleNewGroupColumn(columnId: string, checked: boolean) {
+    setNewGroupColumnIds((previous) => {
+      if (checked) {
+        if (previous.includes(columnId)) {
+          return previous
+        }
+        return [...previous, columnId]
+      }
+      return previous.filter((id) => id !== columnId)
+    })
+  }
+
+  function createGroup() {
+    const name = newGroupName.trim()
+    const uniqueColumnIds = Array.from(new Set(newGroupColumnIds))
+    if (!name || uniqueColumnIds.length < 2) {
       return
     }
-    const maxPosition = selectedColumnsOrdered.length - 1
+    const selectedTypes = new Set(
+      uniqueColumnIds
+        .map((columnId) => columnsCatalogById.get(columnId)?.type)
+        .filter((type): type is 'income' | 'expense' => Boolean(type)),
+    )
+    if (selectedTypes.size !== 1) {
+      return
+    }
+    const hasOverlappingColumns = uniqueColumnIds.some((columnId) =>
+      groupedColumnOwnerById.has(columnId),
+    )
+    if (hasOverlappingColumns) {
+      return
+    }
+    const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setGroups((previous) => [...previous, { id, name, columnIds: uniqueColumnIds }])
+    setColumnOrder((previous) => [...previous, `${GROUP_ITEM_PREFIX}${id}`])
+    setNewGroupName('')
+    setNewGroupColumnIds([])
+    setIsCreateGroupOpen(false)
+  }
+
+  function removeGroup(groupId: string) {
+    const itemId = `${GROUP_ITEM_PREFIX}${groupId}`
+    setColumnOrder((previous) => previous.filter((id) => id !== itemId))
+    setGroups((previous) => previous.filter((group) => group.id !== groupId))
+    setGroupDisplayModes((previous) => {
+      if (!(groupId in previous)) {
+        return previous
+      }
+      const next = { ...previous }
+      delete next[groupId]
+      return next
+    })
+  }
+
+  function cycleGroupDisplayMode(groupId: string) {
+    setGroupDisplayModes((previous) => {
+      const current = previous[groupId] ?? 'group'
+      const nextMode: GroupDisplayMode =
+        current === 'group' ? 'children' : current === 'children' ? 'both' : 'group'
+      return { ...previous, [groupId]: nextMode }
+    })
+  }
+
+  function addSeparatorItem() {
+    if (orderedItems.length < 2) {
+      return
+    }
+    const maxPosition = orderedItems.length - 1
     setSeparatorPositions((previous) => {
       const occupied = new Set(previous)
       for (let position = 1; position <= maxPosition; position += 1) {
@@ -363,26 +631,68 @@ function WeeklyCashflowPage() {
 
   useEffect(() => {
     const validCatalogIds = new Set(columnsCatalog.map((column) => column.id))
-
-    setSelectedColumnIds((previous) =>
-      previous.filter((columnId) => validCatalogIds.has(columnId)),
+    const validGroupItemIds = new Set(
+      groups
+        .filter((group) => group.name.trim().length > 0 && group.columnIds.length >= 2)
+        .map((group) => `${GROUP_ITEM_PREFIX}${group.id}`),
     )
+    const validOrderItemIds = new Set<string>([
+      ...validCatalogIds,
+      ...validGroupItemIds,
+    ])
 
-    setColumnOrder((previous) =>
-      previous.filter((columnId) => validCatalogIds.has(columnId)),
-    )
+    setSelectedColumnIds((previous) => {
+      const next = previous.filter((columnId) => validCatalogIds.has(columnId))
+      return areArraysEqual(previous, next) ? previous : next
+    })
 
-  }, [columnsCatalog])
+    setColumnOrder((previous) => {
+      const next = previous.filter((itemId) => validOrderItemIds.has(itemId))
+      return areArraysEqual(previous, next) ? previous : next
+    })
+
+    setGroups((previous) => {
+      const next = previous
+        .map((group) => ({
+          ...group,
+          columnIds: group.columnIds.filter((columnId) => validCatalogIds.has(columnId)),
+        }))
+        .filter((group) => group.columnIds.length >= 2)
+      return areGroupsEqual(previous, next) ? previous : next
+    })
+
+    setNewGroupColumnIds((previous) => {
+      const next = previous.filter(
+        (columnId) =>
+          validCatalogIds.has(columnId) && !groupedColumnOwnerById.has(columnId),
+      )
+      return areArraysEqual(previous, next) ? previous : next
+    })
+
+    setGroupDisplayModes((previous) => {
+      const validGroupIds = new Set(
+        groups
+          .filter((group) => group.name.trim().length > 0 && group.columnIds.length >= 2)
+          .map((group) => group.id),
+      )
+      const next = Object.fromEntries(
+        Object.entries(previous).filter(([groupId, mode]) => {
+          return validGroupIds.has(groupId) && isGroupDisplayMode(mode)
+        }),
+      ) as Record<string, GroupDisplayMode>
+      return areGroupDisplayModesEqual(previous, next) ? previous : next
+    })
+  }, [columnsCatalog, groupedColumnOwnerById, groups])
 
   useEffect(() => {
-    if (selectedColumnsOrdered.length < 2) {
+    if (orderedItems.length < 2) {
       if (separatorPositions.length > 0) {
         setSeparatorPositions([])
       }
       return
     }
 
-    const maxPosition = selectedColumnsOrdered.length - 1
+    const maxPosition = orderedItems.length - 1
     const normalized = Array.from(
       new Set(
         separatorPositions.filter(
@@ -395,7 +705,7 @@ function WeeklyCashflowPage() {
       normalized.some((position, index) => position !== separatorPositions[index])) {
       setSeparatorPositions(normalized)
     }
-  }, [selectedColumnsOrdered.length, separatorPositions])
+  }, [orderedItems.length, separatorPositions])
 
   useEffect(() => {
     if (yearOptions.length === 0) {
@@ -437,6 +747,7 @@ function WeeklyCashflowPage() {
 
   useEffect(() => {
     if (!isColumnsConfigOpen) {
+      setIsCreateGroupOpen(false)
       return
     }
 
@@ -451,6 +762,23 @@ function WeeklyCashflowPage() {
       window.removeEventListener('keydown', handleEscape)
     }
   }, [isColumnsConfigOpen])
+
+  useEffect(() => {
+    if (!isCreateGroupOpen) {
+      return
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsCreateGroupOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => {
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [isCreateGroupOpen])
 
   useEffect(() => {
     if (!isSummaryOpen) {
@@ -478,12 +806,16 @@ function WeeklyCashflowPage() {
       accountIds: selectedAccountIds,
       selectedColumnIds,
       columnOrder,
+      groups,
+      groupDisplayModes,
       separatorPositions,
       updatedAt: new Date().toISOString(),
     }
     saveWeeklyCashflowViewState(storageKey, payload)
   }, [
     columnOrder,
+    groupDisplayModes,
+    groups,
     separatorPositions,
     selectedAccountIds,
     selectedColumnIds,
@@ -511,7 +843,7 @@ function WeeklyCashflowPage() {
       ? accounts.find((account) => account.id === selectedAccountIds[0])?.name ?? 'Conta'
       : `${selectedAccountIds.length} contas`
 
-  const showEmptyColumnsHint = selectedColumnsOrdered.length === 0
+  const showEmptyColumnsHint = orderedItems.length === 0
   const hasNoAccounts = !accountsQuery.isLoading && allAccountIds.length === 0
 
   return (
@@ -713,35 +1045,57 @@ function WeeklyCashflowPage() {
               />
 
               <div className="space-y-2">
-                <div className="flex h-10 items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      startTransition(() => {
-                        setSelectedColumnIds(allDynamicColumnIds)
-                        setColumnOrder(allDynamicColumnIds)
-                      })
-                    }}
-                    disabled={allDynamicColumnIds.length === 0}
-                  >
-                    Selecionar todas
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      startTransition(() => {
-                        setSelectedColumnIds([])
-                        setColumnOrder([])
-                      })
-                    }}
-                    disabled={selectedColumnIds.length === 0}
-                  >
-                    Limpar
-                  </Button>
+                <div className="flex h-10 items-center justify-between gap-2">
+                  <ShortcutTooltip label="M1: grupo | M2: filhos | M3: grupo + filhos">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsCreateGroupOpen(true)}
+                    >
+                      Novo grupo
+                    </Button>
+                  </ShortcutTooltip>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        startTransition(() => {
+                          setSelectedColumnIds(allDynamicColumnIds)
+                          setColumnOrder(allDynamicColumnIds)
+                        })
+                      }}
+                      disabled={allDynamicColumnIds.length === 0}
+                    >
+                      Selecionar todas
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        startTransition(() => {
+                          setSelectedColumnIds([])
+                          setColumnOrder([])
+                          setGroups([])
+                          setGroupDisplayModes({})
+                          setSeparatorPositions([])
+                          setNewGroupColumnIds([])
+                          setNewGroupName('')
+                        })
+                        setIsCreateGroupOpen(false)
+                      }}
+                      disabled={
+                        selectedColumnIds.length === 0 &&
+                        groups.length === 0 &&
+                        separatorPositions.length === 0
+                      }
+                    >
+                      Limpar
+                    </Button>
+                  </div>
                 </div>
                 <div className="h-[58dvh] space-y-1 overflow-y-auto rounded-md border p-2">
                   <div className="flex items-center justify-between px-1 pb-1">
@@ -753,26 +1107,69 @@ function WeeklyCashflowPage() {
                       className="h-6 px-2 text-xs"
                       onClick={addSeparatorItem}
                       disabled={
-                        selectedColumnsOrdered.length < 2 ||
-                        separatorPositions.length >= selectedColumnsOrdered.length - 1
+                        orderedItems.length < 2 ||
+                        separatorPositions.length >= orderedItems.length - 1
                       }
                     >
                       + Separador
                     </Button>
                   </div>
-                  {selectedColumnsOrdered.length === 0 ? (
+                  {orderedItems.length === 0 ? (
                     <p className="px-2 py-2 text-sm text-muted-foreground">
                       Nenhuma coluna selecionada.
                     </p>
                   ) : (
-                    selectedColumnsOrdered.map((columnId, index) => {
-                      const column = columnsCatalogById.get(columnId)
-                      if (!column) {
+                    orderPanelItems.map((panelItem) => {
+                      const group =
+                        panelItem.kind === 'group'
+                          ? groupsByItemId.get(panelItem.itemId)
+                          : null
+                      const isGroupChild = panelItem.kind === 'group-child'
+                      const column =
+                        panelItem.kind === 'group'
+                          ? null
+                          : columnsCatalogById.get(panelItem.itemId)
+                      if (!group && !column) {
                         return null
                       }
+                      const rowLabel = group
+                        ? group.name
+                        : `${isGroupChild ? '↳ ' : ''}${column?.label ?? '-'}`
+                      const rowTypeLabel = group
+                        ? 'grupo'
+                        : column?.type === 'income'
+                          ? 'receita'
+                          : 'gasto'
+                      const rowRightLabel =
+                        group
+                          ? `${group.columnIds.length} itens`
+                          : panelItem.kind === 'group-child' && panelItem.groupItemId
+                            ? `${groupsByItemId.get(panelItem.groupItemId)?.name ?? ''} · ${
+                                column?.categoryName ?? '-'
+                              }`
+                            : column?.categoryName ?? '-'
+                      const groupMode = group
+                        ? groupDisplayModes[group.id] ?? 'group'
+                        : null
+                      const groupModeLabel =
+                        groupMode === 'group'
+                          ? 'M1'
+                          : groupMode === 'children'
+                            ? 'M2'
+                            : groupMode === 'both'
+                              ? 'M3'
+                              : ''
+                      const showSeparator =
+                        panelItem.kind !== 'group-child' &&
+                        separatorPositions.includes(panelItem.topLevelIndex)
+                      const isFirstTopLevelRow =
+                        panelItem.kind !== 'group-child' && panelItem.topLevelIndex === 0
+                      const isLastTopLevelRow =
+                        panelItem.kind !== 'group-child' &&
+                        panelItem.topLevelIndex === orderedItems.length - 1
                       return (
-                        <div key={columnId}>
-                          {separatorPositions.includes(index) ? (
+                        <div key={`${panelItem.kind}-${panelItem.itemId}-${panelItem.topLevelIndex}`}>
+                          {showSeparator ? (
                             <div className="mb-1 flex items-center justify-between rounded border border-dashed border-border/80 bg-muted/20 px-2 py-1 text-xs">
                               <span className="text-muted-foreground">Separador</span>
                               <div className="flex items-center gap-1">
@@ -781,7 +1178,7 @@ function WeeklyCashflowPage() {
                                   size="sm"
                                   variant="outline"
                                   className="h-6 px-2"
-                                  onClick={() => removeSeparatorItem(index)}
+                                  onClick={() => removeSeparatorItem(panelItem.topLevelIndex)}
                                 >
                                   ×
                                 </Button>
@@ -790,8 +1187,8 @@ function WeeklyCashflowPage() {
                                   size="sm"
                                   variant="outline"
                                   className="h-6 px-2"
-                                  onClick={() => moveSeparatorItem(index, 'up')}
-                                  disabled={index <= 1}
+                                  onClick={() => moveSeparatorItem(panelItem.topLevelIndex, 'up')}
+                                  disabled={panelItem.topLevelIndex <= 1}
                                 >
                                   ↑
                                 </Button>
@@ -800,47 +1197,86 @@ function WeeklyCashflowPage() {
                                   size="sm"
                                   variant="outline"
                                   className="h-6 px-2"
-                                  onClick={() => moveSeparatorItem(index, 'down')}
-                                  disabled={index >= selectedColumnsOrdered.length - 1}
+                                  onClick={() => moveSeparatorItem(panelItem.topLevelIndex, 'down')}
+                                  disabled={panelItem.topLevelIndex >= orderedItems.length - 1}
                                 >
                                   ↓
                                 </Button>
                               </div>
                             </div>
                           ) : null}
-                          <div className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted/40">
+                          <div
+                            className={`flex items-center justify-between rounded px-2 py-1 text-sm ${
+                              panelItem.kind === 'group-child'
+                                ? 'ml-4 border-l border-border/60 pl-3 text-muted-foreground'
+                                : 'hover:bg-muted/40'
+                            }`}
+                          >
                             <div className="flex min-w-0 items-center gap-2">
                               <span className="truncate">
-                                {column.label}
+                                {rowLabel}
                                 <span className="ml-1 text-xs text-muted-foreground">
-                                  ({column.type === 'income' ? 'receita' : 'gasto'})
+                                  ({rowTypeLabel})
                                 </span>
                               </span>
                             </div>
                             <div className="ml-2 flex items-center gap-2">
                               <span className="shrink-0 text-xs text-muted-foreground">
-                                {column.categoryName}
+                                {rowRightLabel}
                               </span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-6 px-2"
-                                onClick={() => moveSelectedColumn(columnId, 'up')}
-                                disabled={index === 0}
-                              >
-                                ↑
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-6 px-2"
-                                onClick={() => moveSelectedColumn(columnId, 'down')}
-                                disabled={index === selectedColumnsOrdered.length - 1}
-                              >
-                                ↓
-                              </Button>
+                              {group ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => cycleGroupDisplayMode(group.id)}
+                                  title={`Modo ${groupModeLabel}: ${
+                                    groupMode === 'group'
+                                      ? 'somente grupo'
+                                      : groupMode === 'children'
+                                        ? 'somente filhos'
+                                        : 'grupo + filhos'
+                                  }`}
+                                >
+                                  {groupModeLabel}
+                                </Button>
+                              ) : null}
+                              {group ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => removeGroup(group.id)}
+                                >
+                                  ×
+                                </Button>
+                              ) : null}
+                              {panelItem.kind !== 'group-child' ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => moveOrderItem(panelItem.itemId, 'up')}
+                                  disabled={isFirstTopLevelRow}
+                                >
+                                  ↑
+                                </Button>
+                              ) : null}
+                              {panelItem.kind !== 'group-child' ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => moveOrderItem(panelItem.itemId, 'down')}
+                                  disabled={isLastTopLevelRow}
+                                >
+                                  ↓
+                                </Button>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -850,6 +1286,106 @@ function WeeklyCashflowPage() {
                 </div>
               </div>
             </div>
+
+            {isCreateGroupOpen ? (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+                <div
+                  className="fixed inset-0"
+                  onClick={() => setIsCreateGroupOpen(false)}
+                />
+                <div className="relative w-full max-w-2xl rounded-lg border bg-background p-3 shadow-lg sm:p-4">
+                  <div className="mb-3">
+                    <h4 className="text-base font-semibold">Criar grupo</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Selecione 2 ou mais colunas do mesmo tipo (receita ou gasto).
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Input
+                      value={newGroupName}
+                      onChange={(event) => setNewGroupName(event.target.value)}
+                      placeholder="Nome do grupo..."
+                    />
+                    <div className="max-h-[42dvh] space-y-1 overflow-y-auto rounded-md border p-2">
+                      {selectedColumnsOrdered.map((columnId) => {
+                        const column = columnsCatalogById.get(columnId)
+                        if (!column) {
+                          return null
+                        }
+                        const isAlreadyGrouped = groupedColumnOwnerById.has(columnId)
+                        const isDisabledByType =
+                          selectedNewGroupType !== null &&
+                          !newGroupColumnIds.includes(columnId) &&
+                          column.type !== selectedNewGroupType
+                        const isDisabledByGrouping =
+                          isAlreadyGrouped && !newGroupColumnIds.includes(columnId)
+                        const isDisabled = isDisabledByType || isDisabledByGrouping
+                        return (
+                          <label
+                            key={`group-col-${columnId}`}
+                            className={`flex items-center gap-2 rounded px-2 py-1 text-sm ${
+                              isDisabled
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer hover:bg-muted/40'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={newGroupColumnIds.includes(columnId)}
+                              disabled={isDisabled}
+                              onChange={(event) =>
+                                toggleNewGroupColumn(columnId, event.target.checked)
+                              }
+                            />
+                            <span className="truncate">
+                              {column.label}
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({column.type === 'income' ? 'receita' : 'gasto'})
+                              </span>
+                              {isAlreadyGrouped ? (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  [ja em grupo]
+                                </span>
+                              ) : null}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsCreateGroupOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={createGroup}
+                      disabled={
+                        newGroupName.trim().length === 0 ||
+                        newGroupColumnIds.length < 2 ||
+                        newGroupColumnIds.some((columnId) => groupedColumnOwnerById.has(columnId)) ||
+                        new Set(
+                          newGroupColumnIds
+                            .map((columnId) => columnsCatalogById.get(columnId)?.type)
+                            .filter((type): type is 'income' | 'expense' => Boolean(type)),
+                        ).size !== 1
+                      }
+                    >
+                      Criar grupo
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-3 flex justify-end">
               <Button
@@ -983,20 +1519,15 @@ function WeeklyCashflowPage() {
                   <th className="w-[100px] min-w-[100px] px-2 py-2 text-center">
                     Gastos
                   </th>
-	                  {selectedColumnsOrdered.map((columnId, index) => {
-	                    const column = columnsCatalogById.get(columnId)
-	                    if (!column) {
-	                      return null
-	                    }
+	                  {visibleTableItems.map(({ itemId, topLevelIndex, label }, index) => {
                       const shouldShowSeparator =
-                        selectedColumnsOrdered[0] === columnId ||
-                        separatorPositions.includes(index)
+                        index === 0 || separatorPositions.includes(topLevelIndex)
 	                    return (
 	                      <th
-	                        key={columnId}
-	                        className={`w-[104px] min-w-[104px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
+	                        key={itemId}
+	                        className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
 	                      >
-	                        {column.label}
+	                        {label}
 	                      </th>
 	                    )
 	                  })}
@@ -1031,16 +1562,33 @@ function WeeklyCashflowPage() {
                     <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-rose-600">
                       {formatWeeklyValue(week.spent)}
                     </td>
-	                    {selectedColumnsOrdered.map((columnId, index) => {
-	                      const shouldShowSeparator =
-                          selectedColumnsOrdered[0] === columnId ||
-                          separatorPositions.includes(index)
+	                    {visibleTableItems.map(({ itemId, topLevelIndex, kind }, index) => {
+                        const shouldShowSeparator =
+                          index === 0 || separatorPositions.includes(topLevelIndex)
+                        if (kind === 'group') {
+                          const group = groupsByItemId.get(itemId)
+                          if (!group) {
+                            return null
+                          }
+                          const groupTotal = group.columnIds.reduce(
+                            (sum, columnId) => sum + (week.dynamicValues[columnId] ?? 0),
+                            0,
+                          )
+                          return (
+                            <td
+                              key={`${week.week}-${itemId}`}
+                              className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
+                            >
+                              {formatWeeklyValue(groupTotal)}
+                            </td>
+                          )
+                        }
 	                      return (
 	                        <td
-	                          key={`${week.week}-${columnId}`}
-	                          className={`w-[104px] min-w-[104px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
+	                          key={`${week.week}-${itemId}`}
+	                          className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
 	                        >
-	                          {formatWeeklyValue(week.dynamicValues[columnId] ?? 0)}
+	                          {formatWeeklyValue(week.dynamicValues[itemId] ?? 0)}
 	                        </td>
 	                      )
 	                    })}
@@ -1132,6 +1680,12 @@ function loadWeeklyCashflowViewState(
     if (parsed?.version !== VIEW_STATE_VERSION || parsed?.viewId !== VIEW_ID) {
       return null
     }
+    if (!parsed.groupDisplayModes && Array.isArray((parsed as { expandedGroupIds?: unknown }).expandedGroupIds)) {
+      const expanded = (parsed as { expandedGroupIds?: string[] }).expandedGroupIds ?? []
+      parsed.groupDisplayModes = Object.fromEntries(
+        expanded.map((groupId) => [groupId, 'both' as GroupDisplayMode]),
+      )
+    }
     return parsed
   } catch {
     return null
@@ -1183,4 +1737,57 @@ function normalizeSeparatorPositions(
     return [legacySeparatorPosition]
   }
   return []
+}
+
+function areArraysEqual<T>(a: T[], b: T[]) {
+  if (a.length !== b.length) {
+    return false
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) {
+      return false
+    }
+  }
+  return true
+}
+
+function areGroupsEqual(a: WeeklyCashflowGroup[], b: WeeklyCashflowGroup[]) {
+  if (a.length !== b.length) {
+    return false
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index]
+    const right = b[index]
+    if (!left || !right) {
+      return false
+    }
+    if (left.id !== right.id || left.name !== right.name) {
+      return false
+    }
+    if (!areArraysEqual(left.columnIds, right.columnIds)) {
+      return false
+    }
+  }
+  return true
+}
+
+function areGroupDisplayModesEqual(
+  a: Record<string, GroupDisplayMode>,
+  b: Record<string, GroupDisplayMode>,
+) {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) {
+    return false
+  }
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) {
+      return false
+    }
+  }
+  return true
+}
+
+function isGroupDisplayMode(value: unknown): value is GroupDisplayMode {
+  return value === 'group' || value === 'children' || value === 'both'
 }
