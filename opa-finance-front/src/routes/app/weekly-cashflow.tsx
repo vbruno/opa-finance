@@ -31,6 +31,8 @@ type WeeklyCashflowViewState = {
   accountIds?: string[]
   selectedColumnIds?: string[]
   columnOrder?: string[]
+  separatorPositions?: number[]
+  separatorPosition?: number | null
   updatedAt?: string
 }
 
@@ -113,6 +115,12 @@ function WeeklyCashflowPage() {
   )
   const [columnOrder, setColumnOrder] = useState<string[]>(
     persistedViewState?.columnOrder ?? [],
+  )
+  const [separatorPositions, setSeparatorPositions] = useState<number[]>(
+    normalizeSeparatorPositions(
+      persistedViewState?.separatorPositions,
+      persistedViewState?.separatorPosition,
+    ),
   )
   const yearsQuery = useTrialBalanceYears(
     {
@@ -312,6 +320,47 @@ function WeeklyCashflowPage() {
     })
   }
 
+  function addSeparatorItem() {
+    if (selectedColumnsOrdered.length < 2) {
+      return
+    }
+    const maxPosition = selectedColumnsOrdered.length - 1
+    setSeparatorPositions((previous) => {
+      const occupied = new Set(previous)
+      for (let position = 1; position <= maxPosition; position += 1) {
+        if (!occupied.has(position)) {
+          return [...previous, position].sort((a, b) => a - b)
+        }
+      }
+      return previous
+    })
+  }
+
+  function removeSeparatorItem(position: number) {
+    setSeparatorPositions((previous) =>
+      previous.filter((current) => current !== position),
+    )
+  }
+
+  function moveSeparatorItem(position: number, direction: 'up' | 'down') {
+    setSeparatorPositions((previous) => {
+      if (!previous.includes(position)) {
+        return previous
+      }
+      const maxPosition = Math.max(1, selectedColumnsOrdered.length - 1)
+      const target = direction === 'up' ? position - 1 : position + 1
+      if (target < 1 || target > maxPosition) {
+        return previous
+      }
+      if (previous.includes(target)) {
+        return previous
+      }
+      return previous
+        .map((current) => (current === position ? target : current))
+        .sort((a, b) => a - b)
+    })
+  }
+
   useEffect(() => {
     const validCatalogIds = new Set(columnsCatalog.map((column) => column.id))
 
@@ -322,7 +371,31 @@ function WeeklyCashflowPage() {
     setColumnOrder((previous) =>
       previous.filter((columnId) => validCatalogIds.has(columnId)),
     )
+
   }, [columnsCatalog])
+
+  useEffect(() => {
+    if (selectedColumnsOrdered.length < 2) {
+      if (separatorPositions.length > 0) {
+        setSeparatorPositions([])
+      }
+      return
+    }
+
+    const maxPosition = selectedColumnsOrdered.length - 1
+    const normalized = Array.from(
+      new Set(
+        separatorPositions.filter(
+          (position) => position >= 1 && position <= maxPosition,
+        ),
+      ),
+    ).sort((a, b) => a - b)
+
+    if (normalized.length !== separatorPositions.length ||
+      normalized.some((position, index) => position !== separatorPositions[index])) {
+      setSeparatorPositions(normalized)
+    }
+  }, [selectedColumnsOrdered.length, separatorPositions])
 
   useEffect(() => {
     if (yearOptions.length === 0) {
@@ -405,11 +478,13 @@ function WeeklyCashflowPage() {
       accountIds: selectedAccountIds,
       selectedColumnIds,
       columnOrder,
+      separatorPositions,
       updatedAt: new Date().toISOString(),
     }
     saveWeeklyCashflowViewState(storageKey, payload)
   }, [
     columnOrder,
+    separatorPositions,
     selectedAccountIds,
     selectedColumnIds,
     storageKey,
@@ -569,46 +644,16 @@ function WeeklyCashflowPage() {
             onClick={() => setIsColumnsConfigOpen(false)}
           />
           <div className="relative w-full max-w-5xl rounded-lg border bg-background p-3 shadow-lg sm:p-4">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3">
               <div>
                 <h3 className="text-base font-semibold">Configurar colunas dinâmicas</h3>
                 <p className="text-xs text-muted-foreground">
                   Escolha as colunas e ajuste a ordem de exibição.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    startTransition(() => {
-                      setSelectedColumnIds(allDynamicColumnIds)
-                      setColumnOrder(allDynamicColumnIds)
-                    })
-                  }}
-                  disabled={allDynamicColumnIds.length === 0}
-                >
-                  Selecionar todas
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    startTransition(() => {
-                      setSelectedColumnIds([])
-                      setColumnOrder([])
-                    })
-                  }}
-                  disabled={selectedColumnIds.length === 0}
-                >
-                  Limpar
-                </Button>
-              </div>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.3fr_1fr]">
+            <div className="grid gap-3 lg:grid-cols-[1.3fr_auto_1fr]">
               <div className="space-y-2">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px]">
                   <Input
@@ -633,7 +678,7 @@ function WeeklyCashflowPage() {
                   </Select>
                 </div>
 
-                <div className="max-h-[58dvh] space-y-1 overflow-y-auto rounded-md border p-2">
+                <div className="h-[58dvh] space-y-1 overflow-y-auto rounded-md border p-2">
                   {filteredCatalog.map((column) => (
                     <label
                       key={column.id}
@@ -662,9 +707,59 @@ function WeeklyCashflowPage() {
                 </div>
               </div>
 
+              <div
+                aria-hidden="true"
+                className="hidden w-px bg-border/70 lg:block"
+              />
+
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Ordem selecionada</p>
-                <div className="max-h-[58dvh] space-y-1 overflow-y-auto rounded-md border p-2">
+                <div className="flex h-10 items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      startTransition(() => {
+                        setSelectedColumnIds(allDynamicColumnIds)
+                        setColumnOrder(allDynamicColumnIds)
+                      })
+                    }}
+                    disabled={allDynamicColumnIds.length === 0}
+                  >
+                    Selecionar todas
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      startTransition(() => {
+                        setSelectedColumnIds([])
+                        setColumnOrder([])
+                      })
+                    }}
+                    disabled={selectedColumnIds.length === 0}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+                <div className="h-[58dvh] space-y-1 overflow-y-auto rounded-md border p-2">
+                  <div className="flex items-center justify-between px-1 pb-1">
+                    <p className="text-xs text-muted-foreground">Ordem selecionada</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs"
+                      onClick={addSeparatorItem}
+                      disabled={
+                        selectedColumnsOrdered.length < 2 ||
+                        separatorPositions.length >= selectedColumnsOrdered.length - 1
+                      }
+                    >
+                      + Separador
+                    </Button>
+                  </div>
                   {selectedColumnsOrdered.length === 0 ? (
                     <p className="px-2 py-2 text-sm text-muted-foreground">
                       Nenhuma coluna selecionada.
@@ -676,32 +771,77 @@ function WeeklyCashflowPage() {
                         return null
                       }
                       return (
-                        <div
-                          key={columnId}
-                          className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted/40"
-                        >
-                          <span className="truncate">{column.label}</span>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2"
-                              onClick={() => moveSelectedColumn(columnId, 'up')}
-                              disabled={index === 0}
-                            >
-                              ↑
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2"
-                              onClick={() => moveSelectedColumn(columnId, 'down')}
-                              disabled={index === selectedColumnsOrdered.length - 1}
-                            >
-                              ↓
-                            </Button>
+                        <div key={columnId}>
+                          {separatorPositions.includes(index) ? (
+                            <div className="mb-1 flex items-center justify-between rounded border border-dashed border-border/80 bg-muted/20 px-2 py-1 text-xs">
+                              <span className="text-muted-foreground">Separador</span>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => removeSeparatorItem(index)}
+                                >
+                                  ×
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => moveSeparatorItem(index, 'up')}
+                                  disabled={index <= 1}
+                                >
+                                  ↑
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2"
+                                  onClick={() => moveSeparatorItem(index, 'down')}
+                                  disabled={index >= selectedColumnsOrdered.length - 1}
+                                >
+                                  ↓
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                          <div className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted/40">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="truncate">
+                                {column.label}
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({column.type === 'income' ? 'receita' : 'gasto'})
+                                </span>
+                              </span>
+                            </div>
+                            <div className="ml-2 flex items-center gap-2">
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {column.categoryName}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2"
+                                onClick={() => moveSelectedColumn(columnId, 'up')}
+                                disabled={index === 0}
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2"
+                                onClick={() => moveSelectedColumn(columnId, 'down')}
+                                disabled={index === selectedColumnsOrdered.length - 1}
+                              >
+                                ↓
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )
@@ -843,15 +983,18 @@ function WeeklyCashflowPage() {
                   <th className="w-[100px] min-w-[100px] px-2 py-2 text-center">
                     Gastos
                   </th>
-	                  {selectedColumnsOrdered.map((columnId) => {
+	                  {selectedColumnsOrdered.map((columnId, index) => {
 	                    const column = columnsCatalogById.get(columnId)
 	                    if (!column) {
 	                      return null
 	                    }
+                      const shouldShowSeparator =
+                        selectedColumnsOrdered[0] === columnId ||
+                        separatorPositions.includes(index)
 	                    return (
 	                      <th
 	                        key={columnId}
-	                        className={`w-[104px] min-w-[104px] px-2 py-2 text-center ${selectedColumnsOrdered[0] === columnId ? 'border-l' : ''}`}
+	                        className={`w-[104px] min-w-[104px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
 	                      >
 	                        {column.label}
 	                      </th>
@@ -888,12 +1031,14 @@ function WeeklyCashflowPage() {
                     <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-rose-600">
                       {formatWeeklyValue(week.spent)}
                     </td>
-	                    {selectedColumnsOrdered.map((columnId) => {
-	                      const isFirstDynamic = selectedColumnsOrdered[0] === columnId
+	                    {selectedColumnsOrdered.map((columnId, index) => {
+	                      const shouldShowSeparator =
+                          selectedColumnsOrdered[0] === columnId ||
+                          separatorPositions.includes(index)
 	                      return (
 	                        <td
 	                          key={`${week.week}-${columnId}`}
-	                          className={`w-[104px] min-w-[104px] px-2 py-2 text-center ${isFirstDynamic ? 'border-l' : ''}`}
+	                          className={`w-[104px] min-w-[104px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
 	                        >
 	                          {formatWeeklyValue(week.dynamicValues[columnId] ?? 0)}
 	                        </td>
@@ -1025,4 +1170,17 @@ function getLocalIsoDate(date: Date) {
 
 function isIsoDateInRange(targetIso: string, startIso: string, endIso: string) {
   return targetIso >= startIso && targetIso <= endIso
+}
+
+function normalizeSeparatorPositions(
+  separatorPositions?: number[],
+  legacySeparatorPosition?: number | null,
+) {
+  if (Array.isArray(separatorPositions)) {
+    return Array.from(new Set(separatorPositions)).sort((a, b) => a - b)
+  }
+  if (typeof legacySeparatorPosition === 'number') {
+    return [legacySeparatorPosition]
+  }
+  return []
 }
