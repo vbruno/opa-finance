@@ -249,111 +249,105 @@ function TrialBalancePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3">
-        <div className="rounded-md border p-2">
-          <BarChart3 className="size-4" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-md border p-2">
+            <BarChart3 className="size-4" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Balancete</h1>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">Balancete</h1>
+
+        <div className="flex items-center gap-2">
+          <Select
+            value={String(activeYear)}
+            onValueChange={(value) => setSearch({ year: Number(value) })}
+            disabled={yearsQuery.isLoading || yearOptions.length === 0}
+          >
+            <SelectTrigger className="h-8 w-[108px]">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map((optionYear) => (
+                <SelectItem key={optionYear} value={String(optionYear)}>
+                  {optionYear}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div ref={accountDropdownRef} className="relative">
+            <button
+              type="button"
+              className="flex h-8 min-w-[220px] items-center justify-between rounded-md border px-3 text-sm"
+              onClick={() =>
+                setIsAccountDropdownOpen((currentOpen) => !currentOpen)
+              }
+              aria-expanded={isAccountDropdownOpen}
+            >
+              <span className="truncate">{accountFilterLabel}</span>
+              <ChevronDown
+                className={`ml-2 size-4 text-muted-foreground ${isAccountDropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {isAccountDropdownOpen ? (
+              <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-background p-2 shadow-lg">
+                <div className="space-y-1">
+                  <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/40">
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={isPrimaryOnlySelected}
+                      onChange={() =>
+                        setSearch({ accountIds: primaryAccountId ?? undefined })
+                      }
+                      disabled={!primaryAccountId}
+                    />
+                    <span>Somente conta principal</span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/40">
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={isAllAccountsSelected}
+                      onChange={(event) =>
+                        updateSelectedAccounts(
+                          event.target.checked ? allAccountIds : [],
+                        )
+                      }
+                    />
+                    <span>Todas as contas</span>
+                  </label>
+                </div>
+
+                <div className="my-2 border-t" />
+
+                <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                  {accounts.map((account) => (
+                    <label
+                      key={account.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/40"
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4"
+                        checked={selectedSet.has(account.id)}
+                        onChange={() => toggleAccount(account.id)}
+                      />
+                      <span className="truncate">
+                        {account.name}
+                        {account.isPrimary ? ' (principal)' : ''}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
-
-      <section className="space-y-2 rounded-lg border px-3 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Filtros</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Select
-              value={String(activeYear)}
-              onValueChange={(value) => setSearch({ year: Number(value) })}
-              disabled={yearsQuery.isLoading || yearOptions.length === 0}
-            >
-              <SelectTrigger className="h-8 w-[108px]">
-                <SelectValue placeholder="Ano" />
-              </SelectTrigger>
-              <SelectContent>
-                {yearOptions.map((optionYear) => (
-                  <SelectItem key={optionYear} value={String(optionYear)}>
-                    {optionYear}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div ref={accountDropdownRef} className="relative">
-              <button
-                type="button"
-                className="flex h-8 min-w-[220px] items-center justify-between rounded-md border px-3 text-sm"
-                onClick={() =>
-                  setIsAccountDropdownOpen((currentOpen) => !currentOpen)
-                }
-                aria-expanded={isAccountDropdownOpen}
-              >
-                <span className="truncate">{accountFilterLabel}</span>
-                <ChevronDown
-                  className={`ml-2 size-4 text-muted-foreground ${isAccountDropdownOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {isAccountDropdownOpen ? (
-                <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-background p-2 shadow-lg">
-                  <div className="space-y-1">
-                    <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/40">
-                      <input
-                        type="checkbox"
-                        className="size-4"
-                        checked={isPrimaryOnlySelected}
-                        onChange={() =>
-                          setSearch({ accountIds: primaryAccountId ?? undefined })
-                        }
-                        disabled={!primaryAccountId}
-                      />
-                      <span>Somente conta principal</span>
-                    </label>
-
-                    <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/40">
-                      <input
-                        type="checkbox"
-                        className="size-4"
-                        checked={isAllAccountsSelected}
-                        onChange={(event) =>
-                          updateSelectedAccounts(
-                            event.target.checked ? allAccountIds : [],
-                          )
-                        }
-                      />
-                      <span>Todas as contas</span>
-                    </label>
-                  </div>
-
-                  <div className="my-2 border-t" />
-
-                  <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
-                    {accounts.map((account) => (
-                      <label
-                        key={account.id}
-                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/40"
-                      >
-                        <input
-                          type="checkbox"
-                          className="size-4"
-                          checked={selectedSet.has(account.id)}
-                          onChange={() => toggleAccount(account.id)}
-                        />
-                        <span className="truncate">
-                          {account.name}
-                          {account.isPrimary ? ' (principal)' : ''}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {accountsQuery.isLoading ? (
         <div className="rounded-lg border p-4 text-sm text-muted-foreground">
