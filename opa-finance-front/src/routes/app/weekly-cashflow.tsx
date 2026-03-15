@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CalendarRange, ChevronDown, Settings2 } from 'lucide-react'
+import { CalendarRange, ChevronDown, Pencil, Settings2 } from 'lucide-react'
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
@@ -141,6 +141,7 @@ function WeeklyCashflowPage() {
 
   const [isColumnsConfigOpen, setIsColumnsConfigOpen] = useState(false)
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false)
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const deferredColumnSearch = useDeferredValue(columnSearch)
@@ -537,6 +538,31 @@ function WeeklyCashflowPage() {
     })
   }
 
+  function openCreateGroupModal() {
+    setEditingGroupId(null)
+    setNewGroupName('')
+    setNewGroupColumnIds([])
+    setIsCreateGroupOpen(true)
+  }
+
+  function closeGroupModal() {
+    setIsCreateGroupOpen(false)
+    setEditingGroupId(null)
+    setNewGroupName('')
+    setNewGroupColumnIds([])
+  }
+
+  function openEditGroupModal(groupId: string) {
+    const group = groups.find((candidate) => candidate.id === groupId)
+    if (!group) {
+      return
+    }
+    setEditingGroupId(group.id)
+    setNewGroupName(group.name)
+    setNewGroupColumnIds(group.columnIds.filter((columnId) => columnsCatalogById.has(columnId)))
+    setIsCreateGroupOpen(true)
+  }
+
   function createGroup() {
     const name = newGroupName.trim()
     const uniqueColumnIds = Array.from(new Set(newGroupColumnIds))
@@ -551,18 +577,36 @@ function WeeklyCashflowPage() {
     if (selectedTypes.size !== 1) {
       return
     }
-    const hasOverlappingColumns = uniqueColumnIds.some((columnId) =>
-      groupedColumnOwnerById.has(columnId),
-    )
+    const editingGroupItemId = editingGroupId
+      ? `${GROUP_ITEM_PREFIX}${editingGroupId}`
+      : null
+    const hasOverlappingColumns = uniqueColumnIds.some((columnId) => {
+      const ownerGroupItemId = groupedColumnOwnerById.get(columnId)
+      if (!ownerGroupItemId) {
+        return false
+      }
+      if (editingGroupItemId && ownerGroupItemId === editingGroupItemId) {
+        return false
+      }
+      return true
+    })
     if (hasOverlappingColumns) {
       return
     }
-    const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    setGroups((previous) => [...previous, { id, name, columnIds: uniqueColumnIds }])
-    setColumnOrder((previous) => [...previous, `${GROUP_ITEM_PREFIX}${id}`])
-    setNewGroupName('')
-    setNewGroupColumnIds([])
-    setIsCreateGroupOpen(false)
+    if (editingGroupId) {
+      setGroups((previous) =>
+        previous.map((group) =>
+          group.id === editingGroupId
+            ? { ...group, name, columnIds: uniqueColumnIds }
+            : group,
+        ),
+      )
+    } else {
+      const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      setGroups((previous) => [...previous, { id, name, columnIds: uniqueColumnIds }])
+      setColumnOrder((previous) => [...previous, `${GROUP_ITEM_PREFIX}${id}`])
+    }
+    closeGroupModal()
   }
 
   function removeGroup(groupId: string) {
@@ -577,6 +621,9 @@ function WeeklyCashflowPage() {
       delete next[groupId]
       return next
     })
+    if (editingGroupId === groupId) {
+      closeGroupModal()
+    }
   }
 
   function cycleGroupDisplayMode(groupId: string) {
@@ -748,6 +795,7 @@ function WeeklyCashflowPage() {
   useEffect(() => {
     if (!isColumnsConfigOpen) {
       setIsCreateGroupOpen(false)
+      setEditingGroupId(null)
       return
     }
 
@@ -771,6 +819,9 @@ function WeeklyCashflowPage() {
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsCreateGroupOpen(false)
+        setEditingGroupId(null)
+        setNewGroupName('')
+        setNewGroupColumnIds([])
       }
     }
 
@@ -1051,7 +1102,7 @@ function WeeklyCashflowPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsCreateGroupOpen(true)}
+                      onClick={openCreateGroupModal}
                     >
                       Novo grupo
                     </Button>
@@ -1084,6 +1135,7 @@ function WeeklyCashflowPage() {
                           setSeparatorPositions([])
                           setNewGroupColumnIds([])
                           setNewGroupName('')
+                          setEditingGroupId(null)
                         })
                         setIsCreateGroupOpen(false)
                       }}
@@ -1247,6 +1299,18 @@ function WeeklyCashflowPage() {
                                   type="button"
                                   size="sm"
                                   variant="outline"
+                                  className="h-6 w-6 px-0"
+                                  onClick={() => openEditGroupModal(group.id)}
+                                  title="Editar grupo"
+                                >
+                                  <Pencil className="size-3" />
+                                </Button>
+                              ) : null}
+                              {group ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
                                   className="h-6 px-2"
                                   onClick={() => removeGroup(group.id)}
                                 >
@@ -1291,11 +1355,13 @@ function WeeklyCashflowPage() {
               <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
                 <div
                   className="fixed inset-0"
-                  onClick={() => setIsCreateGroupOpen(false)}
+                  onClick={closeGroupModal}
                 />
                 <div className="relative w-full max-w-2xl rounded-lg border bg-background p-3 shadow-lg sm:p-4">
                   <div className="mb-3">
-                    <h4 className="text-base font-semibold">Criar grupo</h4>
+                    <h4 className="text-base font-semibold">
+                      {editingGroupId ? 'Editar grupo' : 'Criar grupo'}
+                    </h4>
                     <p className="text-xs text-muted-foreground">
                       Selecione 2 ou mais colunas do mesmo tipo (receita ou gasto).
                     </p>
@@ -1313,13 +1379,20 @@ function WeeklyCashflowPage() {
                         if (!column) {
                           return null
                         }
-                        const isAlreadyGrouped = groupedColumnOwnerById.has(columnId)
+                        const ownerGroupItemId = groupedColumnOwnerById.get(columnId)
+                        const editingGroupItemId = editingGroupId
+                          ? `${GROUP_ITEM_PREFIX}${editingGroupId}`
+                          : null
+                        const isAlreadyGroupedByOtherGroup =
+                          ownerGroupItemId !== undefined &&
+                          ownerGroupItemId !== editingGroupItemId
                         const isDisabledByType =
                           selectedNewGroupType !== null &&
                           !newGroupColumnIds.includes(columnId) &&
                           column.type !== selectedNewGroupType
                         const isDisabledByGrouping =
-                          isAlreadyGrouped && !newGroupColumnIds.includes(columnId)
+                          isAlreadyGroupedByOtherGroup &&
+                          !newGroupColumnIds.includes(columnId)
                         const isDisabled = isDisabledByType || isDisabledByGrouping
                         return (
                           <label
@@ -1343,7 +1416,7 @@ function WeeklyCashflowPage() {
                               <span className="ml-1 text-xs text-muted-foreground">
                                 ({column.type === 'income' ? 'receita' : 'gasto'})
                               </span>
-                              {isAlreadyGrouped ? (
+                              {isAlreadyGroupedByOtherGroup ? (
                                 <span className="ml-1 text-xs text-muted-foreground">
                                   [ja em grupo]
                                 </span>
@@ -1360,7 +1433,7 @@ function WeeklyCashflowPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsCreateGroupOpen(false)}
+                      onClick={closeGroupModal}
                     >
                       Cancelar
                     </Button>
@@ -1372,7 +1445,16 @@ function WeeklyCashflowPage() {
                       disabled={
                         newGroupName.trim().length === 0 ||
                         newGroupColumnIds.length < 2 ||
-                        newGroupColumnIds.some((columnId) => groupedColumnOwnerById.has(columnId)) ||
+                        newGroupColumnIds.some((columnId) => {
+                          const ownerGroupItemId = groupedColumnOwnerById.get(columnId)
+                          if (!ownerGroupItemId) {
+                            return false
+                          }
+                          const editingGroupItemId = editingGroupId
+                            ? `${GROUP_ITEM_PREFIX}${editingGroupId}`
+                            : null
+                          return ownerGroupItemId !== editingGroupItemId
+                        }) ||
                         new Set(
                           newGroupColumnIds
                             .map((columnId) => columnsCatalogById.get(columnId)?.type)
@@ -1380,7 +1462,7 @@ function WeeklyCashflowPage() {
                         ).size !== 1
                       }
                     >
-                      Criar grupo
+                      {editingGroupId ? 'Salvar grupo' : 'Criar grupo'}
                     </Button>
                   </div>
                 </div>
