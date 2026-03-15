@@ -1441,6 +1441,81 @@ Cria uma transferência entre contas.
 
 ## 📊 Reports
 
+### GET `/reports/weekly-cashflow`
+
+Retorna visão semanal com colunas fixas (`total`, `received`, `spent`) e catálogo de colunas dinâmicas por categoria/subcategoria.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `year` (obrigatório, number, ex.: `2026`)
+- `weekStart` (opcional, `monday | sunday`, default: `monday`)
+- `accountIds` (opcional, string com UUIDs separados por vírgula)
+  - quando omitido, aplica conta principal por padrão
+
+**Response 200:**
+
+```json
+{
+  "year": 2026,
+  "weekStart": "monday",
+  "appliedAccountIds": ["acc-main", "acc-2"],
+  "defaultAccountId": "acc-main",
+  "summaryColumns": ["total", "received", "spent"],
+  "columnsCatalog": [
+    {
+      "id": "subcat:sub-1",
+      "label": "Mercado",
+      "type": "expense",
+      "scope": "subcategory",
+      "categoryId": "cat-exp-1",
+      "categoryName": "Casa",
+      "subcategoryId": "sub-1",
+      "subcategoryName": "Mercado"
+    },
+    {
+      "id": "cat:cat-inc-1:no-subcategory",
+      "label": "Renda Extra",
+      "type": "income",
+      "scope": "category",
+      "categoryId": "cat-inc-1",
+      "categoryName": "Renda Extra",
+      "subcategoryId": null,
+      "subcategoryName": null
+    }
+  ],
+  "weeks": [
+    {
+      "week": 1,
+      "startDate": "2025-12-29",
+      "endDate": "2026-01-04",
+      "total": 2200,
+      "received": 2500,
+      "spent": 300,
+      "dynamicValues": {
+        "subcat:sub-1": 300,
+        "cat:cat-inc-1:no-subcategory": 2500
+      }
+    }
+  ]
+}
+```
+
+**Regras importantes:**
+
+- `weeks` sempre retorna semanas normalizadas do ano selecionado, mesmo sem movimento.
+- `dynamicValues` pode não conter algumas colunas em semanas sem valor; no frontend tratar como `0`.
+- valores zerados devem ser renderizados como `-` no frontend.
+
+**Erros:**
+
+- `400` - Query inválida (`year`, `weekStart` ou `accountIds`)
+- `401` - Não autenticado
+- `403` - Conta informada não pertence ao usuário autenticado
+
+---
+
 ### GET `/reports/trial-balance/years`
 
 Retorna a lista de anos que possuem movimentação para o usuário (ou para as contas filtradas).

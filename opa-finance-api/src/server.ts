@@ -15,6 +15,7 @@ import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
 import { trialBalanceRoutes } from "./modules/reports/trial-balance.routes";
+import { weeklyCashflowRoutes } from "./modules/reports/weekly-cashflow.routes";
 import { systemRoutes } from "./modules/system/system.routes";
 import { transactionRoutes } from "./modules/transactions/transaction.routes";
 import { transferRoutes } from "./modules/transfers/transfer.routes";
@@ -116,6 +117,7 @@ async function start() {
   app.register(accountRoutes);
   app.register(categoryRoutes);
   app.register(trialBalanceRoutes);
+  app.register(weeklyCashflowRoutes);
   app.register(transactionRoutes);
   app.register(transferRoutes);
   app.register(systemRoutes);

@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {
   BarChart3,
+  CalendarRange,
   CreditCard,
   Eye,
   EyeOff,
@@ -25,6 +26,7 @@ const appNavItems = [
   { to: '/app/accounts', label: 'Contas', icon: CreditCard },
   { to: '/app/categories', label: 'Categorias', icon: Layers },
   { to: '/app/transactions', label: 'Transações', icon: Receipt },
+  { to: '/app/weekly-cashflow', label: 'Fluxo Semanal', icon: CalendarRange },
   { to: '/app/trial-balance', label: 'Balancete', icon: BarChart3 },
   { to: '/app/audit', label: 'Histórico', icon: History },
 ]

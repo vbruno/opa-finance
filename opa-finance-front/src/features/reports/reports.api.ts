@@ -45,8 +45,48 @@ export type TrialBalanceYearsResponse = {
   years: number[]
 }
 
+export type WeekStart = 'monday' | 'sunday'
+
+export type WeeklyCashflowColumn = {
+  id: string
+  label: string
+  type: 'income' | 'expense'
+  scope: 'category' | 'subcategory'
+  categoryId: string
+  categoryName: string
+  subcategoryId: string | null
+  subcategoryName: string | null
+}
+
+export type WeeklyCashflowWeekRow = {
+  week: number
+  startDate: string
+  endDate: string
+  total: number
+  received: number
+  spent: number
+  dynamicValues: Record<string, number>
+}
+
+export type WeeklyCashflowResponse = {
+  year: number
+  weekStart: WeekStart
+  appliedAccountIds: string[]
+  defaultAccountId: string | null
+  summaryColumns: ['total', 'received', 'spent']
+  columnsCatalog: WeeklyCashflowColumn[]
+  weeks: WeeklyCashflowWeekRow[]
+}
+
+export type WeeklyCashflowQueryParams = {
+  year: number
+  weekStart: WeekStart
+  accountIds?: string[]
+}
+
 const trialBalanceKey = ['trial-balance']
 const trialBalanceYearsKey = ['trial-balance-years']
+const weeklyCashflowKey = ['weekly-cashflow']
 
 export function useTrialBalance(
   params: TrialBalanceQueryParams,
@@ -84,6 +124,31 @@ export function useTrialBalanceYears(
         {
           params: {
             accountIds: params?.accountIds?.length
+              ? params.accountIds.join(',')
+              : undefined,
+          },
+        },
+      )
+      return response.data
+    },
+    enabled: options?.enabled,
+  })
+}
+
+export function useWeeklyCashflow(
+  params: WeeklyCashflowQueryParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [...weeklyCashflowKey, params],
+    queryFn: async () => {
+      const response = await api.get<WeeklyCashflowResponse>(
+        '/reports/weekly-cashflow',
+        {
+          params: {
+            year: params.year,
+            weekStart: params.weekStart,
+            accountIds: params.accountIds?.length
               ? params.accountIds.join(',')
               : undefined,
           },

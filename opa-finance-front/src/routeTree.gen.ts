@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as AppWeeklyCashflowRouteImport } from './routes/app/weekly-cashflow'
 import { Route as AppTrialBalanceRouteImport } from './routes/app/trial-balance'
 import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppWeeklyCashflowRoute = AppWeeklyCashflowRouteImport.update({
+  id: '/weekly-cashflow',
+  path: '/weekly-cashflow',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppTrialBalanceRoute = AppTrialBalanceRouteImport.update({
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/trial-balance': typeof AppTrialBalanceRoute
+  '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
   '/app/': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
 }
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/trial-balance': typeof AppTrialBalanceRoute
+  '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
   '/app': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
 }
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/trial-balance': typeof AppTrialBalanceRoute
+  '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
   '/app/': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
 }
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/app/register'
     | '/app/transactions'
     | '/app/trial-balance'
+    | '/app/weekly-cashflow'
     | '/app/'
     | '/app/accounts/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/app/register'
     | '/app/transactions'
     | '/app/trial-balance'
+    | '/app/weekly-cashflow'
     | '/app'
     | '/app/accounts/$id'
   id:
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/app/register'
     | '/app/transactions'
     | '/app/trial-balance'
+    | '/app/weekly-cashflow'
     | '/app/'
     | '/app/accounts/$id'
   fileRoutesById: FileRoutesById
@@ -223,6 +235,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/weekly-cashflow': {
+      id: '/app/weekly-cashflow'
+      path: '/weekly-cashflow'
+      fullPath: '/app/weekly-cashflow'
+      preLoaderRoute: typeof AppWeeklyCashflowRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/trial-balance': {
@@ -304,6 +323,7 @@ interface AppRouteRouteChildren {
   AppRegisterRoute: typeof AppRegisterRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
   AppTrialBalanceRoute: typeof AppTrialBalanceRoute
+  AppWeeklyCashflowRoute: typeof AppWeeklyCashflowRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -315,6 +335,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppRegisterRoute: AppRegisterRoute,
   AppTransactionsRoute: AppTransactionsRoute,
   AppTrialBalanceRoute: AppTrialBalanceRoute,
+  AppWeeklyCashflowRoute: AppWeeklyCashflowRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

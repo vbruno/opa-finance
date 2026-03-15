@@ -416,6 +416,20 @@
       ]
     },
     {
+      "_id": "req_reports_weekly_cashflow",
+      "_type": "request",
+      "parentId": "fld_reports",
+      "name": "Get Weekly Cashflow",
+      "method": "GET",
+      "url": "{{ _.base_url }}/reports/weekly-cashflow?year=2026&weekStart=monday",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
       "_id": "fld_system",
       "_type": "request_group",
       "parentId": "wrk_opa_finance",
