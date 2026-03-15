@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  useAccounts,
+} from '@/features/accounts'
 import {
   useAuditLogs,
   type AuditAction,
@@ -64,6 +67,14 @@ function AuditPage() {
 
   const page = search.page ?? 1
   const limit = search.limit ?? 20
+  const accountsQuery = useAccounts()
+  const accountNameById = useMemo(
+    () =>
+      new Map(
+        (accountsQuery.data ?? []).map((account) => [account.id, account.name]),
+      ),
+    [accountsQuery.data],
+  )
 
   const auditLogsQuery = useAuditLogs({
     page,
@@ -79,7 +90,9 @@ function AuditPage() {
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [showFilters, setShowFilters] = useState(false)
-  const selectedLogAccountName = selectedLog?.summary?.accountName ?? '-'
+  const selectedLogAccountName = selectedLog
+    ? resolveAuditAccountLabel(selectedLog, accountNameById)
+    : '-'
 
   useEffect(() => {
     if (!selectedLog) {
@@ -314,7 +327,7 @@ function AuditPage() {
                       {log.summary?.action ?? actionLabel(log.action)}
                     </span>
                     <span className="truncate">
-                      {log.summary?.accountName ?? '-'}
+                      {resolveAuditAccountLabel(log, accountNameById)}
                     </span>
                     <span className="truncate">
                       {log.summary?.description ?? `ID ${log.entityId}`}
@@ -448,6 +461,64 @@ function PreviewBlock({
         )}
       </div>
     </details>
+  )
+}
+
+function resolveAuditAccountLabel(
+  log: AuditLog,
+  accountNameById: Map<string, string>,
+) {
+  const summaryAccount = normalizeAuditString(log.summary?.accountName)
+  if (summaryAccount && !looksLikeUuid(summaryAccount)) {
+    return summaryAccount
+  }
+
+  const explicitName =
+    normalizeAuditString(readRecordString(log.afterDataFriendly, 'accountName')) ||
+    normalizeAuditString(readRecordString(log.beforeDataFriendly, 'accountName')) ||
+    normalizeAuditString(readRecordString(log.metadataFriendly, 'accountName')) ||
+    normalizeAuditString(readRecordString(log.afterData, 'accountName')) ||
+    normalizeAuditString(readRecordString(log.beforeData, 'accountName')) ||
+    normalizeAuditString(readRecordString(log.metadata, 'accountName'))
+  if (explicitName) {
+    return explicitName
+  }
+
+  const accountIdCandidate =
+    (summaryAccount && looksLikeUuid(summaryAccount) ? summaryAccount : null) ||
+    normalizeAuditString(readRecordString(log.afterDataFriendly, 'accountId')) ||
+    normalizeAuditString(readRecordString(log.beforeDataFriendly, 'accountId')) ||
+    normalizeAuditString(readRecordString(log.metadataFriendly, 'accountId')) ||
+    normalizeAuditString(readRecordString(log.afterData, 'accountId')) ||
+    normalizeAuditString(readRecordString(log.beforeData, 'accountId')) ||
+    normalizeAuditString(readRecordString(log.metadata, 'accountId'))
+
+  if (accountIdCandidate) {
+    return accountNameById.get(accountIdCandidate) ?? accountIdCandidate
+  }
+
+  return '-'
+}
+
+function readRecordString(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+) {
+  const value = record?.[key]
+  return typeof value === 'string' ? value : null
+}
+
+function normalizeAuditString(value: string | null | undefined) {
+  if (!value) {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function looksLikeUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
   )
 }
 
