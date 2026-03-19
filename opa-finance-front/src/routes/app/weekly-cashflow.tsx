@@ -32,6 +32,16 @@ type WeeklyCashflowGroup = {
 }
 
 type GroupDisplayMode = 'group' | 'children' | 'both'
+type SortDirection = 'asc' | 'desc'
+type WeeklySortKey =
+  | 'week'
+  | 'startDate'
+  | 'endDate'
+  | 'total'
+  | 'received'
+  | 'spent'
+  | `dyn:${string}`
+
 type VisibleOrderedItem = { itemId: string; topLevelIndex: number }
 type VisibleTableItem = {
   itemId: string
@@ -70,6 +80,7 @@ type WeeklyCashflowViewState = {
   groupDisplayModes?: Record<string, GroupDisplayMode>
   separatorPositions?: number[]
   separatorPosition?: number | null
+  sortDynamicByShare?: boolean
   updatedAt?: string
 }
 
@@ -188,6 +199,11 @@ function WeeklyCashflowPage() {
       persistedViewState?.separatorPositions,
       persistedViewState?.separatorPosition,
     ),
+  )
+  const [sortKey, setSortKey] = useState<WeeklySortKey>('week')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [sortDynamicByShare, setSortDynamicByShare] = useState(
+    persistedViewState?.sortDynamicByShare ?? true,
   )
   const yearsQuery = useTrialBalanceYears(
     {
@@ -406,6 +422,139 @@ function WeeklyCashflowPage() {
     () => (weeklyCashflowQuery.data?.weeks ?? []).slice(0, 52),
     [weeklyCashflowQuery.data?.weeks],
   )
+  const visibleItemById = useMemo(
+    () => new Map(visibleTableItems.map((item) => [item.itemId, item])),
+    [visibleTableItems],
+  )
+  const currentWeekNumber = useMemo(() => {
+    if (weeks.length === 0) {
+      return null
+    }
+
+    const chronologicalWeeks = [...weeks].sort((a, b) => a.week - b.week)
+    const currentIndex = chronologicalWeeks.findIndex((week) =>
+      isIsoDateInRange(todayIso, week.startDate, week.endDate),
+    )
+    if (currentIndex < 0) {
+      return null
+    }
+
+    return chronologicalWeeks[currentIndex]?.week ?? null
+  }, [todayIso, weeks])
+  const sortedWeeks = useMemo(() => {
+    const sorted = [...weeks]
+    const directionFactor = sortDirection === 'asc' ? 1 : -1
+    const hasNumericValue = (value: number) => Number.isFinite(value) && Math.abs(value) > 0.00001
+    sorted.sort((a, b) => {
+      let aValue: number | string = 0
+      let bValue: number | string = 0
+      let aHasInfoOverride: boolean | null = null
+      let bHasInfoOverride: boolean | null = null
+
+      if (sortKey === 'week') {
+        aValue = a.week
+        bValue = b.week
+      } else if (sortKey === 'startDate') {
+        aValue = a.startDate
+        bValue = b.startDate
+      } else if (sortKey === 'endDate') {
+        aValue = a.endDate
+        bValue = b.endDate
+      } else if (sortKey === 'total') {
+        aValue = a.total
+        bValue = b.total
+      } else if (sortKey === 'received') {
+        aValue = a.received
+        bValue = b.received
+      } else if (sortKey === 'spent') {
+        aValue = a.spent
+        bValue = b.spent
+      } else {
+        const itemId = sortKey.replace('dyn:', '')
+        const item = visibleItemById.get(itemId)
+        const valueType = item?.valueType ?? null
+        const getDynamicComparisonData = (week: (typeof weeks)[number]) => {
+          let rawValue = 0
+          if (item?.kind === 'group') {
+            const group = groupsByItemId.get(itemId)
+            rawValue = group
+              ? group.columnIds.reduce(
+                  (sum, columnId) => sum + (week.dynamicValues[columnId] ?? 0),
+                  0,
+                )
+              : 0
+          } else {
+            rawValue = week.dynamicValues[itemId] ?? 0
+          }
+
+          const base =
+            valueType === 'income'
+              ? week.received
+              : valueType === 'expense'
+                ? week.spent
+                : 0
+          const hasRawValue = hasNumericValue(rawValue)
+          const share =
+            hasRawValue && hasNumericValue(base)
+              ? (Math.abs(rawValue) / Math.abs(base)) * 100
+              : 0
+          return { rawValue, share, hasRawValue }
+        }
+
+        const aData = getDynamicComparisonData(a)
+        const bData = getDynamicComparisonData(b)
+        aHasInfoOverride = aData.hasRawValue
+        bHasInfoOverride = bData.hasRawValue
+
+        if (sortDynamicByShare) {
+          aValue = aData.share
+          bValue = bData.share
+        } else {
+          aValue = aData.rawValue
+          bValue = bData.rawValue
+        }
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return aValue.localeCompare(bValue) * directionFactor
+      }
+
+      const aNumber = Number(aValue)
+      const bNumber = Number(bValue)
+      if (!Number.isFinite(aNumber) || !Number.isFinite(bNumber)) {
+        return 0
+      }
+
+      const aHasValue = aHasInfoOverride ?? hasNumericValue(aNumber)
+      const bHasValue = bHasInfoOverride ?? hasNumericValue(bNumber)
+      if (aHasValue !== bHasValue) {
+        // Sempre joga linhas sem informação para o final,
+        // independentemente do sentido da ordenação.
+        return aHasValue ? -1 : 1
+      }
+
+      return (aNumber - bNumber) * directionFactor
+    })
+
+    const isCalendarSort =
+      sortKey === 'week' || sortKey === 'startDate' || sortKey === 'endDate'
+    if (!isCalendarSort || currentWeekNumber === null || sortDirection !== 'desc') {
+      return sorted
+    }
+
+    const toCycleRank = (weekNumber: number) =>
+      (currentWeekNumber - weekNumber + 52) % 52
+
+    return sorted.sort((a, b) => toCycleRank(a.week) - toCycleRank(b.week))
+  }, [
+    currentWeekNumber,
+    groupsByItemId,
+    sortDynamicByShare,
+    sortDirection,
+    sortKey,
+    visibleItemById,
+    weeks,
+  ])
   const columnAverages = useMemo(() => {
     const baseWeeks = weeks.filter((week) => week.startDate <= todayIso)
     const effectiveWeeks = baseWeeks.length > 0 ? baseWeeks : weeks
@@ -631,6 +780,29 @@ function WeeklyCashflowPage() {
       next[target] = temp
       return next
     })
+  }
+
+  function getDefaultSortDirection(key: WeeklySortKey): SortDirection {
+    if (key === 'week' || key === 'startDate' || key === 'endDate') {
+      return 'desc'
+    }
+    return 'desc'
+  }
+
+  function toggleSort(key: WeeklySortKey) {
+    if (sortKey === key) {
+      setSortDirection((previous) => (previous === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(key)
+    setSortDirection(getDefaultSortDirection(key))
+  }
+
+  function sortIndicator(key: WeeklySortKey) {
+    if (sortKey !== key) {
+      return ''
+    }
+    return sortDirection === 'asc' ? ' ↑' : ' ↓'
   }
 
   function toggleNewGroupColumn(columnId: string, checked: boolean) {
@@ -982,6 +1154,7 @@ function WeeklyCashflowPage() {
       groups,
       groupDisplayModes,
       separatorPositions,
+      sortDynamicByShare,
       updatedAt: new Date().toISOString(),
     }
     saveWeeklyCashflowViewState(storageKey, payload)
@@ -992,6 +1165,7 @@ function WeeklyCashflowPage() {
     separatorPositions,
     selectedAccountIds,
     selectedColumnIds,
+    sortDynamicByShare,
     storageKey,
     weekStart,
     year,
@@ -1120,6 +1294,22 @@ function WeeklyCashflowPage() {
           </div>
           <div className="mx-1 h-6 w-px bg-border/70" />
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={sortDynamicByShare ? 'default' : 'outline'}
+              size="sm"
+              aria-pressed={sortDynamicByShare}
+              onClick={() =>
+                setSortDynamicByShare((currentValue) => !currentValue)
+              }
+              title={
+                sortDynamicByShare
+                  ? 'Ordenação dinâmica por porcentagem (ativo)'
+                  : 'Ordenação dinâmica por valor (ativo)'
+              }
+            >
+              {sortDynamicByShare ? 'Ordenação: %' : 'Ordenação: 123'}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -1706,22 +1896,34 @@ function WeeklyCashflowPage() {
               <thead>
 	                <tr className="border-b bg-muted/40 text-center">
                   <th className="sticky left-0 z-30 w-[84px] min-w-[84px] bg-muted px-2 py-2 text-center whitespace-nowrap">
-                    Semana
+                    <button type="button" onClick={() => toggleSort('week')}>
+                      {`Semana${sortIndicator('week')}`}
+                    </button>
                   </th>
                   <th className="sticky left-[84px] z-30 w-[76px] min-w-[76px] bg-muted px-2 py-2 text-center">
-                    Início
+                    <button type="button" onClick={() => toggleSort('startDate')}>
+                      {`Início${sortIndicator('startDate')}`}
+                    </button>
                   </th>
                   <th className="sticky left-[160px] z-30 w-[76px] min-w-[76px] border-r border-border/70 bg-muted px-2 py-2 text-center">
-                    Fim
+                    <button type="button" onClick={() => toggleSort('endDate')}>
+                      {`Fim${sortIndicator('endDate')}`}
+                    </button>
                   </th>
                   <th className="border-l w-[100px] min-w-[100px] px-2 py-2 text-center">
-                    Total
+                    <button type="button" onClick={() => toggleSort('total')}>
+                      {`Total${sortIndicator('total')}`}
+                    </button>
                   </th>
                   <th className="w-[100px] min-w-[100px] px-2 py-2 text-center">
-                    Recebido
+                    <button type="button" onClick={() => toggleSort('received')}>
+                      {`Recebido${sortIndicator('received')}`}
+                    </button>
                   </th>
                   <th className="w-[100px] min-w-[100px] px-2 py-2 text-center">
-                    Gastos
+                    <button type="button" onClick={() => toggleSort('spent')}>
+                      {`Gastos${sortIndicator('spent')}`}
+                    </button>
                   </th>
 	                  {visibleTableItems.map(({ itemId, topLevelIndex, label }, index) => {
                       const shouldShowSeparator =
@@ -1735,16 +1937,20 @@ function WeeklyCashflowPage() {
 	                      >
 	                        {hasTwoLines ? (
 	                          <span
+                              role="button"
+                              onClick={() => toggleSort(`dyn:${itemId}`)}
 	                            className="inline-flex max-w-full flex-col items-center gap-0.5"
 	                            title={`${firstLine} ${secondLine}`}
 	                          >
 	                            <span className="block max-w-[108px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-medium text-muted-foreground">
-	                              {firstLine}
+	                              {`${firstLine}${sortIndicator(`dyn:${itemId}`)}`}
 	                            </span>
 	                            <span>{secondLine}</span>
 	                          </span>
 	                        ) : (
-	                          label
+	                          <button type="button" onClick={() => toggleSort(`dyn:${itemId}`)}>
+                              {`${label}${sortIndicator(`dyn:${itemId}`)}`}
+                            </button>
 	                        )}
 	                      </th>
 	                    )
@@ -1753,16 +1959,11 @@ function WeeklyCashflowPage() {
 	              </thead>
 	              <tbody>
                   <tr className="border-y border-border/70 bg-muted/20 font-medium">
-                    <td className="sticky left-0 z-20 w-[84px] min-w-[84px] border-r border-border/60 bg-muted px-2 py-2 text-center whitespace-nowrap">
-                      -
-                    </td>
-                    <td className="sticky left-[84px] z-20 w-[76px] min-w-[76px] border-r border-border/60 bg-muted px-2 py-2 text-center text-muted-foreground">
-                      -
-                    </td>
-                    <td className="sticky left-[160px] z-20 w-[76px] min-w-[76px] border-r border-border/70 bg-muted px-2 py-2 text-center text-muted-foreground">
-                      {columnAverages.counts.total > 0
-                        ? `${columnAverages.counts.total} sem`
-                        : '-'}
+                    <td
+                      colSpan={3}
+                      className="sticky left-0 z-20 w-[236px] min-w-[236px] border-r border-border/70 bg-muted px-2 py-2 text-center text-muted-foreground whitespace-nowrap"
+                    >
+                      &nbsp;
                     </td>
                     <td className="border-l w-[100px] min-w-[100px] px-2 py-2 text-center">
                       {formatWeeklyValue(columnAverages.total)}
@@ -1790,7 +1991,7 @@ function WeeklyCashflowPage() {
                       )
                     })}
                   </tr>
-	                {weeks.map((week) => {
+	                {sortedWeeks.map((week) => {
                     const isCurrentWeek = isIsoDateInRange(todayIso, week.startDate, week.endDate)
                     const stickyCellClass = isCurrentWeek
                       ? 'bg-muted shadow-[inset_0_1px_0_hsl(var(--primary)/0.45),inset_0_-1px_0_hsl(var(--primary)/0.45)]'
