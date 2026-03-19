@@ -14,7 +14,7 @@ import { accountRoutes } from "./modules/accounts/account.routes";
 import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
-import { trialBalanceRoutes } from "./modules/reports/trial-balance.routes";
+import { trialBalanceRoutes } from "./modules/reports/consolidated.routes";
 import { weeklyCashflowRoutes } from "./modules/reports/weekly-cashflow.routes";
 import { systemRoutes } from "./modules/system/system.routes";
 import { transactionRoutes } from "./modules/transactions/transaction.routes";

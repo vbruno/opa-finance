@@ -84,8 +84,8 @@ export type WeeklyCashflowQueryParams = {
   accountIds?: string[]
 }
 
-const trialBalanceKey = ['trial-balance']
-const trialBalanceYearsKey = ['trial-balance-years']
+const consolidatedKey = ['consolidated']
+const consolidatedYearsKey = ['consolidated-years']
 const weeklyCashflowKey = ['weekly-cashflow']
 
 export function useTrialBalance(
@@ -93,10 +93,10 @@ export function useTrialBalance(
   options?: { enabled?: boolean },
 ) {
   return useQuery({
-    queryKey: [...trialBalanceKey, params],
+    queryKey: [...consolidatedKey, params],
     queryFn: async () => {
       const response = await api.get<TrialBalanceResponse>(
-        '/reports/trial-balance',
+        '/reports/consolidated',
         {
           params: {
             year: params.year,
@@ -117,10 +117,10 @@ export function useTrialBalanceYears(
   options?: { enabled?: boolean },
 ) {
   return useQuery({
-    queryKey: [...trialBalanceYearsKey, params],
+    queryKey: [...consolidatedYearsKey, params],
     queryFn: async () => {
       const response = await api.get<TrialBalanceYearsResponse>(
-        '/reports/trial-balance/years',
+        '/reports/consolidated/years',
         {
           params: {
             accountIds: params?.accountIds?.length

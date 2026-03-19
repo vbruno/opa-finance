@@ -9,7 +9,7 @@ import { buildTestApp } from "../setup";
 let app: FastifyInstance;
 let db: DB;
 
-describe("GET /reports/trial-balance", () => {
+describe("GET /reports/consolidated", () => {
   beforeEach(async () => {
     const built = await buildTestApp();
     app = built.app;
@@ -110,7 +110,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/reports/trial-balance?year=2026",
+      url: "/reports/consolidated?year=2026",
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -204,7 +204,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: `/reports/trial-balance?year=2026&accountIds=${accountA.id}`,
+      url: `/reports/consolidated?year=2026&accountIds=${accountA.id}`,
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -254,7 +254,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: `/reports/trial-balance?year=2026&accountIds=${accountA.id},${accountB.id}`,
+      url: `/reports/consolidated?year=2026&accountIds=${accountA.id},${accountB.id}`,
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -288,7 +288,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/reports/trial-balance?year=2026",
+      url: "/reports/consolidated?year=2026",
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -318,7 +318,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: `/reports/trial-balance?year=2026&accountIds=${accountB.id}`,
+      url: `/reports/consolidated?year=2026&accountIds=${accountB.id}`,
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -331,7 +331,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/reports/trial-balance?year=1999",
+      url: "/reports/consolidated?year=1999",
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -341,7 +341,7 @@ describe("GET /reports/trial-balance", () => {
   it("deve retornar 401 sem token", async () => {
     const res = await app.inject({
       method: "GET",
-      url: "/reports/trial-balance?year=2026",
+      url: "/reports/consolidated?year=2026",
     });
 
     expect(res.statusCode).toBe(401);
@@ -391,7 +391,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/reports/trial-balance/years",
+      url: "/reports/consolidated/years",
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -443,7 +443,7 @@ describe("GET /reports/trial-balance", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: `/reports/trial-balance/years?accountIds=${accountA.id}`,
+      url: `/reports/consolidated/years?accountIds=${accountA.id}`,
       headers: { Authorization: `Bearer ${token}` },
     });
 

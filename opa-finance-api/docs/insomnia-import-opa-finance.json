@@ -393,7 +393,7 @@
       "parentId": "fld_reports",
       "name": "Get Trial Balance",
       "method": "GET",
-      "url": "{{ _.base_url }}/reports/trial-balance?year=2026",
+      "url": "{{ _.base_url }}/reports/consolidated?year=2026",
       "headers": [
         {
           "name": "Authorization",
@@ -407,7 +407,7 @@
       "parentId": "fld_reports",
       "name": "List Trial Balance Years",
       "method": "GET",
-      "url": "{{ _.base_url }}/reports/trial-balance/years",
+      "url": "{{ _.base_url }}/reports/consolidated/years",
       "headers": [
         {
           "name": "Authorization",

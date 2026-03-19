@@ -1516,7 +1516,7 @@ Retorna visão semanal com colunas fixas (`total`, `received`, `spent`) e catál
 
 ---
 
-### GET `/reports/trial-balance/years`
+### GET `/reports/consolidated/years`
 
 Retorna a lista de anos que possuem movimentação para o usuário (ou para as contas filtradas).
 
@@ -1543,9 +1543,9 @@ Retorna a lista de anos que possuem movimentação para o usuário (ou para as c
 
 ---
 
-### GET `/reports/trial-balance`
+### GET `/reports/consolidated`
 
-Retorna o balanço anual agrupado por `tipo > categoria > subcategoria`, com totais mensais e total anual.
+Retorna o consolidado anual agrupado por `tipo > categoria > subcategoria`, com totais mensais e total anual.
 
 **Headers:** `Authorization: Bearer {token}`
 

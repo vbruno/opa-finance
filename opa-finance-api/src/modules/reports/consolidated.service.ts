@@ -9,7 +9,7 @@ import type {
   TrialBalanceResponse,
   TrialBalanceYearsQuery,
   TrialBalanceYearsResponse,
-} from "./trial-balance.schemas";
+} from "./consolidated.schemas";
 
 type TrialBalanceType = "income" | "expense";
 const NO_SUBCATEGORY_LABEL = "Sem subcategoria";
@@ -83,7 +83,7 @@ export class TrialBalanceService {
     this.ensureUserOwnsAllAccounts(
       requestedAccountIds,
       ownedAccounts,
-      "/reports/trial-balance/years",
+      "/reports/consolidated/years",
     );
 
     const filters = [eq(transactions.userId, userId)];
@@ -117,7 +117,7 @@ export class TrialBalanceService {
       .from(accounts)
       .where(eq(accounts.userId, userId));
 
-    this.ensureUserOwnsAllAccounts(requestedAccountIds, ownedAccounts, "/reports/trial-balance");
+    this.ensureUserOwnsAllAccounts(requestedAccountIds, ownedAccounts, "/reports/consolidated");
 
     const filters = [
       eq(transactions.userId, userId),

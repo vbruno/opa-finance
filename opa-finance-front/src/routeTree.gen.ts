@@ -15,10 +15,10 @@ import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppWeeklyCashflowRouteImport } from './routes/app/weekly-cashflow'
-import { Route as AppTrialBalanceRouteImport } from './routes/app/trial-balance'
 import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
 import { Route as AppProfileRouteImport } from './routes/app/profile'
+import { Route as AppConsolidatedRouteImport } from './routes/app/consolidated'
 import { Route as AppCategoriesRouteImport } from './routes/app/categories'
 import { Route as AppAuditRouteImport } from './routes/app/audit'
 import { Route as AppAccountsRouteImport } from './routes/app/accounts'
@@ -54,11 +54,6 @@ const AppWeeklyCashflowRoute = AppWeeklyCashflowRouteImport.update({
   path: '/weekly-cashflow',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppTrialBalanceRoute = AppTrialBalanceRouteImport.update({
-  id: '/trial-balance',
-  path: '/trial-balance',
-  getParentRoute: () => AppRouteRoute,
-} as any)
 const AppTransactionsRoute = AppTransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
@@ -72,6 +67,11 @@ const AppRegisterRoute = AppRegisterRouteImport.update({
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppConsolidatedRoute = AppConsolidatedRouteImport.update({
+  id: '/consolidated',
+  path: '/consolidated',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppCategoriesRoute = AppCategoriesRouteImport.update({
@@ -103,10 +103,10 @@ export interface FileRoutesByFullPath {
   '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/audit': typeof AppAuditRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/consolidated': typeof AppConsolidatedRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
-  '/app/trial-balance': typeof AppTrialBalanceRoute
   '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
   '/app/': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
@@ -118,10 +118,10 @@ export interface FileRoutesByTo {
   '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/audit': typeof AppAuditRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/consolidated': typeof AppConsolidatedRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
-  '/app/trial-balance': typeof AppTrialBalanceRoute
   '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
   '/app': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
@@ -135,10 +135,10 @@ export interface FileRoutesById {
   '/app/accounts': typeof AppAccountsRouteWithChildren
   '/app/audit': typeof AppAuditRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/consolidated': typeof AppConsolidatedRoute
   '/app/profile': typeof AppProfileRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
-  '/app/trial-balance': typeof AppTrialBalanceRoute
   '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
   '/app/': typeof AppIndexRoute
   '/app/accounts/$id': typeof AppAccountsIdRoute
@@ -153,10 +153,10 @@ export interface FileRouteTypes {
     | '/app/accounts'
     | '/app/audit'
     | '/app/categories'
+    | '/app/consolidated'
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
-    | '/app/trial-balance'
     | '/app/weekly-cashflow'
     | '/app/'
     | '/app/accounts/$id'
@@ -168,10 +168,10 @@ export interface FileRouteTypes {
     | '/app/accounts'
     | '/app/audit'
     | '/app/categories'
+    | '/app/consolidated'
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
-    | '/app/trial-balance'
     | '/app/weekly-cashflow'
     | '/app'
     | '/app/accounts/$id'
@@ -184,10 +184,10 @@ export interface FileRouteTypes {
     | '/app/accounts'
     | '/app/audit'
     | '/app/categories'
+    | '/app/consolidated'
     | '/app/profile'
     | '/app/register'
     | '/app/transactions'
-    | '/app/trial-balance'
     | '/app/weekly-cashflow'
     | '/app/'
     | '/app/accounts/$id'
@@ -244,13 +244,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWeeklyCashflowRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/app/trial-balance': {
-      id: '/app/trial-balance'
-      path: '/trial-balance'
-      fullPath: '/app/trial-balance'
-      preLoaderRoute: typeof AppTrialBalanceRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
     '/app/transactions': {
       id: '/app/transactions'
       path: '/transactions'
@@ -270,6 +263,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/app/profile'
       preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/consolidated': {
+      id: '/app/consolidated'
+      path: '/consolidated'
+      fullPath: '/app/consolidated'
+      preLoaderRoute: typeof AppConsolidatedRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/categories': {
@@ -319,10 +319,10 @@ interface AppRouteRouteChildren {
   AppAccountsRoute: typeof AppAccountsRouteWithChildren
   AppAuditRoute: typeof AppAuditRoute
   AppCategoriesRoute: typeof AppCategoriesRoute
+  AppConsolidatedRoute: typeof AppConsolidatedRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRegisterRoute: typeof AppRegisterRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
-  AppTrialBalanceRoute: typeof AppTrialBalanceRoute
   AppWeeklyCashflowRoute: typeof AppWeeklyCashflowRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -331,10 +331,10 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAccountsRoute: AppAccountsRouteWithChildren,
   AppAuditRoute: AppAuditRoute,
   AppCategoriesRoute: AppCategoriesRoute,
+  AppConsolidatedRoute: AppConsolidatedRoute,
   AppProfileRoute: AppProfileRoute,
   AppRegisterRoute: AppRegisterRoute,
   AppTransactionsRoute: AppTransactionsRoute,
-  AppTrialBalanceRoute: AppTrialBalanceRoute,
   AppWeeklyCashflowRoute: AppWeeklyCashflowRoute,
   AppIndexRoute: AppIndexRoute,
 }

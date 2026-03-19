@@ -1,14 +1,14 @@
 import { FastifyInstance } from "fastify";
 
-import { trialBalanceQuerySchema, trialBalanceYearsQuerySchema } from "./trial-balance.schemas";
-import { TrialBalanceService } from "./trial-balance.service";
+import { trialBalanceQuerySchema, trialBalanceYearsQuerySchema } from "./consolidated.schemas";
+import { TrialBalanceService } from "./consolidated.service";
 
 export async function trialBalanceRoutes(app: FastifyInstance) {
   const service = new TrialBalanceService(app);
   const reportsTag = ["Reports"];
 
   app.get(
-    "/reports/trial-balance/years",
+    "/reports/consolidated/years",
     {
       preHandler: [app.authenticate],
       schema: {
@@ -47,7 +47,7 @@ export async function trialBalanceRoutes(app: FastifyInstance) {
   );
 
   app.get(
-    "/reports/trial-balance",
+    "/reports/consolidated",
     {
       preHandler: [app.authenticate],
       schema: {

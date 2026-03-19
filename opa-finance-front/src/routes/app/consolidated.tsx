@@ -43,7 +43,7 @@ const monthLabels = [
   'Dez',
 ]
 
-export const Route = createFileRoute('/app/trial-balance')({
+export const Route = createFileRoute('/app/consolidated')({
   validateSearch: z.object({
     year: z.coerce.number().int().min(2000).max(2100).optional(),
     accountIds: z.string().optional(),
@@ -425,7 +425,7 @@ function TrialBalanceSkeleton() {
       <section className="grid grid-cols-3 gap-2">
         {Array.from({ length: 3 }).map((_, index) => (
           <div
-            key={`trial-balance-summary-skeleton-${index}`}
+            key={`consolidated-summary-skeleton-${index}`}
             className="animate-pulse rounded-md border px-4 py-3.5"
           >
             <div className="h-4 w-28 rounded bg-muted/60" />

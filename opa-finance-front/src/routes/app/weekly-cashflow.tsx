@@ -18,6 +18,7 @@ import { getUser } from '@/features/auth'
 import {
   useTrialBalanceYears,
   useWeeklyCashflow,
+  type WeeklyCashflowColumn,
   type WeekStart,
 } from '@/features/reports'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -36,6 +37,7 @@ type VisibleTableItem = {
   itemId: string
   topLevelIndex: number
   kind: 'group' | 'column'
+  valueType: 'income' | 'expense' | null
   label: string
 }
 type OrderPanelItem =
@@ -69,6 +71,23 @@ type WeeklyCashflowViewState = {
   separatorPositions?: number[]
   separatorPosition?: number | null
   updatedAt?: string
+}
+
+function formatDynamicColumnLabel(column: WeeklyCashflowColumn) {
+  const rawLabel =
+    column.label.trim() ||
+    column.subcategoryName?.trim() ||
+    column.categoryName.trim() ||
+    'Sem titulo'
+
+  if (column.scope === 'subcategory') {
+    const categoryName = column.categoryName.trim()
+    if (categoryName) {
+      return `[ ${categoryName.toUpperCase()} ]\n${rawLabel}`
+    }
+  }
+
+  return rawLabel
 }
 
 const VIEW_STATE_VERSION = 1
@@ -289,10 +308,14 @@ function WeeklyCashflowPage() {
       const group = groupsByItemId.get(itemId)
       if (group) {
         const safeGroupName = group.name.trim() || 'Grupo'
+        const firstGroupColumn = group.columnIds
+          .map((columnId) => columnsCatalogById.get(columnId))
+          .find((column): column is NonNullable<typeof column> => Boolean(column))
         items.push({
           itemId,
           topLevelIndex,
           kind: 'group',
+          valueType: firstGroupColumn?.type ?? null,
           label: safeGroupName,
         })
         continue
@@ -307,17 +330,14 @@ function WeeklyCashflowPage() {
       const ownerGroup = ownerGroupItemId
         ? groupsByItemId.get(ownerGroupItemId)
         : undefined
-      const baseLabel =
-        column.label.trim() ||
-        column.subcategoryName?.trim() ||
-        column.categoryName.trim() ||
-        'Sem titulo'
+      const baseLabel = formatDynamicColumnLabel(column)
       const label = ownerGroup ? `${ownerGroup.name}: ${baseLabel}` : baseLabel
 
       items.push({
         itemId,
         topLevelIndex,
         kind: 'column',
+        valueType: column.type,
         label,
       })
     }
@@ -386,6 +406,93 @@ function WeeklyCashflowPage() {
     () => (weeklyCashflowQuery.data?.weeks ?? []).slice(0, 52),
     [weeklyCashflowQuery.data?.weeks],
   )
+  const columnAverages = useMemo(() => {
+    const baseWeeks = weeks.filter((week) => week.startDate <= todayIso)
+    const effectiveWeeks = baseWeeks.length > 0 ? baseWeeks : weeks
+    const hasValue = (value: number) => Math.abs(value) > 0.00001
+
+    if (effectiveWeeks.length === 0) {
+      return {
+        weeksCount: 0,
+        total: 0,
+        received: 0,
+        spent: 0,
+        counts: {
+          total: 0,
+          received: 0,
+          spent: 0,
+        },
+        dynamicByItemId: {} as Record<string, number>,
+        dynamicShareByItemId: {} as Record<string, number>,
+      }
+    }
+
+    const totalWeeks = effectiveWeeks.filter((week) => hasValue(week.total))
+    const receivedWeeks = effectiveWeeks.filter((week) => hasValue(week.received))
+    const spentWeeks = effectiveWeeks.filter((week) => hasValue(week.spent))
+    const totalCount = totalWeeks.length
+    const receivedCount = receivedWeeks.length
+    const spentCount = spentWeeks.length
+    const sumTotal = totalWeeks.reduce((sum, week) => sum + week.total, 0)
+    const sumReceived = receivedWeeks.reduce((sum, week) => sum + week.received, 0)
+    const sumSpent = spentWeeks.reduce((sum, week) => sum + week.spent, 0)
+
+    const dynamicByItemId: Record<string, number> = {}
+    const dynamicShareByItemId: Record<string, number> = {}
+    for (const { itemId, kind, valueType } of visibleTableItems) {
+      const valuesWithBase = effectiveWeeks.map((week) => {
+        let value = 0
+        if (kind === 'group') {
+          const group = groupsByItemId.get(itemId)
+          if (!group) {
+            return { value: 0, base: 0 }
+          }
+          value = group.columnIds.reduce(
+            (subtotal, columnId) => subtotal + (week.dynamicValues[columnId] ?? 0),
+            0,
+          )
+        } else {
+          value = week.dynamicValues[itemId] ?? 0
+        }
+        const base =
+          valueType === 'income'
+            ? week.received
+            : valueType === 'expense'
+              ? week.spent
+              : 0
+        return { value, base }
+      })
+
+      const nonZeroEntries = valuesWithBase.filter((entry) => hasValue(entry.value))
+      if (nonZeroEntries.length === 0) {
+        dynamicByItemId[itemId] = 0
+        dynamicShareByItemId[itemId] = 0
+      } else {
+        const valuesSum = nonZeroEntries.reduce((acc, entry) => acc + entry.value, 0)
+        dynamicByItemId[itemId] = valuesSum / nonZeroEntries.length
+
+        const baseSum = nonZeroEntries.reduce((acc, entry) => acc + entry.base, 0)
+        dynamicShareByItemId[itemId] =
+          Number.isFinite(baseSum) && Math.abs(baseSum) > 0.00001
+            ? (Math.abs(valuesSum) / Math.abs(baseSum)) * 100
+            : 0
+      }
+    }
+
+    return {
+      weeksCount: totalCount,
+      total: totalCount > 0 ? sumTotal / totalCount : 0,
+      received: receivedCount > 0 ? sumReceived / receivedCount : 0,
+      spent: spentCount > 0 ? sumSpent / spentCount : 0,
+      counts: {
+        total: totalCount,
+        received: receivedCount,
+        spent: spentCount,
+      },
+      dynamicByItemId,
+      dynamicShareByItemId,
+    }
+  }, [groupsByItemId, todayIso, visibleTableItems, weeks])
   const selectedNewGroupType = useMemo(() => {
     if (newGroupColumnIds.length === 0) {
       return null
@@ -677,6 +784,14 @@ function WeeklyCashflowPage() {
   }
 
   useEffect(() => {
+    if (
+      weeklyCashflowQuery.isLoading ||
+      weeklyCashflowQuery.isError ||
+      !weeklyCashflowQuery.data
+    ) {
+      return
+    }
+
     const validCatalogIds = new Set(columnsCatalog.map((column) => column.id))
     const validGroupItemIds = new Set(
       groups
@@ -729,7 +844,14 @@ function WeeklyCashflowPage() {
       ) as Record<string, GroupDisplayMode>
       return areGroupDisplayModesEqual(previous, next) ? previous : next
     })
-  }, [columnsCatalog, groupedColumnOwnerById, groups])
+  }, [
+    columnsCatalog,
+    groupedColumnOwnerById,
+    groups,
+    weeklyCashflowQuery.data,
+    weeklyCashflowQuery.isError,
+    weeklyCashflowQuery.isLoading,
+  ])
 
   useEffect(() => {
     if (orderedItems.length < 2) {
@@ -878,9 +1000,9 @@ function WeeklyCashflowPage() {
   if (!isDesktop) {
     return (
       <div className="rounded-md border p-4">
-        <h1 className="text-lg font-semibold">Fluxo Semanal</h1>
+        <h1 className="text-lg font-semibold">Semanas</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          A visualização de fluxo semanal está disponível na versão desktop.
+          A visualização de semanas está disponível na versão desktop.
         </p>
       </div>
     )
@@ -904,7 +1026,7 @@ function WeeklyCashflowPage() {
           <div className="rounded-md border p-2">
             <CalendarRange className="size-4" />
           </div>
-          <h1 className="text-2xl font-bold">Fluxo Semanal</h1>
+          <h1 className="text-2xl font-bold">Semanas</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
@@ -1550,7 +1672,7 @@ function WeeklyCashflowPage() {
 
       {hasNoAccounts ? (
         <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-          Nenhuma conta disponível para exibir o fluxo semanal.
+          Nenhuma conta disponível para exibir semanas.
         </div>
       ) : null}
 
@@ -1580,16 +1702,16 @@ function WeeklyCashflowPage() {
           ) : null}
 
           <div className="overflow-x-auto rounded-lg border">
-	            <table className="min-w-[1100px] border-separate border-spacing-0 text-sm">
+	            <table className="min-w-[1100px] table-fixed border-separate border-spacing-0 text-sm">
               <thead>
 	                <tr className="border-b bg-muted/40 text-center">
-                  <th className="sticky left-0 z-30 w-[56px] min-w-[56px] bg-muted px-2 py-2 text-center">
+                  <th className="sticky left-0 z-30 w-[84px] min-w-[84px] bg-muted px-2 py-2 text-center whitespace-nowrap">
                     Semana
                   </th>
-                  <th className="sticky left-[56px] z-30 w-[76px] min-w-[76px] bg-muted px-2 py-2 text-center">
+                  <th className="sticky left-[84px] z-30 w-[76px] min-w-[76px] bg-muted px-2 py-2 text-center">
                     Início
                   </th>
-                  <th className="sticky left-[132px] z-30 w-[76px] min-w-[76px] border-r border-border/70 bg-muted px-2 py-2 text-center">
+                  <th className="sticky left-[160px] z-30 w-[76px] min-w-[76px] border-r border-border/70 bg-muted px-2 py-2 text-center">
                     Fim
                   </th>
                   <th className="border-l w-[100px] min-w-[100px] px-2 py-2 text-center">
@@ -1604,18 +1726,70 @@ function WeeklyCashflowPage() {
 	                  {visibleTableItems.map(({ itemId, topLevelIndex, label }, index) => {
                       const shouldShowSeparator =
                         index === 0 || separatorPositions.includes(topLevelIndex)
+                      const [firstLine, secondLine] = label.split('\n')
+                      const hasTwoLines = Boolean(secondLine)
 	                    return (
 	                      <th
 	                        key={itemId}
-	                        className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
+	                        className={`w-[120px] min-w-[120px] px-2 py-2 text-center align-top whitespace-pre-line leading-tight ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
 	                      >
-	                        {label}
+	                        {hasTwoLines ? (
+	                          <span
+	                            className="inline-flex max-w-full flex-col items-center gap-0.5"
+	                            title={`${firstLine} ${secondLine}`}
+	                          >
+	                            <span className="block max-w-[108px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-medium text-muted-foreground">
+	                              {firstLine}
+	                            </span>
+	                            <span>{secondLine}</span>
+	                          </span>
+	                        ) : (
+	                          label
+	                        )}
 	                      </th>
 	                    )
 	                  })}
 	                </tr>
 	              </thead>
 	              <tbody>
+                  <tr className="border-y border-border/70 bg-muted/20 font-medium">
+                    <td className="sticky left-0 z-20 w-[84px] min-w-[84px] border-r border-border/60 bg-muted px-2 py-2 text-center whitespace-nowrap">
+                      -
+                    </td>
+                    <td className="sticky left-[84px] z-20 w-[76px] min-w-[76px] border-r border-border/60 bg-muted px-2 py-2 text-center text-muted-foreground">
+                      -
+                    </td>
+                    <td className="sticky left-[160px] z-20 w-[76px] min-w-[76px] border-r border-border/70 bg-muted px-2 py-2 text-center text-muted-foreground">
+                      {columnAverages.counts.total > 0
+                        ? `${columnAverages.counts.total} sem`
+                        : '-'}
+                    </td>
+                    <td className="border-l w-[100px] min-w-[100px] px-2 py-2 text-center">
+                      {formatWeeklyValue(columnAverages.total)}
+                    </td>
+                    <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-emerald-600">
+                      {formatWeeklyValue(columnAverages.received)}
+                    </td>
+                    <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-rose-600">
+                      {formatWeeklyValue(columnAverages.spent)}
+                    </td>
+                    {visibleTableItems.map(({ itemId, topLevelIndex, valueType }, index) => {
+                      const shouldShowSeparator =
+                        index === 0 || separatorPositions.includes(topLevelIndex)
+                      return (
+                        <td
+                          key={`avg-${itemId}`}
+                          className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
+                        >
+                          {formatAverageValueWithShare(
+                            columnAverages.dynamicByItemId[itemId] ?? 0,
+                            valueType,
+                            columnAverages.dynamicShareByItemId[itemId] ?? 0,
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
 	                {weeks.map((week) => {
                     const isCurrentWeek = isIsoDateInRange(todayIso, week.startDate, week.endDate)
                     const stickyCellClass = isCurrentWeek
@@ -1626,13 +1800,13 @@ function WeeklyCashflowPage() {
                       key={week.week}
                       className={`border-b ${isCurrentWeek ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/20'}`}
                     >
-		                    <td className={`sticky left-0 z-10 w-[56px] min-w-[56px] border-r border-border/60 px-2 py-2 text-center font-medium ${stickyCellClass}`}>
+		                    <td className={`sticky left-0 z-10 w-[84px] min-w-[84px] border-r border-border/60 px-2 py-2 text-center font-medium whitespace-nowrap ${stickyCellClass}`}>
 		                      {week.week}
 		                    </td>
-	                    <td className={`sticky left-[56px] z-10 w-[76px] min-w-[76px] border-r border-border/60 px-2 py-2 text-center ${stickyCellClass}`}>
+	                    <td className={`sticky left-[84px] z-10 w-[76px] min-w-[76px] border-r border-border/60 px-2 py-2 text-center ${stickyCellClass}`}>
 	                      {formatShortDate(week.startDate)}
 	                    </td>
-	                    <td className={`sticky left-[132px] z-10 w-[76px] min-w-[76px] border-r border-border/70 px-2 py-2 text-center ${stickyCellClass}`}>
+	                    <td className={`sticky left-[160px] z-10 w-[76px] min-w-[76px] border-r border-border/70 px-2 py-2 text-center ${stickyCellClass}`}>
 	                      {formatShortDate(week.endDate)}
 	                    </td>
                     <td className="border-l w-[100px] min-w-[100px] px-2 py-2 text-center font-medium">
@@ -1644,7 +1818,7 @@ function WeeklyCashflowPage() {
                     <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-rose-600">
                       {formatWeeklyValue(week.spent)}
                     </td>
-	                    {visibleTableItems.map(({ itemId, topLevelIndex, kind }, index) => {
+	                    {visibleTableItems.map(({ itemId, topLevelIndex, kind, valueType }, index) => {
                         const shouldShowSeparator =
                           index === 0 || separatorPositions.includes(topLevelIndex)
                         if (kind === 'group') {
@@ -1661,7 +1835,7 @@ function WeeklyCashflowPage() {
                               key={`${week.week}-${itemId}`}
                               className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
                             >
-                              {formatWeeklyValue(groupTotal)}
+                              {formatWeeklyValueWithShare(groupTotal, valueType, week)}
                             </td>
                           )
                         }
@@ -1670,7 +1844,11 @@ function WeeklyCashflowPage() {
 	                          key={`${week.week}-${itemId}`}
 	                          className={`w-[120px] min-w-[120px] px-2 py-2 text-center ${shouldShowSeparator ? 'border-l-2 border-border/80' : ''}`}
 	                        >
-	                          {formatWeeklyValue(week.dynamicValues[itemId] ?? 0)}
+	                          {formatWeeklyValueWithShare(
+                              week.dynamicValues[itemId] ?? 0,
+                              valueType,
+                              week,
+                            )}
 	                        </td>
 	                      )
 	                    })}
@@ -1787,6 +1965,42 @@ function formatWeeklyValue(value: number) {
     return '-'
   }
   return `$ ${formatCurrencyValue(value)}`
+}
+
+function formatWeeklyValueWithShare(
+  value: number,
+  valueType: 'income' | 'expense' | null,
+  week: { received: number; spent: number },
+) {
+  const formattedValue = formatWeeklyValue(value)
+  if (formattedValue === '-' || !valueType) {
+    return formattedValue
+  }
+
+  const base = valueType === 'income' ? week.received : week.spent
+  if (!Number.isFinite(base) || Math.abs(base) < 0.00001) {
+    return formattedValue
+  }
+
+  const percentage = Math.round((Math.abs(value) / Math.abs(base)) * 100)
+  return `${formattedValue} (${percentage}%)`
+}
+
+function formatAverageValueWithShare(
+  value: number,
+  valueType: 'income' | 'expense' | null,
+  sharePercentage: number,
+) {
+  const formattedValue = formatWeeklyValue(value)
+  if (formattedValue === '-' || !valueType) {
+    return formattedValue
+  }
+  if (!Number.isFinite(sharePercentage) || Math.abs(sharePercentage) < 0.00001) {
+    return formattedValue
+  }
+
+  const percentage = Math.round(sharePercentage)
+  return `${formattedValue} (${percentage}%)`
 }
 
 function formatShortDate(value: string) {
