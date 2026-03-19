@@ -27,7 +27,7 @@ const appNavItems = [
   { to: '/app/categories', label: 'Categorias', icon: Layers },
   { to: '/app/transactions', label: 'Transações', icon: Receipt },
   { to: '/app/weekly-cashflow', label: 'Fluxo Semanal', icon: CalendarRange },
-  { to: '/app/trial-balance', label: 'Balancete', icon: BarChart3 },
+  { to: '/app/trial-balance', label: 'Consolidado', icon: BarChart3 },
   { to: '/app/audit', label: 'Histórico', icon: History },
 ]
 

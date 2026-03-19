@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-ENV_FILE="$(cd "$(dirname "$0")/.." && pwd)/.env"
-BACKUP_DIR="$(cd "$(dirname "$0")/.." && pwd)/backups"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ENV_FILE="$PROJECT_DIR/.env"
+BACKUP_DIR="$PROJECT_DIR/backups"
 SANITIZE_SQL="$(cd "$(dirname "$0")" && pwd)/db-sanitize-dev.sql"
 
 if [ ! -f "$ENV_FILE" ]; then
@@ -115,7 +116,12 @@ sincronizar_prod_para_dev() {
     set -e
     docker exec $SSH_CONTAINER_NAME sh -lc '
       set -e
-      pg_dump -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DB\" --clean --if-exists --no-owner --no-privileges \
+      psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"ALTER SCHEMA public OWNER TO $SSH_POSTGRES_USER;\"
+      psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"DROP SCHEMA IF EXISTS public CASCADE;\"
+      psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"CREATE SCHEMA public;\"
+      psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"DROP SCHEMA IF EXISTS drizzle CASCADE;\"
+
+      pg_dump -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DB\" --no-owner --no-privileges \
       | psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\"
     '
   " || {
@@ -130,6 +136,28 @@ sanitizar_dev() {
     "docker exec -i $SSH_CONTAINER_NAME psql -v ON_ERROR_STOP=1 -U $SSH_POSTGRES_USER -d $SSH_POSTGRES_DEV_DB"; then
     echo "❌ Falha ao sanitizar banco de dev."
     exit 1
+  fi
+}
+
+executar_migrate_pos_sync() {
+  echo ""
+  read -p "Deseja executar o alinhamento de migrations agora (npm run db:migrate)? [s/N]: " CONFIRM_MIGRATE
+
+  if [ -n "$CONFIRM_MIGRATE" ] && confirmar_letra "$CONFIRM_MIGRATE"; then
+    echo "🚀 Executando migrations em dev..."
+    if (cd "$PROJECT_DIR" && npm run db:migrate); then
+      echo "✅ Migrations aplicadas com sucesso."
+    else
+      echo "⚠️ Não foi possível executar migrate automaticamente."
+      echo "   Se necessário, rode manualmente:"
+      echo "   1) ./scripts/db-tunnel.sh"
+      echo "   2) npm run db:migrate"
+    fi
+  else
+    echo "ℹ️ Migrate automático não executado."
+    echo "   Sugestão:"
+    echo "   1) ./scripts/db-tunnel.sh"
+    echo "   2) npm run db:migrate"
   fi
 }
 
@@ -192,6 +220,8 @@ if [ "$SANITIZE_AFTER_SYNC" = "true" ]; then
 else
   echo "⚠️ Banco de dev mantido sem sanitização."
 fi
+
+executar_migrate_pos_sync
 
 echo ""
 echo "============================================"

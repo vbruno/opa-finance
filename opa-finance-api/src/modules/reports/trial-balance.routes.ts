@@ -13,7 +13,7 @@ export async function trialBalanceRoutes(app: FastifyInstance) {
       preHandler: [app.authenticate],
       schema: {
         tags: reportsTag,
-        summary: "Anos com movimentação para balancete",
+        summary: "Anos com movimentação para balanço",
         description:
           "Retorna os anos que possuem transações para o usuário, com filtro opcional por contas.",
         security: [{ bearerAuth: [] }],
@@ -52,9 +52,9 @@ export async function trialBalanceRoutes(app: FastifyInstance) {
       preHandler: [app.authenticate],
       schema: {
         tags: reportsTag,
-        summary: "Balancete anual",
+        summary: "Balanço anual",
         description:
-          "Retorna balancete anual agrupado por tipo > categoria > subcategoria, com totais mensais e anuais.",
+          "Retorna balanço anual agrupado por tipo > categoria > subcategoria, com totais mensais e anuais.",
         security: [{ bearerAuth: [] }],
         querystring: {
           type: "object",

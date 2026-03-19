@@ -1545,7 +1545,7 @@ Retorna a lista de anos que possuem movimentação para o usuário (ou para as c
 
 ### GET `/reports/trial-balance`
 
-Retorna o balancete anual agrupado por `tipo > categoria > subcategoria`, com totais mensais e total anual.
+Retorna o balanço anual agrupado por `tipo > categoria > subcategoria`, com totais mensais e total anual.
 
 **Headers:** `Authorization: Bearer {token}`
 

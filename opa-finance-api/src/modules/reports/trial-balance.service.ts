@@ -12,6 +12,7 @@ import type {
 } from "./trial-balance.schemas";
 
 type TrialBalanceType = "income" | "expense";
+const NO_SUBCATEGORY_LABEL = "Sem subcategoria";
 
 type AggregatedRow = {
   type: TrialBalanceType;
@@ -32,6 +33,21 @@ export class TrialBalanceService {
 
   private sumYear(months: number[]) {
     return months.reduce((acc, value) => acc + value, 0);
+  }
+
+  private resolveSubcategoryRow(row: AggregatedRow) {
+    if (row.subcategoryId && row.subcategoryName) {
+      return {
+        subcategoryId: row.subcategoryId,
+        subcategoryName: row.subcategoryName,
+      };
+    }
+
+    return {
+      // Synthetic id keeps row key stable while preserving response shape.
+      subcategoryId: `${row.categoryId}::no-subcategory`,
+      subcategoryName: NO_SUBCATEGORY_LABEL,
+    };
   }
 
   private ensureUserOwnsAllAccounts(
@@ -177,23 +193,22 @@ export class TrialBalanceService {
       categoryNode.months[monthIndex] += amount;
       categoryNode.yearTotal += amount;
 
-      if (row.subcategoryId && row.subcategoryName) {
-        let subcategoryNode = categoryNode.subcategories.find(
-          (sub) => sub.subcategoryId === row.subcategoryId,
-        );
-        if (!subcategoryNode) {
-          subcategoryNode = {
-            subcategoryId: row.subcategoryId,
-            subcategoryName: row.subcategoryName,
-            months: this.emptyMonths(),
-            yearTotal: 0,
-          };
-          categoryNode.subcategories.push(subcategoryNode);
-        }
-
-        subcategoryNode.months[monthIndex] += amount;
-        subcategoryNode.yearTotal += amount;
+      const resolvedSubcategory = this.resolveSubcategoryRow(row);
+      let subcategoryNode = categoryNode.subcategories.find(
+        (sub) => sub.subcategoryId === resolvedSubcategory.subcategoryId,
+      );
+      if (!subcategoryNode) {
+        subcategoryNode = {
+          subcategoryId: resolvedSubcategory.subcategoryId,
+          subcategoryName: resolvedSubcategory.subcategoryName,
+          months: this.emptyMonths(),
+          yearTotal: 0,
+        };
+        categoryNode.subcategories.push(subcategoryNode);
       }
+
+      subcategoryNode.months[monthIndex] += amount;
+      subcategoryNode.yearTotal += amount;
 
       totals[row.type].months[monthIndex] += amount;
       totals[row.type].yearTotal += amount;

@@ -26,7 +26,7 @@ describe("GET /reports/trial-balance", () => {
     await app.close();
   });
 
-  it("deve retornar balancete anual sem filtro de contas", async () => {
+  it("deve retornar balanço anual sem filtro de contas", async () => {
     const { token, user } = await registerAndLogin(app, db, "bal-all@test.com", "Bal All");
 
     const [accountA] = await db
@@ -127,9 +127,17 @@ describe("GET /reports/trial-balance", () => {
     expect(incomeCategoryRow.months[0]).toBe(1000);
     expect(incomeCategoryRow.months[1]).toBe(500);
     expect(incomeCategoryRow.yearTotal).toBe(1500);
-    expect(incomeCategoryRow.subcategories).toHaveLength(1);
-    expect(incomeCategoryRow.subcategories[0].subcategoryName).toBe("Salário");
-    expect(incomeCategoryRow.subcategories[0].yearTotal).toBe(1000);
+    expect(incomeCategoryRow.subcategories).toHaveLength(2);
+    const salaryRow = incomeCategoryRow.subcategories.find(
+      (item: { subcategoryName: string }) => item.subcategoryName === "Salário",
+    );
+    const noSubIncomeRow = incomeCategoryRow.subcategories.find(
+      (item: { subcategoryName: string }) => item.subcategoryName === "Sem subcategoria",
+    );
+    expect(salaryRow).toBeDefined();
+    expect(noSubIncomeRow).toBeDefined();
+    expect(salaryRow.yearTotal).toBe(1000);
+    expect(noSubIncomeRow.yearTotal).toBe(500);
 
     const moradiaRow = body.expense.find(
       (item: { categoryName: string }) => item.categoryName === "Moradia",
@@ -143,7 +151,9 @@ describe("GET /reports/trial-balance", () => {
     expect(moradiaRow.yearTotal).toBe(300);
     expect(moradiaRow.subcategories).toHaveLength(1);
     expect(lazerRow.yearTotal).toBe(200);
-    expect(lazerRow.subcategories).toHaveLength(0);
+    expect(lazerRow.subcategories).toHaveLength(1);
+    expect(lazerRow.subcategories[0].subcategoryName).toBe("Sem subcategoria");
+    expect(lazerRow.subcategories[0].yearTotal).toBe(200);
 
     expect(body.totals.income.yearTotal).toBe(1500);
     expect(body.totals.expense.yearTotal).toBe(500);

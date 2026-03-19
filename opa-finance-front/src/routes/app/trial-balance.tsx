@@ -209,9 +209,9 @@ function TrialBalancePage() {
   if (!isDesktop) {
     return (
       <div className="rounded-md border p-4">
-        <h1 className="text-lg font-semibold">Balancete</h1>
+        <h1 className="text-lg font-semibold">Consolidado</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          A visualização de balancete está disponível na versão desktop.
+          A visualização de consolidado está disponível na versão desktop.
         </p>
       </div>
     )
@@ -255,7 +255,7 @@ function TrialBalancePage() {
             <BarChart3 className="size-4" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Balancete</h1>
+            <h1 className="text-2xl font-bold">Consolidado</h1>
           </div>
         </div>
 
@@ -709,7 +709,12 @@ function CategoryRows({
         category.subcategories.map((subcategory) => (
         <tr key={subcategory.subcategoryId} className="border-b">
           <td className="sticky left-0 bg-background px-3 py-2 text-muted-foreground">
-            <span className="inline-block pl-4">{subcategory.subcategoryName}</span>
+            <span className="inline-block pl-4">
+              {resolveSubcategoryDisplayName(
+                category.categoryName,
+                subcategory.subcategoryName,
+              )}
+            </span>
           </td>
           {subcategory.months.map((value, index) => (
             <td
@@ -726,6 +731,21 @@ function CategoryRows({
         ))}
     </>
   )
+}
+
+function resolveSubcategoryDisplayName(
+  categoryName: string,
+  subcategoryName: string,
+) {
+  const normalized = subcategoryName.trim().toLowerCase()
+  if (
+    normalized === 'sem subcategoria' ||
+    normalized === 'sem categoria'
+  ) {
+    return `${categoryName} *`
+  }
+
+  return subcategoryName
 }
 
 function formatBalanceCell(value: number) {
