@@ -327,15 +327,16 @@ function Transactions() {
   }
 
   const search = Route.useSearch()
+  const hasInitializedAccountFilterRef = useRef(false)
   const [limitPreference, setLimitPreference] = useUserPreference<number>(
     'transactionsPageSize',
-    10,
+    30,
     {
       serialize: (value) => String(value),
       deserialize: (raw) => {
         const parsed = Number(raw)
         if (!Number.isFinite(parsed) || parsed <= 0) {
-          return 10
+          return 30
         }
         return Math.min(100, Math.max(1, Math.floor(parsed)))
       },
@@ -362,17 +363,6 @@ function Transactions() {
     categoryFilter ||
     subcategoryFilter ||
     descriptionFilter ||
-    includeNotes ||
-    notesOnly ||
-    amountMode ||
-    amountFilter ||
-    startDateFilter ||
-    endDateFilter
-  const hasHiddenFilters =
-    typeFilter ||
-    accountFilter ||
-    categoryFilter ||
-    subcategoryFilter ||
     includeNotes ||
     notesOnly ||
     amountMode ||
@@ -520,6 +510,7 @@ function Transactions() {
   const createAccountId = watch('accountId')
   const createDescription = watch('description') ?? ''
   const transferFromAccountId = transferForm.watch('fromAccountId')
+  const transferToAccountId = transferForm.watch('toAccountId')
   const editCategoryId = watchEdit('categoryId')
   const editSubcategoryId = watchEdit('subcategoryId')
   const editType = watchEdit('type')
@@ -546,7 +537,53 @@ function Transactions() {
   const accounts = accountsQuery.data ?? []
   const primaryAccountId =
     accounts.find((account) => account.isPrimary)?.id ?? accounts[0]?.id ?? ''
+  const defaultTransferToAccountId = useMemo(() => {
+    if (!primaryAccountId || accounts.length <= 1) {
+      return ''
+    }
+
+    const primaryIndex = accounts.findIndex((account) => account.id === primaryAccountId)
+    if (primaryIndex < 0) {
+      return accounts[0]?.id ?? ''
+    }
+
+    for (let index = primaryIndex + 1; index < accounts.length; index += 1) {
+      const candidateId = accounts[index]?.id
+      if (candidateId && candidateId !== primaryAccountId) {
+        return candidateId
+      }
+    }
+
+    for (let index = 0; index < primaryIndex; index += 1) {
+      const candidateId = accounts[index]?.id
+      if (candidateId && candidateId !== primaryAccountId) {
+        return candidateId
+      }
+    }
+
+    return ''
+  }, [accounts, primaryAccountId])
   const debouncedCreateDescription = useDebouncedValue(createDescription, 1000)
+
+  useEffect(() => {
+    if (hasInitializedAccountFilterRef.current || accountsQuery.isLoading) {
+      return
+    }
+    hasInitializedAccountFilterRef.current = true
+
+    if (search.accountId || !primaryAccountId) {
+      return
+    }
+
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        accountId: primaryAccountId,
+        page: 1,
+      }),
+      replace: true,
+    })
+  }, [accountsQuery.isLoading, navigate, primaryAccountId, search.accountId])
 
   const createCategory = categories.find(
     (category) => category.id === createCategoryId,
@@ -1145,15 +1182,24 @@ function Transactions() {
         if (!transferFromAccountId && primaryAccountId) {
           transferForm.setValue('fromAccountId', primaryAccountId)
         }
+        if (
+          !transferToAccountId &&
+          defaultTransferToAccountId &&
+          defaultTransferToAccountId !== transferFromAccountId
+        ) {
+          transferForm.setValue('toAccountId', defaultTransferToAccountId)
+        }
       }
       transferAmountRef.current?.focus()
     }
   }, [
+    defaultTransferToAccountId,
     isTransferOpen,
     primaryAccountId,
     transferEditContext,
     transferForm,
     transferFromAccountId,
+    transferToAccountId,
   ])
 
   const focusCreateCategoryOption = useCallback((direction: 'up' | 'down') => {
@@ -1982,14 +2028,6 @@ function Transactions() {
       replace: true,
     })
   }, [amountDraft, amountFilter, amountMode, navigate])
-
-  useEffect(() => {
-    if (hasHiddenFilters) {
-      setIsFilterExpanded(true)
-    } else {
-      setIsFilterExpanded(false)
-    }
-  }, [hasHiddenFilters])
 
   useEffect(() => {
     const nextPage = totalPages > 0 ? Math.min(page, totalPages) : page

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CalendarRange, ChevronDown, Pencil, Settings2 } from 'lucide-react'
+import { CalendarRange, ChevronDown, Pencil, Settings2, X } from 'lucide-react'
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
@@ -1627,6 +1627,19 @@ function WeeklyCashflowPage() {
                                   onClick={() => removeGroup(group.id)}
                                 >
                                   ×
+                                </Button>
+                              ) : null}
+                              {!group ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 w-6 px-0"
+                                  onClick={() => toggleDynamicColumn(panelItem.itemId, false)}
+                                  title="Remover coluna selecionada"
+                                  aria-label="Remover coluna selecionada"
+                                >
+                                  <X className="size-3" />
                                 </Button>
                               ) : null}
                               {panelItem.kind !== 'group-child' ? (
