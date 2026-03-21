@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$PROJECT_DIR/.env"
@@ -120,9 +121,11 @@ sincronizar_prod_para_dev() {
       psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"DROP SCHEMA IF EXISTS public CASCADE;\"
       psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"CREATE SCHEMA public;\"
       psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" -c \"DROP SCHEMA IF EXISTS drizzle CASCADE;\"
-
-      pg_dump -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DB\" --no-owner --no-privileges \
-      | psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\"
+      TMP_DUMP=\"/tmp/${SSH_POSTGRES_DB}_to_${SSH_POSTGRES_DEV_DB}_sync.sql\"
+      rm -f \"$TMP_DUMP\"
+      pg_dump -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DB\" --no-owner --no-privileges > \"$TMP_DUMP\"
+      psql -v ON_ERROR_STOP=1 -U \"$SSH_POSTGRES_USER\" -d \"$SSH_POSTGRES_DEV_DB\" < \"$TMP_DUMP\"
+      rm -f \"$TMP_DUMP\"
     '
   " || {
     echo "❌ Falha ao espelhar produção em dev."

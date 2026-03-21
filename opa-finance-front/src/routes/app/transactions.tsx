@@ -534,7 +534,10 @@ function Transactions() {
     () => availableCategories.map((category) => category.id).join('|'),
     [availableCategories],
   )
-  const accounts = accountsQuery.data ?? []
+  const accounts = useMemo(
+    () => accountsQuery.data ?? [],
+    [accountsQuery.data],
+  )
   const primaryAccountId =
     accounts.find((account) => account.isPrimary)?.id ?? accounts[0]?.id ?? ''
   const defaultTransferToAccountId = useMemo(() => {
