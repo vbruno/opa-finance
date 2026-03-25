@@ -16,7 +16,7 @@ import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import { useAccounts } from '@/features/accounts'
 import { getUser } from '@/features/auth'
 import {
-  useTrialBalanceYears,
+  useConsolidatedYears,
   useWeeklyCashflow,
   type WeeklyCashflowColumn,
   type WeekStart,
@@ -205,7 +205,7 @@ function WeeklyCashflowPage() {
   const [sortDynamicByShare, setSortDynamicByShare] = useState(
     persistedViewState?.sortDynamicByShare ?? true,
   )
-  const yearsQuery = useTrialBalanceYears(
+  const yearsQuery = useConsolidatedYears(
     {
       accountIds: selectedAccountIds.length ? selectedAccountIds : undefined,
     },

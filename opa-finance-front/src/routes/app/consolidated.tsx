@@ -20,9 +20,9 @@ import {
 } from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
 import {
-  useTrialBalance,
-  useTrialBalanceYears,
-  type TrialBalanceLine,
+  useConsolidated,
+  useConsolidatedYears,
+  type ConsolidatedLine,
 } from '@/features/reports'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -48,10 +48,10 @@ export const Route = createFileRoute('/app/consolidated')({
     year: z.coerce.number().int().min(2000).max(2100).optional(),
     accountIds: z.string().optional(),
   }),
-  component: TrialBalancePage,
+  component: ConsolidatedPage,
 })
 
-function TrialBalancePage() {
+function ConsolidatedPage() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const isDesktop = useMediaQuery('(min-width: 960px)')
@@ -101,7 +101,7 @@ function TrialBalancePage() {
     return []
   }, [primaryAccountId, sanitizedAccountIds])
 
-  const yearsQuery = useTrialBalanceYears(
+  const yearsQuery = useConsolidatedYears(
     {
       accountIds: effectiveAccountIds.length ? effectiveAccountIds : undefined,
     },
@@ -114,7 +114,7 @@ function TrialBalancePage() {
   const activeYear =
     hasSelectedYear || yearOptions.length === 0 ? year : yearOptions[0]
 
-  const trialBalanceQuery = useTrialBalance(
+  const consolidatedQuery = useConsolidated(
     {
       year: activeYear,
       accountIds: effectiveAccountIds.length ? effectiveAccountIds : undefined,
@@ -236,16 +236,16 @@ function TrialBalancePage() {
     : isPrimaryOnlySelected
       ? 'Conta principal'
       : selectedSingleAccountName ?? `${selectedCount} contas`
-  const showBalanceSkeleton = yearsQuery.isLoading || trialBalanceQuery.isLoading
+  const showBalanceSkeleton = yearsQuery.isLoading || consolidatedQuery.isLoading
   const isEmpty =
     (!yearsQuery.isLoading &&
       !yearsQuery.isError &&
       yearOptions.length === 0) ||
-    (!trialBalanceQuery.isLoading &&
-      !trialBalanceQuery.isError &&
+    (!consolidatedQuery.isLoading &&
+      !consolidatedQuery.isError &&
       yearOptions.length > 0 &&
-      ((trialBalanceQuery.data?.income.length ?? 0) === 0 &&
-        (trialBalanceQuery.data?.expense.length ?? 0) === 0))
+      ((consolidatedQuery.data?.income.length ?? 0) === 0 &&
+        (consolidatedQuery.data?.expense.length ?? 0) === 0))
 
   return (
     <div className="space-y-4">
@@ -362,12 +362,12 @@ function TrialBalancePage() {
       ) : null}
 
       {showBalanceSkeleton ? (
-        <TrialBalanceSkeleton />
+        <ConsolidatedSkeleton />
       ) : null}
 
-      {trialBalanceQuery.isError ? (
+      {consolidatedQuery.isError ? (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
-          {getApiErrorMessage(trialBalanceQuery.error)}
+          {getApiErrorMessage(consolidatedQuery.error)}
         </div>
       ) : null}
 
@@ -377,24 +377,24 @@ function TrialBalancePage() {
         </div>
       ) : null}
 
-      {!showBalanceSkeleton && !trialBalanceQuery.isError && trialBalanceQuery.data ? (
+      {!showBalanceSkeleton && !consolidatedQuery.isError && consolidatedQuery.data ? (
         <div className="space-y-4">
           <section className="grid grid-cols-3 gap-2">
             <SummaryCard
               label="Receitas (ano)"
-              value={trialBalanceQuery.data.totals.income.yearTotal}
+              value={consolidatedQuery.data.totals.income.yearTotal}
               tone="income"
             />
             <SummaryCard
               label="Despesas (ano)"
-              value={trialBalanceQuery.data.totals.expense.yearTotal}
+              value={consolidatedQuery.data.totals.expense.yearTotal}
               tone="expense"
             />
             <SummaryCard
               label="Resultado (ano)"
               value={
-                trialBalanceQuery.data.totals.income.yearTotal -
-                trialBalanceQuery.data.totals.expense.yearTotal
+                consolidatedQuery.data.totals.income.yearTotal -
+                consolidatedQuery.data.totals.expense.yearTotal
               }
               tone="balance"
             />
@@ -403,15 +403,15 @@ function TrialBalancePage() {
           <BalanceSectionTable
             sectionLabel="Receitas"
             sectionTone="income"
-            data={trialBalanceQuery.data.income}
-            totals={trialBalanceQuery.data.totals.income}
+            data={consolidatedQuery.data.income}
+            totals={consolidatedQuery.data.totals.income}
           />
 
           <BalanceSectionTable
             sectionLabel="Despesas"
             sectionTone="expense"
-            data={trialBalanceQuery.data.expense}
-            totals={trialBalanceQuery.data.totals.expense}
+            data={consolidatedQuery.data.expense}
+            totals={consolidatedQuery.data.totals.expense}
           />
         </div>
       ) : null}
@@ -419,7 +419,7 @@ function TrialBalancePage() {
   )
 }
 
-function TrialBalanceSkeleton() {
+function ConsolidatedSkeleton() {
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-3 gap-2">
@@ -544,7 +544,7 @@ function BalanceSectionTable({
 }: {
   sectionLabel: string
   sectionTone: 'income' | 'expense'
-  data: TrialBalanceLine[]
+  data: ConsolidatedLine[]
   totals: { months: number[]; yearTotal: number }
 }) {
   const sectionClass =
@@ -653,7 +653,7 @@ function CategoryRows({
   isCollapsed,
   onToggle,
 }: {
-  category: TrialBalanceLine
+  category: ConsolidatedLine
   isCollapsed: boolean
   onToggle: () => void
 }) {

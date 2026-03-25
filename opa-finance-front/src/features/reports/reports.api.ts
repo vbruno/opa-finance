@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
-export type TrialBalanceLine = {
+export type ConsolidatedLine = {
   categoryId: string
   categoryName: string
   months: number[]
@@ -15,11 +15,11 @@ export type TrialBalanceLine = {
   }[]
 }
 
-export type TrialBalanceResponse = {
+export type ConsolidatedResponse = {
   year: number
   accountIds: string[]
-  income: TrialBalanceLine[]
-  expense: TrialBalanceLine[]
+  income: ConsolidatedLine[]
+  expense: ConsolidatedLine[]
   totals: {
     income: {
       months: number[]
@@ -32,16 +32,16 @@ export type TrialBalanceResponse = {
   }
 }
 
-export type TrialBalanceQueryParams = {
+export type ConsolidatedQueryParams = {
   year: number
   accountIds?: string[]
 }
 
-export type TrialBalanceYearsQueryParams = {
+export type ConsolidatedYearsQueryParams = {
   accountIds?: string[]
 }
 
-export type TrialBalanceYearsResponse = {
+export type ConsolidatedYearsResponse = {
   years: number[]
 }
 
@@ -88,14 +88,14 @@ const consolidatedKey = ['consolidated']
 const consolidatedYearsKey = ['consolidated-years']
 const weeklyCashflowKey = ['weekly-cashflow']
 
-export function useTrialBalance(
-  params: TrialBalanceQueryParams,
+export function useConsolidated(
+  params: ConsolidatedQueryParams,
   options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: [...consolidatedKey, params],
     queryFn: async () => {
-      const response = await api.get<TrialBalanceResponse>(
+      const response = await api.get<ConsolidatedResponse>(
         '/reports/consolidated',
         {
           params: {
@@ -112,14 +112,14 @@ export function useTrialBalance(
   })
 }
 
-export function useTrialBalanceYears(
-  params?: TrialBalanceYearsQueryParams,
+export function useConsolidatedYears(
+  params?: ConsolidatedYearsQueryParams,
   options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: [...consolidatedYearsKey, params],
     queryFn: async () => {
-      const response = await api.get<TrialBalanceYearsResponse>(
+      const response = await api.get<ConsolidatedYearsResponse>(
         '/reports/consolidated/years',
         {
           params: {

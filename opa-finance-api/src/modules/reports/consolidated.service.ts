@@ -4,18 +4,18 @@ import type { FastifyInstance } from "fastify";
 import { ForbiddenProblem } from "../../core/errors/problems";
 import { accounts, categories, subcategories, transactions } from "../../db/schema";
 import type {
-  TrialBalanceCategory,
-  TrialBalanceQuery,
-  TrialBalanceResponse,
-  TrialBalanceYearsQuery,
-  TrialBalanceYearsResponse,
+  ConsolidatedCategory,
+  ConsolidatedQuery,
+  ConsolidatedResponse,
+  ConsolidatedYearsQuery,
+  ConsolidatedYearsResponse,
 } from "./consolidated.schemas";
 
-type TrialBalanceType = "income" | "expense";
+type ConsolidatedType = "income" | "expense";
 const NO_SUBCATEGORY_LABEL = "Sem subcategoria";
 
 type AggregatedRow = {
-  type: TrialBalanceType;
+  type: ConsolidatedType;
   categoryId: string;
   categoryName: string;
   subcategoryId: string | null;
@@ -24,7 +24,7 @@ type AggregatedRow = {
   total: string;
 };
 
-export class TrialBalanceService {
+export class ConsolidatedService {
   constructor(private app: FastifyInstance) {}
 
   private emptyMonths() {
@@ -71,8 +71,8 @@ export class TrialBalanceService {
 
   async listYears(
     userId: string,
-    query: TrialBalanceYearsQuery,
-  ): Promise<TrialBalanceYearsResponse> {
+    query: ConsolidatedYearsQuery,
+  ): Promise<ConsolidatedYearsResponse> {
     const requestedAccountIds = query.accountIds ?? [];
 
     const ownedAccounts = await this.app.db
@@ -106,7 +106,7 @@ export class TrialBalanceService {
     };
   }
 
-  async get(userId: string, query: TrialBalanceQuery): Promise<TrialBalanceResponse> {
+  async get(userId: string, query: ConsolidatedQuery): Promise<ConsolidatedResponse> {
     const year = query.year;
     const requestedAccountIds = query.accountIds ?? [];
     const startDate = `${year}-01-01`;
@@ -154,9 +154,9 @@ export class TrialBalanceService {
 
     const typedRows = rows as AggregatedRow[];
 
-    const byType: Record<TrialBalanceType, Map<string, TrialBalanceCategory>> = {
-      income: new Map<string, TrialBalanceCategory>(),
-      expense: new Map<string, TrialBalanceCategory>(),
+    const byType: Record<ConsolidatedType, Map<string, ConsolidatedCategory>> = {
+      income: new Map<string, ConsolidatedCategory>(),
+      expense: new Map<string, ConsolidatedCategory>(),
     };
 
     const totals = {
@@ -214,7 +214,7 @@ export class TrialBalanceService {
       totals[row.type].yearTotal += amount;
     }
 
-    const normalizeType = (type: TrialBalanceType) =>
+    const normalizeType = (type: ConsolidatedType) =>
       Array.from(byType[type].values())
         .map((category) => ({
           ...category,

@@ -31,7 +31,7 @@ const accountIdsSchema = z
   )
   .transform((ids) => Array.from(new Set(ids)));
 
-export const trialBalanceQuerySchema = z.object({
+export const consolidatedQuerySchema = z.object({
   year: z.coerce
     .number()
     .int({ message: "Ano inválido." })
@@ -40,43 +40,43 @@ export const trialBalanceQuerySchema = z.object({
   accountIds: accountIdsSchema,
 });
 
-export type TrialBalanceQuery = z.infer<typeof trialBalanceQuerySchema>;
-export const trialBalanceYearsQuerySchema = z.object({
+export type ConsolidatedQuery = z.infer<typeof consolidatedQuerySchema>;
+export const consolidatedYearsQuerySchema = z.object({
   accountIds: accountIdsSchema,
 });
-export type TrialBalanceYearsQuery = z.infer<typeof trialBalanceYearsQuerySchema>;
+export type ConsolidatedYearsQuery = z.infer<typeof consolidatedYearsQuerySchema>;
 
-export type TrialBalanceLine = {
+export type ConsolidatedLine = {
   subcategoryId: string;
   subcategoryName: string;
   months: number[];
   yearTotal: number;
 };
 
-export type TrialBalanceCategory = {
+export type ConsolidatedCategory = {
   categoryId: string;
   categoryName: string;
   months: number[];
   yearTotal: number;
-  subcategories: TrialBalanceLine[];
+  subcategories: ConsolidatedLine[];
 };
 
-export type TrialBalanceTotals = {
+export type ConsolidatedTotals = {
   months: number[];
   yearTotal: number;
 };
 
-export type TrialBalanceResponse = {
+export type ConsolidatedResponse = {
   year: number;
   accountIds: string[];
-  income: TrialBalanceCategory[];
-  expense: TrialBalanceCategory[];
+  income: ConsolidatedCategory[];
+  expense: ConsolidatedCategory[];
   totals: {
-    income: TrialBalanceTotals;
-    expense: TrialBalanceTotals;
+    income: ConsolidatedTotals;
+    expense: ConsolidatedTotals;
   };
 };
 
-export type TrialBalanceYearsResponse = {
+export type ConsolidatedYearsResponse = {
   years: number[];
 };

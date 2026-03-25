@@ -1,10 +1,10 @@
 import { FastifyInstance } from "fastify";
 
-import { trialBalanceQuerySchema, trialBalanceYearsQuerySchema } from "./consolidated.schemas";
-import { TrialBalanceService } from "./consolidated.service";
+import { consolidatedQuerySchema, consolidatedYearsQuerySchema } from "./consolidated.schemas";
+import { ConsolidatedService } from "./consolidated.service";
 
-export async function trialBalanceRoutes(app: FastifyInstance) {
-  const service = new TrialBalanceService(app);
+export async function consolidatedRoutes(app: FastifyInstance) {
+  const service = new ConsolidatedService(app);
   const reportsTag = ["Reports"];
 
   app.get(
@@ -41,7 +41,7 @@ export async function trialBalanceRoutes(app: FastifyInstance) {
       },
     },
     async (req) => {
-      const query = trialBalanceYearsQuerySchema.parse(req.query);
+      const query = consolidatedYearsQuerySchema.parse(req.query);
       return await service.listYears(req.user.sub, query);
     },
   );
@@ -180,7 +180,7 @@ export async function trialBalanceRoutes(app: FastifyInstance) {
       },
     },
     async (req) => {
-      const query = trialBalanceQuerySchema.parse(req.query);
+      const query = consolidatedQuerySchema.parse(req.query);
       return await service.get(req.user.sub, query);
     },
   );
