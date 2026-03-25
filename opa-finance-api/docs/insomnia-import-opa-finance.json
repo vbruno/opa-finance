@@ -388,10 +388,10 @@
       "name": "Reports"
     },
     {
-      "_id": "req_reports_trial_balance",
+      "_id": "req_reports_consolidated",
       "_type": "request",
       "parentId": "fld_reports",
-      "name": "Get Trial Balance",
+      "name": "Get Consolidated",
       "method": "GET",
       "url": "{{ _.base_url }}/reports/consolidated?year=2026",
       "headers": [
@@ -402,10 +402,10 @@
       ]
     },
     {
-      "_id": "req_reports_trial_balance_years",
+      "_id": "req_reports_consolidated_years",
       "_type": "request",
       "parentId": "fld_reports",
-      "name": "List Trial Balance Years",
+      "name": "List Consolidated Years",
       "method": "GET",
       "url": "{{ _.base_url }}/reports/consolidated/years",
       "headers": [
