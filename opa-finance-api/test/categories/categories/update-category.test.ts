@@ -39,11 +39,15 @@ describe("PUT /categories/:id", () => {
       method: "PUT",
       url: `/categories/${category.id}`,
       headers: { Authorization: `Bearer ${token}` },
-      payload: { name: "Novo Nome" },
+      payload: {
+        name: "Novo Nome",
+        description: "Descrição atualizada",
+      },
     });
 
     expect(res.statusCode).toBe(200);
     expect(res.json().name).toBe("Novo Nome");
+    expect(res.json().description).toBe("Descrição atualizada");
   });
 
   it("deve retornar 404 para id inexistente", async () => {

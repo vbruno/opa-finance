@@ -7,6 +7,11 @@ const hexColorRegex = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 export const createSubcategorySchema = z.object({
   categoryId: z.uuid({ message: "ID da categoria inválido." }),
   name: z.string().min(1, { message: "Nome é obrigatório." }),
+  description: z
+    .string()
+    .max(500, { message: "Descrição deve ter no máximo 500 caracteres." })
+    .nullable()
+    .optional(),
   color: z
     .string()
     .regex(hexColorRegex, { message: "Cor inválida. Use formato HEX (#FFF ou #FFFFFF)." })
@@ -18,6 +23,11 @@ export type CreateSubcategoryInput = z.infer<typeof createSubcategorySchema>;
 export const updateSubcategorySchema = z
   .object({
     name: z.string().min(1, { message: "Nome é obrigatório." }).optional(),
+    description: z
+      .string()
+      .max(500, { message: "Descrição deve ter no máximo 500 caracteres." })
+      .nullable()
+      .optional(),
     color: z
       .string()
       .regex(hexColorRegex, { message: "Cor inválida. Use formato HEX (#FFF ou #FFFFFF)." })

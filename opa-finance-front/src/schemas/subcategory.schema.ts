@@ -6,6 +6,10 @@ export const subcategoryCreateSchema = z.object({
     .string()
     .min(1, 'Informe o nome da subcategoria.')
     .max(255, 'O nome deve ter no máximo 255 caracteres.'),
+  description: z
+    .string()
+    .max(500, 'A descrição deve ter no máximo 500 caracteres.')
+    .optional(),
 })
 
 export type SubcategoryCreateFormData = z.infer<typeof subcategoryCreateSchema>
@@ -15,6 +19,10 @@ export const subcategoryUpdateSchema = z.object({
     .string()
     .min(1, 'Informe o nome da subcategoria.')
     .max(255, 'O nome deve ter no máximo 255 caracteres.'),
+  description: z
+    .string()
+    .max(500, 'A descrição deve ter no máximo 500 caracteres.')
+    .optional(),
 })
 
 export type SubcategoryUpdateFormData = z.infer<typeof subcategoryUpdateSchema>

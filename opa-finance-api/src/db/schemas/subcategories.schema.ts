@@ -15,6 +15,7 @@ export const subcategories = pgTable("subcategories", {
     .references(() => categories.id, { onDelete: "cascade" }),
 
   name: text("name").notNull(),
+  description: text("description"),
   color: text("color"),
 
   createdAt: timestamp("created_at").defaultNow(),

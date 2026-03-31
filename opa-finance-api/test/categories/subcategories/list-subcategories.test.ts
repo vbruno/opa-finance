@@ -32,8 +32,20 @@ describe("GET /categories/:id/subcategories", () => {
       .returning();
 
     await db.insert(subcategories).values([
-      { name: "Aluguel", categoryId: category.id, color: null, userId: user.id },
-      { name: "Condomínio", categoryId: category.id, color: null, userId: user.id },
+      {
+        name: "Aluguel",
+        description: "Pagamento mensal do aluguel",
+        categoryId: category.id,
+        color: null,
+        userId: user.id,
+      },
+      {
+        name: "Condomínio",
+        description: "Taxa condominial",
+        categoryId: category.id,
+        color: null,
+        userId: user.id,
+      },
     ]);
 
     const response = await app.inject({
@@ -45,6 +57,11 @@ describe("GET /categories/:id/subcategories", () => {
     expect(response.statusCode).toBe(200);
     const list = response.json();
     expect(list.length).toBe(2);
+    expect(
+      list.some(
+        (item: { description?: string }) => item.description === "Pagamento mensal do aluguel",
+      ),
+    ).toBe(true);
   });
 
   it("deve retornar 404 se categoria não existir", async () => {

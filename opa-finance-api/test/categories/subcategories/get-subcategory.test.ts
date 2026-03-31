@@ -39,6 +39,7 @@ describe("GET /subcategories/:id", () => {
       .insert(subcategories)
       .values({
         name: "Uber",
+        description: "Transporte por aplicativo",
         categoryId: category.id,
         color: null,
         userId: user.id,
@@ -56,6 +57,7 @@ describe("GET /subcategories/:id", () => {
     const body = res.json();
     expect(body.id).toBe(sub.id);
     expect(body.name).toBe("Uber");
+    expect(body.description).toBe("Transporte por aplicativo");
   });
 
   it("deve retornar 404 para subcategoria inexistente", async () => {
@@ -87,6 +89,7 @@ describe("GET /subcategories/:id", () => {
       .insert(subcategories)
       .values({
         name: "Veterinário",
+        description: "Custos com consultas e exames",
         categoryId: category.id,
         color: null,
         userId: userB.id,

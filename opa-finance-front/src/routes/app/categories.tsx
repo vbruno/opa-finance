@@ -112,6 +112,7 @@ function Categories() {
     resolver: zodResolver(categoryCreateSchema),
     defaultValues: {
       name: '',
+      description: '',
       type: '',
     },
   })
@@ -120,6 +121,7 @@ function Categories() {
     resolver: zodResolver(categoryUpdateSchema),
     defaultValues: {
       name: '',
+      description: '',
     },
   })
 
@@ -128,6 +130,7 @@ function Categories() {
     defaultValues: {
       categoryId: '',
       name: '',
+      description: '',
     },
   })
 
@@ -135,14 +138,19 @@ function Categories() {
     resolver: zodResolver(subcategoryUpdateSchema),
     defaultValues: {
       name: '',
+      description: '',
     },
   })
 
   const createNameField = form.register('name')
+  const createDescriptionField = form.register('description')
   const editNameField = editForm.register('name')
+  const editDescriptionField = editForm.register('description')
   const subCreateNameField = subCreateForm.register('name')
+  const subCreateDescriptionField = subCreateForm.register('description')
   const subCreateCategoryField = subCreateForm.register('categoryId')
   const subEditNameField = subEditForm.register('name')
+  const subEditDescriptionField = subEditForm.register('description')
 
   const createCategoryMutation = useCreateCategory()
 
@@ -282,6 +290,7 @@ function Categories() {
     try {
       const created = await createCategoryMutation.mutateAsync({
         name: formData.name,
+        description: normalizeOptionalDescription(formData.description),
         type: formData.type,
       })
       lastCreatedCategoryRef.current = created
@@ -306,6 +315,7 @@ function Categories() {
         await createSubcategoryMutation.mutateAsync({
           categoryId: subcategoryParent.id,
           name: formData.name,
+          description: normalizeOptionalDescription(formData.description),
         })
         setLastSubcategoryParentId(subcategoryParent.id)
         setIsSubCreateOpen(false)
@@ -328,6 +338,7 @@ function Categories() {
       await updateCategoryMutation.mutateAsync({
         id: selectedCategory.id,
         name: formData.name,
+        description: normalizeOptionalDescription(formData.description),
       })
       setIsEditOpen(false)
       setSelectedCategory(null)
@@ -350,6 +361,7 @@ function Categories() {
         await updateSubcategoryMutation.mutateAsync({
           id: selectedSubcategory.id,
           name: formData.name,
+          description: normalizeOptionalDescription(formData.description),
           categoryId: subcategoryParent.id,
         })
         setIsSubEditOpen(false)
@@ -577,6 +589,7 @@ function Categories() {
   const openCategoryCreate = useCallback(() => {
     form.reset({
       name: '',
+      description: '',
       type: lastCategoryType ?? lastCreatedCategoryRef.current?.type ?? '',
     })
     setIsCreateOpen(true)
@@ -627,6 +640,7 @@ function Categories() {
     }
     subCreateForm.reset({
       name: '',
+      description: '',
       categoryId: nextParent?.id ?? '',
     })
     setIsSubCreateOpen(true)
@@ -959,6 +973,11 @@ function Categories() {
                       Categoria
                     </p>
                     <p className="text-sm font-semibold">{category.name}</p>
+                    {category.description && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {category.description}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -971,7 +990,10 @@ function Categories() {
                     onClick={(event) => {
                       event.stopPropagation()
                       setSelectedCategory(category)
-                      editForm.reset({ name: category.name })
+                      editForm.reset({
+                        name: category.name,
+                        description: category.description ?? '',
+                      })
                       setIsEditOpen(true)
                     }}
                   >
@@ -1027,10 +1049,17 @@ function Categories() {
                           className="rounded-md border bg-muted/10 px-3 py-2"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm">
-                              <span className="text-muted-foreground">—</span>{' '}
-                              {subcategory.name}
-                            </p>
+                            <div>
+                              <p className="text-sm">
+                                <span className="text-muted-foreground">—</span>{' '}
+                                {subcategory.name}
+                              </p>
+                              {subcategory.description && (
+                                <p className="mt-0.5 pl-4 text-xs text-muted-foreground">
+                                  {subcategory.description}
+                                </p>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1.5">
                               <Button
                                 size="icon-sm"
@@ -1040,7 +1069,10 @@ function Categories() {
                                 onClick={() => {
                                   setSubcategoryParent(category)
                                   setSelectedSubcategory(subcategory)
-                                  subEditForm.reset({ name: subcategory.name })
+                                  subEditForm.reset({
+                                    name: subcategory.name,
+                                    description: subcategory.description ?? '',
+                                  })
                                   setIsSubEditOpen(true)
                                 }}
                               >
@@ -1090,7 +1122,14 @@ function Categories() {
                       size="sm"
                       disabled={isMutating}
                       onClick={() => {
-                        form.reset()
+                        form.reset({
+                          name: '',
+                          description: '',
+                          type:
+                            lastCategoryType ??
+                            lastCreatedCategoryRef.current?.type ??
+                            '',
+                        })
                         setIsCreateOpen(true)
                       }}
                     >
@@ -1230,6 +1269,11 @@ function Categories() {
                           </button>
                           {category.name}
                         </div>
+                        {category.description && (
+                          <p className="ml-8 mt-1 line-clamp-1 text-xs font-normal text-muted-foreground">
+                            {category.description}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
@@ -1253,7 +1297,10 @@ function Categories() {
                             onClick={(event) => {
                               event.stopPropagation()
                               setSelectedCategory(category)
-                              editForm.reset({ name: category.name })
+                              editForm.reset({
+                                name: category.name,
+                                description: category.description ?? '',
+                              })
                               setIsEditOpen(true)
                             }}
                           >
@@ -1309,10 +1356,17 @@ function Categories() {
                                 className="border-t bg-muted/10"
                               >
                                 <td className="px-4 py-3 text-sm">
-                                  <span className="text-muted-foreground">
-                                    —
-                                  </span>{' '}
-                                  {subcategory.name}
+                                  <div>
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>{' '}
+                                    {subcategory.name}
+                                    {subcategory.description && (
+                                      <p className="pl-4 pt-0.5 text-xs text-muted-foreground">
+                                        {subcategory.description}
+                                      </p>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <span
@@ -1337,6 +1391,8 @@ function Categories() {
                                         setSelectedSubcategory(subcategory)
                                         subEditForm.reset({
                                           name: subcategory.name,
+                                          description:
+                                            subcategory.description ?? '',
                                         })
                                         setIsSubEditOpen(true)
                                       }}
@@ -1393,7 +1449,14 @@ function Categories() {
                               size="sm"
                               disabled={isMutating}
                               onClick={() => {
-                                form.reset()
+                                form.reset({
+                                  name: '',
+                                  description: '',
+                                  type:
+                                    lastCategoryType ??
+                                    lastCreatedCategoryRef.current?.type ??
+                                    '',
+                                })
                                 setIsCreateOpen(true)
                               }}
                             >
@@ -1420,7 +1483,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+          <div className="relative w-[min(42rem,calc(100vw-2rem))] max-h-[90dvh] overflow-y-auto overflow-x-clip rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar categoria</h3>
@@ -1473,6 +1536,22 @@ function Categories() {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="category-description">Descrição</Label>
+                <textarea
+                  id="category-description"
+                  placeholder="Ex: Gastos essenciais do mês."
+                  className="min-h-[84px] w-full resize-y rounded-md border bg-background px-3 py-2 text-sm"
+                  aria-invalid={!!form.formState.errors.description}
+                  {...createDescriptionField}
+                />
+                {form.formState.errors.description && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.description.message}
+                  </p>
+                )}
+              </div>
+
               {form.formState.errors.root?.message && (
                 <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                   {form.formState.errors.root.message}
@@ -1500,12 +1579,12 @@ function Categories() {
       {isEditOpen && selectedCategory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="fixed inset-0" onClick={() => setIsEditOpen(false)} />
-          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Editar categoria</h3>
                 <p className="text-sm text-muted-foreground">
-                  Atualize o nome da categoria selecionada.
+                  Atualize nome e descrição da categoria selecionada.
                 </p>
               </div>
             </div>
@@ -1527,6 +1606,22 @@ function Categories() {
                 {editForm.formState.errors.name && (
                   <p className="text-sm text-destructive">
                     {editForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category-edit-description">Descrição</Label>
+                <textarea
+                  id="category-edit-description"
+                  placeholder="Ex: Gastos essenciais do mês."
+                  className="min-h-[84px] w-full resize-y rounded-md border bg-background px-3 py-2 text-sm"
+                  aria-invalid={!!editForm.formState.errors.description}
+                  {...editDescriptionField}
+                />
+                {editForm.formState.errors.description && (
+                  <p className="text-sm text-destructive">
+                    {editForm.formState.errors.description.message}
                   </p>
                 )}
               </div>
@@ -1680,7 +1775,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubCreateOpen(false)}
           />
-          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Criar subcategoria</h3>
@@ -1743,6 +1838,22 @@ function Categories() {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="subcategory-description">Descrição</Label>
+                <textarea
+                  id="subcategory-description"
+                  placeholder="Ex: Despesas recorrentes desta subcategoria."
+                  className="min-h-[84px] w-full resize-y rounded-md border bg-background px-3 py-2 text-sm"
+                  aria-invalid={!!subCreateForm.formState.errors.description}
+                  {...subCreateDescriptionField}
+                />
+                {subCreateForm.formState.errors.description && (
+                  <p className="text-sm text-destructive">
+                    {subCreateForm.formState.errors.description.message}
+                  </p>
+                )}
+              </div>
+
               {subCreateForm.formState.errors.root?.message && (
                 <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                   {subCreateForm.formState.errors.root.message}
@@ -1773,7 +1884,7 @@ function Categories() {
             className="fixed inset-0"
             onClick={() => setIsSubEditOpen(false)}
           />
-          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-lg border bg-background p-4 shadow-lg sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Editar subcategoria</h3>
@@ -1803,6 +1914,22 @@ function Categories() {
                 {subEditForm.formState.errors.name && (
                   <p className="text-sm text-destructive">
                     {subEditForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subcategory-edit-description">Descrição</Label>
+                <textarea
+                  id="subcategory-edit-description"
+                  placeholder="Ex: Despesas recorrentes desta subcategoria."
+                  className="min-h-[84px] w-full resize-y rounded-md border bg-background px-3 py-2 text-sm"
+                  aria-invalid={!!subEditForm.formState.errors.description}
+                  {...subEditDescriptionField}
+                />
+                {subEditForm.formState.errors.description && (
+                  <p className="text-sm text-destructive">
+                    {subEditForm.formState.errors.description.message}
                   </p>
                 )}
               </div>
@@ -1902,6 +2029,14 @@ function normalizeSearch(value: string) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+}
+
+function normalizeOptionalDescription(value?: string | null) {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {

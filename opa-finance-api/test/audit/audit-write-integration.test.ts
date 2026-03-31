@@ -246,6 +246,7 @@ describe("Audit write integration", () => {
       },
       payload: {
         name: "Categoria Inicial",
+        description: "Descrição inicial",
         type: "expense",
       },
     });
@@ -261,6 +262,7 @@ describe("Audit write integration", () => {
       },
       payload: {
         name: "Categoria Atualizada",
+        description: "Descrição atualizada",
       },
     });
     expect(updateResponse.statusCode).toBe(200);
@@ -284,6 +286,12 @@ describe("Audit write integration", () => {
     expect(deleteLog).toBeDefined();
     expect((updateLog?.beforeData as { name?: string } | null)?.name).toBe("Categoria Inicial");
     expect((updateLog?.afterData as { name?: string } | null)?.name).toBe("Categoria Atualizada");
+    expect((updateLog?.beforeData as { description?: string } | null)?.description).toBe(
+      "Descrição inicial",
+    );
+    expect((updateLog?.afterData as { description?: string } | null)?.description).toBe(
+      "Descrição atualizada",
+    );
   });
 
   it("deve registrar logs de create, update e delete para subcategoria", async () => {
@@ -314,6 +322,7 @@ describe("Audit write integration", () => {
       payload: {
         categoryId: category.id,
         name: "Subcategoria Inicial",
+        description: "Descrição inicial da subcategoria",
       },
     });
     expect(createResponse.statusCode).toBe(201);
@@ -328,6 +337,7 @@ describe("Audit write integration", () => {
       },
       payload: {
         name: "Subcategoria Atualizada",
+        description: "Descrição atualizada da subcategoria",
       },
     });
     expect(updateResponse.statusCode).toBe(200);
@@ -352,6 +362,12 @@ describe("Audit write integration", () => {
     expect((updateLog?.beforeData as { name?: string } | null)?.name).toBe("Subcategoria Inicial");
     expect((updateLog?.afterData as { name?: string } | null)?.name).toBe(
       "Subcategoria Atualizada",
+    );
+    expect((updateLog?.beforeData as { description?: string } | null)?.description).toBe(
+      "Descrição inicial da subcategoria",
+    );
+    expect((updateLog?.afterData as { description?: string } | null)?.description).toBe(
+      "Descrição atualizada da subcategoria",
     );
   });
 });

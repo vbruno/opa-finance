@@ -30,7 +30,11 @@ describe("GET /categories/:id", () => {
       method: "POST",
       url: "/categories",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { name: "Transporte", type: "expense" },
+      payload: {
+        name: "Transporte",
+        description: "Custos com deslocamento.",
+        type: "expense",
+      },
     });
 
     const category = created.json();
@@ -45,6 +49,7 @@ describe("GET /categories/:id", () => {
     expect(res.json()).toMatchObject({
       id: category.id,
       name: "Transporte",
+      description: "Custos com deslocamento.",
       type: "expense",
       userId: user.id,
     });

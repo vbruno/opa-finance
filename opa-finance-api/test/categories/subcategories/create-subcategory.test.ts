@@ -47,6 +47,7 @@ describe("POST /subcategories", () => {
       payload: {
         categoryId: category.id,
         name: "Restaurantes",
+        description: "Gastos com refeição fora de casa",
         color: "#FF0000",
       },
     });
@@ -56,6 +57,7 @@ describe("POST /subcategories", () => {
     const body = res.json();
     expect(body).toMatchObject({
       name: "Restaurantes",
+      description: "Gastos com refeição fora de casa",
       categoryId: category.id,
       userId: user.id,
     });

@@ -10,6 +10,7 @@ export const categories = pgTable("categories", {
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
 
   name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
   type: categoryType("type").notNull(),
   system: boolean("system").notNull().default(false),
   color: text("color"),

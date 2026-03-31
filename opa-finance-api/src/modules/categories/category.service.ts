@@ -18,6 +18,7 @@ export class CategoryService {
       id: category.id,
       userId: category.userId,
       name: category.name,
+      description: category.description,
       type: category.type,
       system: category.system,
       color: category.color,
@@ -45,6 +46,7 @@ export class CategoryService {
         .values({
           userId,
           name: data.name,
+          description: data.description ?? null,
           type: data.type,
           system: false,
           color: data.color ?? null,
@@ -120,6 +122,7 @@ export class CategoryService {
         .update(categories)
         .set({
           name: data.name ?? category.name,
+          description: data.description ?? category.description,
           color: data.color ?? category.color,
           updatedAt: new Date(),
         })

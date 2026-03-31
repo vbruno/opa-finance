@@ -7,6 +7,10 @@ export const categoryCreateSchema = z.object({
     .string()
     .min(1, 'Informe o nome da categoria.')
     .max(255, 'O nome deve ter no máximo 255 caracteres.'),
+  description: z
+    .string()
+    .max(500, 'A descrição deve ter no máximo 500 caracteres.')
+    .optional(),
   type: z
     .string()
     .min(1, 'Selecione o tipo da categoria.')
@@ -26,6 +30,10 @@ export const categoryUpdateSchema = z.object({
     .string()
     .min(1, 'Informe o nome da categoria.')
     .max(255, 'O nome deve ter no máximo 255 caracteres.'),
+  description: z
+    .string()
+    .max(500, 'A descrição deve ter no máximo 500 caracteres.')
+    .optional(),
 })
 
 export type CategoryUpdateFormData = z.infer<typeof categoryUpdateSchema>

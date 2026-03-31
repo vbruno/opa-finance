@@ -6,6 +6,7 @@ export type Category = {
   id: string
   userId: string | null
   name: string
+  description: string | null
   type: 'income' | 'expense'
   system: boolean
   color: string | null
@@ -18,6 +19,7 @@ export type Subcategory = {
   userId: string
   categoryId: string
   name: string
+  description: string | null
   color: string | null
   createdAt: string
   updatedAt: string
@@ -26,21 +28,25 @@ export type Subcategory = {
 export type CategoryCreatePayload = {
   name: string
   type: string
+  description?: string | null
 }
 
 export type CategoryUpdatePayload = {
   id: string
   name: string
+  description?: string | null
 }
 
 export type SubcategoryCreatePayload = {
   categoryId: string
   name: string
+  description?: string | null
 }
 
 export type SubcategoryUpdatePayload = {
   id: string
   name: string
+  description?: string | null
   categoryId?: string
 }
 
@@ -95,8 +101,11 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, name }: CategoryUpdatePayload) => {
-      const response = await api.put<Category>(`/categories/${id}`, { name })
+    mutationFn: async ({ id, name, description }: CategoryUpdatePayload) => {
+      const response = await api.put<Category>(`/categories/${id}`, {
+        name,
+        description,
+      })
       return response.data
     },
     onSuccess: () => {
@@ -163,9 +172,10 @@ export function useUpdateSubcategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, name }: SubcategoryUpdatePayload) => {
+    mutationFn: async ({ id, name, description }: SubcategoryUpdatePayload) => {
       const response = await api.put<Subcategory>(`/subcategories/${id}`, {
         name,
+        description,
       })
       return response.data
     },

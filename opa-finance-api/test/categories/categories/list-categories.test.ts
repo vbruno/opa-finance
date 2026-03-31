@@ -32,7 +32,11 @@ describe("GET /categories", () => {
       method: "POST",
       url: "/categories",
       headers: { Authorization: `Bearer ${tokenA}` },
-      payload: { name: "Salário", type: "income" },
+      payload: {
+        name: "Salário",
+        description: "Entradas recorrentes.",
+        type: "income",
+      },
     });
 
     // categoria de user B
@@ -52,6 +56,7 @@ describe("GET /categories", () => {
     expect(resA.statusCode).toBe(200);
     expect(resA.json().length).toBe(1);
     expect(resA.json()[0].userId).toBe(userA.id);
+    expect(resA.json()[0].description).toBe("Entradas recorrentes.");
 
     const resB = await app.inject({
       method: "GET",

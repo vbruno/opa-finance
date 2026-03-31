@@ -680,6 +680,7 @@ Cria uma nova categoria.
 ```json
 {
   "name": "Alimentação",
+  "description": "Gastos com mercado e refeições", // opcional
   "type": "expense"
 }
 ```
@@ -701,6 +702,7 @@ transferências entre contas.
   "id": "uuid",
   "userId": "uuid",
   "name": "Alimentação",
+  "description": "Gastos com mercado e refeições",
   "type": "expense",
   "system": false,
   "color": null,
@@ -735,6 +737,7 @@ somente leitura e não podem ser selecionadas no POST/PUT de `/transactions`.
     "id": "uuid",
     "userId": null, // null para categorias de sistema
     "name": "Transferência",
+    "description": null,
     "type": "expense",
     "system": true,
     "color": null,
@@ -745,6 +748,7 @@ somente leitura e não podem ser selecionadas no POST/PUT de `/transactions`.
     "id": "uuid",
     "userId": "uuid",
     "name": "Alimentação",
+    "description": "Gastos com mercado e refeições",
     "type": "expense",
     "system": false,
     "color": null,
@@ -769,6 +773,7 @@ Obtém uma categoria específica.
   "id": "uuid",
   "userId": "uuid",
   "name": "Alimentação",
+  "description": "Gastos com mercado e refeições",
   "type": "expense",
   "system": false,
   "color": null,
@@ -794,7 +799,8 @@ Atualiza uma categoria.
 
 ```json
 {
-  "name": "Alimentação e Bebidas" // opcional
+  "name": "Alimentação e Bebidas", // opcional
+  "description": "Inclui mercado e refeições fora" // opcional (pode ser null)
 }
 ```
 
@@ -805,6 +811,7 @@ Atualiza uma categoria.
   "id": "uuid",
   "userId": "uuid",
   "name": "Alimentação e Bebidas",
+  "description": "Inclui mercado e refeições fora",
   "type": "expense",
   "system": false,
   "color": null,
@@ -857,6 +864,7 @@ Cria uma nova subcategoria.
 {
   "categoryId": "uuid",
   "name": "Supermercado",
+  "description": "Compras recorrentes de mercado", // opcional
   "color": "#EF4444" // opcional
 }
 ```
@@ -869,6 +877,7 @@ Cria uma nova subcategoria.
   "userId": "uuid",
   "categoryId": "uuid",
   "name": "Supermercado",
+  "description": "Compras recorrentes de mercado",
   "color": "#EF4444",
   "createdAt": "2025-01-15T10:30:00.000Z",
   "updatedAt": "2025-01-15T10:30:00.000Z"
@@ -898,6 +907,7 @@ Lista subcategorias de uma categoria.
     "userId": "uuid",
     "categoryId": "uuid",
     "name": "Supermercado",
+    "description": "Compras recorrentes de mercado",
     "color": "#EF4444",
     "createdAt": "2025-01-15T10:30:00.000Z",
     "updatedAt": "2025-01-15T10:30:00.000Z"
@@ -921,6 +931,7 @@ Obtém uma subcategoria específica.
   "userId": "uuid",
   "categoryId": "uuid",
   "name": "Supermercado",
+  "description": "Compras recorrentes de mercado",
   "color": "#EF4444",
   "createdAt": "2025-01-15T10:30:00.000Z",
   "updatedAt": "2025-01-15T10:30:00.000Z"
@@ -945,6 +956,7 @@ Atualiza uma subcategoria.
 ```json
 {
   "name": "Supermercado e Padaria", // opcional
+  "description": "Compras da semana e padaria", // opcional
   "color": "#F59E0B" // opcional
 }
 ```
@@ -957,6 +969,7 @@ Atualiza uma subcategoria.
   "userId": "uuid",
   "categoryId": "uuid",
   "name": "Supermercado e Padaria",
+  "description": "Compras da semana e padaria",
   "color": "#F59E0B",
   "createdAt": "2025-01-15T10:30:00.000Z",
   "updatedAt": "2025-01-15T11:00:00.000Z"

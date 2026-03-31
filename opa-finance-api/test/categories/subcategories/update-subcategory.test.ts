@@ -39,6 +39,7 @@ describe("PUT /subcategories/:id", () => {
       .insert(subcategories)
       .values({
         name: "Luz",
+        description: "Conta de energia elétrica",
         categoryId: category.id,
         userId: user.id,
         color: null,
@@ -49,11 +50,15 @@ describe("PUT /subcategories/:id", () => {
       method: "PUT",
       url: `/subcategories/${sub.id}`,
       headers: { Authorization: `Bearer ${token}` },
-      payload: { name: "Energia" },
+      payload: {
+        name: "Energia",
+        description: "Conta de energia da residência",
+      },
     });
 
     expect(res.statusCode).toBe(200);
     expect(res.json().name).toBe("Energia");
+    expect(res.json().description).toBe("Conta de energia da residência");
   });
 
   it("deve retornar 404 ao atualizar subcategoria inexistente", async () => {
@@ -86,6 +91,7 @@ describe("PUT /subcategories/:id", () => {
       .insert(subcategories)
       .values({
         name: "Veterinário",
+        description: "Custos com cuidados pet",
         categoryId: category.id,
         userId: userB.id,
         color: null,
@@ -118,6 +124,7 @@ describe("PUT /subcategories/:id", () => {
       .insert(subcategories)
       .values({
         name: "Cursos",
+        description: "Gastos com cursos e especializações",
         categoryId: category.id,
         userId: user.id,
         color: null,

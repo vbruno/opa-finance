@@ -33,7 +33,11 @@ describe("POST /categories", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      payload: { name: "Alimentação", type: "expense" },
+      payload: {
+        name: "Alimentação",
+        description: "Gastos com mercado e refeições.",
+        type: "expense",
+      },
     });
 
     expect(res.statusCode).toBe(201);
@@ -41,6 +45,7 @@ describe("POST /categories", () => {
     const body = res.json();
     expect(body).toMatchObject({
       name: "Alimentação",
+      description: "Gastos com mercado e refeições.",
       type: "expense",
       userId: user.id,
     });

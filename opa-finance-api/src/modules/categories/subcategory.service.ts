@@ -17,6 +17,7 @@ export class SubcategoryService {
       userId: subcategory.userId,
       categoryId: subcategory.categoryId,
       name: subcategory.name,
+      description: subcategory.description,
       color: subcategory.color,
       createdAt: subcategory.createdAt,
       updatedAt: subcategory.updatedAt,
@@ -58,6 +59,7 @@ export class SubcategoryService {
           userId,
           categoryId: data.categoryId,
           name: data.name,
+          description: data.description ?? null,
           color: inheritedColor,
         })
         .returning();
@@ -132,6 +134,7 @@ export class SubcategoryService {
         .update(subcategories)
         .set({
           name: data.name ?? existingSub.name,
+          description: data.description !== undefined ? data.description : existingSub.description,
           color: data.color !== undefined ? data.color : existingSub.color,
           updatedAt: new Date(),
         })
