@@ -413,9 +413,111 @@ function ConsolidatedPage() {
             data={consolidatedQuery.data.expense}
             totals={consolidatedQuery.data.totals.expense}
           />
+
+          <MonthlyBalanceTable
+            incomeMonths={consolidatedQuery.data.totals.income.months}
+            expenseMonths={consolidatedQuery.data.totals.expense.months}
+            incomeYearTotal={consolidatedQuery.data.totals.income.yearTotal}
+            expenseYearTotal={consolidatedQuery.data.totals.expense.yearTotal}
+          />
         </div>
       ) : null}
     </div>
+  )
+}
+
+function MonthlyBalanceTable({
+  incomeMonths,
+  expenseMonths,
+  incomeYearTotal,
+  expenseYearTotal,
+}: {
+  incomeMonths: number[]
+  expenseMonths: number[]
+  incomeYearTotal: number
+  expenseYearTotal: number
+}) {
+  const monthlyBalance = useMemo(
+    () => incomeMonths.map((income, index) => income - (expenseMonths[index] ?? 0)),
+    [expenseMonths, incomeMonths],
+  )
+  const monthlyBalanceVariationPercents = useMemo(
+    () =>
+      monthlyBalance.map((currentValue, index) => {
+        if (index === 0) {
+          return null
+        }
+        const previousValue = monthlyBalance[index - 1]
+        if (!Number.isFinite(previousValue) || !Number.isFinite(currentValue)) {
+          return null
+        }
+        return currentValue - previousValue
+      }),
+    [monthlyBalance],
+  )
+  const yearBalance = incomeYearTotal - expenseYearTotal
+
+  return (
+    <section className="rounded-lg border">
+      <div className="border-b bg-muted/20 px-3 py-2">
+        <h2 className="text-sm font-semibold">Saldo mensal (Receita - Despesa)</h2>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[1100px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40 text-left">
+              <th className="sticky left-0 z-10 min-w-[260px] bg-muted/40 px-3 py-2 font-medium">
+                Indicador
+              </th>
+              {monthLabels.map((label) => (
+                <th key={`monthly-balance-${label}`} className="px-2 py-2 text-center font-medium">
+                  {label}
+                </th>
+              ))}
+              <th className="px-3 py-2 text-right font-semibold">Total/Ano</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b">
+              <td className="sticky left-0 bg-background px-3 py-2 font-medium">
+                Saldo do mês
+              </td>
+              {monthlyBalance.map((value, index) => (
+                <td
+                  key={`monthly-balance-value-${index}`}
+                  className={`px-2 py-2 ${getBalanceCellAlignmentClass(value)} ${getMonthlyBalanceToneClass(value)}`}
+                >
+                  {formatBalanceCell(value)}
+                </td>
+              ))}
+              <td
+                className={`px-3 py-2 ${getBalanceCellAlignmentClass(yearBalance)} ${getMonthlyBalanceToneClass(yearBalance)}`}
+              >
+                {formatBalanceCell(yearBalance)}
+              </td>
+            </tr>
+
+            <tr className="border-b bg-muted/10">
+              <td className="sticky left-0 bg-muted/10 px-3 py-2 text-xs font-medium text-muted-foreground">
+                Diferença vs mês anterior
+              </td>
+              {monthlyBalanceVariationPercents.map((value, index) => (
+                <td
+                  key={`monthly-balance-variation-${index}`}
+                  className={`px-2 py-2 text-center text-xs font-medium ${getMonthlyBalanceVariationToneClass(value)}`}
+                >
+                  {formatBalanceDelta(value)}
+                </td>
+              ))}
+              <td className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+                -
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
 
@@ -583,6 +685,11 @@ function BalanceSectionTable({
     setCollapsedCategoryIds(new Set(allCategoryIds))
   }
 
+  const monthlyVariationPercents = useMemo(
+    () => calculateMonthlyVariationPercents(totals.months),
+    [totals.months],
+  )
+
   return (
     <section className="rounded-lg border">
       <div className={`flex items-center justify-between gap-2 border-b px-3 py-2 ${sectionClass}`}>
@@ -607,7 +714,10 @@ function BalanceSectionTable({
                 Categoria / Subcategoria
               </th>
               {monthLabels.map((label) => (
-                <th key={`${sectionLabel}-${label}`} className="px-2 py-2 text-right font-medium">
+                <th
+                  key={`${sectionLabel}-${label}`}
+                  className="px-2 py-2 text-center font-medium"
+                >
                   {label}
                 </th>
               ))}
@@ -616,6 +726,23 @@ function BalanceSectionTable({
           </thead>
 
           <tbody>
+            <tr className="border-b bg-muted/10">
+              <td className="sticky left-0 bg-muted/10 px-3 py-2 text-xs font-medium text-muted-foreground">
+                Variação vs mês anterior (%)
+              </td>
+              {monthlyVariationPercents.map((value, index) => (
+                <td
+                  key={`${sectionLabel}-variation-${index}`}
+                  className={`px-2 py-2 text-center text-xs font-medium ${getVariationToneClass(sectionTone, value)}`}
+                >
+                  {formatVariationPercent(value)}
+                </td>
+              ))}
+              <td className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+                -
+              </td>
+            </tr>
+
             {data.map((category) => (
               <CategoryRows
                 key={`${sectionLabel}-${category.categoryId}`}
@@ -632,12 +759,16 @@ function BalanceSectionTable({
               {totals.months.map((value, index) => (
                 <td
                   key={`${sectionLabel}-total-${index}`}
-                  className="px-2 py-2 text-right font-bold"
+                  className={`px-2 py-2 font-bold ${getBalanceCellAlignmentClass(value)}`}
                 >
                   {formatBalanceCell(value)}
                 </td>
               ))}
-              <td className="px-3 py-2 text-right font-bold">
+              <td
+                className={`px-3 py-2 font-bold ${getBalanceCellAlignmentClass(
+                  totals.yearTotal,
+                )}`}
+              >
                 {formatBalanceCell(totals.yearTotal)}
               </td>
             </tr>
@@ -695,12 +826,16 @@ function CategoryRows({
         {category.months.map((value, index) => (
           <td
             key={`${category.categoryId}-month-${index}`}
-            className="px-2 py-2 text-right font-medium"
+            className={`px-2 py-2 font-medium ${getBalanceCellAlignmentClass(value)}`}
           >
             {formatBalanceCell(value)}
           </td>
         ))}
-        <td className="px-3 py-2 text-right font-semibold">
+        <td
+          className={`px-3 py-2 font-semibold ${getBalanceCellAlignmentClass(
+            category.yearTotal,
+          )}`}
+        >
           {formatBalanceCell(category.yearTotal)}
         </td>
       </tr>
@@ -719,12 +854,16 @@ function CategoryRows({
           {subcategory.months.map((value, index) => (
             <td
               key={`${subcategory.subcategoryId}-month-${index}`}
-              className="px-2 py-2 text-right text-muted-foreground"
+              className={`px-2 py-2 text-muted-foreground ${getBalanceCellAlignmentClass(value)}`}
             >
               {formatBalanceCell(value)}
             </td>
           ))}
-          <td className="px-3 py-2 text-right text-muted-foreground">
+          <td
+            className={`px-3 py-2 text-muted-foreground ${getBalanceCellAlignmentClass(
+              subcategory.yearTotal,
+            )}`}
+          >
             {formatBalanceCell(subcategory.yearTotal)}
           </td>
         </tr>
@@ -753,4 +892,80 @@ function formatBalanceCell(value: number) {
     return '-'
   }
   return `$ ${formatCurrencyValue(value)}`
+}
+
+function getBalanceCellAlignmentClass(value: number) {
+  return value === 0 || !Number.isFinite(value) ? 'text-center' : 'text-right'
+}
+
+function getMonthlyBalanceToneClass(value: number) {
+  if (!Number.isFinite(value) || value === 0) {
+    return 'text-muted-foreground'
+  }
+  return value > 0 ? 'text-emerald-500 font-semibold' : 'text-rose-500 font-semibold'
+}
+
+function getMonthlyBalanceVariationToneClass(value: number | null) {
+  if (value === null || !Number.isFinite(value) || value === 0) {
+    return 'text-muted-foreground'
+  }
+  return value > 0 ? 'text-emerald-400' : 'text-rose-400'
+}
+
+function formatBalanceDelta(value: number | null) {
+  if (value === null || !Number.isFinite(value) || value === 0) {
+    return '-'
+  }
+  return `${value > 0 ? '+' : '-'}$ ${formatCurrencyValue(Math.abs(value))}`
+}
+
+function calculateMonthlyVariationPercents(months: number[]) {
+  return months.map((currentValue, index) => {
+    if (index === 0) {
+      return null
+    }
+
+    const previousValue = months[index - 1]
+    if (!Number.isFinite(previousValue) || !Number.isFinite(currentValue)) {
+      return null
+    }
+
+    if (previousValue === 0) {
+      return currentValue === 0 ? 0 : null
+    }
+
+    return ((currentValue - previousValue) / Math.abs(previousValue)) * 100
+  })
+}
+
+function formatVariationPercent(value: number | null) {
+  if (value === null || !Number.isFinite(value)) {
+    return '-'
+  }
+
+  if (value === 0) {
+    return '-'
+  }
+
+  const formatted = Math.abs(value).toLocaleString('pt-BR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })
+
+  return `${value > 0 ? '+' : '-'}${formatted}%`
+}
+
+function getVariationToneClass(
+  sectionTone: 'income' | 'expense',
+  value: number | null,
+) {
+  if (value === null || !Number.isFinite(value) || value === 0) {
+    return 'text-muted-foreground'
+  }
+
+  if (sectionTone === 'income') {
+    return value > 0 ? 'text-emerald-400' : 'text-rose-400'
+  }
+
+  return value > 0 ? 'text-rose-400' : 'text-emerald-400'
 }
