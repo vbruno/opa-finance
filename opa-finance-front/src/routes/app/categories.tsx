@@ -24,6 +24,7 @@ import {
   useCreateSubcategory,
   useDeleteCategory,
   useDeleteSubcategory,
+  useBootstrapDefaultCategories,
   useUpdateCategory,
   useUpdateSubcategory,
   type Category,
@@ -163,6 +164,10 @@ function Categories() {
   const updateSubcategoryMutation = useUpdateSubcategory()
 
   const deleteSubcategoryMutation = useDeleteSubcategory()
+  const bootstrapDefaultsMutation = useBootstrapDefaultCategories()
+  const [bootstrapFeedback, setBootstrapFeedback] = useState<string | null>(
+    null,
+  )
 
   const categories = useMemo(
     () => categoriesQuery.data ?? [],
@@ -279,6 +284,7 @@ function Categories() {
     createSubcategoryMutation.isPending ||
     updateSubcategoryMutation.isPending ||
     deleteSubcategoryMutation.isPending ||
+    bootstrapDefaultsMutation.isPending ||
     isCascadeDeleting
   const errorMessage = categoriesQuery.isError
     ? getApiErrorMessage(categoriesQuery.error, {
@@ -376,6 +382,23 @@ function Categories() {
       }
     },
   )
+
+  const handleBootstrapDefaults = useCallback(async () => {
+    setBootstrapFeedback(null)
+    try {
+      const result = await bootstrapDefaultsMutation.mutateAsync()
+      setBootstrapFeedback(
+        `${result.createdCategories} categoria(s) e ${result.createdSubcategories} subcategoria(s) inseridas.`,
+      )
+    } catch (error: unknown) {
+      setBootstrapFeedback(
+        getApiErrorMessage(error, {
+          defaultMessage:
+            'Erro ao inserir categorias básicas. Tente novamente.',
+        }),
+      )
+    }
+  }, [bootstrapDefaultsMutation])
 
   useEffect(() => {
     if (!isCreateOpen) {
@@ -1118,23 +1141,38 @@ function Categories() {
                     <p className="text-sm font-medium">
                       Nenhuma categoria cadastrada ainda.
                     </p>
-                    <Button
-                      size="sm"
-                      disabled={isMutating}
-                      onClick={() => {
-                        form.reset({
-                          name: '',
-                          description: '',
-                          type:
-                            lastCategoryType ??
-                            lastCreatedCategoryRef.current?.type ??
-                            '',
-                        })
-                        setIsCreateOpen(true)
-                      }}
-                    >
-                      Criar categoria
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={isMutating}
+                        onClick={handleBootstrapDefaults}
+                      >
+                        Inserir categorias básicas
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isMutating}
+                        onClick={() => {
+                          form.reset({
+                            name: '',
+                            description: '',
+                            type:
+                              lastCategoryType ??
+                              lastCreatedCategoryRef.current?.type ??
+                              '',
+                          })
+                          setIsCreateOpen(true)
+                        }}
+                      >
+                        Criar categoria
+                      </Button>
+                    </div>
+                    {bootstrapFeedback && (
+                      <p className="text-xs text-muted-foreground">
+                        {bootstrapFeedback}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm font-medium">
@@ -1445,23 +1483,38 @@ function Categories() {
                             <p className="text-sm font-medium">
                               Nenhuma categoria cadastrada ainda.
                             </p>
-                            <Button
-                              size="sm"
-                              disabled={isMutating}
-                              onClick={() => {
-                                form.reset({
-                                  name: '',
-                                  description: '',
-                                  type:
-                                    lastCategoryType ??
-                                    lastCreatedCategoryRef.current?.type ??
-                                    '',
-                                })
-                                setIsCreateOpen(true)
-                              }}
-                            >
-                              Criar categoria
-                            </Button>
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                size="sm"
+                                disabled={isMutating}
+                                onClick={handleBootstrapDefaults}
+                              >
+                                Inserir categorias básicas
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isMutating}
+                                onClick={() => {
+                                  form.reset({
+                                    name: '',
+                                    description: '',
+                                    type:
+                                      lastCategoryType ??
+                                      lastCreatedCategoryRef.current?.type ??
+                                      '',
+                                  })
+                                  setIsCreateOpen(true)
+                                }}
+                              >
+                                Criar categoria
+                              </Button>
+                            </div>
+                            {bootstrapFeedback && (
+                              <p className="text-xs text-muted-foreground">
+                                {bootstrapFeedback}
+                              </p>
+                            )}
                           </>
                         ) : (
                           <p className="text-sm font-medium">

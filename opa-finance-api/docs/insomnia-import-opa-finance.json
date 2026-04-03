@@ -228,6 +228,20 @@
       ]
     },
     {
+      "_id": "req_categories_bootstrap_defaults",
+      "_type": "request",
+      "parentId": "fld_categories",
+      "name": "Bootstrap Default Categories",
+      "method": "POST",
+      "url": "{{ _.base_url }}/categories/bootstrap-defaults",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
       "_id": "req_subcategories_list",
       "_type": "request",
       "parentId": "fld_categories",

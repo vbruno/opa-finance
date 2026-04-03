@@ -760,6 +760,32 @@ somente leitura e não podem ser selecionadas no POST/PUT de `/transactions`.
 
 ---
 
+### POST `/categories/bootstrap-defaults`
+
+Cria categorias e subcategorias básicas para onboarding do usuário.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Observação importante:**
+Operação **idempotente**. Se já existir categoria/subcategoria com mesmo nome
+no usuário, ela não será duplicada.
+
+**Response 200:**
+
+```json
+{
+  "message": "Categorias básicas processadas com sucesso.",
+  "createdCategories": 6,
+  "createdSubcategories": 12
+}
+```
+
+**Erros:**
+
+- `401` - Não autenticado
+
+---
+
 ### GET `/categories/:id`
 
 Obtém uma categoria específica.

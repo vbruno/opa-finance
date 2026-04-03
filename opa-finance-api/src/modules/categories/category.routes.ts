@@ -73,6 +73,38 @@ export async function categoryRoutes(app: FastifyInstance) {
     },
   );
 
+  app.post(
+    "/categories/bootstrap-defaults",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: categoryTag,
+        summary: "Inserir categorias básicas",
+        description:
+          "Cria categorias e subcategorias padrão para onboarding. Operação idempotente (não duplica).",
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+              createdCategories: { type: "number" },
+              createdSubcategories: { type: "number" },
+            },
+            example: {
+              message: "Categorias básicas processadas com sucesso.",
+              createdCategories: 6,
+              createdSubcategories: 12,
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      return categoryService.bootstrapDefaults(req.user.sub);
+    },
+  );
+
   /* -------------------------------------------------------------------------- */
   /*                                    LIST                                    */
   /* -------------------------------------------------------------------------- */

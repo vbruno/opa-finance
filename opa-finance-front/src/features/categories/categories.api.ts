@@ -55,6 +55,12 @@ export type SubcategoryDeletePayload = {
   categoryId?: string
 }
 
+export type BootstrapDefaultsResponse = {
+  message: string
+  createdCategories: number
+  createdSubcategories: number
+}
+
 const categoriesKey = ['categories']
 
 export async function fetchCategories() {
@@ -204,6 +210,23 @@ export function useDeleteSubcategory() {
         })
       }
       queryClient.invalidateQueries({ queryKey: ['subcategories', 'search'] })
+    },
+  })
+}
+
+export function useBootstrapDefaultCategories() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await api.post<BootstrapDefaultsResponse>(
+        '/categories/bootstrap-defaults',
+      )
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: categoriesKey })
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] })
     },
   })
 }
