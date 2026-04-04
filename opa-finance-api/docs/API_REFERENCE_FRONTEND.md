@@ -1485,6 +1485,185 @@ Cria uma transferência entre contas.
 
 ---
 
+## 🔁 Recurrences
+
+### POST `/recurrences`
+
+Cria uma recorrência de transação ou transferência.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request Body (exemplo - transação):**
+
+```json
+{
+  "originType": "transaction",
+  "frequency": "monthly",
+  "startDate": "2026-04-10",
+  "dayOfMonth": 10,
+  "endType": "never",
+  "accountId": "uuid",
+  "categoryId": "uuid",
+  "subcategoryId": "uuid",
+  "amount": 350,
+  "description": "Plano de celular",
+  "notes": "Despesa recorrente"
+}
+```
+
+**Request Body (exemplo - transferência):**
+
+```json
+{
+  "originType": "transfer",
+  "frequency": "weekly",
+  "startDate": "2026-04-10",
+  "dayOfWeek": 5,
+  "endType": "until_date",
+  "endDate": "2026-12-31",
+  "fromAccountId": "uuid",
+  "toAccountId": "uuid",
+  "amount": 200,
+  "description": "Transferência para reserva"
+}
+```
+
+**Response 201:** objeto da recorrência criada.
+
+---
+
+### GET `/recurrences`
+
+Lista recorrências do usuário com paginação e filtros.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `page` (default: `1`)
+- `limit` (default: `20`, máximo `100`)
+- `originType` (`transaction | transfer`)
+- `status` (`active | finalized`)
+- `frequency` (`weekly | biweekly | monthly | yearly`)
+- `accountId` (UUID)
+- `q` (busca por descrição/notas)
+
+**Response 200:**
+
+```json
+{
+  "data": [],
+  "page": 1,
+  "limit": 20,
+  "total": 0
+}
+```
+
+---
+
+### GET `/recurrences/:id`
+
+Retorna uma recorrência específica do usuário.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Response 200:** objeto da recorrência.
+
+---
+
+### PUT `/recurrences/:id`
+
+Atualiza uma recorrência ativa.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Observação:** suporta controle de concorrência otimista via `expectedVersion`.
+
+**Request Body (parcial):**
+
+```json
+{
+  "amount": 420,
+  "notes": "Atualizado",
+  "expectedVersion": 1
+}
+```
+
+**Erros:**
+
+- `400` - validação
+- `409` - conflito de concorrência (`expectedVersion` divergente)
+
+---
+
+### PUT `/recurrences/:id/finalize`
+
+Finaliza uma recorrência ativa.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Response 200:** objeto da recorrência finalizada.
+
+---
+
+### DELETE `/recurrences/:id`
+
+Exclusão lógica da recorrência (somente quando `finalized`).
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Response 200:**
+
+```json
+{
+  "message": "Recorrência removida com sucesso."
+}
+```
+
+**Erros:**
+
+- `400` - recorrência ativa (precisa finalizar antes)
+- `404` - recorrência não encontrada
+
+---
+
+### POST `/recurrences/materialize`
+
+Materializa ocorrências pendentes das recorrências ativas do usuário.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request Body (opcional):**
+
+```json
+{
+  "untilDate": "2026-12-31"
+}
+```
+
+Quando `untilDate` não é enviado, o backend usa a data atual no timezone da recorrência.
+
+**Response 200:**
+
+```json
+{
+  "processedRecurrences": 3,
+  "createdOccurrences": 5,
+  "skippedOccurrences": 2,
+  "createdTransactions": 3,
+  "createdTransfers": 2,
+  "finalizedRecurrences": 1,
+  "failedRecurrences": 0
+}
+```
+
+**Erros:**
+
+- `400` - regra inválida para materialização
+- `401` - não autenticado
+
+---
+
 ## 📊 Reports
 
 ### GET `/reports/weekly-cashflow`

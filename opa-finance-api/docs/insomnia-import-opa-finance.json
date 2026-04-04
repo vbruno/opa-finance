@@ -25,6 +25,7 @@
         "category_id": "",
         "subcategory_id": "",
         "transaction_id": "",
+        "recurrence_id": "",
         "user_id": "",
         "transfer_id": ""
       }
@@ -358,6 +359,134 @@
         {
           "name": "Content-Type",
           "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "fld_recurrences",
+      "_type": "request_group",
+      "parentId": "wrk_opa_finance",
+      "name": "Recurrences"
+    },
+    {
+      "_id": "req_recurrences_create_transaction",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Create Recurrence (Transaction)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/recurrences",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"originType\": \"transaction\",\n  \"frequency\": \"monthly\",\n  \"startDate\": \"2026-04-10\",\n  \"dayOfMonth\": 10,\n  \"endType\": \"never\",\n  \"accountId\": \"{{ _.account_id }}\",\n  \"categoryId\": \"{{ _.category_id }}\",\n  \"subcategoryId\": \"{{ _.subcategory_id }}\",\n  \"amount\": 350,\n  \"description\": \"Plano de celular\",\n  \"notes\": \"Despesa recorrente\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_list",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "List Recurrences",
+      "method": "GET",
+      "url": "{{ _.base_url }}/recurrences?page=1&limit=20&status=active",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_materialize",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Materialize Recurrences",
+      "method": "POST",
+      "url": "{{ _.base_url }}/recurrences/materialize",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"untilDate\": \"2026-12-31\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_get_one",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Get Recurrence",
+      "method": "GET",
+      "url": "{{ _.base_url }}/recurrences/{{ _.recurrence_id }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_update",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Update Recurrence",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/recurrences/{{ _.recurrence_id }}",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"amount\": 420,\n  \"notes\": \"Ajuste de valor\",\n  \"expectedVersion\": 1\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_finalize",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Finalize Recurrence",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/recurrences/{{ _.recurrence_id }}/finalize",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_delete",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Delete Recurrence",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/recurrences/{{ _.recurrence_id }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
         }
       ]
     },
