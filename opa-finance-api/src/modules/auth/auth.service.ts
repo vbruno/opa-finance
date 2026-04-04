@@ -10,6 +10,8 @@ import {
 } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
 import { hashPassword, comparePassword } from "../../core/utils/hash.utils";
+import { ensureValidTimezone } from "../../core/utils/timezone-db.utils";
+import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
 import { users } from "../../db/schema";
 
 import type { RegisterInput, LoginInput } from "./auth.schemas";
@@ -39,12 +41,15 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(userData.password);
+    const timezone = (userData.timezone ?? DEFAULT_TIMEZONE).trim();
+    await ensureValidTimezone(this.db, timezone, "/auth/register");
 
     const [user] = await this.db
       .insert(users)
       .values({
         name: userData.name,
         email: userData.email,
+        timezone,
         passwordHash,
       })
       .returning();

@@ -37,6 +37,7 @@ export async function authRoutes(app: FastifyInstance) {
           properties: {
             name: { type: "string", example: "João Silva" },
             email: { type: "string", example: "joao@example.com" },
+            timezone: { type: "string", example: "Australia/Adelaide" },
             password: { type: "string", example: "MinhaSenha@123" },
             confirmPassword: { type: "string", example: "MinhaSenha@123" },
           },
@@ -216,12 +217,14 @@ export async function authRoutes(app: FastifyInstance) {
               id: { type: "string" },
               name: { type: "string" },
               email: { type: "string" },
+              timezone: { type: "string" },
               createdAt: { type: "string" },
             },
             example: {
               id: "uuid",
               name: "João Silva",
               email: "joao@example.com",
+              timezone: "Australia/Adelaide",
               createdAt: "2025-01-15T10:30:00.000Z",
             },
           },

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import { ForbiddenProblem, NotFoundProblem } from "../../core/errors/problems";
+import { ensureValidTimezone } from "../../core/utils/timezone-db.utils";
 import { users } from "../../db/schema";
 import type {
   ListUsersQuery,
@@ -76,9 +77,16 @@ export class UserService {
       throw new ForbiddenProblem("Você não pode atualizar este usuário.", `/users/${params.id}`);
     }
 
+    const payload = { ...body };
+    if (payload.timezone !== undefined) {
+      const normalizedTimezone = payload.timezone.trim();
+      await ensureValidTimezone(this.app.db, normalizedTimezone, `/users/${params.id}`);
+      payload.timezone = normalizedTimezone;
+    }
+
     const updatedResult = await this.app.db
       .update(users)
-      .set(body)
+      .set(payload)
       .where(eq(users.id, params.id))
       .returning();
 

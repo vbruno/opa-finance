@@ -5,6 +5,7 @@ export const publicUserSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1),
   email: z.email(),
+  timezone: z.string(),
   createdAt: z.date().optional(),
 });
 
@@ -42,10 +43,11 @@ export const updateUserBodySchema = z
   .object({
     name: z.string().min(3).max(255).optional(),
     email: z.email().max(255).optional(),
+    timezone: z.string().optional(),
   })
   .refine(
     (body) => {
-      return body.name !== undefined || body.email !== undefined;
+      return body.name !== undefined || body.email !== undefined || body.timezone !== undefined;
     },
     {
       message: "Pelo menos um campo deve ser atualizado.",

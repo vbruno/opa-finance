@@ -136,6 +136,7 @@ Registra um novo usuário.
 {
   "name": "João Silva",
   "email": "joao@example.com",
+  "timezone": "Australia/Adelaide",
   "password": "MinhaSenh@123",
   "confirmPassword": "MinhaSenh@123"
 }
@@ -145,6 +146,7 @@ Registra um novo usuário.
 
 - `name`: mínimo 3 caracteres, máximo 255
 - `email`: formato válido, máximo 255
+- `timezone`: opcional, timezone IANA válido (ex.: `Australia/Adelaide`)
 - `password`: mínimo 8 caracteres, deve conter maiúscula, minúscula, número e caractere especial
 - `confirmPassword`: deve ser igual a `password`
 
@@ -224,6 +226,7 @@ Retorna dados do usuário autenticado.
   "id": "uuid",
   "name": "João Silva",
   "email": "joao@example.com",
+  "timezone": "Australia/Adelaide",
   "createdAt": "2025-01-15T10:30:00.000Z"
 }
 ```
@@ -374,6 +377,7 @@ Retorna o usuário autenticado (sem listar outros usuários).
       "id": "uuid",
       "name": "João Silva",
       "email": "joao@example.com",
+      "timezone": "Australia/Adelaide",
       "createdAt": "2025-01-15T10:30:00.000Z"
     }
   ],
@@ -397,6 +401,7 @@ Obtém um usuário específico.
   "id": "uuid",
   "name": "João Silva",
   "email": "joao@example.com",
+  "timezone": "Australia/Adelaide",
   "createdAt": "2025-01-15T10:30:00.000Z"
 }
 ```
@@ -418,7 +423,8 @@ Atualiza um usuário.
 
 ```json
 {
-  "name": "João Silva Santos" // opcional
+  "name": "João Silva Santos", // opcional
+  "timezone": "Australia/Adelaide" // opcional
 }
 ```
 
@@ -429,6 +435,7 @@ Atualiza um usuário.
   "id": "uuid",
   "name": "João Silva Santos",
   "email": "joao@example.com",
+  "timezone": "Australia/Adelaide",
   "createdAt": "2025-01-15T10:30:00.000Z"
 }
 ```

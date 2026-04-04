@@ -99,6 +99,13 @@
       "when": 1774909200000,
       "tag": "0013_subcategory_description",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1775250000000,
+      "tag": "0014_recurrence_foundation",
+      "breakpoints": true
     }
   ]
 }

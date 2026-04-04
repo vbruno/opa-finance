@@ -44,7 +44,7 @@
       "url": "{{ _.base_url }}/auth/register",
       "body": {
         "mimeType": "application/json",
-        "text": "{\n  \"name\": \"Usuário Teste\",\n  \"email\": \"teste@example.com\",\n  \"password\": \"Senha@123\",\n  \"confirmPassword\": \"Senha@123\"\n}"
+        "text": "{\n  \"name\": \"Usuário Teste\",\n  \"email\": \"teste@example.com\",\n  \"timezone\": \"Australia/Adelaide\",\n  \"password\": \"Senha@123\",\n  \"confirmPassword\": \"Senha@123\"\n}"
       },
       "headers": [
         {

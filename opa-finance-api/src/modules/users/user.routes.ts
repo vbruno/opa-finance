@@ -46,6 +46,7 @@ export async function userRoutes(app: FastifyInstance) {
                     id: { type: "string" },
                     name: { type: "string" },
                     email: { type: "string" },
+                    timezone: { type: "string" },
                     createdAt: { type: "string" },
                   },
                 },
@@ -80,12 +81,14 @@ export async function userRoutes(app: FastifyInstance) {
               id: { type: "string" },
               name: { type: "string" },
               email: { type: "string" },
+              timezone: { type: "string" },
               createdAt: { type: "string" },
             },
             example: {
               id: "uuid",
               name: "João Silva",
               email: "joao@example.com",
+              timezone: "Australia/Adelaide",
               createdAt: "2025-01-15T10:30:00.000Z",
             },
           },
@@ -106,13 +109,14 @@ export async function userRoutes(app: FastifyInstance) {
       schema: {
         tags: userTag,
         summary: "Atualizar usuário",
-        description: "Atualiza nome e/ou email do usuário.",
+        description: "Atualiza nome, email e/ou timezone do usuário.",
         security: [{ bearerAuth: [] }],
         body: {
           type: "object",
           properties: {
             name: { type: "string", example: "João Atualizado" },
             email: { type: "string", example: "novo@example.com" },
+            timezone: { type: "string", example: "Australia/Adelaide" },
           },
         },
         response: {
@@ -122,6 +126,7 @@ export async function userRoutes(app: FastifyInstance) {
               id: { type: "string" },
               name: { type: "string" },
               email: { type: "string" },
+              timezone: { type: "string" },
               createdAt: { type: "string" },
             },
           },

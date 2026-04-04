@@ -9,6 +9,7 @@ export const registerSchema = z
       .min(3, "O nome deve ter pelo menos 3 caracteres.")
       .max(255, "O nome é muito longo."),
     email: z.email("Formato de e-mail inválido.").max(255, "O e-mail é muito longo."),
+    timezone: z.string().optional(),
     password: strongPasswordSchema,
     confirmPassword: z.string().min(8, "A confirmação deve ter pelo menos 8 caracteres."),
   })

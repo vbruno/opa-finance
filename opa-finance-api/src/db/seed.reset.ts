@@ -19,12 +19,7 @@ import { sql } from "drizzle-orm";
 import { db } from "../core/plugins/drizzle";
 
 import { users } from "./schema";
-import {
-  DEFAULT_DEMO_PASSWORD,
-  DEMO_EMAIL,
-  DEMO_NAME,
-  seedDemoFinanceData,
-} from "./seed.shared";
+import { DEFAULT_DEMO_PASSWORD, DEMO_EMAIL, DEMO_NAME, seedDemoFinanceData } from "./seed.shared";
 
 async function seed() {
   if (process.env.NODE_ENV === "production" && process.env.SEED_CONFIRM !== "PROD_RESET_OK") {

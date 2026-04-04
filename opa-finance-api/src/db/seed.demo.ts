@@ -19,12 +19,7 @@ import { hash } from "bcrypt";
 import { eq } from "drizzle-orm";
 import { db } from "../core/plugins/drizzle";
 import { users } from "./schema";
-import {
-  DEFAULT_DEMO_PASSWORD,
-  DEMO_EMAIL,
-  DEMO_NAME,
-  seedDemoFinanceData,
-} from "./seed.shared";
+import { DEFAULT_DEMO_PASSWORD, DEMO_EMAIL, DEMO_NAME, seedDemoFinanceData } from "./seed.shared";
 
 async function seedDemoOnly() {
   if (process.env.NODE_ENV === "production" && process.env.DEMO_SEED_CONFIRM !== "PROD_DEMO_OK") {
