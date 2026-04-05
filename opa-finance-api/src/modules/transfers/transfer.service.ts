@@ -4,7 +4,19 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
-import { transactions, accounts, categories } from "../../db/schema";
+import {
+  resolveSubmitOccurrence,
+  type RecurrenceSchedule,
+} from "../../core/utils/recurrence-schedule.utils";
+import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
+import {
+  transactions,
+  accounts,
+  categories,
+  recurrenceOccurrences,
+  recurrences,
+  users,
+} from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { CreateTransferInput } from "./transfer.schemas";
 
@@ -104,6 +116,12 @@ export class TransferService {
 
     // Busca categoria de sistema "Transferência"
     const transferCategory = await this.getTransferCategory();
+    const [user] = await this.app.db
+      .select({ timezone: users.timezone })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const userTimezone = user?.timezone ?? DEFAULT_TIMEZONE;
 
     // Gera transferId único para vincular as duas transações
     const transferId = randomUUID();
@@ -139,6 +157,74 @@ export class TransferService {
         })
         .returning();
 
+      let recurrenceId: string | null = null;
+      if (data.recurrence) {
+        const recurrenceStartDate = data.recurrence.startDate ?? data.date;
+        const rule: RecurrenceSchedule = {
+          startDate: recurrenceStartDate,
+          frequency: data.recurrence.frequency,
+          dayOfWeek: data.recurrence.dayOfWeek ?? null,
+          dayOfMonth: data.recurrence.dayOfMonth ?? null,
+          monthOfYear: data.recurrence.monthOfYear ?? null,
+        };
+        const { materializedOnSubmit, nextOccurrenceDate } = resolveSubmitOccurrence(
+          rule,
+          data.date,
+        );
+        const reachesUntilDateOnSubmit =
+          materializedOnSubmit &&
+          data.recurrence.endType === "until_date" &&
+          !!data.recurrence.endDate &&
+          data.recurrence.endDate <= data.date;
+        const shouldFinalizeImmediately =
+          (materializedOnSubmit &&
+            data.recurrence.endType === "by_occurrences" &&
+            (data.recurrence.endOccurrences ?? 0) <= 1) ||
+          reachesUntilDateOnSubmit;
+
+        const [createdRecurrence] = await tx
+          .insert(recurrences)
+          .values({
+            userId,
+            originType: "transfer",
+            status: shouldFinalizeImmediately ? "finalized" : "active",
+            timezone: userTimezone,
+            frequency: data.recurrence.frequency,
+            startDate: recurrenceStartDate,
+            dayOfWeek: data.recurrence.dayOfWeek ?? null,
+            dayOfMonth: data.recurrence.dayOfMonth ?? null,
+            monthOfYear: data.recurrence.monthOfYear ?? null,
+            endType: data.recurrence.endType,
+            endOccurrences: data.recurrence.endOccurrences ?? null,
+            endDate: data.recurrence.endDate ?? null,
+            fromAccountId: data.fromAccountId,
+            toAccountId: data.toAccountId,
+            amount: data.amount.toString(),
+            description: data.description ?? null,
+            notes: data.recurrence.notes ?? null,
+            nextOccurrenceDate: shouldFinalizeImmediately ? null : nextOccurrenceDate,
+            lastMaterializedDate: materializedOnSubmit ? data.date : null,
+            lastMaterializedAt: materializedOnSubmit ? new Date() : null,
+            finalizedAt: shouldFinalizeImmediately ? new Date() : null,
+          })
+          .returning({ id: recurrences.id });
+
+        if (materializedOnSubmit) {
+          await tx.insert(recurrenceOccurrences).values({
+            recurrenceId: createdRecurrence.id,
+            originType: "transfer",
+            occurrenceDate: data.date,
+            status: "materialized",
+            transferId,
+            metadata: {
+              source: "transfer-submit",
+            },
+          });
+        }
+
+        recurrenceId = createdRecurrence.id;
+      }
+
       await this.audit.log(
         {
           userId,
@@ -153,6 +239,7 @@ export class TransferService {
             operation: "transfer-create",
             transferId,
             side: "fromAccount",
+            recurrenceId,
           },
         },
         tx,
@@ -172,6 +259,7 @@ export class TransferService {
             operation: "transfer-create",
             transferId,
             side: "toAccount",
+            recurrenceId,
           },
         },
         tx,
@@ -179,6 +267,7 @@ export class TransferService {
 
       return {
         id: transferId,
+        recurrenceId,
         fromAccount: {
           ...expenseTx,
           amount: Number(expenseTx.amount),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ISO_DATE_REGEX, isValidIsoDate } from "../../core/utils/recurrence-schedule.utils";
 
 export const recurrenceOriginTypeSchema = z.enum(["transaction", "transfer"]);
 export const recurrenceFrequencySchema = z.enum(["weekly", "biweekly", "monthly", "yearly"]);
@@ -9,7 +10,10 @@ export const createRecurrenceSchema = z
   .object({
     originType: recurrenceOriginTypeSchema,
     frequency: recurrenceFrequencySchema,
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida. Use YYYY-MM-DD."),
+    startDate: z
+      .string()
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." }),
     dayOfWeek: z.number().int().min(0).max(6).optional(),
     dayOfMonth: z.number().int().min(1).max(31).optional(),
     monthOfYear: z.number().int().min(1).max(12).optional(),
@@ -17,7 +21,8 @@ export const createRecurrenceSchema = z
     endOccurrences: z.number().int().min(1).optional(),
     endDate: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida. Use YYYY-MM-DD.")
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." })
       .optional(),
     accountId: z.uuid().optional(),
     categoryId: z.uuid().optional(),
@@ -158,12 +163,38 @@ export const listRecurrencesQuerySchema = z.object({
 export const materializeRecurrencesSchema = z.object({
   untilDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida. Use YYYY-MM-DD.")
+    .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+    .refine(isValidIsoDate, { message: "Data inválida." })
     .optional(),
+  maxRecurrences: z.number().int().min(1).max(500).optional(),
 });
+
+export const recurrenceEditScopeSchema = z.enum(["single", "this_and_next", "all"]);
+
+export const editRecurrenceByScopeSchema = z
+  .object({
+    scope: recurrenceEditScopeSchema,
+    occurrenceDate: z
+      .string()
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." })
+      .optional(),
+    changes: updateRecurrenceSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.scope !== "all" && !data.occurrenceDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Data da ocorrência é obrigatória para este escopo.",
+        path: ["occurrenceDate"],
+      });
+    }
+  });
 
 export type CreateRecurrenceInput = z.infer<typeof createRecurrenceSchema>;
 export type UpdateRecurrenceInput = z.infer<typeof updateRecurrenceSchema>;
 export type RecurrenceParams = z.infer<typeof recurrenceParamsSchema>;
 export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
 export type MaterializeRecurrencesInput = z.infer<typeof materializeRecurrencesSchema>;
+export type EditRecurrenceByScopeInput = z.infer<typeof editRecurrenceByScopeSchema>;
+export type RecurrenceEditScope = z.infer<typeof recurrenceEditScopeSchema>;

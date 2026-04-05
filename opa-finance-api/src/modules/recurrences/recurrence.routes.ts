@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import {
   createRecurrenceSchema,
+  editRecurrenceByScopeSchema,
   listRecurrencesQuerySchema,
   materializeRecurrencesSchema,
   recurrenceParamsSchema,
@@ -79,6 +80,25 @@ export async function recurrenceRoutes(app: FastifyInstance) {
       const { id } = recurrenceParamsSchema.parse(req.params);
       const body = updateRecurrenceSchema.parse(req.body);
       return service.update(req.user.sub, id, body);
+    },
+  );
+
+  app.put(
+    "/recurrences/:id/edit-scope",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Editar recorrência por escopo",
+        description:
+          "Aplica edição com escopo: all (todas), this_and_next (esta e próximas), single (esta ocorrência).",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const { id } = recurrenceParamsSchema.parse(req.params);
+      const body = editRecurrenceByScopeSchema.parse(req.body);
+      return service.editByScope(req.user.sub, id, body);
     },
   );
 

@@ -1057,7 +1057,14 @@ Cria uma nova transação.
   "amount": 150.5,
   "date": "2025-01-15",
   "description": "Compra no supermercado", // opcional
-  "notes": "Notas adicionais" // opcional
+  "notes": "Notas adicionais", // opcional
+  "recurrence": {
+    "frequency": "monthly",
+    "startDate": "2025-01-15", // opcional (default = date da transação)
+    "dayOfMonth": 15,
+    "endType": "never",
+    "notes": "Recorrência mensal"
+  }
 }
 ```
 
@@ -1080,6 +1087,7 @@ Cria uma nova transação.
   "date": "2025-01-15",
   "description": "Compra no supermercado",
   "notes": "Notas adicionais",
+  "recurrenceId": "uuid",
   "transferId": null,
   "createdAt": "2025-01-15T10:30:00.000Z"
 }
@@ -1427,7 +1435,14 @@ Cria uma transferência entre contas.
   "toAccountId": "uuid",
   "amount": 500.0,
   "date": "2025-01-15",
-  "description": "Transferência para poupança" // opcional
+  "description": "Transferência para poupança", // opcional
+  "recurrence": {
+    "frequency": "monthly",
+    "startDate": "2025-01-15", // opcional (default = date da transferência)
+    "dayOfMonth": 15,
+    "endType": "never",
+    "notes": "Recorrência mensal da transferência"
+  }
 }
 ```
 
@@ -1443,6 +1458,7 @@ Cria uma transferência entre contas.
 ```json
 {
   "id": "uuid-transfer-id",
+  "recurrenceId": "uuid",
   "fromAccount": {
     "id": "uuid",
     "userId": "uuid",
@@ -1596,6 +1612,44 @@ Atualiza uma recorrência ativa.
 
 ---
 
+### PUT `/recurrences/:id/edit-scope`
+
+Aplica edição por escopo em recorrência ativa:
+
+- `all`: atualiza a regra inteira para próximas materializações
+- `this_and_next`: encerra a regra atual na véspera da ocorrência alvo e cria uma nova regra a partir da data alvo
+- `single`: atualiza somente a ocorrência materializada da data alvo (sem alterar a regra-mãe)
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request Body:**
+
+```json
+{
+  "scope": "this_and_next",
+  "occurrenceDate": "2026-06-10",
+  "changes": {
+    "amount": 480,
+    "notes": "Ajuste de ciclo",
+    "expectedVersion": 3
+  }
+}
+```
+
+**Regras importantes:**
+
+- `occurrenceDate` é obrigatório para `single` e `this_and_next`
+- `single` exige ocorrência já materializada na data selecionada
+- `single` não permite editar ocorrência materializada passada
+- `single` não permite alterar agenda (frequência/início/fim)
+
+**Erros:**
+
+- `400` - validação de escopo/regra de edição
+- `409` - conflito de concorrência (`expectedVersion` divergente)
+
+---
+
 ### PUT `/recurrences/:id/finalize`
 
 Finaliza uma recorrência ativa.
@@ -1637,17 +1691,22 @@ Materializa ocorrências pendentes das recorrências ativas do usuário.
 
 ```json
 {
-  "untilDate": "2026-12-31"
+  "untilDate": "2026-12-31",
+  "maxRecurrences": 200
 }
 ```
 
 Quando `untilDate` não é enviado, o backend usa a data atual no timezone da recorrência.
+Quando `maxRecurrences` não é enviado, usa lote padrão de `200` (máximo `500`).
 
 **Response 200:**
 
 ```json
 {
+  "totalActiveRecurrences": 14,
   "processedRecurrences": 3,
+  "truncatedByBatch": true,
+  "remainingRecurrences": 11,
   "createdOccurrences": 5,
   "skippedOccurrences": 2,
   "createdTransactions": 3,

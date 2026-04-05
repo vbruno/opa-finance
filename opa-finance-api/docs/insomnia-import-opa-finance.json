@@ -299,6 +299,28 @@
       ]
     },
     {
+      "_id": "req_transactions_create_with_recurrence",
+      "_type": "request",
+      "parentId": "fld_transactions",
+      "name": "Create Transaction (With Recurrence)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/transactions",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"accountId\": \"{{ _.account_id }}\",\n  \"categoryId\": \"{{ _.category_id }}\",\n  \"subcategoryId\": \"{{ _.subcategory_id }}\",\n  \"type\": \"expense\",\n  \"amount\": 120.5,\n  \"date\": \"2026-03-11\",\n  \"description\": \"Supermercado\",\n  \"notes\": \"Compra do mês\",\n  \"recurrence\": {\n    \"frequency\": \"monthly\",\n    \"startDate\": \"2026-03-11\",\n    \"dayOfMonth\": 11,\n    \"endType\": \"never\",\n    \"notes\": \"Recorrência criada no submit\"\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
       "_id": "req_transactions_update",
       "_type": "request",
       "parentId": "fld_transactions",
@@ -363,6 +385,28 @@
       ]
     },
     {
+      "_id": "req_transfers_create_with_recurrence",
+      "_type": "request",
+      "parentId": "fld_transfers",
+      "name": "Create Transfer (With Recurrence)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/transfers",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"fromAccountId\": \"{{ _.from_account_id }}\",\n  \"toAccountId\": \"{{ _.to_account_id }}\",\n  \"amount\": 200,\n  \"date\": \"2026-03-11\",\n  \"description\": \"Transferência teste\",\n  \"recurrence\": {\n    \"frequency\": \"monthly\",\n    \"startDate\": \"2026-03-11\",\n    \"dayOfMonth\": 11,\n    \"endType\": \"never\",\n    \"notes\": \"Recorrência criada no submit\"\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
       "_id": "fld_recurrences",
       "_type": "request_group",
       "parentId": "wrk_opa_finance",
@@ -413,7 +457,7 @@
       "url": "{{ _.base_url }}/recurrences/materialize",
       "body": {
         "mimeType": "application/json",
-        "text": "{\n  \"untilDate\": \"2026-12-31\"\n}"
+        "text": "{\n  \"untilDate\": \"2026-12-31\",\n  \"maxRecurrences\": 200\n}"
       },
       "headers": [
         {
@@ -450,6 +494,28 @@
       "body": {
         "mimeType": "application/json",
         "text": "{\n  \"amount\": 420,\n  \"notes\": \"Ajuste de valor\",\n  \"expectedVersion\": 1\n}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_recurrences_edit_scope",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Edit Recurrence by Scope",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/recurrences/{{ _.recurrence_id }}/edit-scope",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"scope\": \"this_and_next\",\n  \"occurrenceDate\": \"2026-06-10\",\n  \"changes\": {\n    \"amount\": 480,\n    \"notes\": \"Ajuste de ciclo\",\n    \"expectedVersion\": 1\n  }\n}"
       },
       "headers": [
         {

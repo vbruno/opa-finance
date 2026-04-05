@@ -8,6 +8,14 @@ import {
   ValidationProblem,
 } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
+import {
+  addIsoDaysToDate,
+  compareIsoDate,
+  getFirstOccurrence,
+  getFirstOccurrenceOnOrAfter,
+  getNextOccurrenceAfter,
+  type RecurrenceSchedule,
+} from "../../core/utils/recurrence-schedule.utils";
 import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
 import {
   accounts,
@@ -20,16 +28,18 @@ import {
 } from "../../db/schema";
 import type {
   CreateRecurrenceInput,
+  EditRecurrenceByScopeInput,
   ListRecurrencesQuery,
   MaterializeRecurrencesInput,
   UpdateRecurrenceInput,
 } from "./recurrence.schemas";
+import { createRecurrenceSchema } from "./recurrence.schemas";
 
 export class RecurrenceService {
   constructor(private app: FastifyInstance) {}
 
+  private readonly defaultMaterializationBatchSize = 200;
   private readonly maxMaterializationIterations = 500;
-  private readonly maxSchedulingIterations = 1000;
 
   private serializeRecurrence(row: typeof recurrences.$inferSelect) {
     return {
@@ -42,176 +52,12 @@ export class RecurrenceService {
     return date.toISOString().slice(0, 10);
   }
 
-  private parseIsoDate(dateString: string) {
-    const [year, month, day] = dateString.split("-").map(Number);
-    return new Date(Date.UTC(year, month - 1, day));
+  private getFirstOccurrenceForRecurrence(schedule: RecurrenceSchedule) {
+    return getFirstOccurrence(schedule);
   }
 
-  private getDaysInMonth(year: number, monthIndex: number) {
-    return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-  }
-
-  private addDays(dateString: string, days: number) {
-    const date = this.parseIsoDate(dateString);
-    date.setUTCDate(date.getUTCDate() + days);
-    return this.toIsoDate(date);
-  }
-
-  private addMonths(dateString: string, months: number, preferredDay?: number) {
-    const date = this.parseIsoDate(dateString);
-    const sourceDay = preferredDay ?? date.getUTCDate();
-    const sourceMonthIndex = date.getUTCMonth();
-    const targetMonthIndex = sourceMonthIndex + months;
-    const targetYear = date.getUTCFullYear() + Math.floor(targetMonthIndex / 12);
-    const normalizedTargetMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
-    const maxDay = this.getDaysInMonth(targetYear, normalizedTargetMonthIndex);
-    const day = Math.min(sourceDay, maxDay);
-    return this.toIsoDate(new Date(Date.UTC(targetYear, normalizedTargetMonthIndex, day)));
-  }
-
-  private addYears(
-    dateString: string,
-    years: number,
-    preferredMonth?: number,
-    preferredDay?: number,
-  ) {
-    const date = this.parseIsoDate(dateString);
-    const targetYear = date.getUTCFullYear() + years;
-    const month = (preferredMonth ?? date.getUTCMonth() + 1) - 1;
-    const sourceDay = preferredDay ?? date.getUTCDate();
-    const maxDay = this.getDaysInMonth(targetYear, month);
-    const day = Math.min(sourceDay, maxDay);
-    return this.toIsoDate(new Date(Date.UTC(targetYear, month, day)));
-  }
-
-  private compareIsoDate(a: string, b: string) {
-    return a.localeCompare(b);
-  }
-
-  private diffDays(fromDate: string, toDate: string) {
-    const from = this.parseIsoDate(fromDate).getTime();
-    const to = this.parseIsoDate(toDate).getTime();
-    return Math.floor((to - from) / (24 * 60 * 60 * 1000));
-  }
-
-  private getScheduleStartDateForWeeklyRule(
-    startDate: string,
-    frequency: "weekly" | "biweekly",
-    dayOfWeek: number,
-  ) {
-    const start = this.parseIsoDate(startDate);
-    const startDay = start.getUTCDay();
-    const delta = (dayOfWeek - startDay + 7) % 7;
-    const aligned = this.addDays(startDate, delta);
-    if (frequency === "weekly") return aligned;
-    return aligned;
-  }
-
-  private getFirstOccurrenceOnOrAfter(
-    recurrence: Pick<
-      typeof recurrences.$inferSelect,
-      "startDate" | "frequency" | "dayOfWeek" | "dayOfMonth" | "monthOfYear"
-    >,
-    anchorDate: string,
-  ) {
-    const startDate = recurrence.startDate;
-    const anchor = this.compareIsoDate(anchorDate, startDate) < 0 ? startDate : anchorDate;
-
-    if (recurrence.frequency === "weekly" || recurrence.frequency === "biweekly") {
-      const dayOfWeek = recurrence.dayOfWeek ?? this.parseIsoDate(startDate).getUTCDay();
-      const seriesStart = this.getScheduleStartDateForWeeklyRule(
-        startDate,
-        recurrence.frequency,
-        dayOfWeek,
-      );
-
-      if (this.compareIsoDate(anchor, seriesStart) <= 0) {
-        return seriesStart;
-      }
-
-      const intervalDays = recurrence.frequency === "weekly" ? 7 : 14;
-      const daysSinceStart = this.diffDays(seriesStart, anchor);
-      const steps = Math.ceil(daysSinceStart / intervalDays);
-      return this.addDays(seriesStart, steps * intervalDays);
-    }
-
-    if (recurrence.frequency === "monthly") {
-      const day = recurrence.dayOfMonth ?? this.parseIsoDate(startDate).getUTCDate();
-      let candidate = this.addMonths(
-        this.toIsoDate(
-          new Date(
-            Date.UTC(
-              this.parseIsoDate(startDate).getUTCFullYear(),
-              this.parseIsoDate(startDate).getUTCMonth(),
-              1,
-            ),
-          ),
-        ),
-        0,
-        day,
-      );
-      if (this.compareIsoDate(candidate, startDate) < 0) {
-        candidate = this.addMonths(candidate, 1, day);
-      }
-
-      let guard = 0;
-      while (this.compareIsoDate(candidate, anchor) < 0) {
-        candidate = this.addMonths(candidate, 1, day);
-        guard += 1;
-        if (guard > this.maxSchedulingIterations) {
-          throw new ValidationProblem(
-            "Não foi possível calcular a próxima ocorrência mensal.",
-            "/recurrences",
-          );
-        }
-      }
-      return candidate;
-    }
-
-    const start = this.parseIsoDate(startDate);
-    const month = recurrence.monthOfYear ?? start.getUTCMonth() + 1;
-    const day = recurrence.dayOfMonth ?? start.getUTCDate();
-    let candidate = this.toIsoDate(
-      new Date(Date.UTC(start.getUTCFullYear(), month - 1, Math.min(day, 28))),
-    );
-    candidate = this.addYears(candidate, 0, month, day);
-    if (this.compareIsoDate(candidate, startDate) < 0) {
-      candidate = this.addYears(candidate, 1, month, day);
-    }
-
-    let guard = 0;
-    while (this.compareIsoDate(candidate, anchor) < 0) {
-      candidate = this.addYears(candidate, 1, month, day);
-      guard += 1;
-      if (guard > this.maxSchedulingIterations) {
-        throw new ValidationProblem(
-          "Não foi possível calcular a próxima ocorrência anual.",
-          "/recurrences",
-        );
-      }
-    }
-
-    return candidate;
-  }
-
-  private getFirstOccurrenceForRecurrence(
-    recurrence: Pick<
-      typeof recurrences.$inferSelect,
-      "startDate" | "frequency" | "dayOfWeek" | "dayOfMonth" | "monthOfYear"
-    >,
-  ) {
-    return this.getFirstOccurrenceOnOrAfter(recurrence, recurrence.startDate);
-  }
-
-  private getNextOccurrenceAfterDate(
-    recurrence: Pick<
-      typeof recurrences.$inferSelect,
-      "startDate" | "frequency" | "dayOfWeek" | "dayOfMonth" | "monthOfYear"
-    >,
-    date: string,
-  ) {
-    const anchor = this.addDays(date, 1);
-    return this.getFirstOccurrenceOnOrAfter(recurrence, anchor);
+  private getNextOccurrenceAfterDate(schedule: RecurrenceSchedule, date: string) {
+    return getNextOccurrenceAfter(schedule, date);
   }
 
   private async getNowIsoDateInTimezone(timezone: string) {
@@ -226,27 +72,6 @@ export class RecurrenceService {
       return this.toIsoDate(new Date());
     }
     return today;
-  }
-
-  private calculateNextOccurrenceDate(
-    recurrence: typeof recurrences.$inferSelect,
-    currentDate: string,
-  ) {
-    if (recurrence.frequency === "weekly") {
-      return this.addDays(currentDate, 7);
-    }
-    if (recurrence.frequency === "biweekly") {
-      return this.addDays(currentDate, 14);
-    }
-    if (recurrence.frequency === "monthly") {
-      return this.addMonths(currentDate, 1, recurrence.dayOfMonth ?? undefined);
-    }
-    return this.addYears(
-      currentDate,
-      1,
-      recurrence.monthOfYear ?? undefined,
-      recurrence.dayOfMonth ?? undefined,
-    );
   }
 
   private async getTransferCategoryId() {
@@ -362,6 +187,22 @@ export class RecurrenceService {
     await this.validatePayloadOwnership(userId, data);
     const timezone = await this.getUserTimezone(userId);
 
+    let nextOccurrenceDate: string;
+    try {
+      nextOccurrenceDate = this.getFirstOccurrenceForRecurrence({
+        startDate: data.startDate,
+        frequency: data.frequency,
+        dayOfWeek: data.dayOfWeek ?? null,
+        dayOfMonth: data.dayOfMonth ?? null,
+        monthOfYear: data.monthOfYear ?? null,
+      });
+    } catch {
+      throw new ValidationProblem(
+        "Regra de recorrência inválida para cálculo de agenda.",
+        "/recurrences",
+      );
+    }
+
     const [created] = await this.app.db
       .insert(recurrences)
       .values({
@@ -385,13 +226,7 @@ export class RecurrenceService {
         amount: data.amount.toString(),
         description: data.description ?? null,
         notes: data.notes ?? null,
-        nextOccurrenceDate: this.getFirstOccurrenceForRecurrence({
-          startDate: data.startDate,
-          frequency: data.frequency,
-          dayOfWeek: data.dayOfWeek ?? null,
-          dayOfMonth: data.dayOfMonth ?? null,
-          monthOfYear: data.monthOfYear ?? null,
-        }),
+        nextOccurrenceDate,
       })
       .returning();
 
@@ -533,9 +368,16 @@ export class RecurrenceService {
         "startDate" | "frequency" | "dayOfWeek" | "dayOfMonth" | "monthOfYear"
       >;
 
-      payload.nextOccurrenceDate = existing.lastMaterializedDate
-        ? this.getNextOccurrenceAfterDate(schedule, existing.lastMaterializedDate)
-        : this.getFirstOccurrenceForRecurrence(schedule);
+      try {
+        payload.nextOccurrenceDate = existing.lastMaterializedDate
+          ? this.getNextOccurrenceAfterDate(schedule, existing.lastMaterializedDate)
+          : this.getFirstOccurrenceForRecurrence(schedule);
+      } catch {
+        throw new ValidationProblem(
+          "Não foi possível recalcular agenda da recorrência. Verifique os dados da regra.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
     }
 
     payload.version = existing.version + 1;
@@ -555,6 +397,435 @@ export class RecurrenceService {
     }
 
     return this.serializeRecurrence(updated);
+  }
+
+  private hasScheduleChanges(data: UpdateRecurrenceInput) {
+    return (
+      data.frequency !== undefined ||
+      data.startDate !== undefined ||
+      data.dayOfWeek !== undefined ||
+      data.dayOfMonth !== undefined ||
+      data.monthOfYear !== undefined ||
+      data.endType !== undefined ||
+      data.endOccurrences !== undefined ||
+      data.endDate !== undefined
+    );
+  }
+
+  private ensureSingleScopeAllowedFields(data: UpdateRecurrenceInput) {
+    if (this.hasScheduleChanges(data)) {
+      throw new ValidationProblem(
+        "Escopo 'single' não permite alterar agenda da recorrência.",
+        "/recurrences",
+      );
+    }
+  }
+
+  private ensureOriginSpecificSingleScopePayload(
+    recurrence: Awaited<ReturnType<RecurrenceService["getOne"]>>,
+    changes: UpdateRecurrenceInput,
+  ) {
+    if (recurrence.originType === "transaction") {
+      if (changes.fromAccountId !== undefined || changes.toAccountId !== undefined) {
+        throw new ValidationProblem(
+          "Escopo 'single' para transação não aceita contas de transferência.",
+          "/recurrences",
+        );
+      }
+      return;
+    }
+
+    if (
+      changes.accountId !== undefined ||
+      changes.categoryId !== undefined ||
+      changes.subcategoryId !== undefined
+    ) {
+      throw new ValidationProblem(
+        "Escopo 'single' para transferência não aceita conta/categoria de transação.",
+        "/recurrences",
+      );
+    }
+  }
+
+  private async applySingleScopeEdit(
+    userId: string,
+    recurrenceId: string,
+    recurrence: Awaited<ReturnType<RecurrenceService["getOne"]>>,
+    occurrenceDate: string,
+    changes: UpdateRecurrenceInput,
+  ) {
+    this.ensureSingleScopeAllowedFields(changes);
+    this.ensureOriginSpecificSingleScopePayload(recurrence, changes);
+
+    const today = await this.getNowIsoDateInTimezone(recurrence.timezone);
+    if (compareIsoDate(occurrenceDate, today) < 0) {
+      throw new ValidationProblem(
+        "Não é permitido editar ocorrência materializada passada via fluxo de recorrência.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    await this.validatePayloadOwnership(userId, changes, recurrence.categoryId);
+
+    const [occurrence] = await this.app.db
+      .select({
+        id: recurrenceOccurrences.id,
+        transactionId: recurrenceOccurrences.transactionId,
+        transferId: recurrenceOccurrences.transferId,
+      })
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          eq(recurrenceOccurrences.occurrenceDate, occurrenceDate),
+          eq(recurrenceOccurrences.status, "materialized"),
+        ),
+      )
+      .limit(1);
+
+    if (!occurrence) {
+      throw new ValidationProblem(
+        "Escopo 'single' exige ocorrência já materializada na data selecionada.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    if (recurrence.originType === "transaction") {
+      if (!occurrence.transactionId) {
+        throw new ValidationProblem(
+          "Ocorrência de transação sem vínculo para edição.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+
+      const [currentTx] = await this.app.db
+        .select({
+          id: transactions.id,
+          categoryId: transactions.categoryId,
+          type: transactions.type,
+        })
+        .from(transactions)
+        .where(and(eq(transactions.id, occurrence.transactionId), eq(transactions.userId, userId)))
+        .limit(1);
+
+      if (!currentTx) {
+        throw new NotFoundProblem(
+          "Transação da ocorrência não encontrada para edição.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+
+      let nextType = currentTx.type;
+      if (changes.categoryId !== undefined) {
+        const [category] = await this.app.db
+          .select({ type: categories.type })
+          .from(categories)
+          .where(eq(categories.id, changes.categoryId))
+          .limit(1);
+
+        if (!category) {
+          throw new NotFoundProblem("Categoria não encontrada.", `/recurrences/${recurrenceId}`);
+        }
+        nextType = category.type;
+      }
+
+      const payload: Partial<typeof transactions.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+
+      if (changes.accountId !== undefined) payload.accountId = changes.accountId;
+      if (changes.categoryId !== undefined) payload.categoryId = changes.categoryId;
+      if (changes.subcategoryId !== undefined) payload.subcategoryId = changes.subcategoryId;
+      if (changes.categoryId !== undefined && changes.subcategoryId === undefined) {
+        payload.subcategoryId = null;
+      }
+      if (changes.amount !== undefined) payload.amount = changes.amount.toString();
+      if (changes.description !== undefined) payload.description = changes.description;
+      if (changes.notes !== undefined) payload.notes = changes.notes;
+      payload.type = nextType;
+
+      await this.app.db
+        .update(transactions)
+        .set(payload)
+        .where(and(eq(transactions.id, currentTx.id), eq(transactions.userId, userId)));
+
+      return {
+        scope: "single" as const,
+        occurrenceDate,
+        recurrence: recurrence,
+      };
+    }
+
+    if (!occurrence.transferId) {
+      throw new ValidationProblem(
+        "Ocorrência de transferência sem vínculo para edição.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    const transferTransactions: Array<{
+      id: string;
+      type: "income" | "expense";
+      accountId: string;
+    }> = await this.app.db
+      .select({ id: transactions.id, type: transactions.type, accountId: transactions.accountId })
+      .from(transactions)
+      .where(
+        and(eq(transactions.transferId, occurrence.transferId), eq(transactions.userId, userId)),
+      );
+
+    const expenseTx = transferTransactions.find((transferTx) => transferTx.type === "expense");
+    const incomeTx = transferTransactions.find((transferTx) => transferTx.type === "income");
+
+    if (!expenseTx || !incomeTx) {
+      throw new ValidationProblem(
+        "Transferência da ocorrência está inconsistente para edição.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    const nextFromAccountId = changes.fromAccountId ?? expenseTx.accountId;
+    const nextToAccountId = changes.toAccountId ?? incomeTx.accountId;
+    if (nextFromAccountId === nextToAccountId) {
+      throw new ValidationProblem(
+        "Conta de origem e destino devem ser diferentes.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    const basePayload: Partial<typeof transactions.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (changes.amount !== undefined) basePayload.amount = changes.amount.toString();
+    if (changes.description !== undefined) basePayload.description = changes.description;
+    if (changes.notes !== undefined) basePayload.notes = changes.notes;
+
+    await this.app.db.transaction(async (tx: DB) => {
+      await tx
+        .update(transactions)
+        .set({
+          ...basePayload,
+          accountId: changes.fromAccountId ?? undefined,
+        })
+        .where(and(eq(transactions.id, expenseTx.id), eq(transactions.userId, userId)));
+
+      await tx
+        .update(transactions)
+        .set({
+          ...basePayload,
+          accountId: changes.toAccountId ?? undefined,
+        })
+        .where(and(eq(transactions.id, incomeTx.id), eq(transactions.userId, userId)));
+    });
+
+    return {
+      scope: "single" as const,
+      occurrenceDate,
+      recurrence: recurrence,
+    };
+  }
+
+  private buildCreatePayloadFromRecurrence(
+    recurrence: Awaited<ReturnType<RecurrenceService["getOne"]>>,
+    changes: UpdateRecurrenceInput,
+    startDate: string,
+  ): CreateRecurrenceInput {
+    return {
+      originType: recurrence.originType,
+      frequency: changes.frequency ?? recurrence.frequency,
+      startDate,
+      dayOfWeek: changes.dayOfWeek ?? recurrence.dayOfWeek ?? undefined,
+      dayOfMonth: changes.dayOfMonth ?? recurrence.dayOfMonth ?? undefined,
+      monthOfYear: changes.monthOfYear ?? recurrence.monthOfYear ?? undefined,
+      endType: changes.endType ?? recurrence.endType,
+      endOccurrences: changes.endOccurrences ?? recurrence.endOccurrences ?? undefined,
+      endDate: changes.endDate ?? recurrence.endDate ?? undefined,
+      accountId: changes.accountId ?? recurrence.accountId ?? undefined,
+      categoryId: changes.categoryId ?? recurrence.categoryId ?? undefined,
+      subcategoryId: changes.subcategoryId ?? recurrence.subcategoryId ?? undefined,
+      fromAccountId: changes.fromAccountId ?? recurrence.fromAccountId ?? undefined,
+      toAccountId: changes.toAccountId ?? recurrence.toAccountId ?? undefined,
+      amount: changes.amount ?? recurrence.amount,
+      description: changes.description ?? recurrence.description ?? undefined,
+      notes: changes.notes ?? recurrence.notes ?? undefined,
+    };
+  }
+
+  async editByScope(userId: string, recurrenceId: string, input: EditRecurrenceByScopeInput) {
+    const recurrence = await this.getOne(userId, recurrenceId);
+    const changes = input.changes;
+
+    if (recurrence.status !== "active") {
+      throw new ValidationProblem(
+        "Apenas recorrências ativas podem ser editadas por escopo.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    if (input.scope === "all") {
+      const updated = await this.update(userId, recurrenceId, changes);
+      return { scope: "all" as const, recurrence: updated };
+    }
+
+    if (!input.occurrenceDate) {
+      throw new ValidationProblem(
+        "Data da ocorrência é obrigatória.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    if (input.scope === "single") {
+      return this.applySingleScopeEdit(
+        userId,
+        recurrenceId,
+        recurrence,
+        input.occurrenceDate,
+        changes,
+      );
+    }
+
+    if (changes.startDate !== undefined) {
+      throw new ValidationProblem(
+        "Escopo 'this_and_next' define início pela data da ocorrência alvo.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    if (compareIsoDate(input.occurrenceDate, recurrence.startDate) <= 0) {
+      const updated = await this.update(userId, recurrenceId, changes);
+      return { scope: "all" as const, recurrence: updated };
+    }
+
+    if (
+      recurrence.lastMaterializedDate &&
+      compareIsoDate(input.occurrenceDate, recurrence.lastMaterializedDate) <= 0
+    ) {
+      throw new ValidationProblem(
+        "Não é permitido aplicar 'esta e próximas' para ocorrência já materializada.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    const targetOccurrenceDate = input.occurrenceDate;
+    const oldRecurrenceEndDate = addIsoDaysToDate(targetOccurrenceDate, -1);
+    const createPayload = this.buildCreatePayloadFromRecurrence(
+      recurrence,
+      { ...changes, expectedVersion: undefined },
+      targetOccurrenceDate,
+    );
+    const validatedCreatePayload = createRecurrenceSchema.parse(createPayload);
+    await this.validatePayloadOwnership(userId, validatedCreatePayload, recurrence.categoryId);
+
+    const [previousRecurrence, newRecurrence] = await this.app.db.transaction(async (tx: DB) => {
+      const [current] = await tx
+        .select()
+        .from(recurrences)
+        .where(
+          and(
+            eq(recurrences.id, recurrenceId),
+            eq(recurrences.userId, userId),
+            sql`${recurrences.deletedAt} IS NULL`,
+          ),
+        )
+        .limit(1);
+
+      if (!current) {
+        throw new NotFoundProblem("Recorrência não encontrada.", `/recurrences/${recurrenceId}`);
+      }
+      if (current.status !== "active") {
+        throw new ValidationProblem(
+          "Apenas recorrências ativas podem ser editadas por escopo.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+      if (changes.expectedVersion !== undefined && current.version !== changes.expectedVersion) {
+        throw new ConflictProblem(
+          "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+      if (
+        current.lastMaterializedDate &&
+        compareIsoDate(targetOccurrenceDate, current.lastMaterializedDate) <= 0
+      ) {
+        throw new ValidationProblem(
+          "Não é permitido aplicar 'esta e próximas' para ocorrência já materializada.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+
+      const [closedRecurrence] = await tx
+        .update(recurrences)
+        .set({
+          endType: "until_date",
+          endDate: oldRecurrenceEndDate,
+          updatedAt: new Date(),
+          version: current.version + 1,
+        })
+        .where(and(eq(recurrences.id, recurrenceId), eq(recurrences.version, current.version)))
+        .returning();
+
+      if (!closedRecurrence) {
+        throw new ConflictProblem(
+          "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+
+      let nextOccurrenceDate: string;
+      try {
+        nextOccurrenceDate = this.getFirstOccurrenceForRecurrence({
+          startDate: validatedCreatePayload.startDate,
+          frequency: validatedCreatePayload.frequency,
+          dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
+          dayOfMonth: validatedCreatePayload.dayOfMonth ?? null,
+          monthOfYear: validatedCreatePayload.monthOfYear ?? null,
+        });
+      } catch {
+        throw new ValidationProblem(
+          "Regra de recorrência inválida para cálculo de agenda.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+
+      const [createdRecurrence] = await tx
+        .insert(recurrences)
+        .values({
+          userId,
+          originType: validatedCreatePayload.originType,
+          status: "active",
+          timezone: current.timezone,
+          frequency: validatedCreatePayload.frequency,
+          startDate: validatedCreatePayload.startDate,
+          dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
+          dayOfMonth: validatedCreatePayload.dayOfMonth ?? null,
+          monthOfYear: validatedCreatePayload.monthOfYear ?? null,
+          endType: validatedCreatePayload.endType,
+          endOccurrences: validatedCreatePayload.endOccurrences ?? null,
+          endDate: validatedCreatePayload.endDate ?? null,
+          accountId: validatedCreatePayload.accountId ?? null,
+          categoryId: validatedCreatePayload.categoryId ?? null,
+          subcategoryId: validatedCreatePayload.subcategoryId ?? null,
+          fromAccountId: validatedCreatePayload.fromAccountId ?? null,
+          toAccountId: validatedCreatePayload.toAccountId ?? null,
+          amount: validatedCreatePayload.amount.toString(),
+          description: validatedCreatePayload.description ?? null,
+          notes: validatedCreatePayload.notes ?? null,
+          nextOccurrenceDate,
+        })
+        .returning();
+
+      return [
+        this.serializeRecurrence(closedRecurrence),
+        this.serializeRecurrence(createdRecurrence),
+      ];
+    });
+
+    return {
+      scope: "this_and_next" as const,
+      previousRecurrence,
+      newRecurrence,
+    };
   }
 
   async finalize(userId: string, recurrenceId: string) {
@@ -696,6 +967,19 @@ export class RecurrenceService {
   async materialize(userId: string, input: MaterializeRecurrencesInput) {
     const transferCategoryId = await this.getTransferCategoryId();
     const todayByTimezone = new Map<string, string>();
+    const batchSize = input.maxRecurrences ?? this.defaultMaterializationBatchSize;
+
+    const [activeCountResult] = await this.app.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(recurrences)
+      .where(
+        and(
+          eq(recurrences.userId, userId),
+          eq(recurrences.status, "active"),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      );
+    const totalActive = activeCountResult?.total ?? 0;
 
     const activeRecurrences = await this.app.db
       .select()
@@ -707,7 +991,8 @@ export class RecurrenceService {
           sql`${recurrences.deletedAt} IS NULL`,
         ),
       )
-      .orderBy(asc(recurrences.createdAt));
+      .orderBy(asc(recurrences.createdAt))
+      .limit(batchSize);
 
     let createdOccurrences = 0;
     let skippedOccurrences = 0;
@@ -717,6 +1002,13 @@ export class RecurrenceService {
     let failedRecurrences = 0;
 
     for (const recurrence of activeRecurrences) {
+      const schedule: RecurrenceSchedule = {
+        startDate: recurrence.startDate,
+        frequency: recurrence.frequency,
+        dayOfWeek: recurrence.dayOfWeek,
+        dayOfMonth: recurrence.dayOfMonth,
+        monthOfYear: recurrence.monthOfYear,
+      };
       let untilDate = input.untilDate;
       if (!untilDate) {
         const cachedToday = todayByTimezone.get(recurrence.timezone);
@@ -729,10 +1021,6 @@ export class RecurrenceService {
       }
       let cursorDate = recurrence.nextOccurrenceDate ?? recurrence.startDate;
 
-      if (this.compareIsoDate(cursorDate, recurrence.startDate) < 0) {
-        cursorDate = recurrence.startDate;
-      }
-
       let localCreated = 0;
       let localSkipped = 0;
       let localTransactions = 0;
@@ -742,6 +1030,11 @@ export class RecurrenceService {
       let iterations = 0;
 
       try {
+        if (compareIsoDate(cursorDate, recurrence.startDate) < 0) {
+          cursorDate = recurrence.startDate;
+        }
+        cursorDate = getFirstOccurrenceOnOrAfter(schedule, cursorDate);
+
         let materializedCount = 0;
         if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
           const [countResult] = await this.app.db
@@ -756,7 +1049,7 @@ export class RecurrenceService {
           materializedCount = countResult?.total ?? 0;
         }
 
-        while (this.compareIsoDate(cursorDate, untilDate) <= 0) {
+        while (compareIsoDate(cursorDate, untilDate) <= 0) {
           iterations += 1;
           if (iterations > this.maxMaterializationIterations) {
             throw new ValidationProblem(
@@ -766,7 +1059,7 @@ export class RecurrenceService {
           }
 
           if (recurrence.endType === "until_date" && recurrence.endDate) {
-            if (this.compareIsoDate(cursorDate, recurrence.endDate) > 0) {
+            if (compareIsoDate(cursorDate, recurrence.endDate) > 0) {
               shouldFinalize = true;
               break;
             }
@@ -858,7 +1151,7 @@ export class RecurrenceService {
             localLastMaterializedDate = cursorDate;
           }
 
-          cursorDate = this.calculateNextOccurrenceDate(recurrence, cursorDate);
+          cursorDate = getNextOccurrenceAfter(schedule, cursorDate);
         }
       } catch (error) {
         this.app.log.error(
@@ -872,51 +1165,86 @@ export class RecurrenceService {
           "Recurrence materialization failed",
         );
 
-        await this.app.db
-          .insert(recurrenceOccurrences)
-          .values({
-            recurrenceId: recurrence.id,
-            originType: recurrence.originType,
-            occurrenceDate: cursorDate,
-            status: "failed",
-            metadata: { source: "recurrence-materialization", error: "materialization_failed" },
-          })
-          .onConflictDoNothing({
-            target: [
-              recurrenceOccurrences.recurrenceId,
-              recurrenceOccurrences.occurrenceDate,
-              recurrenceOccurrences.originType,
-            ],
-          });
-
         failedRecurrences += 1;
         continue;
       }
 
-      const updatePayload: Partial<typeof recurrences.$inferInsert> = {
-        nextOccurrenceDate: shouldFinalize ? null : cursorDate,
-        updatedAt: new Date(),
-        version: recurrence.version + 1,
-      };
+      let currentVersion = recurrence.version;
+      let updateApplied = false;
+      let retries = 0;
 
-      if (localLastMaterializedDate) {
-        updatePayload.lastMaterializedDate = localLastMaterializedDate;
-        updatePayload.lastMaterializedAt = new Date();
+      while (retries < 3) {
+        const [current] = await this.app.db
+          .select({
+            id: recurrences.id,
+            status: recurrences.status,
+            version: recurrences.version,
+            nextOccurrenceDate: recurrences.nextOccurrenceDate,
+            lastMaterializedDate: recurrences.lastMaterializedDate,
+          })
+          .from(recurrences)
+          .where(
+            and(
+              eq(recurrences.id, recurrence.id),
+              eq(recurrences.userId, userId),
+              sql`${recurrences.deletedAt} IS NULL`,
+            ),
+          )
+          .limit(1);
+
+        if (!current || current.status !== "active") {
+          break;
+        }
+
+        currentVersion = current.version;
+
+        const mergedLastMaterializedDate =
+          localLastMaterializedDate &&
+          (!current.lastMaterializedDate ||
+            compareIsoDate(localLastMaterializedDate, current.lastMaterializedDate) > 0)
+            ? localLastMaterializedDate
+            : current.lastMaterializedDate;
+
+        const mergedNextOccurrenceDate = shouldFinalize
+          ? null
+          : current.nextOccurrenceDate && compareIsoDate(current.nextOccurrenceDate, cursorDate) > 0
+            ? current.nextOccurrenceDate
+            : cursorDate;
+
+        const updatePayload: Partial<typeof recurrences.$inferInsert> = {
+          nextOccurrenceDate: mergedNextOccurrenceDate,
+          updatedAt: new Date(),
+          version: currentVersion + 1,
+        };
+
+        if (mergedLastMaterializedDate) {
+          updatePayload.lastMaterializedDate = mergedLastMaterializedDate;
+          updatePayload.lastMaterializedAt = new Date();
+        }
+
+        if (shouldFinalize) {
+          updatePayload.status = "finalized";
+          updatePayload.finalizedAt = new Date();
+        }
+
+        const [updatedRecurrence] = await this.app.db
+          .update(recurrences)
+          .set(updatePayload)
+          .where(and(eq(recurrences.id, recurrence.id), eq(recurrences.version, currentVersion)))
+          .returning({ id: recurrences.id });
+
+        if (updatedRecurrence) {
+          updateApplied = true;
+          if (shouldFinalize) {
+            finalizedRecurrences += 1;
+          }
+          break;
+        }
+
+        retries += 1;
       }
 
-      if (shouldFinalize) {
-        updatePayload.status = "finalized";
-        updatePayload.finalizedAt = new Date();
-        finalizedRecurrences += 1;
-      }
-
-      const [updatedRecurrence] = await this.app.db
-        .update(recurrences)
-        .set(updatePayload)
-        .where(and(eq(recurrences.id, recurrence.id), eq(recurrences.version, recurrence.version)))
-        .returning({ id: recurrences.id });
-
-      if (!updatedRecurrence) {
+      if (!updateApplied) {
         this.app.log.warn(
           { recurrenceId: recurrence.id, userId: recurrence.userId },
           "Skipping recurrence state update due to concurrent version change",
@@ -930,7 +1258,10 @@ export class RecurrenceService {
     }
 
     return {
+      totalActiveRecurrences: totalActive,
       processedRecurrences: activeRecurrences.length,
+      truncatedByBatch: totalActive > activeRecurrences.length,
+      remainingRecurrences: Math.max(0, totalActive - activeRecurrences.length),
       createdOccurrences,
       skippedOccurrences,
       createdTransactions,

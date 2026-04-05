@@ -8,7 +8,20 @@ import {
   ConflictProblem,
   ValidationProblem,
 } from "../../core/errors/problems";
-import { accounts, categories, subcategories, transactions } from "../../db/schema";
+import {
+  resolveSubmitOccurrence,
+  type RecurrenceSchedule,
+} from "../../core/utils/recurrence-schedule.utils";
+import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
+import {
+  accounts,
+  categories,
+  recurrenceOccurrences,
+  recurrences,
+  subcategories,
+  transactions,
+  users,
+} from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { TransactionType } from "./transaction.enums";
 import type {
@@ -217,44 +230,126 @@ export class TransactionService {
     // regra: type deve ser igual ao tipo da categoria
     this.validateTypeMatchesCategory(data.type, cat);
 
-    // cria transação + auditoria na mesma transação
-    const [tx] = await this.app.db.transaction(async (db: typeof this.app.db) => {
-      const [created] = await db
-        .insert(transactions)
-        .values({
-          userId,
-          accountId,
-          categoryId,
-          subcategoryId: subcategoryId ?? null,
-          type: data.type,
-          amount: data.amount.toString(), // decimal
-          date: data.date,
-          description: data.description ?? null,
-          notes: data.notes ?? null,
-        })
-        .returning();
+    const normalizedDate = data.date;
+    const [user] = await this.app.db
+      .select({ timezone: users.timezone })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const userTimezone = user?.timezone ?? DEFAULT_TIMEZONE;
 
-      await this.audit.log(
-        {
-          userId,
-          entityType: "transaction",
-          entityId: created.id,
-          action: "create",
-          afterData: this.toAuditTransaction(created, {
-            accountName: account.name,
-            categoryName: cat.name,
-            subcategoryName,
-          }),
-        },
-        db,
-      );
+    // cria transação + recorrência (opcional) + auditoria na mesma transação
+    const [tx, createdRecurrenceId] = await this.app.db.transaction(
+      async (db: typeof this.app.db) => {
+        const [created] = await db
+          .insert(transactions)
+          .values({
+            userId,
+            accountId,
+            categoryId,
+            subcategoryId: subcategoryId ?? null,
+            type: data.type,
+            amount: data.amount.toString(), // decimal
+            date: normalizedDate,
+            description: data.description ?? null,
+            notes: data.notes ?? null,
+          })
+          .returning();
 
-      return [created];
-    });
+        let recurrenceId: string | null = null;
+
+        if (data.recurrence) {
+          const recurrenceStartDate = data.recurrence.startDate ?? normalizedDate;
+          const rule: RecurrenceSchedule = {
+            startDate: recurrenceStartDate,
+            frequency: data.recurrence.frequency,
+            dayOfWeek: data.recurrence.dayOfWeek ?? null,
+            dayOfMonth: data.recurrence.dayOfMonth ?? null,
+            monthOfYear: data.recurrence.monthOfYear ?? null,
+          };
+          const { materializedOnSubmit, nextOccurrenceDate } = resolveSubmitOccurrence(
+            rule,
+            normalizedDate,
+          );
+          const reachesUntilDateOnSubmit =
+            materializedOnSubmit &&
+            data.recurrence.endType === "until_date" &&
+            !!data.recurrence.endDate &&
+            data.recurrence.endDate <= normalizedDate;
+
+          const shouldFinalizeImmediately =
+            (materializedOnSubmit &&
+              data.recurrence.endType === "by_occurrences" &&
+              (data.recurrence.endOccurrences ?? 0) <= 1) ||
+            reachesUntilDateOnSubmit;
+
+          const [createdRecurrence] = await db
+            .insert(recurrences)
+            .values({
+              userId,
+              originType: "transaction",
+              status: shouldFinalizeImmediately ? "finalized" : "active",
+              timezone: userTimezone,
+              frequency: data.recurrence.frequency,
+              startDate: recurrenceStartDate,
+              dayOfWeek: data.recurrence.dayOfWeek ?? null,
+              dayOfMonth: data.recurrence.dayOfMonth ?? null,
+              monthOfYear: data.recurrence.monthOfYear ?? null,
+              endType: data.recurrence.endType,
+              endOccurrences: data.recurrence.endOccurrences ?? null,
+              endDate: data.recurrence.endDate ?? null,
+              accountId,
+              categoryId,
+              subcategoryId: subcategoryId ?? null,
+              amount: data.amount.toString(),
+              description: data.description ?? null,
+              notes: data.recurrence.notes ?? data.notes ?? null,
+              nextOccurrenceDate: shouldFinalizeImmediately ? null : nextOccurrenceDate,
+              lastMaterializedDate: materializedOnSubmit ? normalizedDate : null,
+              lastMaterializedAt: materializedOnSubmit ? new Date() : null,
+              finalizedAt: shouldFinalizeImmediately ? new Date() : null,
+            })
+            .returning({ id: recurrences.id });
+
+          if (materializedOnSubmit) {
+            await db.insert(recurrenceOccurrences).values({
+              recurrenceId: createdRecurrence.id,
+              originType: "transaction",
+              occurrenceDate: normalizedDate,
+              status: "materialized",
+              transactionId: created.id,
+              metadata: {
+                source: "transaction-submit",
+              },
+            });
+          }
+
+          recurrenceId = createdRecurrence.id;
+        }
+
+        await this.audit.log(
+          {
+            userId,
+            entityType: "transaction",
+            entityId: created.id,
+            action: "create",
+            afterData: this.toAuditTransaction(created, {
+              accountName: account.name,
+              categoryName: cat.name,
+              subcategoryName,
+            }),
+          },
+          db,
+        );
+
+        return [created, recurrenceId];
+      },
+    );
 
     return {
       ...tx,
       amount: Number(tx.amount),
+      recurrenceId: createdRecurrenceId,
     };
   }
 

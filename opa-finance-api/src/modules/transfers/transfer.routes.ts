@@ -40,6 +40,20 @@ export async function transferRoutes(app: FastifyInstance) {
             amount: { type: "number", example: 200 },
             date: { type: "string", example: "2025-01-15" },
             description: { type: "string", example: "Transferência entre contas" },
+            recurrence: {
+              type: "object",
+              properties: {
+                frequency: { type: "string", enum: ["weekly", "biweekly", "monthly", "yearly"] },
+                startDate: { type: "string", example: "2026-04-10" },
+                dayOfWeek: { type: "number", example: 1 },
+                dayOfMonth: { type: "number", example: 10 },
+                monthOfYear: { type: "number", example: 4 },
+                endType: { type: "string", enum: ["never", "by_occurrences", "until_date"] },
+                endOccurrences: { type: "number", example: 12 },
+                endDate: { type: "string", example: "2026-12-31" },
+                notes: { type: "string", nullable: true, example: "Reserva semanal" },
+              },
+            },
           },
         },
         response: {
@@ -47,6 +61,7 @@ export async function transferRoutes(app: FastifyInstance) {
             type: "object",
             properties: {
               id: { type: "string" },
+              recurrenceId: { type: "string", nullable: true },
               fromAccount: {
                 type: "object",
                 properties: transferTransactionProperties,

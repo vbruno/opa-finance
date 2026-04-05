@@ -1,28 +1,128 @@
 import { z } from "zod";
+import { ISO_DATE_REGEX, isValidIsoDate } from "../../core/utils/recurrence-schedule.utils";
 import { transactionTypes } from "./transaction.enums";
+
+const recurrenceFrequencySchema = z.enum(["weekly", "biweekly", "monthly", "yearly"]);
+const recurrenceEndTypeSchema = z.enum(["never", "by_occurrences", "until_date"]);
+
+const createTransactionRecurrenceSchema = z
+  .object({
+    frequency: recurrenceFrequencySchema,
+    startDate: z
+      .string()
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." })
+      .optional(),
+    dayOfWeek: z.number().int().min(0).max(6).optional(),
+    dayOfMonth: z.number().int().min(1).max(31).optional(),
+    monthOfYear: z.number().int().min(1).max(12).optional(),
+    endType: recurrenceEndTypeSchema.default("never"),
+    endOccurrences: z.number().int().min(1).optional(),
+    endDate: z
+      .string()
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." })
+      .optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.frequency === "weekly" || data.frequency === "biweekly") &&
+      data.dayOfWeek === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Dia da semana é obrigatório para frequência semanal/quinzenal.",
+        path: ["dayOfWeek"],
+      });
+    }
+
+    if (data.frequency === "monthly" && data.dayOfMonth === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Dia do mês é obrigatório para frequência mensal.",
+        path: ["dayOfMonth"],
+      });
+    }
+
+    if (data.frequency === "yearly") {
+      if (data.monthOfYear === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Mês é obrigatório para frequência anual.",
+          path: ["monthOfYear"],
+        });
+      }
+      if (data.dayOfMonth === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Dia do mês é obrigatório para frequência anual.",
+          path: ["dayOfMonth"],
+        });
+      }
+    }
+
+    if (data.endType === "by_occurrences" && data.endOccurrences === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Quantidade de ocorrências é obrigatória para este tipo de término.",
+        path: ["endOccurrences"],
+      });
+    }
+
+    if (data.endType === "until_date" && data.endDate === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Data final é obrigatória para este tipo de término.",
+        path: ["endDate"],
+      });
+    }
+  });
 
 /* -------------------------------------------------------------------------- */
 /*                               CREATE TRANSACTION                            */
 /* -------------------------------------------------------------------------- */
 
-export const createTransactionSchema = z.object({
-  accountId: z.string().uuid({ message: "ID da conta inválido." }),
-  categoryId: z.string().uuid({ message: "ID da categoria inválido." }),
+export const createTransactionSchema = z
+  .object({
+    accountId: z.string().uuid({ message: "ID da conta inválido." }),
+    categoryId: z.string().uuid({ message: "ID da categoria inválido." }),
 
-  subcategoryId: z.string().uuid().nullable().optional(),
+    subcategoryId: z.string().uuid().nullable().optional(),
 
-  type: z.enum(transactionTypes, {
-    message: "Tipo de transação inválido.",
-  }),
+    type: z.enum(transactionTypes, {
+      message: "Tipo de transação inválido.",
+    }),
 
-  amount: z.coerce.number().positive({ message: "O valor da transação deve ser maior que zero." }),
+    amount: z.coerce
+      .number()
+      .positive({ message: "O valor da transação deve ser maior que zero." }),
 
-  date: z.string().refine((v) => !isNaN(Date.parse(v)), { message: "Data inválida." }),
+    date: z
+      .string()
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." }),
 
-  description: z.string().max(255).optional(),
+    description: z.string().max(255).optional(),
 
-  notes: z.string().nullable().optional(),
-});
+    notes: z.string().nullable().optional(),
+
+    recurrence: createTransactionRecurrenceSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.recurrence) return;
+
+    const txDate = data.date;
+    const startDate = data.recurrence.startDate ?? txDate;
+
+    if (data.recurrence.endDate && data.recurrence.endDate < startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Data final não pode ser anterior à data de início da recorrência.",
+        path: ["recurrence", "endDate"],
+      });
+    }
+  });
 
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 
@@ -45,7 +145,8 @@ export const updateTransactionSchema = z
 
     date: z
       .string()
-      .refine((v) => !isNaN(Date.parse(v)), { message: "Data inválida." })
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." })
       .optional(),
 
     description: z.string().max(255).optional(),

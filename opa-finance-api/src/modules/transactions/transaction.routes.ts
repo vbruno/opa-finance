@@ -39,6 +39,20 @@ export async function transactionRoutes(app: FastifyInstance) {
             date: { type: "string", example: "2025-01-15" },
             description: { type: "string", example: "Compra no supermercado" },
             notes: { type: "string", nullable: true, example: "Notas adicionais" },
+            recurrence: {
+              type: "object",
+              properties: {
+                frequency: { type: "string", enum: ["weekly", "biweekly", "monthly", "yearly"] },
+                startDate: { type: "string", example: "2026-04-10" },
+                dayOfWeek: { type: "number", example: 1 },
+                dayOfMonth: { type: "number", example: 10 },
+                monthOfYear: { type: "number", example: 4 },
+                endType: { type: "string", enum: ["never", "by_occurrences", "until_date"] },
+                endOccurrences: { type: "number", example: 12 },
+                endDate: { type: "string", example: "2026-12-31" },
+                notes: { type: "string", nullable: true, example: "Recorrência mensal" },
+              },
+            },
           },
         },
         response: {
@@ -55,6 +69,7 @@ export async function transactionRoutes(app: FastifyInstance) {
               date: { type: "string" },
               description: { type: "string", nullable: true },
               notes: { type: "string", nullable: true },
+              recurrenceId: { type: "string", nullable: true },
               transferId: { type: "string", nullable: true },
               createdAt: { type: "string" },
               updatedAt: { type: "string", nullable: true },
