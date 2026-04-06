@@ -1,3 +1,10 @@
 /docs-hidden/
 /opa-finance-front/src/generated/app-version.ts
 /opa-finance-api/src/generated/app-version.ts
+
+# AI/Codex local instructions and configs
+/.codex/
+AGENTS.md
+**/AGENTS.md
+AGENTS.override.md
+**/AGENTS.override.md
