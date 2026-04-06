@@ -28,9 +28,10 @@
     "lint": "eslint . --ext .ts --config eslint.config.ts",
     "lint:fix": "eslint . --ext .ts --fix --config eslint.config.ts",
     "format": "prettier --write .",
-    "test": "npm run test:integration",
+    "test": "npm run test:all",
+    "test:all": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run test/unit",
-    "test:integration": "vitest run test --exclude test/unit/**",
+    "test:integration": "vitest run test/integration",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage"
   },

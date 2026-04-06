@@ -909,7 +909,7 @@ export class TransactionService {
         .innerJoin(categories, eq(categories.id, transactions.categoryId))
         .where(and(...groupFilters, isNotNull(transactions.subcategoryId)))
         .groupBy(transactions.subcategoryId, subcategories.name, categories.id, categories.name)
-        .orderBy(desc(totalAmount))
+        .orderBy(desc(totalAmount), asc(subcategories.name))
         .limit(5);
 
       const fallbackRows = await this.app.db
@@ -922,7 +922,7 @@ export class TransactionService {
         .innerJoin(categories, eq(categories.id, transactions.categoryId))
         .where(and(...groupFilters, sql`${transactions.subcategoryId} is null`))
         .groupBy(transactions.categoryId, categories.name)
-        .orderBy(desc(totalAmount))
+        .orderBy(desc(totalAmount), asc(categories.name))
         .limit(5);
 
       const combined = [
@@ -942,7 +942,11 @@ export class TransactionService {
         })),
       ]
         .filter((row) => row.name)
-        .sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount))
+        .sort((a, b) => {
+          const amountDiff = Number(b.totalAmount) - Number(a.totalAmount);
+          if (amountDiff !== 0) return amountDiff;
+          return a.name.localeCompare(b.name);
+        })
         .slice(0, 5);
 
       return combined.map((row: (typeof combined)[number]) => {
@@ -969,7 +973,7 @@ export class TransactionService {
       .innerJoin(categories, eq(categories.id, transactions.categoryId))
       .where(and(...groupFilters))
       .groupBy(transactions.categoryId, categories.name)
-      .orderBy(desc(totalAmount))
+      .orderBy(desc(totalAmount), asc(categories.name))
       .limit(5);
 
     return rows.map((row: (typeof rows)[number]) => {
