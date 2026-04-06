@@ -1723,6 +1723,81 @@ Quando `maxRecurrences` não é enviado, usa lote padrão de `200` (máximo `500
 
 ---
 
+### GET `/recurrences/forecast`
+
+Retorna projeção de recorrências até o fim do ano, com separação explícita entre:
+
+- `real` (já materializado em `transactions`)
+- `projected` (futuro calculado sem materializar no banco)
+- `combined` (`real + projected`)
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `year` (opcional, default: ano atual no timezone do usuário)
+- `accountIds` (opcional, UUIDs separados por vírgula)
+
+**Response 200 (exemplo):**
+
+```json
+{
+  "year": 2099,
+  "timezone": "Australia/Adelaide",
+  "accountIds": ["uuid-account-1"],
+  "horizon": {
+    "projectionStartDate": "2099-01-01",
+    "projectionEndDate": "2099-12-31"
+  },
+  "totals": {
+    "real": {
+      "income": { "months": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "yearTotal": 0 },
+      "expense": { "months": [40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "yearTotal": 40 },
+      "balance": { "months": [-40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "yearTotal": -40 }
+    },
+    "projected": {
+      "income": { "months": [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], "yearTotal": 600 },
+      "expense": {
+        "months": [150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150],
+        "yearTotal": 1800
+      },
+      "balance": {
+        "months": [-100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100],
+        "yearTotal": -1200
+      }
+    },
+    "combined": {
+      "income": { "months": [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], "yearTotal": 600 },
+      "expense": {
+        "months": [190, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150],
+        "yearTotal": 1840
+      },
+      "balance": {
+        "months": [-140, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100],
+        "yearTotal": -1240
+      }
+    }
+  },
+  "metadata": {
+    "projectedOccurrences": 24
+  }
+}
+```
+
+**Regras importantes:**
+
+- projeção nunca materializa transação no banco;
+- em recorrência com `endType = by_occurrences`, somente ocorrências já materializadas consomem o limite;
+- recorrência de transferência projeta duas pernas (`expense` origem + `income` destino), respeitando `accountIds`.
+
+**Erros:**
+
+- `400` - query inválida (`year`, `accountIds`)
+- `403` - conta informada não pertence ao usuário
+- `401` - não autenticado
+
+---
+
 ## 📊 Reports
 
 ### GET `/reports/weekly-cashflow`

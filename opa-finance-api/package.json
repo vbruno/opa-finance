@@ -31,7 +31,7 @@
     "test": "npm run test:all",
     "test:all": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run test/unit",
-    "test:integration": "vitest run test/integration",
+    "test:integration": "bash ./scripts/test-integration.sh",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage"
   },

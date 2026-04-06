@@ -49,6 +49,13 @@ export const createRecurrenceSchema = z
           path: ["categoryId"],
         });
       }
+      if (data.fromAccountId !== undefined || data.toAccountId !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Recorrência de transação não aceita contas de transferência.",
+          path: ["fromAccountId"],
+        });
+      }
     }
 
     if (data.originType === "transfer") {
@@ -71,6 +78,18 @@ export const createRecurrenceSchema = z
           code: z.ZodIssueCode.custom,
           message: "Conta de origem e destino devem ser diferentes.",
           path: ["toAccountId"],
+        });
+      }
+      if (
+        data.accountId !== undefined ||
+        data.categoryId !== undefined ||
+        data.subcategoryId !== undefined
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Recorrência de transferência não aceita conta/categoria/subcategoria de transação.",
+          path: ["accountId"],
         });
       }
     }
@@ -171,6 +190,47 @@ export const materializeRecurrencesSchema = z.object({
 
 export const recurrenceEditScopeSchema = z.enum(["single", "this_and_next", "all"]);
 
+const recurrenceForecastAccountIdsSchema = z
+  .preprocess(
+    (value) => {
+      if (value === undefined || value === null || value === "") {
+        return [];
+      }
+
+      if (Array.isArray(value)) {
+        return value.flatMap((item) =>
+          typeof item === "string"
+            ? item
+                .split(",")
+                .map((part) => part.trim())
+                .filter(Boolean)
+            : [],
+        );
+      }
+
+      if (typeof value === "string") {
+        return value
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+      }
+
+      return [];
+    },
+    z.array(z.string().uuid({ message: "ID de conta inválido." })).default([]),
+  )
+  .transform((ids) => Array.from(new Set(ids)));
+
+export const recurrencesForecastQuerySchema = z.object({
+  year: z.coerce
+    .number()
+    .int({ message: "Ano inválido." })
+    .min(2000, { message: "Ano inválido." })
+    .max(2100, { message: "Ano inválido." })
+    .optional(),
+  accountIds: recurrenceForecastAccountIdsSchema,
+});
+
 export const editRecurrenceByScopeSchema = z
   .object({
     scope: recurrenceEditScopeSchema,
@@ -198,3 +258,4 @@ export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
 export type MaterializeRecurrencesInput = z.infer<typeof materializeRecurrencesSchema>;
 export type EditRecurrenceByScopeInput = z.infer<typeof editRecurrenceByScopeSchema>;
 export type RecurrenceEditScope = z.infer<typeof recurrenceEditScopeSchema>;
+export type RecurrencesForecastQuery = z.infer<typeof recurrencesForecastQuerySchema>;

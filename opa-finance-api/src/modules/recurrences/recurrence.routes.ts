@@ -4,6 +4,7 @@ import {
   editRecurrenceByScopeSchema,
   listRecurrencesQuerySchema,
   materializeRecurrencesSchema,
+  recurrencesForecastQuerySchema,
   recurrenceParamsSchema,
   updateRecurrenceSchema,
 } from "./recurrence.schemas";
@@ -45,6 +46,24 @@ export async function recurrenceRoutes(app: FastifyInstance) {
     async (req) => {
       const query = listRecurrencesQuerySchema.parse(req.query);
       return service.list(req.user.sub, query);
+    },
+  );
+
+  app.get(
+    "/recurrences/forecast",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Forecast de recorrências",
+        description:
+          "Projeta recorrências até o fim do ano solicitado separando valores reais e projetados.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const query = recurrencesForecastQuerySchema.parse(req.query);
+      return service.forecast(req.user.sub, query);
     },
   );
 
@@ -152,4 +171,5 @@ export async function recurrenceRoutes(app: FastifyInstance) {
       return service.materialize(req.user.sub, body);
     },
   );
+
 }

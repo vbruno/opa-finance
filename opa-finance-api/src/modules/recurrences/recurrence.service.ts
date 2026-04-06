@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import {
   ConflictProblem,
@@ -31,6 +31,7 @@ import type {
   EditRecurrenceByScopeInput,
   ListRecurrencesQuery,
   MaterializeRecurrencesInput,
+  RecurrencesForecastQuery,
   UpdateRecurrenceInput,
 } from "./recurrence.schemas";
 import { createRecurrenceSchema } from "./recurrence.schemas";
@@ -40,6 +41,14 @@ export class RecurrenceService {
 
   private readonly defaultMaterializationBatchSize = 200;
   private readonly maxMaterializationIterations = 500;
+
+  private emptyMonths() {
+    return Array.from({ length: 12 }, () => 0);
+  }
+
+  private sumYear(months: number[]) {
+    return months.reduce((acc, value) => acc + value, 0);
+  }
 
   private serializeRecurrence(row: typeof recurrences.$inferSelect) {
     return {
@@ -72,6 +81,19 @@ export class RecurrenceService {
       return this.toIsoDate(new Date());
     }
     return today;
+  }
+
+  private async ensureUserOwnsAllAccounts(userId: string, accountIds: string[], path: string) {
+    if (accountIds.length === 0) return;
+
+    const ownedAccounts = await this.app.db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.userId, userId), inArray(accounts.id, accountIds)));
+
+    if (ownedAccounts.length !== accountIds.length) {
+      throw new ForbiddenProblem("Uma ou mais contas informadas não pertencem ao usuário.", path);
+    }
   }
 
   private async getTransferCategoryId() {
@@ -173,6 +195,32 @@ export class RecurrenceService {
         userId,
         data.subcategoryId,
         expectedCategoryId,
+        "/recurrences",
+      );
+    }
+  }
+
+  private ensureOriginSpecificUpdatePayload(
+    originType: "transaction" | "transfer",
+    data: UpdateRecurrenceInput,
+  ) {
+    if (originType === "transaction") {
+      if (data.fromAccountId !== undefined || data.toAccountId !== undefined) {
+        throw new ValidationProblem(
+          "Recorrência de transação não aceita contas de transferência.",
+          "/recurrences",
+        );
+      }
+      return;
+    }
+
+    if (
+      data.accountId !== undefined ||
+      data.categoryId !== undefined ||
+      data.subcategoryId !== undefined
+    ) {
+      throw new ValidationProblem(
+        "Recorrência de transferência não aceita conta/categoria/subcategoria de transação.",
         "/recurrences",
       );
     }
@@ -306,6 +354,7 @@ export class RecurrenceService {
 
   async update(userId: string, recurrenceId: string, data: UpdateRecurrenceInput) {
     const existing = await this.getOne(userId, recurrenceId);
+    this.ensureOriginSpecificUpdatePayload(existing.originType, data);
 
     if (existing.status !== "active") {
       throw new ValidationProblem(
@@ -344,6 +393,9 @@ export class RecurrenceService {
     if (data.accountId !== undefined) payload.accountId = data.accountId;
     if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
     if (data.subcategoryId !== undefined) payload.subcategoryId = data.subcategoryId;
+    if (data.categoryId !== undefined && data.subcategoryId === undefined) {
+      payload.subcategoryId = null;
+    }
     if (data.fromAccountId !== undefined) payload.fromAccountId = data.fromAccountId;
     if (data.toAccountId !== undefined) payload.toAccountId = data.toAccountId;
     if (data.amount !== undefined) payload.amount = data.amount.toString();
@@ -630,6 +682,11 @@ export class RecurrenceService {
     changes: UpdateRecurrenceInput,
     startDate: string,
   ): CreateRecurrenceInput {
+    const nextSubcategoryId =
+      changes.categoryId !== undefined && changes.subcategoryId === undefined
+        ? undefined
+        : (changes.subcategoryId ?? recurrence.subcategoryId ?? undefined);
+
     return {
       originType: recurrence.originType,
       frequency: changes.frequency ?? recurrence.frequency,
@@ -642,7 +699,7 @@ export class RecurrenceService {
       endDate: changes.endDate ?? recurrence.endDate ?? undefined,
       accountId: changes.accountId ?? recurrence.accountId ?? undefined,
       categoryId: changes.categoryId ?? recurrence.categoryId ?? undefined,
-      subcategoryId: changes.subcategoryId ?? recurrence.subcategoryId ?? undefined,
+      subcategoryId: nextSubcategoryId,
       fromAccountId: changes.fromAccountId ?? recurrence.fromAccountId ?? undefined,
       toAccountId: changes.toAccountId ?? recurrence.toAccountId ?? undefined,
       amount: changes.amount ?? recurrence.amount,
@@ -965,8 +1022,8 @@ export class RecurrenceService {
   }
 
   async materialize(userId: string, input: MaterializeRecurrencesInput) {
-    const transferCategoryId = await this.getTransferCategoryId();
     const todayByTimezone = new Map<string, string>();
+    let transferCategoryId: string | null = null;
     const batchSize = input.maxRecurrences ?? this.defaultMaterializationBatchSize;
 
     const [activeCountResult] = await this.app.db
@@ -1116,11 +1173,16 @@ export class RecurrenceService {
               return { inserted: true, ...transactionResult };
             }
 
+            if (!transferCategoryId) {
+              transferCategoryId = await this.getTransferCategoryId();
+            }
+            const ensuredTransferCategoryId = transferCategoryId as string;
+
             const transferResult = await this.materializeTransferOccurrence(
               tx,
               recurrence,
               cursorDate,
-              transferCategoryId,
+              ensuredTransferCategoryId,
             );
 
             await tx
@@ -1268,6 +1330,340 @@ export class RecurrenceService {
       createdTransfers,
       finalizedRecurrences,
       failedRecurrences,
+    };
+  }
+
+  async forecast(userId: string, query: RecurrencesForecastQuery) {
+    const [user] = await this.app.db
+      .select({ timezone: users.timezone })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new NotFoundProblem("Usuário não encontrado.", "/recurrences/forecast");
+    }
+
+    const accountIds = query.accountIds ?? [];
+    await this.ensureUserOwnsAllAccounts(userId, accountIds, "/recurrences/forecast");
+    const accountSet = new Set(accountIds);
+
+    const today = await this.getNowIsoDateInTimezone(user.timezone ?? DEFAULT_TIMEZONE);
+    const currentYear = Number(today.slice(0, 4));
+    const year = query.year ?? currentYear;
+    const yearStartDate = `${year}-01-01`;
+    const yearEndDate = `${year}-12-31`;
+    const projectionStartDate =
+      year < currentYear
+        ? null
+        : year === currentYear && compareIsoDate(today, yearStartDate) > 0
+          ? today
+          : yearStartDate;
+
+    const real = {
+      income: { months: this.emptyMonths(), yearTotal: 0 },
+      expense: { months: this.emptyMonths(), yearTotal: 0 },
+    };
+    const projected = {
+      income: { months: this.emptyMonths(), yearTotal: 0 },
+      expense: { months: this.emptyMonths(), yearTotal: 0 },
+    };
+
+    const realFilters = [
+      eq(transactions.userId, userId),
+      gte(transactions.date, yearStartDate),
+      lte(transactions.date, yearEndDate),
+    ];
+    if (accountIds.length > 0) {
+      realFilters.push(inArray(transactions.accountId, accountIds));
+    }
+
+    const realRows: Array<{ type: "income" | "expense"; month: number; total: string }> =
+      await this.app.db
+      .select({
+        type: transactions.type,
+        month: sql<number>`extract(month from ${transactions.date}::date)::int`,
+        total: sql<string>`sum(${transactions.amount})::text`,
+      })
+      .from(transactions)
+      .where(and(...realFilters))
+      .groupBy(transactions.type, sql`extract(month from ${transactions.date}::date)`);
+
+    for (const row of realRows) {
+      if (row.type !== "income" && row.type !== "expense") continue;
+      const monthIndex = Math.max(0, Math.min(11, Number(row.month) - 1));
+      const amount = Number(row.total);
+      if (!Number.isFinite(amount)) continue;
+      real[row.type].months[monthIndex] += amount;
+    }
+
+    let projectedOccurrences = 0;
+
+    if (projectionStartDate) {
+      const recurrenceFilters = [
+        eq(recurrences.userId, userId),
+        eq(recurrences.status, "active"),
+        sql`${recurrences.deletedAt} IS NULL`,
+      ];
+      if (accountIds.length > 0) {
+        recurrenceFilters.push(
+          or(
+            inArray(recurrences.accountId, accountIds),
+            inArray(recurrences.fromAccountId, accountIds),
+            inArray(recurrences.toAccountId, accountIds),
+          )!,
+        );
+      }
+
+      const activeRecurrences: Array<typeof recurrences.$inferSelect> = await this.app.db
+        .select()
+        .from(recurrences)
+        .where(and(...recurrenceFilters))
+        .orderBy(asc(recurrences.createdAt));
+
+      const recurrenceIds: string[] = activeRecurrences.map((recurrence) => recurrence.id);
+      const materializedCountByRecurrence = new Map<string, number>();
+      const materializedDateSet = new Set<string>();
+
+      if (recurrenceIds.length > 0) {
+        const counts = await this.app.db
+          .select({
+            recurrenceId: recurrenceOccurrences.recurrenceId,
+            total: sql<number>`count(*)::int`,
+          })
+          .from(recurrenceOccurrences)
+          .where(
+            and(
+              inArray(recurrenceOccurrences.recurrenceId, recurrenceIds),
+              eq(recurrenceOccurrences.status, "materialized"),
+            ),
+          )
+          .groupBy(recurrenceOccurrences.recurrenceId);
+
+        for (const item of counts) {
+          materializedCountByRecurrence.set(item.recurrenceId, item.total ?? 0);
+        }
+
+        const materializedRows = await this.app.db
+          .select({
+            recurrenceId: recurrenceOccurrences.recurrenceId,
+            occurrenceDate: recurrenceOccurrences.occurrenceDate,
+          })
+          .from(recurrenceOccurrences)
+          .where(
+            and(
+              inArray(recurrenceOccurrences.recurrenceId, recurrenceIds),
+              eq(recurrenceOccurrences.status, "materialized"),
+              gte(recurrenceOccurrences.occurrenceDate, projectionStartDate),
+              lte(recurrenceOccurrences.occurrenceDate, yearEndDate),
+            ),
+          );
+
+        for (const row of materializedRows) {
+          materializedDateSet.add(`${row.recurrenceId}:${row.occurrenceDate}`);
+        }
+      }
+
+      const transactionCategoryIds: string[] = Array.from(
+        new Set(
+          activeRecurrences
+            .filter(
+              (recurrence) =>
+                recurrence.originType === "transaction" && recurrence.categoryId !== null,
+            )
+            .map((recurrence) => recurrence.categoryId as string),
+        ),
+      );
+
+      const categoryTypeById = new Map<string, "income" | "expense">();
+      if (transactionCategoryIds.length > 0) {
+        const categoryRows = await this.app.db
+          .select({ id: categories.id, type: categories.type })
+          .from(categories)
+          .where(inArray(categories.id, transactionCategoryIds));
+
+        for (const row of categoryRows) {
+          categoryTypeById.set(row.id, row.type);
+        }
+      }
+
+      for (const recurrence of activeRecurrences) {
+        const schedule: RecurrenceSchedule = {
+          startDate: recurrence.startDate,
+          frequency: recurrence.frequency,
+          dayOfWeek: recurrence.dayOfWeek,
+          dayOfMonth: recurrence.dayOfMonth,
+          monthOfYear: recurrence.monthOfYear,
+        };
+
+        let cursorDate = recurrence.nextOccurrenceDate ?? recurrence.startDate;
+        if (compareIsoDate(cursorDate, recurrence.startDate) < 0) {
+          cursorDate = recurrence.startDate;
+        }
+
+        try {
+          cursorDate = getFirstOccurrenceOnOrAfter(schedule, cursorDate);
+        } catch {
+          continue;
+        }
+
+        if (compareIsoDate(cursorDate, projectionStartDate) < 0) {
+          try {
+            cursorDate = getFirstOccurrenceOnOrAfter(schedule, projectionStartDate);
+          } catch {
+            continue;
+          }
+        }
+
+        let remainingOccurrences = Number.POSITIVE_INFINITY;
+        if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
+          const materializedCount = materializedCountByRecurrence.get(recurrence.id) ?? 0;
+          remainingOccurrences = recurrence.endOccurrences - materializedCount;
+          if (remainingOccurrences <= 0) continue;
+        }
+
+        let iterations = 0;
+        while (compareIsoDate(cursorDate, yearEndDate) <= 0) {
+          iterations += 1;
+          if (iterations > this.maxMaterializationIterations) {
+            break;
+          }
+
+          if (recurrence.endType === "until_date" && recurrence.endDate) {
+            if (compareIsoDate(cursorDate, recurrence.endDate) > 0) {
+              break;
+            }
+          }
+
+          if (remainingOccurrences <= 0) {
+            break;
+          }
+
+          const occurrenceKey = `${recurrence.id}:${cursorDate}`;
+          if (!materializedDateSet.has(occurrenceKey)) {
+            const monthIndex = Math.max(0, Math.min(11, Number(cursorDate.slice(5, 7)) - 1));
+            const amount = Number(recurrence.amount);
+            let counted = false;
+
+            if (recurrence.originType === "transaction") {
+              if (recurrence.accountId && recurrence.categoryId) {
+                const includeByAccount =
+                  accountSet.size === 0 || accountSet.has(recurrence.accountId);
+                const transactionType = categoryTypeById.get(recurrence.categoryId);
+                if (includeByAccount && transactionType && Number.isFinite(amount)) {
+                  projected[transactionType].months[monthIndex] += amount;
+                  counted = true;
+                }
+              }
+            } else if (recurrence.fromAccountId && recurrence.toAccountId) {
+              const includeExpense =
+                accountSet.size === 0 || accountSet.has(recurrence.fromAccountId);
+              const includeIncome = accountSet.size === 0 || accountSet.has(recurrence.toAccountId);
+
+              if (includeExpense && Number.isFinite(amount)) {
+                projected.expense.months[monthIndex] += amount;
+                counted = true;
+              }
+              if (includeIncome && Number.isFinite(amount)) {
+                projected.income.months[monthIndex] += amount;
+                counted = true;
+              }
+            }
+
+            if (recurrence.endType === "by_occurrences" && Number.isFinite(remainingOccurrences)) {
+              remainingOccurrences -= 1;
+            }
+
+            if (counted) {
+              projectedOccurrences += 1;
+            }
+          }
+
+          try {
+            cursorDate = getNextOccurrenceAfter(schedule, cursorDate);
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+
+    real.income.yearTotal = Number(this.sumYear(real.income.months));
+    real.expense.yearTotal = Number(this.sumYear(real.expense.months));
+    projected.income.yearTotal = Number(this.sumYear(projected.income.months));
+    projected.expense.yearTotal = Number(this.sumYear(projected.expense.months));
+
+    const combinedIncomeMonths = real.income.months.map(
+      (value, index) => Number(value) + Number(projected.income.months[index]),
+    );
+    const combinedExpenseMonths = real.expense.months.map(
+      (value, index) => Number(value) + Number(projected.expense.months[index]),
+    );
+    const realBalanceMonths = real.income.months.map(
+      (value, index) => Number(value) - Number(real.expense.months[index]),
+    );
+    const projectedBalanceMonths = projected.income.months.map(
+      (value, index) => Number(value) - Number(projected.expense.months[index]),
+    );
+    const combinedBalanceMonths = combinedIncomeMonths.map(
+      (value, index) => Number(value) - Number(combinedExpenseMonths[index]),
+    );
+
+    return {
+      year,
+      timezone: user.timezone ?? DEFAULT_TIMEZONE,
+      accountIds,
+      horizon: {
+        projectionStartDate,
+        projectionEndDate: yearEndDate,
+      },
+      totals: {
+        real: {
+          income: {
+            months: real.income.months,
+            yearTotal: real.income.yearTotal,
+          },
+          expense: {
+            months: real.expense.months,
+            yearTotal: real.expense.yearTotal,
+          },
+          balance: {
+            months: realBalanceMonths,
+            yearTotal: Number(this.sumYear(realBalanceMonths)),
+          },
+        },
+        projected: {
+          income: {
+            months: projected.income.months,
+            yearTotal: projected.income.yearTotal,
+          },
+          expense: {
+            months: projected.expense.months,
+            yearTotal: projected.expense.yearTotal,
+          },
+          balance: {
+            months: projectedBalanceMonths,
+            yearTotal: Number(this.sumYear(projectedBalanceMonths)),
+          },
+        },
+        combined: {
+          income: {
+            months: combinedIncomeMonths,
+            yearTotal: Number(this.sumYear(combinedIncomeMonths)),
+          },
+          expense: {
+            months: combinedExpenseMonths,
+            yearTotal: Number(this.sumYear(combinedExpenseMonths)),
+          },
+          balance: {
+            months: combinedBalanceMonths,
+            yearTotal: Number(this.sumYear(combinedBalanceMonths)),
+          },
+        },
+      },
+      metadata: {
+        projectedOccurrences,
+      },
     };
   }
 }

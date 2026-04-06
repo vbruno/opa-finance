@@ -471,6 +471,20 @@
       ]
     },
     {
+      "_id": "req_recurrences_forecast",
+      "_type": "request",
+      "parentId": "fld_recurrences",
+      "name": "Forecast Recurrences",
+      "method": "GET",
+      "url": "{{ _.base_url }}/recurrences/forecast?year=2026&accountIds={{ _.account_id }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ]
+    },
+    {
       "_id": "req_recurrences_get_one",
       "_type": "request",
       "parentId": "fld_recurrences",
