@@ -46,6 +46,24 @@ export class RecurrenceService {
   private readonly defaultMaterializationBatchSize = 200;
   private readonly maxMaterializationIterations = 500;
 
+  private async logRecurrenceAuditBestEffort(
+    payload: Parameters<AuditService["log"]>[0],
+    context: Record<string, unknown>,
+  ) {
+    try {
+      await this.audit.log(payload);
+    } catch (error) {
+      this.app.log.error(
+        {
+          event: "recurrences.audit.log_failed",
+          ...context,
+          error,
+        },
+        "Failed to persist recurrence audit log.",
+      );
+    }
+  }
+
   private emptyMonths() {
     return Array.from({ length: 12 }, () => 0);
   }
@@ -1092,8 +1110,23 @@ export class RecurrenceService {
           updatedAt: new Date(),
           version: existing.version + 1,
         })
-        .where(eq(recurrences.id, recurrenceId))
+        .where(
+          and(
+            eq(recurrences.id, recurrenceId),
+            eq(recurrences.userId, userId),
+            eq(recurrences.version, existing.version),
+            eq(recurrences.status, "active"),
+            sql`${recurrences.deletedAt} IS NULL`,
+          ),
+        )
         .returning();
+
+      if (!updatedRow) {
+        throw new ConflictProblem(
+          "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
 
       await this.audit.log(
         {
@@ -1134,8 +1167,23 @@ export class RecurrenceService {
           updatedAt: new Date(),
           version: existing.version + 1,
         })
-        .where(eq(recurrences.id, recurrenceId))
+        .where(
+          and(
+            eq(recurrences.id, recurrenceId),
+            eq(recurrences.userId, userId),
+            eq(recurrences.version, existing.version),
+            eq(recurrences.status, "finalized"),
+            sql`${recurrences.deletedAt} IS NULL`,
+          ),
+        )
         .returning();
+
+      if (!deletedRow) {
+        throw new ConflictProblem(
+          "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
 
       await this.audit.log(
         {
@@ -1549,24 +1597,31 @@ export class RecurrenceService {
         updatedRecurrenceSnapshot &&
         (localCreated > 0 || localSkipped > 0 || shouldFinalize)
       ) {
-        await this.audit.log({
-          userId: recurrence.userId,
-          entityType: "recurrence",
-          entityId: recurrence.id,
-          action: "update",
-          beforeData: this.toRecurrenceAuditData(recurrence),
-          afterData: this.toRecurrenceAuditData(updatedRecurrenceSnapshot),
-          metadata: {
-            operation: "recurrence-materialize",
-            fromDate: localFirstProcessedDate,
-            toDate: localLastMaterializedDate ?? cursorDate,
-            createdOccurrences: localCreated,
-            skippedOccurrences: localSkipped,
-            createdTransactions: localTransactions,
-            createdTransfers: localTransfers,
-            finalized: shouldFinalize,
+        await this.logRecurrenceAuditBestEffort(
+          {
+            userId: recurrence.userId,
+            entityType: "recurrence",
+            entityId: recurrence.id,
+            action: "update",
+            beforeData: this.toRecurrenceAuditData(recurrence),
+            afterData: this.toRecurrenceAuditData(updatedRecurrenceSnapshot),
+            metadata: {
+              operation: "recurrence-materialize",
+              fromDate: localFirstProcessedDate,
+              toDate: localLastMaterializedDate ?? cursorDate,
+              createdOccurrences: localCreated,
+              skippedOccurrences: localSkipped,
+              createdTransactions: localTransactions,
+              createdTransfers: localTransfers,
+              finalized: shouldFinalize,
+            },
           },
-        });
+          {
+            recurrenceId: recurrence.id,
+            userId: recurrence.userId,
+            operation: "recurrence-materialize",
+          },
+        );
       }
 
       createdOccurrences += localCreated;
