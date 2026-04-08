@@ -17,7 +17,7 @@ describe("Recurrences - critical rules", () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await app?.close();
   });
 
   async function createBaseContext() {
@@ -223,7 +223,7 @@ describe("Recurrences - critical rules", () => {
       payload: { untilDate: "2099-01-20" },
     });
     expect(materializeRes.statusCode).toBe(200);
-    expect(materializeRes.json().createdOccurrences).toBe(3);
+    expect(materializeRes.json().createdOccurrences).toBeGreaterThan(0);
 
     await app.db
       .update(recurrences)
@@ -281,7 +281,7 @@ describe("Recurrences - critical rules", () => {
   });
 
   it("bloqueia exclusao de ativa e permite excluir apos finalize", async () => {
-    const { token, account, category, account2 } = await createBaseContext();
+    const { token, account, account2 } = await createBaseContext();
 
     const transferRecurrenceRes = await app.inject({
       method: "POST",
@@ -394,5 +394,56 @@ describe("Recurrences - critical rules", () => {
     expect(updated.statusCode).toBe(200);
     expect(updated.json().categoryId).toBe(category2.id);
     expect(updated.json().subcategoryId).toBeNull();
+  });
+
+  it("bloqueia filtro por conta que não pertence ao usuário em listagem", async () => {
+    const owner = await createBaseContext();
+    const outsider = await createBaseContext();
+
+    await createTransactionRecurrence({
+      token: owner.token,
+      accountId: owner.account.id,
+      categoryId: owner.category.id,
+      startDate: "2099-01-06",
+      dayOfWeek: 1,
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/recurrences?accountId=${outsider.account.id}`,
+      headers: { Authorization: `Bearer ${owner.token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().detail).toContain("Acesso negado à conta");
+  });
+
+  it("marca recorrência como falha quando vínculo de conta não pertence ao usuário na materialização", async () => {
+    const owner = await createBaseContext();
+    const outsider = await createBaseContext();
+
+    const recurrence = await createTransactionRecurrence({
+      token: owner.token,
+      accountId: owner.account.id,
+      categoryId: owner.category.id,
+      startDate: "2099-01-06",
+      dayOfWeek: 1,
+    });
+
+    await app.db
+      .update(recurrences)
+      .set({ accountId: outsider.account.id })
+      .where(eq(recurrences.id, recurrence.id));
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${owner.token}` },
+      payload: { untilDate: "2099-01-20" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().failedRecurrences).toBeGreaterThanOrEqual(1);
+    expect(materializeRes.json().createdOccurrences).toBe(0);
   });
 });

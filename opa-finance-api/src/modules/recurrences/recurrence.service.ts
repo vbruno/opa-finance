@@ -286,6 +286,59 @@ export class RecurrenceService {
     }
   }
 
+  private async validateRecurrenceLinkedOwnership(
+    userId: string,
+    recurrence: Pick<
+      typeof recurrences.$inferSelect,
+      "originType" | "accountId" | "categoryId" | "subcategoryId" | "fromAccountId" | "toAccountId"
+    >,
+    path: string,
+  ) {
+    if (recurrence.originType === "transaction") {
+      if (recurrence.fromAccountId || recurrence.toAccountId) {
+        throw new ValidationProblem(
+          "Recorrência de transação possui contas de transferência inválidas.",
+          path,
+        );
+      }
+      if (recurrence.accountId) {
+        await this.ensureAccountOwnership(userId, recurrence.accountId, path);
+      }
+      if (recurrence.categoryId) {
+        await this.ensureCategoryOwnership(userId, recurrence.categoryId, path);
+      }
+      if (recurrence.subcategoryId) {
+        await this.ensureSubcategoryOwnership(
+          userId,
+          recurrence.subcategoryId,
+          recurrence.categoryId ?? undefined,
+          path,
+        );
+      }
+      return;
+    }
+
+    if (recurrence.accountId || recurrence.categoryId || recurrence.subcategoryId) {
+      throw new ValidationProblem(
+        "Recorrência de transferência possui campos de transação inválidos.",
+        path,
+      );
+    }
+    if (recurrence.fromAccountId) {
+      await this.ensureAccountOwnership(userId, recurrence.fromAccountId, path);
+    }
+    if (recurrence.toAccountId) {
+      await this.ensureAccountOwnership(userId, recurrence.toAccountId, path);
+    }
+    if (
+      recurrence.fromAccountId &&
+      recurrence.toAccountId &&
+      recurrence.fromAccountId === recurrence.toAccountId
+    ) {
+      throw new ValidationProblem("Conta de origem e destino devem ser diferentes.", path);
+    }
+  }
+
   private ensureOriginSpecificUpdatePayload(
     originType: "transaction" | "transfer",
     data: UpdateRecurrenceInput,
@@ -387,6 +440,10 @@ export class RecurrenceService {
   }
 
   async list(userId: string, query: ListRecurrencesQuery) {
+    if (query.accountId) {
+      await this.ensureAccountOwnership(userId, query.accountId, "/recurrences");
+    }
+
     const filters = [eq(recurrences.userId, userId), sql`${recurrences.deletedAt} IS NULL`];
 
     if (query.originType) {
@@ -459,6 +516,7 @@ export class RecurrenceService {
 
   async update(userId: string, recurrenceId: string, data: UpdateRecurrenceInput) {
     const existing = await this.getOne(userId, recurrenceId);
+    await this.validateRecurrenceLinkedOwnership(userId, existing, `/recurrences/${recurrenceId}`);
     this.ensureOriginSpecificUpdatePayload(existing.originType, data);
 
     if (existing.status !== "active") {
@@ -874,6 +932,11 @@ export class RecurrenceService {
 
   async editByScope(userId: string, recurrenceId: string, input: EditRecurrenceByScopeInput) {
     const recurrence = await this.getOne(userId, recurrenceId);
+    await this.validateRecurrenceLinkedOwnership(
+      userId,
+      recurrence,
+      `/recurrences/${recurrenceId}`,
+    );
     const changes = input.changes;
 
     if (recurrence.status !== "active") {
@@ -1335,6 +1398,26 @@ export class RecurrenceService {
     let failedRecurrences = 0;
 
     for (const recurrence of activeRecurrences) {
+      try {
+        await this.validateRecurrenceLinkedOwnership(
+          userId,
+          recurrence,
+          "/recurrences/materialize",
+        );
+      } catch (error) {
+        this.app.log.warn(
+          {
+            recurrenceId: recurrence.id,
+            userId: recurrence.userId,
+            originType: recurrence.originType,
+            error,
+          },
+          "Skipping recurrence materialization due to ownership/consistency validation failure",
+        );
+        failedRecurrences += 1;
+        continue;
+      }
+
       const schedule: RecurrenceSchedule = {
         startDate: recurrence.startDate,
         frequency: recurrence.frequency,
