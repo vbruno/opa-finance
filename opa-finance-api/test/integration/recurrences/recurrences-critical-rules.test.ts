@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { recurrences } from "@/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
@@ -201,6 +203,48 @@ describe("Recurrences - critical rules", () => {
     expect(body.newRecurrence.startDate).toBe("2099-02-07");
     expect(body.newRecurrence.amount).toBe(250);
     expect(body.newRecurrence.notes).toBe("Ajuste futuro");
+  });
+
+  it("bloqueia this_and_next em data já materializada mesmo com lastMaterializedDate stale", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      amount: 100,
+      startDate: "2099-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2099-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdOccurrences).toBe(3);
+
+    await app.db
+      .update(recurrences)
+      .set({ lastMaterializedDate: null, lastMaterializedAt: null })
+      .where(eq(recurrences.id, recurrence.id));
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2099-01-13",
+        changes: {
+          amount: 250,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().detail).toContain("ocorrência já materializada");
   });
 
   it("retorna 409 em conflito otimista de versao", async () => {

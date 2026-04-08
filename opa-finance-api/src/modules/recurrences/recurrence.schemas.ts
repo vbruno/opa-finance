@@ -161,6 +161,10 @@ export const updateRecurrenceSchema = createRecurrenceSchema
   .extend({
     expectedVersion: z.number().int().positive().optional(),
   })
+  .refine((data) => data.originType === undefined, {
+    message: "Não é permitido alterar o tipo de origem da recorrência.",
+    path: ["originType"],
+  })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Pelo menos um campo deve ser atualizado.",
   });

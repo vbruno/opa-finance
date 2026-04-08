@@ -3,7 +3,7 @@ import { FastifyInstance } from "fastify";
 
 import { auditLogs } from "../../db/schema";
 
-export type AuditEntityType = "transaction" | "account" | "category" | "subcategory";
+export type AuditEntityType = "transaction" | "account" | "category" | "subcategory" | "recurrence";
 export type AuditAction = "create" | "update" | "delete";
 
 type AuditPayload = {
@@ -110,6 +110,7 @@ export class AuditService {
     afterData: Record<string, unknown> | null;
     metadata: Record<string, unknown> | null;
   }) {
+    const operation = this.getStringValue(row.metadata, "operation");
     const accountName =
       this.getStringValue(row.afterData, "accountName") ??
       this.getStringValue(row.beforeData, "accountName") ??
@@ -149,6 +150,17 @@ export class AuditService {
       description = `ID ${row.entityId}`;
     }
 
+    const actionLabel =
+      operation === "recurrence-finalize"
+        ? "Finalização"
+        : operation === "recurrence-materialize"
+          ? "Materialização"
+          : row.action === "create"
+            ? "Criação"
+            : row.action === "update"
+              ? "Edição"
+              : "Exclusão";
+
     return {
       screen:
         row.entityType === "transaction"
@@ -157,8 +169,10 @@ export class AuditService {
             ? "Contas"
             : row.entityType === "category"
               ? "Categorias"
-              : "Subcategorias",
-      action: row.action === "create" ? "Criação" : row.action === "update" ? "Edição" : "Exclusão",
+              : row.entityType === "subcategory"
+                ? "Subcategorias"
+                : "Recorrências",
+      action: actionLabel,
       description,
       accountName: accountName ?? accountId ?? null,
       categoryName: categoryName ?? categoryId ?? null,
@@ -190,6 +204,19 @@ export class AuditService {
       side: "Lado",
       grouped: "Agrupado",
       groupSize: "Quantidade",
+      originType: "Tipo de origem",
+      frequency: "Frequência",
+      status: "Status",
+      startDate: "Início",
+      endDate: "Fim",
+      nextOccurrenceDate: "Próxima ocorrência",
+      scope: "Escopo",
+      occurrenceDate: "Data da ocorrência",
+      createdOccurrences: "Ocorrências criadas",
+      skippedOccurrences: "Ocorrências ignoradas",
+      createdTransactions: "Transações criadas",
+      createdTransfers: "Transferências criadas",
+      finalized: "Finalizada",
     };
 
     const preferredOrder = [

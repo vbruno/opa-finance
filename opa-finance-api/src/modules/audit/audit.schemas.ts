@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-const auditEntityTypes = ["transaction", "account", "category", "subcategory"] as const;
+const auditEntityTypes = [
+  "transaction",
+  "account",
+  "category",
+  "subcategory",
+  "recurrence",
+] as const;
 const auditActions = ["create", "update", "delete"] as const;
 
 export const listAuditLogsQuerySchema = z

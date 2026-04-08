@@ -26,6 +26,7 @@ import {
   transactions,
   users,
 } from "../../db/schema";
+import { AuditService } from "../audit/audit.service";
 import type {
   CreateRecurrenceInput,
   EditRecurrenceByScopeInput,
@@ -37,7 +38,10 @@ import type {
 import { createRecurrenceSchema } from "./recurrence.schemas";
 
 export class RecurrenceService {
-  constructor(private app: FastifyInstance) {}
+  private audit: AuditService;
+  constructor(private app: FastifyInstance) {
+    this.audit = new AuditService(app);
+  }
 
   private readonly defaultMaterializationBatchSize = 200;
   private readonly maxMaterializationIterations = 500;
@@ -57,6 +61,42 @@ export class RecurrenceService {
     };
   }
 
+  private toRecurrenceAuditData(
+    row: typeof recurrences.$inferSelect | ReturnType<RecurrenceService["serializeRecurrence"]>,
+  ) {
+    const serialized =
+      typeof (row as { amount?: unknown }).amount === "number"
+        ? (row as ReturnType<RecurrenceService["serializeRecurrence"]>)
+        : this.serializeRecurrence(row as typeof recurrences.$inferSelect);
+    return {
+      id: serialized.id,
+      originType: serialized.originType,
+      status: serialized.status,
+      timezone: serialized.timezone,
+      frequency: serialized.frequency,
+      startDate: serialized.startDate,
+      dayOfWeek: serialized.dayOfWeek,
+      dayOfMonth: serialized.dayOfMonth,
+      monthOfYear: serialized.monthOfYear,
+      endType: serialized.endType,
+      endOccurrences: serialized.endOccurrences,
+      endDate: serialized.endDate,
+      accountId: serialized.accountId,
+      categoryId: serialized.categoryId,
+      subcategoryId: serialized.subcategoryId,
+      fromAccountId: serialized.fromAccountId,
+      toAccountId: serialized.toAccountId,
+      amount: serialized.amount,
+      description: serialized.description,
+      notes: serialized.notes,
+      nextOccurrenceDate: serialized.nextOccurrenceDate,
+      lastMaterializedDate: serialized.lastMaterializedDate,
+      finalizedAt: serialized.finalizedAt,
+      deletedAt: serialized.deletedAt,
+      version: serialized.version,
+    } as Record<string, unknown>;
+  }
+
   private toIsoDate(date: Date) {
     return date.toISOString().slice(0, 10);
   }
@@ -67,6 +107,34 @@ export class RecurrenceService {
 
   private getNextOccurrenceAfterDate(schedule: RecurrenceSchedule, date: string) {
     return getNextOccurrenceAfter(schedule, date);
+  }
+
+  private mergeLastMaterializedDate(
+    baseDate: string | null | undefined,
+    candidateDate: string | null | undefined,
+  ) {
+    if (!baseDate) return candidateDate ?? null;
+    if (!candidateDate) return baseDate;
+    return compareIsoDate(candidateDate, baseDate) > 0 ? candidateDate : baseDate;
+  }
+
+  private async getLatestMaterializedDate(
+    recurrenceId: string,
+    executor: DB = this.app.db,
+  ): Promise<string | null> {
+    const [row] = await executor
+      .select({
+        latestDate: sql<string | null>`max(${recurrenceOccurrences.occurrenceDate})::text`,
+      })
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          eq(recurrenceOccurrences.status, "materialized"),
+        ),
+      );
+
+    return row?.latestDate ?? null;
   }
 
   private async getNowIsoDateInTimezone(timezone: string) {
@@ -251,32 +319,51 @@ export class RecurrenceService {
       );
     }
 
-    const [created] = await this.app.db
-      .insert(recurrences)
-      .values({
-        userId,
-        originType: data.originType,
-        status: "active",
-        timezone,
-        frequency: data.frequency,
-        startDate: data.startDate,
-        dayOfWeek: data.dayOfWeek ?? null,
-        dayOfMonth: data.dayOfMonth ?? null,
-        monthOfYear: data.monthOfYear ?? null,
-        endType: data.endType,
-        endOccurrences: data.endOccurrences ?? null,
-        endDate: data.endDate ?? null,
-        accountId: data.accountId ?? null,
-        categoryId: data.categoryId ?? null,
-        subcategoryId: data.subcategoryId ?? null,
-        fromAccountId: data.fromAccountId ?? null,
-        toAccountId: data.toAccountId ?? null,
-        amount: data.amount.toString(),
-        description: data.description ?? null,
-        notes: data.notes ?? null,
-        nextOccurrenceDate,
-      })
-      .returning();
+    const [created] = await this.app.db.transaction(async (tx: DB) => {
+      const [inserted] = await tx
+        .insert(recurrences)
+        .values({
+          userId,
+          originType: data.originType,
+          status: "active",
+          timezone,
+          frequency: data.frequency,
+          startDate: data.startDate,
+          dayOfWeek: data.dayOfWeek ?? null,
+          dayOfMonth: data.dayOfMonth ?? null,
+          monthOfYear: data.monthOfYear ?? null,
+          endType: data.endType,
+          endOccurrences: data.endOccurrences ?? null,
+          endDate: data.endDate ?? null,
+          accountId: data.accountId ?? null,
+          categoryId: data.categoryId ?? null,
+          subcategoryId: data.subcategoryId ?? null,
+          fromAccountId: data.fromAccountId ?? null,
+          toAccountId: data.toAccountId ?? null,
+          amount: data.amount.toString(),
+          description: data.description ?? null,
+          notes: data.notes ?? null,
+          nextOccurrenceDate,
+        })
+        .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "recurrence",
+          entityId: inserted.id,
+          action: "create",
+          beforeData: null,
+          afterData: this.toRecurrenceAuditData(inserted),
+          metadata: {
+            operation: "recurrence-create",
+          },
+        },
+        tx,
+      );
+
+      return [inserted];
+    });
 
     return this.serializeRecurrence(created);
   }
@@ -372,6 +459,12 @@ export class RecurrenceService {
 
     await this.validatePayloadOwnership(userId, data, existing.categoryId);
 
+    const latestMaterializedDate = await this.getLatestMaterializedDate(recurrenceId);
+    const effectiveLastMaterializedDate = this.mergeLastMaterializedDate(
+      existing.lastMaterializedDate,
+      latestMaterializedDate,
+    );
+
     const mergedStartDate = data.startDate ?? existing.startDate;
     const mergedEndDate = data.endDate ?? existing.endDate;
     if (mergedEndDate && mergedEndDate < mergedStartDate) {
@@ -421,8 +514,8 @@ export class RecurrenceService {
       >;
 
       try {
-        payload.nextOccurrenceDate = existing.lastMaterializedDate
-          ? this.getNextOccurrenceAfterDate(schedule, existing.lastMaterializedDate)
+        payload.nextOccurrenceDate = effectiveLastMaterializedDate
+          ? this.getNextOccurrenceAfterDate(schedule, effectiveLastMaterializedDate)
           : this.getFirstOccurrenceForRecurrence(schedule);
       } catch {
         throw new ValidationProblem(
@@ -435,11 +528,34 @@ export class RecurrenceService {
     payload.version = existing.version + 1;
     payload.updatedAt = new Date();
 
-    const [updated] = await this.app.db
-      .update(recurrences)
-      .set(payload)
-      .where(and(eq(recurrences.id, recurrenceId), eq(recurrences.version, existing.version)))
-      .returning();
+    const [updated] = await this.app.db.transaction(async (tx: DB) => {
+      const [updatedRow] = await tx
+        .update(recurrences)
+        .set(payload)
+        .where(and(eq(recurrences.id, recurrenceId), eq(recurrences.version, existing.version)))
+        .returning();
+
+      if (!updatedRow) {
+        return [];
+      }
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "recurrence",
+          entityId: updatedRow.id,
+          action: "update",
+          beforeData: this.toRecurrenceAuditData(existing),
+          afterData: this.toRecurrenceAuditData(updatedRow),
+          metadata: {
+            operation: "recurrence-update",
+          },
+        },
+        tx,
+      );
+
+      return [updatedRow];
+    });
 
     if (!updated) {
       throw new ConflictProblem(
@@ -601,6 +717,21 @@ export class RecurrenceService {
         .set(payload)
         .where(and(eq(transactions.id, currentTx.id), eq(transactions.userId, userId)));
 
+      await this.audit.log({
+        userId,
+        entityType: "recurrence",
+        entityId: recurrenceId,
+        action: "update",
+        beforeData: this.toRecurrenceAuditData(recurrence),
+        afterData: this.toRecurrenceAuditData(recurrence),
+        metadata: {
+          operation: "recurrence-edit-scope-single",
+          scope: "single",
+          occurrenceDate,
+          changes,
+        },
+      });
+
       return {
         scope: "single" as const,
         occurrenceDate,
@@ -670,6 +801,21 @@ export class RecurrenceService {
         .where(and(eq(transactions.id, incomeTx.id), eq(transactions.userId, userId)));
     });
 
+    await this.audit.log({
+      userId,
+      entityType: "recurrence",
+      entityId: recurrenceId,
+      action: "update",
+      beforeData: this.toRecurrenceAuditData(recurrence),
+      afterData: this.toRecurrenceAuditData(recurrence),
+      metadata: {
+        operation: "recurrence-edit-scope-single",
+        scope: "single",
+        occurrenceDate,
+        changes,
+      },
+    });
+
     return {
       scope: "single" as const,
       occurrenceDate,
@@ -724,6 +870,12 @@ export class RecurrenceService {
       return { scope: "all" as const, recurrence: updated };
     }
 
+    const latestMaterializedDate = await this.getLatestMaterializedDate(recurrenceId);
+    const effectiveLastMaterializedDate = this.mergeLastMaterializedDate(
+      recurrence.lastMaterializedDate,
+      latestMaterializedDate,
+    );
+
     if (!input.occurrenceDate) {
       throw new ValidationProblem(
         "Data da ocorrência é obrigatória.",
@@ -754,8 +906,8 @@ export class RecurrenceService {
     }
 
     if (
-      recurrence.lastMaterializedDate &&
-      compareIsoDate(input.occurrenceDate, recurrence.lastMaterializedDate) <= 0
+      effectiveLastMaterializedDate &&
+      compareIsoDate(input.occurrenceDate, effectiveLastMaterializedDate) <= 0
     ) {
       throw new ValidationProblem(
         "Não é permitido aplicar 'esta e próximas' para ocorrência já materializada.",
@@ -801,9 +953,14 @@ export class RecurrenceService {
           `/recurrences/${recurrenceId}`,
         );
       }
+      const txLatestMaterializedDate = await this.getLatestMaterializedDate(recurrenceId, tx);
+      const txEffectiveLastMaterializedDate = this.mergeLastMaterializedDate(
+        current.lastMaterializedDate,
+        txLatestMaterializedDate,
+      );
       if (
-        current.lastMaterializedDate &&
-        compareIsoDate(targetOccurrenceDate, current.lastMaterializedDate) <= 0
+        txEffectiveLastMaterializedDate &&
+        compareIsoDate(targetOccurrenceDate, txEffectiveLastMaterializedDate) <= 0
       ) {
         throw new ValidationProblem(
           "Não é permitido aplicar 'esta e próximas' para ocorrência já materializada.",
@@ -872,6 +1029,40 @@ export class RecurrenceService {
         })
         .returning();
 
+      await this.audit.log(
+        {
+          userId,
+          entityType: "recurrence",
+          entityId: closedRecurrence.id,
+          action: "update",
+          beforeData: this.toRecurrenceAuditData(current),
+          afterData: this.toRecurrenceAuditData(closedRecurrence),
+          metadata: {
+            operation: "recurrence-edit-scope-this-and-next-close",
+            scope: "this_and_next",
+            occurrenceDate: targetOccurrenceDate,
+          },
+        },
+        tx,
+      );
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "recurrence",
+          entityId: createdRecurrence.id,
+          action: "create",
+          beforeData: null,
+          afterData: this.toRecurrenceAuditData(createdRecurrence),
+          metadata: {
+            operation: "recurrence-edit-scope-this-and-next-create",
+            scope: "this_and_next",
+            occurrenceDate: targetOccurrenceDate,
+          },
+        },
+        tx,
+      );
+
       return [
         this.serializeRecurrence(closedRecurrence),
         this.serializeRecurrence(createdRecurrence),
@@ -892,16 +1083,35 @@ export class RecurrenceService {
       return existing;
     }
 
-    const [updated] = await this.app.db
-      .update(recurrences)
-      .set({
-        status: "finalized",
-        finalizedAt: new Date(),
-        updatedAt: new Date(),
-        version: existing.version + 1,
-      })
-      .where(eq(recurrences.id, recurrenceId))
-      .returning();
+    const [updated] = await this.app.db.transaction(async (tx: DB) => {
+      const [updatedRow] = await tx
+        .update(recurrences)
+        .set({
+          status: "finalized",
+          finalizedAt: new Date(),
+          updatedAt: new Date(),
+          version: existing.version + 1,
+        })
+        .where(eq(recurrences.id, recurrenceId))
+        .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "recurrence",
+          entityId: updatedRow.id,
+          action: "update",
+          beforeData: this.toRecurrenceAuditData(existing),
+          afterData: this.toRecurrenceAuditData(updatedRow),
+          metadata: {
+            operation: "recurrence-finalize",
+          },
+        },
+        tx,
+      );
+
+      return [updatedRow];
+    });
 
     return this.serializeRecurrence(updated);
   }
@@ -916,14 +1126,32 @@ export class RecurrenceService {
       );
     }
 
-    await this.app.db
-      .update(recurrences)
-      .set({
-        deletedAt: new Date(),
-        updatedAt: new Date(),
-        version: existing.version + 1,
-      })
-      .where(eq(recurrences.id, recurrenceId));
+    await this.app.db.transaction(async (tx: DB) => {
+      const [deletedRow] = await tx
+        .update(recurrences)
+        .set({
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+          version: existing.version + 1,
+        })
+        .where(eq(recurrences.id, recurrenceId))
+        .returning();
+
+      await this.audit.log(
+        {
+          userId,
+          entityType: "recurrence",
+          entityId: recurrenceId,
+          action: "delete",
+          beforeData: this.toRecurrenceAuditData(existing),
+          afterData: this.toRecurrenceAuditData(deletedRow),
+          metadata: {
+            operation: "recurrence-delete",
+          },
+        },
+        tx,
+      );
+    });
 
     return { message: "Recorrência removida com sucesso." };
   }
@@ -1082,9 +1310,11 @@ export class RecurrenceService {
       let localSkipped = 0;
       let localTransactions = 0;
       let localTransfers = 0;
+      let localFirstProcessedDate: string | null = null;
       let localLastMaterializedDate: string | null = null;
       let shouldFinalize = false;
       let iterations = 0;
+      let updatedRecurrenceSnapshot: typeof recurrences.$inferSelect | null = null;
 
       try {
         if (compareIsoDate(cursorDate, recurrence.startDate) < 0) {
@@ -1108,6 +1338,9 @@ export class RecurrenceService {
 
         while (compareIsoDate(cursorDate, untilDate) <= 0) {
           iterations += 1;
+          if (!localFirstProcessedDate) {
+            localFirstProcessedDate = cursorDate;
+          }
           if (iterations > this.maxMaterializationIterations) {
             throw new ValidationProblem(
               "Limite de materialização por recorrência excedido nesta execução.",
@@ -1293,9 +1526,10 @@ export class RecurrenceService {
           .update(recurrences)
           .set(updatePayload)
           .where(and(eq(recurrences.id, recurrence.id), eq(recurrences.version, currentVersion)))
-          .returning({ id: recurrences.id });
+          .returning();
 
         if (updatedRecurrence) {
+          updatedRecurrenceSnapshot = updatedRecurrence;
           updateApplied = true;
           if (shouldFinalize) {
             finalizedRecurrences += 1;
@@ -1311,6 +1545,28 @@ export class RecurrenceService {
           { recurrenceId: recurrence.id, userId: recurrence.userId },
           "Skipping recurrence state update due to concurrent version change",
         );
+      } else if (
+        updatedRecurrenceSnapshot &&
+        (localCreated > 0 || localSkipped > 0 || shouldFinalize)
+      ) {
+        await this.audit.log({
+          userId: recurrence.userId,
+          entityType: "recurrence",
+          entityId: recurrence.id,
+          action: "update",
+          beforeData: this.toRecurrenceAuditData(recurrence),
+          afterData: this.toRecurrenceAuditData(updatedRecurrenceSnapshot),
+          metadata: {
+            operation: "recurrence-materialize",
+            fromDate: localFirstProcessedDate,
+            toDate: localLastMaterializedDate ?? cursorDate,
+            createdOccurrences: localCreated,
+            skippedOccurrences: localSkipped,
+            createdTransactions: localTransactions,
+            createdTransfers: localTransfers,
+            finalized: shouldFinalize,
+          },
+        });
       }
 
       createdOccurrences += localCreated;
@@ -1380,14 +1636,14 @@ export class RecurrenceService {
 
     const realRows: Array<{ type: "income" | "expense"; month: number; total: string }> =
       await this.app.db
-      .select({
-        type: transactions.type,
-        month: sql<number>`extract(month from ${transactions.date}::date)::int`,
-        total: sql<string>`sum(${transactions.amount})::text`,
-      })
-      .from(transactions)
-      .where(and(...realFilters))
-      .groupBy(transactions.type, sql`extract(month from ${transactions.date}::date)`);
+        .select({
+          type: transactions.type,
+          month: sql<number>`extract(month from ${transactions.date}::date)::int`,
+          total: sql<string>`sum(${transactions.amount})::text`,
+        })
+        .from(transactions)
+        .where(and(...realFilters))
+        .groupBy(transactions.type, sql`extract(month from ${transactions.date}::date)`);
 
     for (const row of realRows) {
       if (row.type !== "income" && row.type !== "expense") continue;

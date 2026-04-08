@@ -9,6 +9,7 @@ export const auditEntityTypeEnum = pgEnum("audit_entity_type", [
   "account",
   "category",
   "subcategory",
+  "recurrence",
 ]);
 
 export const auditLogs = pgTable(

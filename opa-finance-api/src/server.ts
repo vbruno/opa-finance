@@ -14,6 +14,7 @@ import { accountRoutes } from "./modules/accounts/account.routes";
 import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { categoryRoutes } from "./modules/categories/category.routes";
+import { registerRecurrenceDailyJob } from "./modules/recurrences/recurrence-daily-job";
 import { recurrenceRoutes } from "./modules/recurrences/recurrence.routes";
 import { consolidatedRoutes } from "./modules/reports/consolidated.routes";
 import { weeklyCashflowRoutes } from "./modules/reports/weekly-cashflow.routes";
@@ -123,6 +124,7 @@ async function start() {
   app.register(transactionRoutes);
   app.register(transferRoutes);
   app.register(systemRoutes);
+  registerRecurrenceDailyJob(app);
 
   registerErrorHandler(app);
 

@@ -596,7 +596,7 @@
       "parentId": "fld_audit",
       "name": "List Audit Logs (Raw)",
       "method": "GET",
-      "url": "{{ _.base_url }}/audit-logs?view=raw&page=1&limit=20&entityType=transaction&action=create",
+      "url": "{{ _.base_url }}/audit-logs?view=raw&page=1&limit=20&entityType=recurrence&action=update",
       "headers": [
         {
           "name": "Authorization",

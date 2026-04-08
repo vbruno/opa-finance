@@ -1994,7 +1994,7 @@ Lista logs de auditoria do usuário autenticado com filtros, paginação e modo 
 - `view` (`raw | grouped`, default: `raw`)
   - `raw`: retorna cada log individual
   - `grouped`: agrupa pares de transferência (`transfer-create`) em um único evento para listagem
-- `entityType` (`transaction | account | category | subcategory`)
+- `entityType` (`transaction | account | category | subcategory | recurrence`)
 - `action` (`create | update | delete`)
 - `startDate` (`YYYY-MM-DD`)
 - `endDate` (`YYYY-MM-DD`)

@@ -171,5 +171,4 @@ export async function recurrenceRoutes(app: FastifyInstance) {
       return service.materialize(req.user.sub, body);
     },
   );
-
 }
