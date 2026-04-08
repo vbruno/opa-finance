@@ -324,6 +324,12 @@ export class RecurrenceService {
         path,
       );
     }
+    if (!recurrence.fromAccountId || !recurrence.toAccountId) {
+      throw new ValidationProblem(
+        "Recorrência de transferência inválida: contas de origem e destino são obrigatórias.",
+        path,
+      );
+    }
     if (recurrence.fromAccountId) {
       await this.ensureAccountOwnership(userId, recurrence.fromAccountId, path);
     }
@@ -1332,30 +1338,40 @@ export class RecurrenceService {
 
     const transferId = randomUUID();
 
-    await tx.insert(transactions).values([
-      {
-        userId: recurrence.userId,
-        accountId: recurrence.fromAccountId,
-        categoryId: transferCategoryId,
-        type: "expense",
-        amount: recurrence.amount,
-        date: occurrenceDate,
-        description: recurrence.description,
-        notes: recurrence.notes,
-        transferId,
-      },
-      {
-        userId: recurrence.userId,
-        accountId: recurrence.toAccountId,
-        categoryId: transferCategoryId,
-        type: "income",
-        amount: recurrence.amount,
-        date: occurrenceDate,
-        description: recurrence.description,
-        notes: recurrence.notes,
-        transferId,
-      },
-    ]);
+    const insertedTransactions = await tx
+      .insert(transactions)
+      .values([
+        {
+          userId: recurrence.userId,
+          accountId: recurrence.fromAccountId,
+          categoryId: transferCategoryId,
+          type: "expense",
+          amount: recurrence.amount,
+          date: occurrenceDate,
+          description: recurrence.description,
+          notes: recurrence.notes,
+          transferId,
+        },
+        {
+          userId: recurrence.userId,
+          accountId: recurrence.toAccountId,
+          categoryId: transferCategoryId,
+          type: "income",
+          amount: recurrence.amount,
+          date: occurrenceDate,
+          description: recurrence.description,
+          notes: recurrence.notes,
+          transferId,
+        },
+      ])
+      .returning({ id: transactions.id });
+
+    if (insertedTransactions.length !== 2) {
+      throw new ValidationProblem(
+        "Falha ao materializar transferência recorrente de forma atômica.",
+        "/recurrences/materialize",
+      );
+    }
 
     return { transactionId: null as string | null, transferId };
   }

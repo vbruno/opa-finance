@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { recurrences } from "@/db/schema";
+import { recurrenceOccurrences, recurrences, transactions } from "@/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
@@ -445,5 +445,88 @@ describe("Recurrences - critical rules", () => {
     expect(materializeRes.statusCode).toBe(200);
     expect(materializeRes.json().failedRecurrences).toBeGreaterThanOrEqual(1);
     expect(materializeRes.json().createdOccurrences).toBe(0);
+  });
+
+  it("garante rollback integral ao falhar metade da materialização de transferência", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    const rollbackMarker = `Transfer rollback ${crypto.randomUUID()}`;
+    const suffix = crypto.randomUUID().replace(/-/g, "");
+    const fnName = `fail_income_transfer_rollback_${suffix}`;
+    const triggerName = `trg_fail_income_transfer_rollback_${suffix}`;
+
+    const transferRecurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        frequency: "monthly",
+        startDate: "2099-01-15",
+        dayOfMonth: 15,
+        endType: "never",
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 400,
+        description: rollbackMarker,
+      },
+    });
+    expect(transferRecurrenceRes.statusCode).toBe(201);
+    const transferRecurrence = transferRecurrenceRes.json();
+
+    try {
+      await app.db.execute(
+        sql.raw(`
+          create function ${fnName}()
+          returns trigger
+          language plpgsql
+          as $$
+          begin
+            if NEW.description = '${rollbackMarker}' and NEW.type = 'income' then
+              raise exception 'forced rollback on income leg';
+            end if;
+            return NEW;
+          end;
+          $$;
+        `),
+      );
+      await app.db.execute(
+        sql.raw(`
+          create trigger ${triggerName}
+          before insert on transactions
+          for each row
+          execute function ${fnName}();
+        `),
+      );
+
+      const materializeRes = await app.inject({
+        method: "POST",
+        url: "/recurrences/materialize",
+        headers: { Authorization: `Bearer ${token}` },
+        payload: { untilDate: "2099-01-20" },
+      });
+      expect(materializeRes.statusCode).toBe(200);
+      expect(materializeRes.json().failedRecurrences).toBeGreaterThanOrEqual(1);
+      expect(materializeRes.json().createdTransfers).toBe(0);
+      expect(materializeRes.json().createdOccurrences).toBe(0);
+
+      const persistedOccurrences = await app.db
+        .select({ id: recurrenceOccurrences.id })
+        .from(recurrenceOccurrences)
+        .where(eq(recurrenceOccurrences.recurrenceId, transferRecurrence.id));
+      expect(persistedOccurrences.length).toBe(0);
+
+      const persistedTransferTxs = await app.db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(eq(transactions.description, rollbackMarker));
+      expect(persistedTransferTxs.length).toBe(0);
+    } finally {
+      await app.db.execute(
+        sql.raw(`
+          drop trigger if exists ${triggerName} on transactions;
+          drop function if exists ${fnName}();
+        `),
+      );
+    }
   });
 });

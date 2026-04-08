@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 
 import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/errors/problems";
 
-import { accounts, transactions } from "../../db/schema";
+import { accounts, recurrences, transactions } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import type { CreateAccountInput, UpdateAccountInput } from "./account.schemas";
 
@@ -60,6 +60,31 @@ export class AccountService {
       createdAt: account.createdAt,
       updatedAt: account.updatedAt,
     };
+  }
+
+  private async hasActiveRecurrenceLinkedToAccount(
+    userId: string,
+    accountId: string,
+    executor: typeof this.app.db = this.app.db,
+  ) {
+    const [linkedRecurrence] = await executor
+      .select({ id: recurrences.id })
+      .from(recurrences)
+      .where(
+        and(
+          eq(recurrences.userId, userId),
+          eq(recurrences.status, "active"),
+          sql`${recurrences.deletedAt} IS NULL`,
+          sql`(
+            ${recurrences.accountId} = ${accountId}
+            or ${recurrences.fromAccountId} = ${accountId}
+            or ${recurrences.toAccountId} = ${accountId}
+          )`,
+        ),
+      )
+      .limit(1);
+
+    return Boolean(linkedRecurrence);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -198,7 +223,20 @@ export class AccountService {
 
     try {
       await this.app.db.transaction(async (tx: typeof this.app.db) => {
-        if (current.isPrimary === true && data.isHiddenOnDashboard === true) {
+        const shouldHideOnDashboard =
+          data.isHiddenOnDashboard === true && current.isHiddenOnDashboard === false;
+
+        if (shouldHideOnDashboard) {
+          const hasLinkedRecurrence = await this.hasActiveRecurrenceLinkedToAccount(userId, id, tx);
+          if (hasLinkedRecurrence) {
+            throw new ConflictProblem(
+              "Conta com recorrência ativa vinculada não pode ser ocultada/inativada.",
+              `/accounts/${id}`,
+            );
+          }
+        }
+
+        if (current.isPrimary === true && shouldHideOnDashboard) {
           throw new ConflictProblem(
             "A conta principal não pode ser ocultada no dashboard.",
             `/accounts/${id}`,
@@ -373,6 +411,14 @@ export class AccountService {
     if (tx) {
       throw new ConflictProblem(
         "Conta possui transações e não pode ser removida.",
+        `/accounts/${id}`,
+      );
+    }
+
+    const hasLinkedRecurrence = await this.hasActiveRecurrenceLinkedToAccount(userId, id);
+    if (hasLinkedRecurrence) {
+      throw new ConflictProblem(
+        "Conta com recorrência ativa vinculada não pode ser removida.",
         `/accounts/${id}`,
       );
     }

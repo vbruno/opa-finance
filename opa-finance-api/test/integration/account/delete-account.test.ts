@@ -203,4 +203,57 @@ describe.sequential("DELETE /accounts/:id", () => {
     expect(response.json().title).toBe("Conflict");
     expect(response.json().detail).toContain("conta principal");
   });
+
+  it("não deve permitir remover conta com recorrência ativa vinculada", async () => {
+    const { token } = await registerAndLogin();
+
+    const accountA = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta A", type: "cash" },
+    });
+    const accountB = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta B", type: "checking_account", isPrimary: true },
+    });
+    expect(accountA.statusCode).toBe(201);
+    expect(accountB.statusCode).toBe(201);
+
+    const categoryRes = await app.inject({
+      method: "POST",
+      url: "/categories",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Categoria Recorrente Delete", type: "expense" },
+    });
+    expect(categoryRes.statusCode).toBe(201);
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "never",
+        accountId: accountA.json().id,
+        categoryId: categoryRes.json().id,
+        amount: 100,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/accounts/${accountA.json().id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().detail).toContain("recorrência ativa vinculada");
+  });
 });

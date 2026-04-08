@@ -220,4 +220,59 @@ describe.sequential("PUT /accounts/:id", () => {
     expect(body.title).toBe("Unauthorized");
     expect(body.status).toBe(401);
   });
+
+  it("não deve permitir ocultar conta com recorrência ativa vinculada", async () => {
+    const token = await registerAndLogin("hide-linked-recurrence@test.com");
+
+    const accountPrimary = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Principal", type: "cash" },
+    });
+    expect(accountPrimary.statusCode).toBe(201);
+
+    const accountTarget = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Recorrente", type: "checking_account" },
+    });
+    expect(accountTarget.statusCode).toBe(201);
+
+    const categoryRes = await app.inject({
+      method: "POST",
+      url: "/categories",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Categoria Recorrente Hide", type: "expense" },
+    });
+    expect(categoryRes.statusCode).toBe(201);
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "never",
+        accountId: accountTarget.json().id,
+        categoryId: categoryRes.json().id,
+        amount: 130,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/accounts/${accountTarget.json().id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { isHiddenOnDashboard: true },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().detail).toContain("recorrência ativa vinculada");
+  });
 });
