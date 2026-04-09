@@ -54,11 +54,14 @@ opa-finance/
 - Documento consolidado do projeto: [opa-finance-api/docs/documento_consolidado_planejamento.md](opa-finance-api/docs/documento_consolidado_planejamento.md)
 - Módulos do backend:
   - [Auth](opa-finance-api/docs/modules/modules_auth.md)
+  - [Users](opa-finance-api/docs/modules/modules_users.md)
   - [Accounts](opa-finance-api/docs/modules/modules_accounts.md)
   - [Categories](opa-finance-api/docs/modules/modules_categories.md)
   - [Subcategories](opa-finance-api/docs/modules/modules_subcategories.md)
   - [Transactions](opa-finance-api/docs/modules/modules_transactions.md)
   - [Transfers](opa-finance-api/docs/modules/modules_transfers.md)
+  - [Recurrences](opa-finance-api/docs/modules/modules_recurrences.md)
+  - [Reports](opa-finance-api/docs/modules/modules_reports.md)
   - [Audit](opa-finance-api/docs/modules/modules_audit.md)
 
 Materiais historicos e operacionais da raiz foram movidos para `docs-hidden/`.

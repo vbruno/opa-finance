@@ -17,6 +17,7 @@ import { useAccounts } from '@/features/accounts'
 import { getUser } from '@/features/auth'
 import {
   useConsolidatedYears,
+  useRecurrenceForecast,
   useWeeklyCashflow,
   type WeeklyCashflowColumn,
   type WeekStart,
@@ -205,6 +206,7 @@ function WeeklyCashflowPage() {
   const [sortDynamicByShare, setSortDynamicByShare] = useState(
     persistedViewState?.sortDynamicByShare ?? true,
   )
+  const [isProjectionEnabled, setIsProjectionEnabled] = useState(false)
   const yearsQuery = useConsolidatedYears(
     {
       accountIds: selectedAccountIds.length ? selectedAccountIds : undefined,
@@ -227,6 +229,21 @@ function WeeklyCashflowPage() {
     {
       enabled:
         isDesktop &&
+        selectedAccountIds.length > 0 &&
+        !yearsQuery.isLoading &&
+        yearOptions.length > 0 &&
+        hasSelectedYear,
+    },
+  )
+  const recurrenceForecastQuery = useRecurrenceForecast(
+    {
+      year: activeYear,
+      accountIds: selectedAccountIds.length ? selectedAccountIds : undefined,
+    },
+    {
+      enabled:
+        isDesktop &&
+        isProjectionEnabled &&
         selectedAccountIds.length > 0 &&
         !yearsQuery.isLoading &&
         yearOptions.length > 0 &&
@@ -422,6 +439,90 @@ function WeeklyCashflowPage() {
     () => (weeklyCashflowQuery.data?.weeks ?? []).slice(0, 52),
     [weeklyCashflowQuery.data?.weeks],
   )
+  const projectedWeekTotalsByWeekNumber = useMemo(() => {
+    const result = new Map<number, { total: number; received: number; spent: number }>()
+    if (!isProjectionEnabled) return result
+
+    const forecast = recurrenceForecastQuery.data
+    if (!forecast?.totals?.projected) return result
+
+    const projectionStartDate = forecast.horizon.projectionStartDate
+    if (!projectionStartDate) return result
+    const projectionStartUtc = parseIsoDateToUtc(projectionStartDate)
+    if (!projectionStartUtc) return result
+
+    for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+      const projectedIncome = forecast.totals.projected.income.months[monthIndex] ?? 0
+      const projectedExpense = forecast.totals.projected.expense.months[monthIndex] ?? 0
+      if (Math.abs(projectedIncome) < 0.00001 && Math.abs(projectedExpense) < 0.00001) {
+        continue
+      }
+
+      const monthRange = getUtcMonthRange(activeYear, monthIndex)
+      const monthProjectionStart = maxUtcDate(monthRange.start, projectionStartUtc)
+      if (monthProjectionStart > monthRange.end) {
+        continue
+      }
+
+      const weekWeights = weeks
+        .map((week) => {
+          const weekStartUtc = parseIsoDateToUtc(week.startDate)
+          const weekEndUtc = parseIsoDateToUtc(week.endDate)
+          if (!weekStartUtc || !weekEndUtc) {
+            return { week, overlapDays: 0 }
+          }
+          const overlapDays = getOverlapDaysInclusive(
+            weekStartUtc,
+            weekEndUtc,
+            monthProjectionStart,
+            monthRange.end,
+          )
+          return { week, overlapDays }
+        })
+        .filter((entry) => entry.overlapDays > 0)
+
+      const totalOverlapDays = weekWeights.reduce(
+        (sum, entry) => sum + entry.overlapDays,
+        0,
+      )
+      if (totalOverlapDays <= 0) {
+        continue
+      }
+
+      weekWeights.forEach(({ week, overlapDays }) => {
+        const ratio = overlapDays / totalOverlapDays
+        const incomePerWeek = projectedIncome * ratio
+        const expensePerWeek = projectedExpense * ratio
+        const current = result.get(week.week) ?? { total: 0, received: 0, spent: 0 }
+        current.received += incomePerWeek
+        current.spent += expensePerWeek
+        current.total += incomePerWeek - expensePerWeek
+        result.set(week.week, current)
+      })
+    }
+
+    return result
+  }, [activeYear, isProjectionEnabled, recurrenceForecastQuery.data, weeks])
+  const getDisplayedWeekMetrics = useCallback(
+    (week: (typeof weeks)[number]) => {
+      const projected = projectedWeekTotalsByWeekNumber.get(week.week)
+      if (!projected) {
+        return {
+          total: week.total,
+          received: week.received,
+          spent: week.spent,
+          projected: null as { total: number; received: number; spent: number } | null,
+        }
+      }
+      return {
+        total: week.total + projected.total,
+        received: week.received + projected.received,
+        spent: week.spent + projected.spent,
+        projected,
+      }
+    },
+    [projectedWeekTotalsByWeekNumber],
+  )
   const visibleItemById = useMemo(
     () => new Map(visibleTableItems.map((item) => [item.itemId, item])),
     [visibleTableItems],
@@ -461,14 +562,14 @@ function WeeklyCashflowPage() {
         aValue = a.endDate
         bValue = b.endDate
       } else if (sortKey === 'total') {
-        aValue = a.total
-        bValue = b.total
+        aValue = getDisplayedWeekMetrics(a).total
+        bValue = getDisplayedWeekMetrics(b).total
       } else if (sortKey === 'received') {
-        aValue = a.received
-        bValue = b.received
+        aValue = getDisplayedWeekMetrics(a).received
+        bValue = getDisplayedWeekMetrics(b).received
       } else if (sortKey === 'spent') {
-        aValue = a.spent
-        bValue = b.spent
+        aValue = getDisplayedWeekMetrics(a).spent
+        bValue = getDisplayedWeekMetrics(b).spent
       } else {
         const itemId = sortKey.replace('dyn:', '')
         const item = visibleItemById.get(itemId)
@@ -548,6 +649,7 @@ function WeeklyCashflowPage() {
     return sorted.sort((a, b) => toCycleRank(a.week) - toCycleRank(b.week))
   }, [
     currentWeekNumber,
+    getDisplayedWeekMetrics,
     groupsByItemId,
     sortDynamicByShare,
     sortDirection,
@@ -576,15 +678,28 @@ function WeeklyCashflowPage() {
       }
     }
 
-    const totalWeeks = effectiveWeeks.filter((week) => hasValue(week.total))
-    const receivedWeeks = effectiveWeeks.filter((week) => hasValue(week.received))
-    const spentWeeks = effectiveWeeks.filter((week) => hasValue(week.spent))
+    const effectiveWeeksWithMetrics = effectiveWeeks.map((week) => ({
+      week,
+      metrics: getDisplayedWeekMetrics(week),
+    }))
+    const totalWeeks = effectiveWeeksWithMetrics.filter(({ metrics }) =>
+      hasValue(metrics.total),
+    )
+    const receivedWeeks = effectiveWeeksWithMetrics.filter(({ metrics }) =>
+      hasValue(metrics.received),
+    )
+    const spentWeeks = effectiveWeeksWithMetrics.filter(({ metrics }) =>
+      hasValue(metrics.spent),
+    )
     const totalCount = totalWeeks.length
     const receivedCount = receivedWeeks.length
     const spentCount = spentWeeks.length
-    const sumTotal = totalWeeks.reduce((sum, week) => sum + week.total, 0)
-    const sumReceived = receivedWeeks.reduce((sum, week) => sum + week.received, 0)
-    const sumSpent = spentWeeks.reduce((sum, week) => sum + week.spent, 0)
+    const sumTotal = totalWeeks.reduce((sum, entry) => sum + entry.metrics.total, 0)
+    const sumReceived = receivedWeeks.reduce(
+      (sum, entry) => sum + entry.metrics.received,
+      0,
+    )
+    const sumSpent = spentWeeks.reduce((sum, entry) => sum + entry.metrics.spent, 0)
 
     const dynamicByItemId: Record<string, number> = {}
     const dynamicShareByItemId: Record<string, number> = {}
@@ -641,7 +756,7 @@ function WeeklyCashflowPage() {
       dynamicByItemId,
       dynamicShareByItemId,
     }
-  }, [groupsByItemId, todayIso, visibleTableItems, weeks])
+  }, [getDisplayedWeekMetrics, groupsByItemId, todayIso, visibleTableItems, weeks])
   const selectedNewGroupType = useMemo(() => {
     if (newGroupColumnIds.length === 0) {
       return null
@@ -652,20 +767,33 @@ function WeeklyCashflowPage() {
   const summary = useMemo(() => {
     const totals = weeks.reduce(
       (acc, week) => {
-        acc.total += week.total
-        acc.received += week.received
-        acc.spent += week.spent
+        const metrics = getDisplayedWeekMetrics(week)
+        acc.total += metrics.total
+        acc.received += metrics.received
+        acc.spent += metrics.spent
         return acc
       },
       { total: 0, received: 0, spent: 0 },
     )
 
     const bestWeek = weeks.reduce(
-      (best, week) => (best === null || week.total > best.total ? week : best),
+      (best, week) => {
+        if (best === null) return week
+        return getDisplayedWeekMetrics(week).total >
+          getDisplayedWeekMetrics(best).total
+          ? week
+          : best
+      },
       null as (typeof weeks)[number] | null,
     )
     const worstWeek = weeks.reduce(
-      (worst, week) => (worst === null || week.total < worst.total ? week : worst),
+      (worst, week) => {
+        if (worst === null) return week
+        return getDisplayedWeekMetrics(week).total <
+          getDisplayedWeekMetrics(worst).total
+          ? week
+          : worst
+      },
       null as (typeof weeks)[number] | null,
     )
     const weeksUntilNow = weeks.filter((week) => week.startDate <= todayIso)
@@ -673,7 +801,10 @@ function WeeklyCashflowPage() {
       weeksUntilNow.length > 0
         ? Number(
             (
-              weeksUntilNow.reduce((sum, week) => sum + week.total, 0) /
+              weeksUntilNow.reduce(
+                (sum, week) => sum + getDisplayedWeekMetrics(week).total,
+                0,
+              ) /
               weeksUntilNow.length
             ).toFixed(2),
           )
@@ -684,11 +815,13 @@ function WeeklyCashflowPage() {
       received: Number(totals.received.toFixed(2)),
       spent: Number(totals.spent.toFixed(2)),
       bestWeek,
+      bestWeekValue: bestWeek ? Number(getDisplayedWeekMetrics(bestWeek).total.toFixed(2)) : 0,
       worstWeek,
+      worstWeekValue: worstWeek ? Number(getDisplayedWeekMetrics(worstWeek).total.toFixed(2)) : 0,
       averageUntilNow,
       weeksUntilNowCount: weeksUntilNow.length,
     }
-  }, [todayIso, weeks])
+  }, [getDisplayedWeekMetrics, todayIso, weeks])
   const inconsistentWeeks = useMemo(
     () =>
       weeks.filter(
@@ -1192,6 +1325,7 @@ function WeeklyCashflowPage() {
 
   const showEmptyColumnsHint = orderedItems.length === 0
   const hasNoAccounts = !accountsQuery.isLoading && allAccountIds.length === 0
+  const showWeeklySkeleton = weeklyCashflowQuery.isLoading
 
   return (
     <div className="space-y-4">
@@ -1294,6 +1428,15 @@ function WeeklyCashflowPage() {
           </div>
           <div className="mx-1 h-6 w-px bg-border/70" />
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={isProjectionEnabled ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setIsProjectionEnabled((current) => !current)}
+              disabled={showWeeklySkeleton || yearOptions.length === 0}
+            >
+              {isProjectionEnabled ? 'Ocultar projeção' : 'Mostrar projeção'}
+            </Button>
             <Button
               type="button"
               variant={sortDynamicByShare ? 'default' : 'outline'}
@@ -1825,13 +1968,13 @@ function WeeklyCashflowPage() {
               <MiniSummaryCard label="Gastos no ano" value={summary.spent} tone="expense" />
               <MiniSummaryCard
                 label="Melhor semana"
-                value={summary.bestWeek?.total ?? 0}
+                value={summary.bestWeekValue}
                 tone="income"
                 helper={summary.bestWeek ? `Sem ${summary.bestWeek.week}` : '-'}
               />
               <MiniSummaryCard
                 label="Pior semana"
-                value={summary.worstWeek?.total ?? 0}
+                value={summary.worstWeekValue}
                 tone="expense"
                 helper={summary.worstWeek ? `Sem ${summary.worstWeek.week}` : '-'}
               />
@@ -1885,9 +2028,25 @@ function WeeklyCashflowPage() {
         </div>
       ) : null}
 
-      {weeklyCashflowQuery.isLoading ? <WeeklyCashflowSkeleton /> : null}
+      {isProjectionEnabled && recurrenceForecastQuery.isError ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700">
+          {`Não foi possível carregar projeção. Exibindo somente dados reais. (${getApiErrorMessage(
+            recurrenceForecastQuery.error,
+          )})`}
+        </div>
+      ) : null}
+      {isProjectionEnabled &&
+      recurrenceForecastQuery.isLoading &&
+      !recurrenceForecastQuery.isError &&
+      !showWeeklySkeleton ? (
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3 text-sm text-sky-600">
+          Carregando projeção...
+        </div>
+      ) : null}
 
-      {!weeklyCashflowQuery.isLoading &&
+      {showWeeklySkeleton ? <WeeklyCashflowSkeleton /> : null}
+
+      {!showWeeklySkeleton &&
       !weeklyCashflowQuery.isError &&
       weeklyCashflowQuery.data ? (
         <div className="space-y-3">
@@ -2005,18 +2164,39 @@ function WeeklyCashflowPage() {
                     })}
                   </tr>
 	                {sortedWeeks.map((week) => {
+                    const displayedMetrics = getDisplayedWeekMetrics(week)
+                    const hasProjectedSlice =
+                      Boolean(displayedMetrics.projected) &&
+                      (Math.abs(displayedMetrics.projected?.total ?? 0) > 0.00001 ||
+                        Math.abs(displayedMetrics.projected?.received ?? 0) > 0.00001 ||
+                        Math.abs(displayedMetrics.projected?.spent ?? 0) > 0.00001)
                     const isCurrentWeek = isIsoDateInRange(todayIso, week.startDate, week.endDate)
                     const stickyCellClass = isCurrentWeek
                       ? 'bg-muted shadow-[inset_0_1px_0_hsl(var(--primary)/0.45),inset_0_-1px_0_hsl(var(--primary)/0.45)]'
-                      : 'bg-background'
+                      : hasProjectedSlice
+                        ? 'bg-sky-500/5'
+                        : 'bg-background'
                     return (
 		                  <tr
                       key={week.week}
-                      className={`border-b ${isCurrentWeek ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/20'}`}
+                      className={`border-b ${
+                        isCurrentWeek
+                          ? 'bg-primary/10 hover:bg-primary/15'
+                          : hasProjectedSlice
+                            ? 'bg-sky-500/5 hover:bg-sky-500/10'
+                            : 'hover:bg-muted/20'
+                      }`}
                     >
-		                    <td className={`sticky left-0 z-10 w-[84px] min-w-[84px] border-r border-border/60 px-2 py-2 text-center font-medium whitespace-nowrap ${stickyCellClass}`}>
-		                      {week.week}
-		                    </td>
+			                    <td className={`sticky left-0 z-10 w-[84px] min-w-[84px] border-r border-border/60 px-2 py-2 text-center font-medium whitespace-nowrap ${stickyCellClass}`}>
+                          <span className="inline-flex items-center gap-1">
+			                        {week.week}
+                            {hasProjectedSlice ? (
+                              <span className="rounded border border-sky-500/50 bg-sky-500/10 px-1 text-[10px] font-semibold uppercase tracking-wide text-sky-500">
+                                proj
+                              </span>
+                            ) : null}
+                          </span>
+			                    </td>
 	                    <td className={`sticky left-[84px] z-10 w-[76px] min-w-[76px] border-r border-border/60 px-2 py-2 text-center ${stickyCellClass}`}>
 	                      {formatShortDate(week.startDate)}
 	                    </td>
@@ -2024,13 +2204,13 @@ function WeeklyCashflowPage() {
 	                      {formatShortDate(week.endDate)}
 	                    </td>
                     <td className="border-l w-[100px] min-w-[100px] px-2 py-2 text-center font-medium">
-                      {formatWeeklyValue(week.total)}
+                      {formatWeeklyValue(displayedMetrics.total)}
                     </td>
                     <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-emerald-600">
-                      {formatWeeklyValue(week.received)}
+                      {formatWeeklyValue(displayedMetrics.received)}
                     </td>
                     <td className="w-[100px] min-w-[100px] px-2 py-2 text-center text-rose-600">
-                      {formatWeeklyValue(week.spent)}
+                      {formatWeeklyValue(displayedMetrics.spent)}
                     </td>
 	                    {visibleTableItems.map(({ itemId, topLevelIndex, kind, valueType }, index) => {
                         const shouldShowSeparator =
@@ -2234,6 +2414,49 @@ function getLocalIsoDate(date: Date) {
 
 function isIsoDateInRange(targetIso: string, startIso: string, endIso: string) {
   return targetIso >= startIso && targetIso <= endIso
+}
+
+function parseIsoDateToUtc(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) {
+    return null
+  }
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null
+  }
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+function getUtcMonthRange(year: number, monthIndex: number) {
+  const start = new Date(Date.UTC(year, monthIndex, 1))
+  const end = new Date(Date.UTC(year, monthIndex + 1, 0))
+  return { start, end }
+}
+
+function maxUtcDate(left: Date, right: Date) {
+  return left.getTime() >= right.getTime() ? left : right
+}
+
+function minUtcDate(left: Date, right: Date) {
+  return left.getTime() <= right.getTime() ? left : right
+}
+
+function getOverlapDaysInclusive(
+  leftStart: Date,
+  leftEnd: Date,
+  rightStart: Date,
+  rightEnd: Date,
+) {
+  const start = maxUtcDate(leftStart, rightStart)
+  const end = minUtcDate(leftEnd, rightEnd)
+  if (start.getTime() > end.getTime()) {
+    return 0
+  }
+  const DAY_MS = 24 * 60 * 60 * 1000
+  return Math.floor((end.getTime() - start.getTime()) / DAY_MS) + 1
 }
 
 function normalizeSeparatorPositions(

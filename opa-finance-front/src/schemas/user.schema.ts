@@ -8,6 +8,10 @@ export const updateProfileSchema = z.object({
     .string()
     .min(3, 'Nome deve ter no mínimo 3 caracteres')
     .max(255, 'Nome muito longo'),
+  timezone: z
+    .string()
+    .min(1, 'Selecione um timezone')
+    .max(100, 'Timezone inválido'),
 })
 
 export type UpdateProfileFormData = z.infer<typeof updateProfileSchema>

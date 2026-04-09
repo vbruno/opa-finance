@@ -30,6 +30,10 @@ export const registerSchema = z
         'Senha deve conter maiúscula, minúscula, número e caractere especial',
       ),
     confirmPassword: z.string().min(1, 'Confirmação de senha é obrigatória'),
+    timezone: z
+      .string()
+      .min(1, 'Selecione um timezone')
+      .max(100, 'Timezone inválido'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'As senhas não coincidem',

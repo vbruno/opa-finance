@@ -171,7 +171,15 @@ export class SubcategoryService {
     const existing = await this.getOne(id, userId);
 
     await this.app.db.transaction(async (txDb: typeof this.app.db) => {
-      await txDb.execute(sql`SELECT id FROM subcategories WHERE id = ${id} FOR UPDATE`);
+      const lockResult = await txDb.execute(
+        sql`SELECT id FROM subcategories WHERE id = ${id} FOR UPDATE`,
+      );
+      const lockRows = Array.isArray(lockResult)
+        ? lockResult
+        : ((lockResult as { rows?: unknown[] }).rows ?? []);
+      if (lockRows.length === 0) {
+        throw new NotFoundProblem("Subcategoria não encontrada.", `/subcategories/${id}`);
+      }
 
       const [activeLinkedRecurrence] = await txDb
         .select({ id: recurrences.id })

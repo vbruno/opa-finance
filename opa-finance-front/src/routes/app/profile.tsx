@@ -1,19 +1,33 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   getUser,
   updateUser,
   useChangePassword,
   type User,
 } from '@/features/auth'
-import { useUpdateProfile } from '@/features/profile'
+import { useUpdateProfile, useUserTimezones } from '@/features/profile'
 import { getApiErrorMessage } from '@/lib/apiError'
+import {
+  getBrowserTimezone,
+  DEFAULT_TIMEZONE,
+  getTimezoneDisplayLabel,
+  getIanaTimezones,
+  normalizeSearch,
+} from '@/lib/timezones'
 import {
   changePasswordSchema,
   updateProfileSchema,
@@ -27,18 +41,45 @@ export const Route = createFileRoute('/app/profile')({
 
 function Profile() {
   const [user, setUser] = useState<User | null>(() => getUser())
+  const [timezoneSearch, setTimezoneSearch] = useState('')
   const [profileMessage, setProfileMessage] = useState<string | null>(null)
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
   const [showPasswords, setShowPasswords] = useState(false)
   const isUserReady = !!user
   const createdAtLabel = formatCreatedAt(user?.createdAt)
+  const browserTimezone = useMemo(() => getBrowserTimezone(), [])
+  const localTimezoneOptions = useMemo(() => getIanaTimezones(), [])
+  const userTimezonesQuery = useUserTimezones({ enabled: isUserReady })
+  const timezoneOptions = useMemo(() => {
+    const apiOptions = userTimezonesQuery.data ?? []
+    return apiOptions.length > 0 ? apiOptions : localTimezoneOptions
+  }, [localTimezoneOptions, userTimezonesQuery.data])
+  const normalizedTimezoneSearch = normalizeSearch(timezoneSearch)
+  const filteredTimezoneOptions = useMemo(() => {
+    if (!normalizedTimezoneSearch) {
+      return timezoneOptions
+    }
+    return timezoneOptions.filter((timezone) =>
+      normalizeSearch(timezone).includes(normalizedTimezoneSearch),
+    )
+  }, [normalizedTimezoneSearch, timezoneOptions])
+  const selectedTimezone = user?.timezone ?? DEFAULT_TIMEZONE
 
   const profileForm = useForm<UpdateProfileFormData>({
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
       name: user?.name ?? '',
+      timezone: selectedTimezone,
     },
   })
+  const profileTimezoneValue = profileForm.watch('timezone')
+  const timezoneOptionsForSelect = useMemo(() => {
+    const current = profileTimezoneValue || selectedTimezone
+    const merged = current && !filteredTimezoneOptions.includes(current)
+      ? [current, ...filteredTimezoneOptions]
+      : filteredTimezoneOptions
+    return Array.from(new Set(merged))
+  }, [filteredTimezoneOptions, profileTimezoneValue, selectedTimezone])
 
   const passwordForm = useForm<ChangePasswordFormData>({
     resolver: zodResolver(changePasswordSchema),
@@ -61,10 +102,14 @@ function Profile() {
       const updatedUser = await updateProfileMutation.mutateAsync({
         id: user.id,
         name: formData.name,
+        timezone: formData.timezone,
       })
       updateUser(updatedUser)
       setUser(updatedUser)
-      profileForm.reset({ name: updatedUser.name })
+      profileForm.reset({
+        name: updatedUser.name,
+        timezone: updatedUser.timezone ?? DEFAULT_TIMEZONE,
+      })
       setProfileMessage('Perfil atualizado com sucesso.')
     } catch (error: unknown) {
       profileForm.setError('root', {
@@ -133,6 +178,71 @@ function Profile() {
             <Label htmlFor="profile-email">Email</Label>
             <Input id="profile-email" value={user?.email ?? ''} disabled />
           </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="profile-timezone-search">Timezone</Label>
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Detectado no dispositivo: {browserTimezone}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                profileForm.setValue('timezone', browserTimezone, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                })
+              }
+              disabled={!isUserReady || updateProfileMutation.isPending}
+            >
+              Usar autodetectado
+            </Button>
+          </div>
+          <Input
+            id="profile-timezone-search"
+            placeholder="Buscar timezone (ex.: Australia, Sao_Paulo, UTC)"
+            value={timezoneSearch}
+            onChange={(event) => setTimezoneSearch(event.target.value)}
+            disabled={!isUserReady || updateProfileMutation.isPending}
+          />
+          <Select
+            value={profileTimezoneValue}
+            onValueChange={(value) =>
+              profileForm.setValue('timezone', value, {
+                shouldDirty: true,
+                shouldTouch: true,
+              })
+            }
+            disabled={!isUserReady || updateProfileMutation.isPending}
+          >
+            <SelectTrigger id="profile-timezone">
+              <SelectValue placeholder="Selecione o timezone" />
+            </SelectTrigger>
+            <SelectContent>
+              {timezoneOptionsForSelect.map((timezone) => (
+                <SelectItem key={timezone} value={timezone}>
+                  {getTimezoneDisplayLabel(timezone)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {profileForm.formState.errors.timezone && (
+            <p className="text-sm text-destructive">
+              {profileForm.formState.errors.timezone.message}
+            </p>
+          )}
+          {filteredTimezoneOptions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhum timezone encontrado para o filtro informado.
+            </p>
+          ) : null}
+          {userTimezonesQuery.isError ? (
+            <p className="text-xs text-muted-foreground">
+              Catálogo local em uso. Não foi possível carregar a lista completa
+              do servidor.
+            </p>
+          ) : null}
         </div>
 
         <div className="mt-4 space-y-2">

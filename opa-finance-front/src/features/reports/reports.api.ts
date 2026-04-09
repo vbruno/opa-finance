@@ -84,9 +84,39 @@ export type WeeklyCashflowQueryParams = {
   accountIds?: string[]
 }
 
+export type RecurrenceForecastTotalsBlock = {
+  income: { months: number[]; yearTotal: number }
+  expense: { months: number[]; yearTotal: number }
+  balance: { months: number[]; yearTotal: number }
+}
+
+export type RecurrenceForecastResponse = {
+  year: number
+  timezone: string
+  accountIds: string[]
+  horizon: {
+    projectionStartDate: string | null
+    projectionEndDate: string
+  }
+  totals: {
+    real: RecurrenceForecastTotalsBlock
+    projected: RecurrenceForecastTotalsBlock
+    combined: RecurrenceForecastTotalsBlock
+  }
+  metadata: {
+    projectedOccurrences: number
+  }
+}
+
+export type RecurrenceForecastQueryParams = {
+  year?: number
+  accountIds?: string[]
+}
+
 const consolidatedKey = ['consolidated']
 const consolidatedYearsKey = ['consolidated-years']
 const weeklyCashflowKey = ['weekly-cashflow']
+const recurrenceForecastKey = ['recurrence-forecast']
 
 export function useConsolidated(
   params: ConsolidatedQueryParams,
@@ -148,6 +178,30 @@ export function useWeeklyCashflow(
           params: {
             year: params.year,
             weekStart: params.weekStart,
+            accountIds: params.accountIds?.length
+              ? params.accountIds.join(',')
+              : undefined,
+          },
+        },
+      )
+      return response.data
+    },
+    enabled: options?.enabled,
+  })
+}
+
+export function useRecurrenceForecast(
+  params: RecurrenceForecastQueryParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [...recurrenceForecastKey, params],
+    queryFn: async () => {
+      const response = await api.get<RecurrenceForecastResponse>(
+        '/recurrences/forecast',
+        {
+          params: {
+            year: params.year,
             accountIds: params.accountIds?.length
               ? params.accountIds.join(',')
               : undefined,

@@ -45,6 +45,10 @@ import {
   type Subcategory,
 } from '@/features/categories'
 import {
+  useCreateRecurrence,
+  type RecurrenceCreatePayload,
+} from '@/features/recurrences'
+import {
   useCreateTransaction,
   useDeleteTransaction,
   useTransactionDescriptions,
@@ -257,6 +261,23 @@ function Transactions() {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
   const [isCreateCategoryTreeOpen, setIsCreateCategoryTreeOpen] =
     useState(false)
+  const [isCreateRecurrenceEnabled, setIsCreateRecurrenceEnabled] =
+    useState(false)
+  const [createRecurrenceStartDate, setCreateRecurrenceStartDate] = useState('')
+  const [isCreateRecurrenceStartDateTouched, setIsCreateRecurrenceStartDateTouched] =
+    useState(false)
+  const [createRecurrenceFrequency, setCreateRecurrenceFrequency] = useState<
+    'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  >('monthly')
+  const [createRecurrenceEndType, setCreateRecurrenceEndType] = useState<
+    'never' | 'by_occurrences' | 'until_date'
+  >('never')
+  const [createRecurrenceEndOccurrences, setCreateRecurrenceEndOccurrences] =
+    useState('12')
+  const [createRecurrenceEndDate, setCreateRecurrenceEndDate] = useState('')
+  const [createRecurrenceDayOfWeek, setCreateRecurrenceDayOfWeek] = useState('1')
+  const [createRecurrenceDayOfMonth, setCreateRecurrenceDayOfMonth] = useState('1')
+  const [createRecurrenceMonthOfYear, setCreateRecurrenceMonthOfYear] = useState('1')
   const [isCreateAccountSelectOpen, setIsCreateAccountSelectOpen] =
     useState(false)
   const [isEditAccountSelectOpen, setIsEditAccountSelectOpen] = useState(false)
@@ -420,6 +441,7 @@ function Transactions() {
     },
   )
   const createTransactionMutation = useCreateTransaction()
+  const createRecurrenceMutation = useCreateRecurrence()
   const createTransferMutation = useCreateTransfer()
   const updateTransactionMutation = useUpdateTransaction()
   const deleteTransactionMutation = useDeleteTransaction()
@@ -508,6 +530,7 @@ function Transactions() {
   const createSubcategoryId = watch('subcategoryId')
   const createType = watch('type')
   const createAccountId = watch('accountId')
+  const createDate = watch('date')
   const createDescription = watch('description') ?? ''
   const transferFromAccountId = transferForm.watch('fromAccountId')
   const transferToAccountId = transferForm.watch('toAccountId')
@@ -638,6 +661,16 @@ function Transactions() {
   const createSubcategories = useMemo(
     () => createSubcategoriesByCategory[createCategoryId] ?? [],
     [createCategoryId, createSubcategoriesByCategory],
+  )
+  const createSubcategoryName = useMemo(
+    () =>
+      createSubcategories.find((subcategory) => subcategory.id === createSubcategoryId)?.name ??
+      '',
+    [createSubcategories, createSubcategoryId],
+  )
+  const createAccountName = useMemo(
+    () => accounts.find((account) => account.id === createAccountId)?.name ?? '',
+    [accounts, createAccountId],
   )
 
   const createCategoryTreeOptions = useMemo(() => {
@@ -877,11 +910,30 @@ function Transactions() {
     })
   }
 
+  const resetCreateRecurrenceDraft = useCallback((baseDate?: string) => {
+    const normalizedDate =
+      isIsoDate(baseDate) && baseDate ? baseDate : formatDateInput(new Date())
+    const fallbackDate = new Date(`${normalizedDate}T00:00:00`)
+    const safeDate = Number.isNaN(fallbackDate.getTime()) ? new Date() : fallbackDate
+
+    setCreateRecurrenceStartDate(normalizedDate)
+    setIsCreateRecurrenceStartDateTouched(false)
+    setCreateRecurrenceFrequency('monthly')
+    setCreateRecurrenceEndType('never')
+    setCreateRecurrenceEndOccurrences('12')
+    setCreateRecurrenceEndDate('')
+    setCreateRecurrenceDayOfWeek(String(safeDate.getDay()))
+    setCreateRecurrenceDayOfMonth(String(safeDate.getDate()))
+    setCreateRecurrenceMonthOfYear(String(safeDate.getMonth() + 1))
+  }, [])
+
   const resetCreateForm = useCallback(() => {
     isCreateFromDuplicate.current = false
     lastCreateCategoryId.current = null
     pendingCategorySelection.current = null
     pendingSubcategorySelection.current = null
+    setIsCreateRecurrenceEnabled(false)
+    resetCreateRecurrenceDraft()
     setIsCreateAccountSelectOpen(false)
     setCreateCategoryTreeSearch('')
     reset({
@@ -895,7 +947,7 @@ function Transactions() {
       notes: '',
     })
     clearErrors()
-  }, [clearErrors, primaryAccountId, reset])
+  }, [clearErrors, primaryAccountId, reset, resetCreateRecurrenceDraft])
 
   const handleClearCreateForm = useCallback(() => {
     resetCreateForm()
@@ -903,10 +955,12 @@ function Transactions() {
 
   const handleCloseCreateModal = useCallback(() => {
     setIsCreateOpen(false)
+    setIsCreateRecurrenceEnabled(false)
+    resetCreateRecurrenceDraft()
     setIsCreateAccountSelectOpen(false)
     setIsCreateCategoryTreeOpen(false)
     setCreateCategoryTreeSearch('')
-  }, [])
+  }, [resetCreateRecurrenceDraft])
 
   const handleCreateAmountChange = useCallback(
     (rawValue: string, onChange: SetStringValue) => {
@@ -942,18 +996,73 @@ function Transactions() {
   )
 
   const submitCreateTransaction = handleSubmit(async (formData) => {
+    const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
+    const transactionPayload = {
+      accountId: formData.accountId,
+      categoryId: formData.categoryId,
+      subcategoryId: formData.subcategoryId ? formData.subcategoryId : null,
+      type: formData.type as Transaction['type'],
+      amount: parsedAmount,
+      date: formData.date,
+      description: formData.description?.trim() || null,
+      notes: formData.notes?.trim() || null,
+    }
+
+    const recurrencePayloadResult = isCreateRecurrenceEnabled
+      ? buildRecurrencePayloadFromDraft({
+          accountId: formData.accountId,
+          categoryId: formData.categoryId,
+          subcategoryId: formData.subcategoryId || undefined,
+          amount: parsedAmount,
+          description: formData.description ?? undefined,
+          notes: formData.notes ?? undefined,
+          startDate: createRecurrenceStartDate,
+          frequency: createRecurrenceFrequency,
+          endType: createRecurrenceEndType,
+          endOccurrences: createRecurrenceEndOccurrences,
+          endDate: createRecurrenceEndDate,
+          dayOfWeek: createRecurrenceDayOfWeek,
+          dayOfMonth: createRecurrenceDayOfMonth,
+          monthOfYear: createRecurrenceMonthOfYear,
+        })
+      : { payload: null as RecurrenceCreatePayload | null, error: null as string | null }
+
+    if (recurrencePayloadResult.error) {
+      setError('root', { message: recurrencePayloadResult.error })
+      return
+    }
+
     try {
-      const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
-      await createTransactionMutation.mutateAsync({
-        accountId: formData.accountId,
-        categoryId: formData.categoryId,
-        subcategoryId: formData.subcategoryId ? formData.subcategoryId : null,
-        type: formData.type as Transaction['type'],
-        amount: parsedAmount,
-        date: formData.date,
-        description: formData.description?.trim() || null,
-        notes: formData.notes?.trim() || null,
-      })
+      const createdTransaction = await createTransactionMutation.mutateAsync(
+        transactionPayload,
+      )
+
+      if (recurrencePayloadResult.payload) {
+        try {
+          await createRecurrenceMutation.mutateAsync(recurrencePayloadResult.payload)
+        } catch (recurrenceError) {
+          let rollbackSucceeded = false
+          try {
+            await deleteTransactionMutation.mutateAsync(createdTransaction.id)
+            rollbackSucceeded = true
+          } catch {
+            // best-effort rollback
+          }
+
+          const rollbackMessage = rollbackSucceeded
+            ? 'A transação foi revertida.'
+            : 'Não foi possível reverter a transação automaticamente. Verifique a lista de transações.'
+
+          setError('root', {
+            message: `Falha ao criar recorrência. ${rollbackMessage} ${getApiErrorMessage(
+              recurrenceError,
+              { defaultMessage: '' },
+            )}`.trim(),
+          })
+          return
+        }
+      }
+
       resetCreateForm()
       setIsCreateOpen(false)
     } catch (error: unknown) {
@@ -1136,6 +1245,16 @@ function Transactions() {
       }
     }
   }, [clearErrors, createAccountId, isCreateOpen, primaryAccountId, setValue])
+
+  useEffect(() => {
+    if (!isCreateRecurrenceEnabled || isCreateRecurrenceStartDateTouched) {
+      return
+    }
+    if (!isIsoDate(createDate)) {
+      return
+    }
+    setCreateRecurrenceStartDate(createDate)
+  }, [createDate, isCreateRecurrenceEnabled, isCreateRecurrenceStartDateTouched])
 
   useEffect(() => {
     if (!isCreateCategoryOpen) {
@@ -1866,8 +1985,10 @@ function Transactions() {
 
   const openTransactionCreate = useCallback(() => {
     isCreateFromDuplicate.current = false
+    setIsCreateRecurrenceEnabled(false)
+    resetCreateRecurrenceDraft()
     setIsCreateOpen(true)
-  }, [])
+  }, [resetCreateRecurrenceDraft])
 
   const openTransferCreate = useCallback(() => {
     setTransferEditContext(null)
@@ -2130,10 +2251,12 @@ function Transactions() {
         description: transaction.description ?? '',
         notes: transaction.notes ?? '',
       })
+      setIsCreateRecurrenceEnabled(false)
+      resetCreateRecurrenceDraft(formatDateInput(new Date()))
       setSelectedTransaction(null)
       setIsCreateOpen(true)
     },
-    [reset],
+    [reset, resetCreateRecurrenceDraft],
   )
 
   const handleCloseTransferModal = () => {
@@ -3989,6 +4112,214 @@ function Transactions() {
                 )}
               </div>
 
+              <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={isCreateRecurrenceEnabled}
+                    onChange={(event) => {
+                      const checked = event.target.checked
+                      setIsCreateRecurrenceEnabled(checked)
+                      if (checked) {
+                        resetCreateRecurrenceDraft(createDate)
+                      }
+                    }}
+                  />
+                  <span>Tornar recorrente</span>
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ative para configurar a regra recorrente com base nesta transação.
+                </p>
+              </div>
+
+              {isCreateRecurrenceEnabled ? (
+                <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
+                    <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
+                      Prévia ativa
+                    </span>
+                  </div>
+
+                  <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Data de início</Label>
+                        <Input
+                          type="date"
+                          value={createRecurrenceStartDate}
+                          onChange={(event) => {
+                            setCreateRecurrenceStartDate(event.target.value)
+                            setIsCreateRecurrenceStartDateTouched(true)
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Frequência</Label>
+                        <Select
+                          value={createRecurrenceFrequency}
+                          onValueChange={(value) =>
+                            setCreateRecurrenceFrequency(
+                              value as 'weekly' | 'biweekly' | 'monthly' | 'yearly',
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="weekly">Semanal</SelectItem>
+                            <SelectItem value="biweekly">Quinzenal</SelectItem>
+                            <SelectItem value="monthly">Mensal</SelectItem>
+                            <SelectItem value="yearly">Anual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      {(createRecurrenceFrequency === 'weekly' ||
+                        createRecurrenceFrequency === 'biweekly') ? (
+                        <div className="space-y-2">
+                          <Label>Dia da semana</Label>
+                          <Select
+                            value={createRecurrenceDayOfWeek}
+                            onValueChange={setCreateRecurrenceDayOfWeek}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">Domingo</SelectItem>
+                              <SelectItem value="1">Segunda</SelectItem>
+                              <SelectItem value="2">Terça</SelectItem>
+                              <SelectItem value="3">Quarta</SelectItem>
+                              <SelectItem value="4">Quinta</SelectItem>
+                              <SelectItem value="5">Sexta</SelectItem>
+                              <SelectItem value="6">Sábado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
+
+                      {(createRecurrenceFrequency === 'monthly' ||
+                        createRecurrenceFrequency === 'yearly') ? (
+                        <div className="space-y-2">
+                          <Label>Dia do mês</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={createRecurrenceDayOfMonth}
+                            onChange={(event) =>
+                              setCreateRecurrenceDayOfMonth(event.target.value)
+                            }
+                          />
+                        </div>
+                      ) : null}
+
+                      {createRecurrenceFrequency === 'yearly' ? (
+                        <div className="space-y-2">
+                          <Label>Mês</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={createRecurrenceMonthOfYear}
+                            onChange={(event) =>
+                              setCreateRecurrenceMonthOfYear(event.target.value)
+                            }
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Término</p>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label>Término</Label>
+                        <Select
+                          value={createRecurrenceEndType}
+                          onValueChange={(value) =>
+                            setCreateRecurrenceEndType(
+                              value as 'never' | 'by_occurrences' | 'until_date',
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="never">Sem fim</SelectItem>
+                            <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
+                            <SelectItem value="until_date">Por data final</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {createRecurrenceEndType === 'by_occurrences' ? (
+                        <div className="space-y-2">
+                          <Label>Qtd. ocorrências</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={createRecurrenceEndOccurrences}
+                            onChange={(event) =>
+                              setCreateRecurrenceEndOccurrences(event.target.value)
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      {createRecurrenceEndType === 'until_date' ? (
+                        <div className="space-y-2">
+                          <Label>Data final</Label>
+                          <Input
+                            type="date"
+                            value={createRecurrenceEndDate}
+                            onChange={(event) =>
+                              setCreateRecurrenceEndDate(event.target.value)
+                            }
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-sky-500/20 bg-background/60 p-2.5 text-[11px] text-muted-foreground sm:p-3 sm:text-xs">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Base da transação</p>
+                    <div className="grid gap-1.5 sm:gap-2 md:grid-cols-2">
+                      <p>
+                        <strong className="text-foreground">Conta:</strong>{' '}
+                        {createAccountName || 'Selecione'}
+                      </p>
+                      <p>
+                        <strong className="text-foreground">Categoria:</strong>{' '}
+                        {createCategory?.name || 'Selecione'}
+                      </p>
+                      <p>
+                        <strong className="text-foreground">Subcategoria:</strong>{' '}
+                        {createSubcategoryName || 'Nenhuma'}
+                      </p>
+                      <p>
+                        <strong className="text-foreground">Valor:</strong>{' '}
+                        {watch('amount') || '-'}
+                      </p>
+                      <p>
+                        <strong className="text-foreground">Descrição:</strong>{' '}
+                        {createDescription || '-'}
+                      </p>
+                      <p>
+                        <strong className="text-foreground">Notas:</strong>{' '}
+                        {(watch('notes') ?? '').trim() || '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {errors.root && (
                 <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                   {errors.root.message}
@@ -5527,11 +5858,120 @@ function formatDateDisplay(
   return formatter.format(date)
 }
 
+function buildRecurrencePayloadFromDraft(input: {
+  accountId: string
+  categoryId: string
+  subcategoryId?: string
+  amount: number
+  description?: string
+  notes?: string
+  startDate: string
+  frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  endType: 'never' | 'by_occurrences' | 'until_date'
+  endOccurrences: string
+  endDate: string
+  dayOfWeek: string
+  dayOfMonth: string
+  monthOfYear: string
+}) {
+  if (!isIsoDate(input.startDate)) {
+    return {
+      payload: null as RecurrenceCreatePayload | null,
+      error: 'Informe uma data inicial válida para a recorrência.',
+    }
+  }
+
+  const payload: RecurrenceCreatePayload = {
+    originType: 'transaction',
+    accountId: input.accountId,
+    categoryId: input.categoryId,
+    subcategoryId: input.subcategoryId,
+    amount: input.amount,
+    description: input.description?.trim() || undefined,
+    notes: input.notes?.trim() || undefined,
+    frequency: input.frequency,
+    startDate: input.startDate,
+    endType: input.endType,
+  }
+
+  if (input.frequency === 'weekly' || input.frequency === 'biweekly') {
+    const dayOfWeek = Number(input.dayOfWeek)
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+      return {
+        payload: null,
+        error: 'Informe o dia da semana (0 a 6) para a recorrência.',
+      }
+    }
+    payload.dayOfWeek = dayOfWeek
+  }
+
+  if (input.frequency === 'monthly' || input.frequency === 'yearly') {
+    const dayOfMonth = Number(input.dayOfMonth)
+    if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
+      return {
+        payload: null,
+        error: 'Informe o dia do mês (1 a 31) para a recorrência.',
+      }
+    }
+    payload.dayOfMonth = dayOfMonth
+  }
+
+  if (input.frequency === 'yearly') {
+    const monthOfYear = Number(input.monthOfYear)
+    if (!Number.isInteger(monthOfYear) || monthOfYear < 1 || monthOfYear > 12) {
+      return {
+        payload: null,
+        error: 'Informe o mês (1 a 12) para a recorrência anual.',
+      }
+    }
+    payload.monthOfYear = monthOfYear
+  }
+
+  if (input.endType === 'by_occurrences') {
+    const endOccurrences = Number(input.endOccurrences)
+    if (!Number.isInteger(endOccurrences) || endOccurrences < 1) {
+      return {
+        payload: null,
+        error: 'Informe a quantidade de ocorrências da recorrência.',
+      }
+    }
+    payload.endOccurrences = endOccurrences
+  }
+
+  if (input.endType === 'until_date') {
+    if (!isIsoDate(input.endDate)) {
+      return {
+        payload: null,
+        error: 'Informe a data final da recorrência.',
+      }
+    }
+    if (input.endDate < input.startDate) {
+      return {
+        payload: null,
+        error: 'A data final da recorrência não pode ser menor que a data inicial.',
+      }
+    }
+    payload.endDate = input.endDate
+  }
+
+  return {
+    payload,
+    error: null as string | null,
+  }
+}
+
 function formatDateInput(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function isIsoDate(value: string | null | undefined) {
+  if (!value) {
+    return false
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
 function normalizeText(value: string) {

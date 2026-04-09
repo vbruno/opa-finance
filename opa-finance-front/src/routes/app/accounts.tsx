@@ -259,11 +259,15 @@ function Accounts() {
         },
       })
     } catch (error: unknown) {
+      const message = getApiErrorMessage(error, {
+        defaultMessage:
+          'Erro ao atualizar visibilidade no dashboard. Tente novamente.',
+      })
+      const status = getErrorStatus(error)
       setDashboardVisibilityError(
-        getApiErrorMessage(error, {
-          defaultMessage:
-            'Erro ao atualizar visibilidade no dashboard. Tente novamente.',
-        }),
+        status === 409 && isRecurrenceConflictMessage(message)
+          ? `${message} Finalize ou remapeie as recorrências antes de ocultar/inativar a conta.`
+          : message,
       )
     } finally {
       setIsTogglingDashboardVisibility(false)
@@ -1656,6 +1660,11 @@ function Accounts() {
                 {deleteBlockedReason}
               </div>
             )}
+            {deleteError && (
+              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {deleteError}
+              </div>
+            )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               <ShortcutTooltip label="Atalho: Esc">
@@ -1672,6 +1681,8 @@ function Accounts() {
                 className="w-full sm:w-auto"
                 disabled={deleteAccountMutation.isPending}
                 onClick={async () => {
+                  setDeleteBlockedReason(null)
+                  setDeleteError(null)
                   try {
                     await deleteAccountMutation.mutateAsync(selectedAccount.id)
                     setIsDeleteConfirmOpen(false)
@@ -1679,22 +1690,22 @@ function Accounts() {
                       search: (prev) => ({ ...prev, id: undefined }),
                       replace: true,
                     })
-                    setDeleteError(null)
                   } catch (error: unknown) {
                     const status = getErrorStatus(error)
+                    const message = getApiErrorMessage(error, {
+                      defaultMessage: 'Erro ao excluir conta. Tente novamente.',
+                    })
                     if (status === 409) {
+                      setDeleteError(null)
                       setDeleteBlockedReason(
-                        'Conta possui transações e não pode ser removida.',
+                        isRecurrenceConflictMessage(message)
+                          ? `${message} Finalize ou remapeie as recorrências antes de excluir a conta.`
+                          : message,
                       )
                     } else {
-                      setDeleteError(
-                        getApiErrorMessage(error, {
-                          defaultMessage:
-                            'Erro ao excluir conta. Tente novamente.',
-                        }),
-                      )
+                      setDeleteBlockedReason(null)
+                      setDeleteError(message)
                     }
-                    setIsDeleteConfirmOpen(false)
                   }
                 }}
               >
@@ -1883,6 +1894,13 @@ function normalizeSearch(value: string) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+}
+
+function isRecurrenceConflictMessage(message: string | null | undefined) {
+  if (!message) {
+    return false
+  }
+  return normalizeSearch(message).includes('recorrencia ativa')
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {

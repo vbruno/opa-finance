@@ -17,6 +17,7 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppWeeklyCashflowRouteImport } from './routes/app/weekly-cashflow'
 import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppRegisterRouteImport } from './routes/app/register'
+import { Route as AppRecurrencesRouteImport } from './routes/app/recurrences'
 import { Route as AppProfileRouteImport } from './routes/app/profile'
 import { Route as AppConsolidatedRouteImport } from './routes/app/consolidated'
 import { Route as AppCategoriesRouteImport } from './routes/app/categories'
@@ -64,6 +65,11 @@ const AppRegisterRoute = AppRegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppRecurrencesRoute = AppRecurrencesRouteImport.update({
+  id: '/recurrences',
+  path: '/recurrences',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/app/categories': typeof AppCategoriesRoute
   '/app/consolidated': typeof AppConsolidatedRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/recurrences': typeof AppRecurrencesRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/app/categories': typeof AppCategoriesRoute
   '/app/consolidated': typeof AppConsolidatedRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/recurrences': typeof AppRecurrencesRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/app/categories': typeof AppCategoriesRoute
   '/app/consolidated': typeof AppConsolidatedRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/recurrences': typeof AppRecurrencesRoute
   '/app/register': typeof AppRegisterRoute
   '/app/transactions': typeof AppTransactionsRoute
   '/app/weekly-cashflow': typeof AppWeeklyCashflowRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/app/categories'
     | '/app/consolidated'
     | '/app/profile'
+    | '/app/recurrences'
     | '/app/register'
     | '/app/transactions'
     | '/app/weekly-cashflow'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/app/categories'
     | '/app/consolidated'
     | '/app/profile'
+    | '/app/recurrences'
     | '/app/register'
     | '/app/transactions'
     | '/app/weekly-cashflow'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/app/categories'
     | '/app/consolidated'
     | '/app/profile'
+    | '/app/recurrences'
     | '/app/register'
     | '/app/transactions'
     | '/app/weekly-cashflow'
@@ -258,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRegisterRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/recurrences': {
+      id: '/app/recurrences'
+      path: '/recurrences'
+      fullPath: '/app/recurrences'
+      preLoaderRoute: typeof AppRecurrencesRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/profile': {
       id: '/app/profile'
       path: '/profile'
@@ -321,6 +340,7 @@ interface AppRouteRouteChildren {
   AppCategoriesRoute: typeof AppCategoriesRoute
   AppConsolidatedRoute: typeof AppConsolidatedRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppRecurrencesRoute: typeof AppRecurrencesRoute
   AppRegisterRoute: typeof AppRegisterRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
   AppWeeklyCashflowRoute: typeof AppWeeklyCashflowRoute
@@ -333,6 +353,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppCategoriesRoute: AppCategoriesRoute,
   AppConsolidatedRoute: AppConsolidatedRoute,
   AppProfileRoute: AppProfileRoute,
+  AppRecurrencesRoute: AppRecurrencesRoute,
   AppRegisterRoute: AppRegisterRoute,
   AppTransactionsRoute: AppTransactionsRoute,
   AppWeeklyCashflowRoute: AppWeeklyCashflowRoute,

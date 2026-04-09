@@ -162,6 +162,12 @@ Entidades principais:
 - Logout
 - `/me`
 
+### 👤 Users
+
+- Perfil do usuário
+- Atualização de `timezone` (IANA)
+- Catálogo de timezones válidos (`/users/timezones`)
+
 ### 🏦 Accounts
 
 Personalizáveis:
@@ -204,6 +210,19 @@ Tipos suportados:
 - Transferência entre contas
 - Validação de acesso às contas
 - Operação atômica
+
+### 🔁 Recurrences
+
+- CRUD de regras recorrentes (transação e transferência)
+- Edição por escopo (`single`, `this_and_next`, `all`)
+- Materialização e forecast (real x projetado)
+- Job diário com lock, retry e idempotência
+
+### 📊 Reports
+
+- Fluxo semanal
+- Consolidado anual
+- Suporte a projeção por recorrência
 
 ### 🧾 Audit
 
@@ -365,11 +384,14 @@ src/
 - Documento consolidado: [docs/documento_consolidado_planejamento.md](docs/documento_consolidado_planejamento.md)
 - Módulos:
   - [Auth](docs/modules/modules_auth.md)
+  - [Users](docs/modules/modules_users.md)
   - [Accounts](docs/modules/modules_accounts.md)
   - [Categories](docs/modules/modules_categories.md)
   - [Subcategories](docs/modules/modules_subcategories.md)
   - [Transactions](docs/modules/modules_transactions.md)
   - [Transfers](docs/modules/modules_transfers.md)
+  - [Recurrences](docs/modules/modules_recurrences.md)
+  - [Reports](docs/modules/modules_reports.md)
   - [Audit](docs/modules/modules_audit.md)
 
 ## 🧪 Testes

@@ -64,6 +64,38 @@ export async function userRoutes(app: FastifyInstance) {
     },
   );
 
+  /* ----------------------------- LIST TIMEZONES ----------------------------- */
+  app.get(
+    "/users/timezones",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: userTag,
+        summary: "Listar timezones IANA",
+        description:
+          "Retorna lista de timezones válidos conforme catálogo do banco (pg_timezone_names).",
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              data: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+            example: {
+              data: ["Australia/Adelaide", "America/Sao_Paulo", "UTC"],
+            },
+          },
+        },
+      },
+    },
+    async () => {
+      return service.listTimezones();
+    },
+  );
+
   /* ---------------------------------- GET ONE -------------------------------- */
   app.get(
     "/users/:id",

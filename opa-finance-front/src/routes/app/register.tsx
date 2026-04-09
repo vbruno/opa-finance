@@ -1,13 +1,28 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useRegister } from '@/features/auth'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { getToken, useRegister } from '@/features/auth'
+import { useUserTimezones } from '@/features/profile'
 import { getApiErrorMessage } from '@/lib/apiError'
+import {
+  DEFAULT_TIMEZONE,
+  getBrowserTimezone,
+  getIanaTimezones,
+  getTimezoneDisplayLabel,
+  normalizeSearch,
+} from '@/lib/timezones'
 import { registerSchema, type RegisterFormData } from '@/schemas/auth.schema'
 
 export const Route = createFileRoute('/app/register')({
@@ -17,21 +32,50 @@ export const Route = createFileRoute('/app/register')({
 function RegisterUser() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showPasswords, setShowPasswords] = useState(false)
+  const [timezoneSearch, setTimezoneSearch] = useState('')
+  const browserTimezone = useMemo(() => getBrowserTimezone(), [])
+  const localTimezoneOptions = useMemo(() => getIanaTimezones(), [])
+  const userTimezonesQuery = useUserTimezones({ enabled: Boolean(getToken()) })
+  const timezoneOptions = useMemo(() => {
+    const apiOptions = userTimezonesQuery.data ?? []
+    return apiOptions.length > 0 ? apiOptions : localTimezoneOptions
+  }, [localTimezoneOptions, userTimezonesQuery.data])
+  const normalizedTimezoneSearch = normalizeSearch(timezoneSearch)
+  const filteredTimezoneOptions = useMemo(() => {
+    if (!normalizedTimezoneSearch) {
+      return timezoneOptions
+    }
+    return timezoneOptions.filter((timezone) =>
+      normalizeSearch(timezone).includes(normalizedTimezoneSearch),
+    )
+  }, [normalizedTimezoneSearch, timezoneOptions])
+
   const {
     register,
     handleSubmit,
     reset,
     setError,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       name: '',
       email: '',
+      timezone: DEFAULT_TIMEZONE,
       password: '',
       confirmPassword: '',
     },
   })
+  const registerTimezoneValue = watch('timezone')
+  const timezoneOptionsForSelect = useMemo(() => {
+    const current = registerTimezoneValue || DEFAULT_TIMEZONE
+    const merged = filteredTimezoneOptions.includes(current)
+      ? filteredTimezoneOptions
+      : [current, ...filteredTimezoneOptions]
+    return Array.from(new Set(merged))
+  }, [filteredTimezoneOptions, registerTimezoneValue])
 
   const registerMutation = useRegister()
 
@@ -41,11 +85,18 @@ function RegisterUser() {
       await registerMutation.mutateAsync({
         name: formData.name,
         email: formData.email,
+        timezone: formData.timezone,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       })
       setSuccessMessage('Usuário criado com sucesso.')
-      reset()
+      reset({
+        name: '',
+        email: '',
+        timezone: DEFAULT_TIMEZONE,
+        password: '',
+        confirmPassword: '',
+      })
     } catch (error: unknown) {
       setError('root', {
         message: getApiErrorMessage(error, {
@@ -104,6 +155,69 @@ function RegisterUser() {
             {errors.email && (
               <p className="text-sm text-destructive">{errors.email.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="register-timezone-search">Timezone</Label>
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Detectado no dispositivo: {browserTimezone}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setValue('timezone', browserTimezone, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  })
+                }
+                disabled={isSubmitting || registerMutation.isPending}
+              >
+                Usar autodetectado
+              </Button>
+            </div>
+            <Input
+              id="register-timezone-search"
+              placeholder="Buscar timezone (ex.: Australia, Sao_Paulo, UTC)"
+              value={timezoneSearch}
+              onChange={(event) => setTimezoneSearch(event.target.value)}
+              disabled={isSubmitting || registerMutation.isPending}
+            />
+            <Select
+              value={registerTimezoneValue}
+              onValueChange={(value) =>
+                setValue('timezone', value, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                })
+              }
+              disabled={isSubmitting || registerMutation.isPending}
+            >
+              <SelectTrigger id="register-timezone">
+                <SelectValue placeholder="Selecione o timezone" />
+              </SelectTrigger>
+              <SelectContent>
+                {timezoneOptionsForSelect.map((timezone) => (
+                  <SelectItem key={timezone} value={timezone}>
+                    {getTimezoneDisplayLabel(timezone)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.timezone && (
+              <p className="text-sm text-destructive">{errors.timezone.message}</p>
+            )}
+            {filteredTimezoneOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum timezone encontrado para o filtro informado.
+              </p>
+            ) : null}
+            {userTimezonesQuery.isError ? (
+              <p className="text-xs text-muted-foreground">
+                Catálogo local em uso. Não foi possível carregar a lista
+                completa do servidor.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

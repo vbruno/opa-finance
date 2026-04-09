@@ -1730,6 +1730,12 @@ function Categories() {
                 depois excluir a categoria.
               </div>
             )}
+            {isRecurrenceConflictMessage(deleteError) && (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Finalize ou remapeie as recorrências ativas vinculadas antes de
+                excluir esta categoria.
+              </div>
+            )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <ShortcutTooltip label="Atalho: Esc">
@@ -2030,6 +2036,12 @@ function Categories() {
                 {subDeleteError}
               </div>
             )}
+            {isRecurrenceConflictMessage(subDeleteError) && (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Finalize ou remapeie as recorrências ativas vinculadas antes de
+                excluir esta subcategoria.
+              </div>
+            )}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <ShortcutTooltip label="Atalho: Esc">
@@ -2082,6 +2094,13 @@ function normalizeSearch(value: string) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+}
+
+function isRecurrenceConflictMessage(message: string | null | undefined) {
+  if (!message) {
+    return false
+  }
+  return normalizeSearch(message).includes('recorrencia ativa')
 }
 
 function normalizeOptionalDescription(value?: string | null) {

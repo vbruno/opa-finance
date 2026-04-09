@@ -17,6 +17,7 @@ Documentação completa da API para integração com o frontend.
   - [Subcategories](#subcategories)
   - [Transactions](#transactions)
   - [Transfers](#transfers)
+  - [Recurrences](#recurrences)
   - [Reports](#reports)
   - [Audit](#audit)
 
@@ -383,6 +384,22 @@ Retorna o usuário autenticado (sem listar outros usuários).
   ],
   "page": 1,
   "limit": 10
+}
+```
+
+---
+
+### GET `/users/timezones`
+
+Retorna catálogo de timezones válidos conforme backend (fonte: `pg_timezone_names`).
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Response 200:**
+
+```json
+{
+  "data": ["Australia/Adelaide", "America/Sao_Paulo", "UTC"]
 }
 ```
 

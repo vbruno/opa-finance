@@ -14,8 +14,18 @@ import type {
 } from "./user.schemas";
 
 type UserRow = typeof users.$inferSelect;
+type RecurrenceTimezoneSyncRow = {
+  id: string;
+  timezone: string;
+  status: "active" | "finalized";
+  nextOccurrenceDate: string;
+  lastMaterializedDate: string | null;
+  version: number;
+};
 
 export class UserService {
+  private readonly timezoneAuditInsertChunkSize = 250;
+
   constructor(private app: FastifyInstance) {}
 
   /* ---------------------------------- GET ONE --------------------------------- */
@@ -64,6 +74,21 @@ export class UserService {
     return { data: [publicUser], page, limit };
   }
 
+  /* ---------------------------- LIST TIMEZONES ---------------------------- */
+  async listTimezones() {
+    const result = await this.app.db.execute(sql`SELECT name FROM pg_timezone_names ORDER BY name`);
+
+    const rows = Array.isArray(result)
+      ? result
+      : ((result as { rows?: Array<{ name?: unknown }> }).rows ?? []);
+
+    const timezones = rows
+      .map((row) => row.name)
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+    return { data: timezones };
+  }
+
   /* ---------------------------------- UPDATE ---------------------------------- */
   async update(params: UpdateUserParams, body: UpdateUserBody, authUserId: string) {
     const existingResult = await this.app.db.select().from(users).where(eq(users.id, params.id));
@@ -105,13 +130,20 @@ export class UserService {
           ne(recurrences.timezone, nextTimezone),
         );
 
-        const linkedActiveRecurrences: Array<typeof recurrences.$inferSelect> = await txDb
-          .select()
+        const linkedActiveRecurrences: RecurrenceTimezoneSyncRow[] = await txDb
+          .select({
+            id: recurrences.id,
+            timezone: recurrences.timezone,
+            status: recurrences.status,
+            nextOccurrenceDate: recurrences.nextOccurrenceDate,
+            lastMaterializedDate: recurrences.lastMaterializedDate,
+            version: recurrences.version,
+          })
           .from(recurrences)
           .where(activeRecurrencesNeedingSyncFilter);
 
         if (linkedActiveRecurrences.length > 0) {
-          const updatedRecurrences: Array<typeof recurrences.$inferSelect> = await txDb
+          const updatedRecurrences: RecurrenceTimezoneSyncRow[] = await txDb
             .update(recurrences)
             .set({
               timezone: nextTimezone,
@@ -119,7 +151,14 @@ export class UserService {
               updatedAt: new Date(),
             })
             .where(activeRecurrencesNeedingSyncFilter)
-            .returning();
+            .returning({
+              id: recurrences.id,
+              timezone: recurrences.timezone,
+              status: recurrences.status,
+              nextOccurrenceDate: recurrences.nextOccurrenceDate,
+              lastMaterializedDate: recurrences.lastMaterializedDate,
+              version: recurrences.version,
+            });
 
           const beforeById = new Map(linkedActiveRecurrences.map((row) => [row.id, row] as const));
           const auditPayloads: Array<typeof auditLogs.$inferInsert> = [];
@@ -161,7 +200,14 @@ export class UserService {
           }
 
           if (auditPayloads.length > 0) {
-            await txDb.insert(auditLogs).values(auditPayloads);
+            for (
+              let index = 0;
+              index < auditPayloads.length;
+              index += this.timezoneAuditInsertChunkSize
+            ) {
+              const chunk = auditPayloads.slice(index, index + this.timezoneAuditInsertChunkSize);
+              await txDb.insert(auditLogs).values(chunk);
+            }
           }
         }
       }

@@ -22,7 +22,9 @@ import { useAccounts } from '@/features/accounts'
 import {
   useConsolidated,
   useConsolidatedYears,
+  useRecurrenceForecast,
   type ConsolidatedLine,
+  type RecurrenceForecastResponse,
 } from '@/features/reports'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -122,6 +124,22 @@ function ConsolidatedPage() {
     {
       enabled:
         isDesktop &&
+        effectiveAccountIds.length > 0 &&
+        !yearsQuery.isLoading &&
+        yearOptions.length > 0 &&
+        hasSelectedYear,
+    },
+  )
+  const [isProjectionEnabled, setIsProjectionEnabled] = useState(false)
+  const recurrenceForecastQuery = useRecurrenceForecast(
+    {
+      year: activeYear,
+      accountIds: effectiveAccountIds.length ? effectiveAccountIds : undefined,
+    },
+    {
+      enabled:
+        isDesktop &&
+        isProjectionEnabled &&
         effectiveAccountIds.length > 0 &&
         !yearsQuery.isLoading &&
         yearOptions.length > 0 &&
@@ -236,7 +254,10 @@ function ConsolidatedPage() {
     : isPrimaryOnlySelected
       ? 'Conta principal'
       : selectedSingleAccountName ?? `${selectedCount} contas`
-  const showBalanceSkeleton = yearsQuery.isLoading || consolidatedQuery.isLoading
+  const showBalanceSkeleton =
+    yearsQuery.isLoading ||
+    consolidatedQuery.isLoading ||
+    (isProjectionEnabled && recurrenceForecastQuery.isLoading)
   const isEmpty =
     (!yearsQuery.isLoading &&
       !yearsQuery.isError &&
@@ -246,6 +267,18 @@ function ConsolidatedPage() {
       yearOptions.length > 0 &&
       ((consolidatedQuery.data?.income.length ?? 0) === 0 &&
         (consolidatedQuery.data?.expense.length ?? 0) === 0))
+  const projectionTotals = recurrenceForecastQuery.data?.totals
+  const hasProjectionData =
+    isProjectionEnabled &&
+    !recurrenceForecastQuery.isError &&
+    Boolean(projectionTotals)
+  const incomeYearTotal = hasProjectionData
+    ? projectionTotals?.combined.income.yearTotal ?? 0
+    : consolidatedQuery.data?.totals.income.yearTotal ?? 0
+  const expenseYearTotal = hasProjectionData
+    ? projectionTotals?.combined.expense.yearTotal ?? 0
+    : consolidatedQuery.data?.totals.expense.yearTotal ?? 0
+  const balanceYearTotal = incomeYearTotal - expenseYearTotal
 
   return (
     <div className="space-y-4">
@@ -260,6 +293,15 @@ function ConsolidatedPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant={isProjectionEnabled ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setIsProjectionEnabled((current) => !current)}
+            disabled={showBalanceSkeleton || yearOptions.length === 0}
+          >
+            {isProjectionEnabled ? 'Ocultar projeção' : 'Mostrar projeção'}
+          </Button>
           <Select
             value={String(activeYear)}
             onValueChange={(value) => setSearch({ year: Number(value) })}
@@ -371,6 +413,14 @@ function ConsolidatedPage() {
         </div>
       ) : null}
 
+      {isProjectionEnabled && recurrenceForecastQuery.isError ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700">
+          {`Não foi possível carregar projeção. Exibindo somente dados reais. (${getApiErrorMessage(
+            recurrenceForecastQuery.error,
+          )})`}
+        </div>
+      ) : null}
+
       {isEmpty ? (
         <div className="rounded-lg border p-4 text-sm text-muted-foreground">
           Não há dados para o ano selecionado.
@@ -382,23 +432,51 @@ function ConsolidatedPage() {
           <section className="grid grid-cols-3 gap-2">
             <SummaryCard
               label="Receitas (ano)"
-              value={consolidatedQuery.data.totals.income.yearTotal}
+              value={incomeYearTotal}
               tone="income"
+              helper={
+                hasProjectionData
+                  ? `Real ${formatBalanceCell(
+                      projectionTotals?.real.income.yearTotal ?? 0,
+                    )} · Proj ${formatBalanceCell(
+                      projectionTotals?.projected.income.yearTotal ?? 0,
+                    )}`
+                  : undefined
+              }
             />
             <SummaryCard
               label="Despesas (ano)"
-              value={consolidatedQuery.data.totals.expense.yearTotal}
+              value={expenseYearTotal}
               tone="expense"
+              helper={
+                hasProjectionData
+                  ? `Real ${formatBalanceCell(
+                      projectionTotals?.real.expense.yearTotal ?? 0,
+                    )} · Proj ${formatBalanceCell(
+                      projectionTotals?.projected.expense.yearTotal ?? 0,
+                    )}`
+                  : undefined
+              }
             />
             <SummaryCard
               label="Resultado (ano)"
-              value={
-                consolidatedQuery.data.totals.income.yearTotal -
-                consolidatedQuery.data.totals.expense.yearTotal
-              }
+              value={balanceYearTotal}
               tone="balance"
+              helper={
+                hasProjectionData
+                  ? `Real ${formatBalanceCell(
+                      projectionTotals?.real.balance.yearTotal ?? 0,
+                    )} · Proj ${formatBalanceCell(
+                      projectionTotals?.projected.balance.yearTotal ?? 0,
+                    )}`
+                  : undefined
+              }
             />
           </section>
+
+          {hasProjectionData && projectionTotals && recurrenceForecastQuery.data ? (
+            <ForecastTotalsTable forecast={recurrenceForecastQuery.data} />
+          ) : null}
 
           <BalanceSectionTable
             sectionLabel="Receitas"
@@ -601,10 +679,12 @@ function SummaryCard({
   label,
   value,
   tone,
+  helper,
 }: {
   label: string
   value: number
   tone: 'income' | 'expense' | 'balance'
+  helper?: string
 }) {
   const isBalancePositive = tone === 'balance' && value > 0
   const isBalanceNegative = tone === 'balance' && value < 0
@@ -627,15 +707,140 @@ function SummaryCard({
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-md border px-4 py-3.5">
-      <p className="flex items-center gap-2 text-sm leading-5 text-muted-foreground">
-        <ToneIcon className={`size-4 ${labelToneClass}`} />
-        {label}
-      </p>
+      <div>
+        <p className="flex items-center gap-2 text-sm leading-5 text-muted-foreground">
+          <ToneIcon className={`size-4 ${labelToneClass}`} />
+          {label}
+        </p>
+        {helper ? (
+          <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+        ) : null}
+      </div>
       <p className={`text-lg font-semibold leading-6 ${valueToneClass}`}>
         {formatBalanceCell(value)}
       </p>
     </div>
   )
+}
+
+function ForecastTotalsTable({ forecast }: { forecast: RecurrenceForecastResponse }) {
+  const blocks = [
+    {
+      key: 'income',
+      label: 'Receitas',
+      real: forecast.totals.real.income,
+      projected: forecast.totals.projected.income,
+      combined: forecast.totals.combined.income,
+      tone: 'income' as const,
+    },
+    {
+      key: 'expense',
+      label: 'Despesas',
+      real: forecast.totals.real.expense,
+      projected: forecast.totals.projected.expense,
+      combined: forecast.totals.combined.expense,
+      tone: 'expense' as const,
+    },
+    {
+      key: 'balance',
+      label: 'Resultado',
+      real: forecast.totals.real.balance,
+      projected: forecast.totals.projected.balance,
+      combined: forecast.totals.combined.balance,
+      tone: 'balance' as const,
+    },
+  ]
+
+  return (
+    <section className="rounded-lg border border-sky-500/30 bg-sky-500/5">
+      <div className="border-b border-sky-500/20 px-3 py-2">
+        <h2 className="text-sm font-semibold">Visão com projeção (real + projetado)</h2>
+        <p className="text-xs text-muted-foreground">
+          Meses futuros mostram parcela projetada sem materializar lançamentos no banco.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[1100px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40 text-left">
+              <th className="sticky left-0 z-10 min-w-[170px] bg-muted/40 px-3 py-2 font-medium">
+                Indicador
+              </th>
+              {monthLabels.map((label) => (
+                <th key={`forecast-head-${label}`} className="px-2 py-2 text-center font-medium">
+                  {label}
+                </th>
+              ))}
+              <th className="px-3 py-2 text-right font-semibold">Total/Ano</th>
+            </tr>
+          </thead>
+          <tbody>
+            {blocks.flatMap((block) => [
+              <tr key={`${block.key}-real`} className="border-b">
+                <td className="sticky left-0 bg-background px-3 py-2 font-medium">
+                  {block.label} (real)
+                </td>
+                {block.real.months.map((value, index) => (
+                  <td
+                    key={`${block.key}-real-${index}`}
+                    className={`px-2 py-2 text-center ${getForecastToneClass(block.tone, value)}`}
+                  >
+                    {formatBalanceCell(value)}
+                  </td>
+                ))}
+                <td className={`px-3 py-2 text-right ${getForecastToneClass(block.tone, block.real.yearTotal)}`}>
+                  {formatBalanceCell(block.real.yearTotal)}
+                </td>
+              </tr>,
+              <tr key={`${block.key}-projected`} className="border-b bg-sky-500/5">
+                <td className="sticky left-0 bg-sky-500/5 px-3 py-2 font-medium text-sky-600">
+                  {block.label} (projetado)
+                </td>
+                {block.projected.months.map((value, index) => (
+                  <td
+                    key={`${block.key}-projected-${index}`}
+                    className={`px-2 py-2 text-center ${getForecastToneClass(block.tone, value)}`}
+                  >
+                    {formatBalanceCell(value)}
+                  </td>
+                ))}
+                <td className={`px-3 py-2 text-right ${getForecastToneClass(block.tone, block.projected.yearTotal)}`}>
+                  {formatBalanceCell(block.projected.yearTotal)}
+                </td>
+              </tr>,
+              <tr key={`${block.key}-combined`} className="border-b bg-muted/10">
+                <td className="sticky left-0 bg-muted/10 px-3 py-2 font-semibold">
+                  {block.label} (combinado)
+                </td>
+                {block.combined.months.map((value, index) => (
+                  <td
+                    key={`${block.key}-combined-${index}`}
+                    className={`px-2 py-2 text-center font-semibold ${getForecastToneClass(block.tone, value)}`}
+                  >
+                    {formatBalanceCell(value)}
+                  </td>
+                ))}
+                <td className={`px-3 py-2 text-right font-semibold ${getForecastToneClass(block.tone, block.combined.yearTotal)}`}>
+                  {formatBalanceCell(block.combined.yearTotal)}
+                </td>
+              </tr>,
+            ])}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function getForecastToneClass(
+  tone: 'income' | 'expense' | 'balance',
+  value: number,
+) {
+  if (tone === 'income') return 'text-emerald-600'
+  if (tone === 'expense') return 'text-rose-600'
+  if (value > 0) return 'text-emerald-600'
+  if (value < 0) return 'text-rose-600'
+  return 'text-muted-foreground'
 }
 
 function BalanceSectionTable({

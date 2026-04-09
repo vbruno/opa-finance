@@ -339,7 +339,15 @@ export class CategoryService {
     }
 
     await this.app.db.transaction(async (txDb: typeof this.app.db) => {
-      await txDb.execute(sql`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`);
+      const lockResult = await txDb.execute(
+        sql`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`,
+      );
+      const lockRows = Array.isArray(lockResult)
+        ? lockResult
+        : ((lockResult as { rows?: unknown[] }).rows ?? []);
+      if (lockRows.length === 0) {
+        throw new NotFoundProblem("Categoria não encontrada.", `/categories/${id}`);
+      }
 
       const [sub] = await txDb
         .select({ id: subcategories.id })

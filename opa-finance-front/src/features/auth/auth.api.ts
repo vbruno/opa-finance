@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 export type RegisterPayload = {
   name: string
   email: string
+  timezone: string
   password: string
   confirmPassword: string
 }

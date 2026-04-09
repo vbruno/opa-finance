@@ -10,6 +10,7 @@ import {
   Home,
   Layers,
   Moon,
+  Repeat2,
   Receipt,
   Sun,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ const appNavItems = [
   { to: '/app/accounts', label: 'Contas', icon: CreditCard },
   { to: '/app/categories', label: 'Categorias', icon: Layers },
   { to: '/app/transactions', label: 'Transações', icon: Receipt },
+  { to: '/app/recurrences', label: 'Recorrências', icon: Repeat2 },
   { to: '/app/weekly-cashflow', label: 'Semanas', icon: CalendarRange },
   { to: '/app/consolidated', label: 'Consolidado', icon: BarChart3 },
   { to: '/app/audit', label: 'Histórico', icon: History },
