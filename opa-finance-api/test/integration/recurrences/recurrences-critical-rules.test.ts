@@ -1,11 +1,11 @@
-import type { FastifyInstance } from "fastify";
 import { eq, sql } from "drizzle-orm";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { recurrenceOccurrences, recurrences, transactions } from "@/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
+import { recurrenceOccurrences, recurrences, transactions } from "@/db/schema";
 
 describe("Recurrences - critical rules", () => {
   let app: FastifyInstance;

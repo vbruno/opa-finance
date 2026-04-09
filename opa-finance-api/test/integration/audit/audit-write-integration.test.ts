@@ -2,10 +2,10 @@ import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { DB } from "@/core/plugins/drizzle";
-import { auditLogs } from "@/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { buildTestApp } from "../setup";
+import type { DB } from "@/core/plugins/drizzle";
+import { auditLogs } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;

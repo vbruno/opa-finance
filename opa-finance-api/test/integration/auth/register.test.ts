@@ -1,8 +1,8 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { eq } from "drizzle-orm";
-import { users } from "@/db/schema";
 import { buildTestApp } from "../setup";
+import { users } from "@/db/schema";
 
 let app: FastifyInstance;
 

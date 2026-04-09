@@ -1,9 +1,9 @@
 // test/user/list-users.test.ts
 import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { buildTestApp } from "../setup";
 import type { DB } from "@/core/plugins/drizzle"; // ✔ correto
 import { users } from "@/db/schema";
-import { buildTestApp } from "../setup";
 
 let app: FastifyInstance;
 let db: DB;

@@ -2,10 +2,10 @@
 import type { FastifyInstance } from "fastify";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 
-import type { DB } from "@/core/plugins/drizzle";
-import { users, accounts, categories, subcategories, transactions } from "@/db/schema";
 import { registerAndLogin } from "../helpers/auth";
 import { buildTestApp } from "../setup";
+import type { DB } from "@/core/plugins/drizzle";
+import { users, accounts, categories, subcategories, transactions } from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;
