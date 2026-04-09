@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import type { DB } from "@/core/plugins/drizzle";
-import { categories, subcategories, users } from "@/db/schema";
+import { categories, recurrences, subcategories, users } from "@/db/schema";
 import { registerAndLogin } from "../../helpers/auth";
 import { buildTestApp } from "../../setup";
 
@@ -112,5 +112,53 @@ describe("DELETE /categories/:id", () => {
     });
 
     expect(res.statusCode).toBe(403);
+  });
+
+  it("não deve remover categoria com recorrência ativa vinculada", async () => {
+    const { token, user } = await registerAndLogin(app, db, "cat-rec@test.com");
+
+    const accountRes = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Categ", type: "cash" },
+    });
+    expect(accountRes.statusCode).toBe(201);
+    const createdAccount = accountRes.json();
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/categories",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Recorrente", type: "expense" },
+    });
+    expect(created.statusCode).toBe(201);
+    const category = created.json();
+
+    await db.insert(recurrences).values({
+      userId: user.id,
+      originType: "transaction",
+      status: "active",
+      timezone: "Australia/Adelaide",
+      frequency: "monthly",
+      startDate: "2099-01-10",
+      dayOfMonth: 10,
+      endType: "never",
+      accountId: createdAccount.id,
+      categoryId: category.id,
+      amount: "100",
+      description: "Teste categoria ativa",
+      notes: null,
+      nextOccurrenceDate: "2099-01-10",
+    });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/categories/${category.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().detail).toContain("recorrência ativa vinculada");
   });
 });

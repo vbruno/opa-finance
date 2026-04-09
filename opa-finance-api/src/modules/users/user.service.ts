@@ -1,10 +1,10 @@
 // src/modules/users/user.service.ts
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import { ForbiddenProblem, NotFoundProblem } from "../../core/errors/problems";
 import { ensureValidTimezone } from "../../core/utils/timezone-db.utils";
-import { users } from "../../db/schema";
+import { auditLogs, recurrences, users } from "../../db/schema";
 import type {
   ListUsersQuery,
   UpdateUserBody,
@@ -84,13 +84,90 @@ export class UserService {
       payload.timezone = normalizedTimezone;
     }
 
-    const updatedResult = await this.app.db
-      .update(users)
-      .set(payload)
-      .where(eq(users.id, params.id))
-      .returning();
+    const [updated] = await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      const [updatedUser] = (await txDb
+        .update(users)
+        .set(payload)
+        .where(eq(users.id, params.id))
+        .returning()) as UserRow[];
 
-    const [updated] = updatedResult as UserRow[];
+      const nextTimezone = payload.timezone;
+      const timezoneChanged =
+        typeof nextTimezone === "string" &&
+        nextTimezone.length > 0 &&
+        nextTimezone !== exists.timezone;
+
+      if (timezoneChanged) {
+        const activeRecurrencesNeedingSyncFilter = and(
+          eq(recurrences.userId, params.id),
+          eq(recurrences.status, "active"),
+          isNull(recurrences.deletedAt),
+          ne(recurrences.timezone, nextTimezone),
+        );
+
+        const linkedActiveRecurrences: Array<typeof recurrences.$inferSelect> = await txDb
+          .select()
+          .from(recurrences)
+          .where(activeRecurrencesNeedingSyncFilter);
+
+        if (linkedActiveRecurrences.length > 0) {
+          const updatedRecurrences: Array<typeof recurrences.$inferSelect> = await txDb
+            .update(recurrences)
+            .set({
+              timezone: nextTimezone,
+              version: sql`${recurrences.version} + 1`,
+              updatedAt: new Date(),
+            })
+            .where(activeRecurrencesNeedingSyncFilter)
+            .returning();
+
+          const beforeById = new Map(linkedActiveRecurrences.map((row) => [row.id, row] as const));
+          const auditPayloads: Array<typeof auditLogs.$inferInsert> = [];
+
+          for (const updatedRecurrence of updatedRecurrences) {
+            const beforeRecurrence = beforeById.get(updatedRecurrence.id);
+            if (!beforeRecurrence) {
+              continue;
+            }
+
+            auditPayloads.push({
+              userId: params.id,
+              entityType: "recurrence",
+              entityId: updatedRecurrence.id,
+              action: "update",
+              beforeData: {
+                id: beforeRecurrence.id,
+                timezone: beforeRecurrence.timezone,
+                status: beforeRecurrence.status,
+                nextOccurrenceDate: beforeRecurrence.nextOccurrenceDate,
+                lastMaterializedDate: beforeRecurrence.lastMaterializedDate,
+                version: beforeRecurrence.version,
+              },
+              afterData: {
+                id: updatedRecurrence.id,
+                timezone: updatedRecurrence.timezone,
+                status: updatedRecurrence.status,
+                nextOccurrenceDate: updatedRecurrence.nextOccurrenceDate,
+                lastMaterializedDate: updatedRecurrence.lastMaterializedDate,
+                version: updatedRecurrence.version,
+              },
+              metadata: {
+                operation: "recurrence-timezone-sync",
+                source: "user-profile-timezone-update",
+                previousTimezone: exists.timezone,
+                nextTimezone,
+              },
+            });
+          }
+
+          if (auditPayloads.length > 0) {
+            await txDb.insert(auditLogs).values(auditPayloads);
+          }
+        }
+      }
+
+      return [updatedUser];
+    });
 
     const { passwordHash, ...publicUser } = updated;
     void passwordHash;

@@ -1,9 +1,9 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/errors/problems";
 
-import { categories, subcategories } from "../../db/schema";
+import { categories, recurrences, subcategories } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { CreateCategoryInput } from "./category.schemas";
 
@@ -338,20 +338,42 @@ export class CategoryService {
       );
     }
 
-    // 🔒 Verifica subcategorias
-    const subs = await this.app.db
-      .select()
-      .from(subcategories)
-      .where(eq(subcategories.categoryId, id));
-
-    if (subs.length > 0) {
-      throw new ConflictProblem(
-        "Categoria possui subcategorias e não pode ser removida.",
-        `/categories/${id}`,
-      );
-    }
-
     await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      await txDb.execute(sql`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`);
+
+      const [sub] = await txDb
+        .select({ id: subcategories.id })
+        .from(subcategories)
+        .where(eq(subcategories.categoryId, id))
+        .limit(1);
+
+      if (sub) {
+        throw new ConflictProblem(
+          "Categoria possui subcategorias e não pode ser removida.",
+          `/categories/${id}`,
+        );
+      }
+
+      const [activeLinkedRecurrence] = await txDb
+        .select({ id: recurrences.id })
+        .from(recurrences)
+        .where(
+          and(
+            eq(recurrences.userId, userId),
+            eq(recurrences.status, "active"),
+            isNull(recurrences.deletedAt),
+            eq(recurrences.categoryId, id),
+          ),
+        )
+        .limit(1);
+
+      if (activeLinkedRecurrence) {
+        throw new ConflictProblem(
+          "Categoria com recorrência ativa vinculada não pode ser removida.",
+          `/categories/${id}`,
+        );
+      }
+
       await txDb.delete(categories).where(eq(categories.id, id));
       await this.audit.log(
         {

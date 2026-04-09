@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 describe("GET /auth/me", () => {
-  async function login() {
+  async function login(timezone?: string) {
     await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -22,6 +22,7 @@ describe("GET /auth/me", () => {
       payload: {
         name: "User",
         email: "user@example.com",
+        timezone,
         password: "Aa123456!",
         confirmPassword: "Aa123456!",
       },
@@ -53,6 +54,19 @@ describe("GET /auth/me", () => {
     const body = resp.json();
     expect(body.email).toBe("user@example.com");
     expect(body).not.toHaveProperty("passwordHash");
+  });
+
+  it("deve retornar timezone no perfil do usuário", async () => {
+    const token = await login("America/Sao_Paulo");
+
+    const resp = await app.inject({
+      method: "GET",
+      url: "/auth/me",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json().timezone).toBe("America/Sao_Paulo");
   });
 
   it("deve retornar 401 sem token", async () => {

@@ -444,6 +444,7 @@ Atualiza um usuário.
 
 - `403` - Apenas o próprio usuário pode atualizar
 - `404` - Usuário não encontrado
+- `400` - Timezone inválido
 
 ---
 
@@ -879,7 +880,8 @@ Deleta uma categoria.
 
 - `403` - Categoria de sistema não pode ser removida
 - `404` - Categoria não encontrada
-- `409` - Categoria possui transações e não pode ser removida
+- `409` - Categoria possui subcategorias e não pode ser removida
+- `409` - Categoria com recorrência ativa vinculada não pode ser removida
 
 ---
 
@@ -1034,7 +1036,7 @@ Deleta uma subcategoria.
 
 - `403` - Subcategoria não pertence ao usuário
 - `404` - Subcategoria não encontrada
-- `409` - Subcategoria possui transações e não pode ser removida
+- `409` - Subcategoria com recorrência ativa vinculada não pode ser removida
 
 ---
 

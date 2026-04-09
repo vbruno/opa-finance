@@ -5,7 +5,7 @@ import { FastifyInstance } from "fastify";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { DB } from "@/core/plugins/drizzle"; // ✔ correto
 import { hashPassword } from "@/core/utils/hash.utils";
-import { users } from "@/db/schema";
+import { accounts, auditLogs, categories, recurrences, users } from "@/db/schema";
 import { buildTestApp } from "../setup";
 
 let app: FastifyInstance;
@@ -155,5 +155,130 @@ describe("PUT /users/:id", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("deve validar timezone inválido com erro 400", async () => {
+    const { accessToken, user } = await registerAndLogin("Bruno", "tz-invalid@example.com");
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/users/${user.id}`,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      payload: {
+        timezone: "Invalid/Timezone",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().detail).toBe("Timezone inválido.");
+  });
+
+  it("deve propagar timezone novo apenas para recorrências ativas e auditar o evento", async () => {
+    const { accessToken, user } = await registerAndLogin("Bruno", "tz-propagate@example.com");
+
+    const [account] = await db
+      .insert(accounts)
+      .values({
+        userId: user.id,
+        name: "Conta base",
+        type: "cash",
+        isPrimary: true,
+        isHiddenOnDashboard: false,
+      })
+      .returning();
+
+    const [category] = await db
+      .insert(categories)
+      .values({
+        userId: user.id,
+        name: "Categoria base",
+        type: "expense",
+        system: false,
+      })
+      .returning();
+
+    const [activeRecurrence] = await db
+      .insert(recurrences)
+      .values({
+        userId: user.id,
+        originType: "transaction",
+        status: "active",
+        timezone: "Australia/Adelaide",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "never",
+        accountId: account.id,
+        categoryId: category.id,
+        amount: "100",
+        description: "Ativa",
+        notes: null,
+        nextOccurrenceDate: "2099-01-10",
+      })
+      .returning();
+
+    const [finalizedRecurrence] = await db
+      .insert(recurrences)
+      .values({
+        userId: user.id,
+        originType: "transaction",
+        status: "finalized",
+        timezone: "Australia/Adelaide",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "until_date",
+        endDate: "2099-04-10",
+        accountId: account.id,
+        categoryId: category.id,
+        amount: "100",
+        description: "Finalizada",
+        notes: null,
+        nextOccurrenceDate: "2099-01-10",
+      })
+      .returning();
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/users/${user.id}`,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      payload: {
+        timezone: "America/Sao_Paulo",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().timezone).toBe("America/Sao_Paulo");
+
+    const [activeAfter] = await db
+      .select()
+      .from(recurrences)
+      .where(eq(recurrences.id, activeRecurrence.id));
+    const [finalizedAfter] = await db
+      .select()
+      .from(recurrences)
+      .where(eq(recurrences.id, finalizedRecurrence.id));
+
+    expect(activeAfter.timezone).toBe("America/Sao_Paulo");
+    expect(finalizedAfter.timezone).toBe("Australia/Adelaide");
+
+    const recurrenceAuditLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.entityId, activeRecurrence.id));
+
+    expect(recurrenceAuditLogs.length).toBeGreaterThanOrEqual(1);
+    const timezoneSyncLog = recurrenceAuditLogs.find((log) => {
+      const metadata = log.metadata as { operation?: string } | null;
+      return metadata?.operation === "recurrence-timezone-sync";
+    });
+
+    expect(timezoneSyncLog).toBeDefined();
   });
 });

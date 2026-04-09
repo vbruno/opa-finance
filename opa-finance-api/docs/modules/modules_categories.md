@@ -17,6 +17,7 @@
 - `description` é opcional e pode ser `null`
 - Categorias de sistema são somente leitura para alteração/remoção
 - Subcategoria herda vínculo da categoria e também aceita `description` opcional
+- Categoria/subcategoria com recorrência `active` vinculada não pode ser removida
 
 ## Campos
 

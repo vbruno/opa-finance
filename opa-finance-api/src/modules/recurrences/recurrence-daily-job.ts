@@ -362,6 +362,26 @@ export class RecurrenceDailyJob {
         maxRecurrences: this.options.batchSize,
       });
 
+      this.app.log.info(
+        {
+          event: "recurrences.job.user.batch_result",
+          userId,
+          batchNumber: batchNumber + 1,
+          batchSize: this.options.batchSize,
+          totalActiveRecurrences: materialization.totalActiveRecurrences,
+          processedRecurrences: materialization.processedRecurrences,
+          remainingRecurrences: materialization.remainingRecurrences,
+          truncatedByBatch: materialization.truncatedByBatch,
+          createdOccurrences: materialization.createdOccurrences,
+          skippedOccurrences: materialization.skippedOccurrences,
+          createdTransactions: materialization.createdTransactions,
+          createdTransfers: materialization.createdTransfers,
+          finalizedRecurrences: materialization.finalizedRecurrences,
+          failedRecurrences: materialization.failedRecurrences,
+        },
+        "Recurrence materialization batch processed.",
+      );
+
       aggregated.totalActiveRecurrences = materialization.totalActiveRecurrences;
       aggregated.processedRecurrences += materialization.processedRecurrences;
       aggregated.truncatedByBatch = materialization.truncatedByBatch;

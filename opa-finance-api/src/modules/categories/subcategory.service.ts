@@ -1,7 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
-import { NotFoundProblem, ForbiddenProblem, ValidationProblem } from "../../core/errors/problems";
-import { categories, subcategories } from "../../db/schema";
+import {
+  ConflictProblem,
+  NotFoundProblem,
+  ForbiddenProblem,
+  ValidationProblem,
+} from "../../core/errors/problems";
+import { categories, recurrences, subcategories } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 
 export class SubcategoryService {
@@ -166,6 +171,28 @@ export class SubcategoryService {
     const existing = await this.getOne(id, userId);
 
     await this.app.db.transaction(async (txDb: typeof this.app.db) => {
+      await txDb.execute(sql`SELECT id FROM subcategories WHERE id = ${id} FOR UPDATE`);
+
+      const [activeLinkedRecurrence] = await txDb
+        .select({ id: recurrences.id })
+        .from(recurrences)
+        .where(
+          and(
+            eq(recurrences.userId, userId),
+            eq(recurrences.status, "active"),
+            isNull(recurrences.deletedAt),
+            eq(recurrences.subcategoryId, id),
+          ),
+        )
+        .limit(1);
+
+      if (activeLinkedRecurrence) {
+        throw new ConflictProblem(
+          "Subcategoria com recorrência ativa vinculada não pode ser removida.",
+          `/subcategories/${id}`,
+        );
+      }
+
       await txDb.delete(subcategories).where(eq(subcategories.id, id));
       await this.audit.log(
         {

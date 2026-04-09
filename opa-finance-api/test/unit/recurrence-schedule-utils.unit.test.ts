@@ -55,4 +55,26 @@ describe("recurrence schedule utils", () => {
     expect(getFirstOccurrenceOnOrAfter(schedule, "2025-01-01")).toBe("2025-02-28");
     expect(getNextOccurrenceAfter(schedule, "2025-02-28")).toBe("2026-02-28");
   });
+
+  it("calcula semanal corretamente na virada de ano", () => {
+    const schedule: RecurrenceSchedule = {
+      startDate: "2025-12-29",
+      frequency: "weekly",
+      dayOfWeek: 1,
+    };
+
+    expect(getFirstOccurrenceOnOrAfter(schedule, "2025-12-31")).toBe("2026-01-05");
+    expect(getNextOccurrenceAfter(schedule, "2026-01-05")).toBe("2026-01-12");
+  });
+
+  it("calcula quinzenal sem pular intervalo na virada de mês", () => {
+    const schedule: RecurrenceSchedule = {
+      startDate: "2026-01-26",
+      frequency: "biweekly",
+      dayOfWeek: 1,
+    };
+
+    expect(getFirstOccurrenceOnOrAfter(schedule, "2026-02-01")).toBe("2026-02-09");
+    expect(getNextOccurrenceAfter(schedule, "2026-02-09")).toBe("2026-02-23");
+  });
 });
