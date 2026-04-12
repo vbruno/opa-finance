@@ -24,9 +24,7 @@ api.interceptors.request.use(
 
 // Interceptor de resposta: trata erros e refresh token
 type QueueItem = {
-  // eslint-disable-next-line no-unused-vars
   resolve: (value?: unknown) => void
-  // eslint-disable-next-line no-unused-vars
   reject: (reason?: unknown) => void
 }
 

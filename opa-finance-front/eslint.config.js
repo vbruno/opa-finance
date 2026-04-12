@@ -34,6 +34,7 @@ export default [
       import: importPlugin,
     },
     rules: {
+      'no-unused-vars': 'off',
       'react/react-in-jsx-scope': 'off',
       'react/jsx-uses-react': 'off',
       'react-hooks/rules-of-hooks': 'error',

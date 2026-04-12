@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { useAuth } from '@/features/auth/useAuth'
 
-// eslint-disable-next-line no-unused-vars
 type Serialize<T> = (value: T) => string
-// eslint-disable-next-line no-unused-vars
 type Deserialize<T> = (raw: string) => T
 
 type PreferenceOptions<T> = {
