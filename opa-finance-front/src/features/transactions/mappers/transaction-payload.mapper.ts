@@ -1,6 +1,13 @@
 import type { RecurrenceCreatePayload } from '@/features/recurrences'
+import { parseCurrencyInput } from '@/lib/utils'
+import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 
 import { isIsoDate } from '../model/transactions.helpers'
+import type {
+  Transaction,
+  TransactionCreatePayload,
+  TransactionUpdatePayload,
+} from '../transactions.api'
 
 export type RecurrenceDraftInput = {
   accountId: string
@@ -110,5 +117,35 @@ export function buildRecurrencePayloadFromDraft(
   return {
     payload,
     error: null,
+  }
+}
+
+export function buildTransactionCreatePayloadFromForm(
+  formData: TransactionCreateFormData,
+): TransactionCreatePayload {
+  return {
+    accountId: formData.accountId,
+    categoryId: formData.categoryId,
+    subcategoryId: formData.subcategoryId ? formData.subcategoryId : null,
+    type: formData.type as Transaction['type'],
+    amount: parseCurrencyInput(formData.amount) ?? 0,
+    date: formData.date,
+    description: formData.description?.trim() || null,
+    notes: formData.notes?.trim() || null,
+  }
+}
+
+export function buildTransactionUpdatePayloadFromForm(
+  formData: TransactionCreateFormData,
+): TransactionUpdatePayload {
+  return {
+    accountId: formData.accountId,
+    categoryId: formData.categoryId,
+    subcategoryId: formData.subcategoryId ? formData.subcategoryId : null,
+    type: formData.type as Transaction['type'],
+    amount: parseCurrencyInput(formData.amount) ?? 0,
+    date: formData.date,
+    description: formData.description?.trim() || null,
+    notes: formData.notes?.trim() || null,
   }
 }

@@ -49,7 +49,6 @@ import {
 } from '@/features/recurrences'
 import {
   buildPaginationItems,
-  buildRecurrencePayloadFromDraft,
   CATEGORY_TYPE_RANK,
   formatDateDisplay,
   formatDateInput,
@@ -59,15 +58,15 @@ import {
   TRANSACTION_SORT_VALUES,
   TRANSACTION_TYPE_VALUES,
   useTransactionsFilters,
+  useTransactionsPagination,
   useTransactionsSearchParams,
   useTransactionsSelection,
+  useTransactionForm,
   useCreateTransaction,
   useDeleteTransaction,
   useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
-  type BuildRecurrencePayloadResult,
-  type SetTransactionAmountValue,
   type TransactionsListResponse,
   type Transaction,
 } from '@/features/transactions'
@@ -77,10 +76,8 @@ import { useUserPreference } from '@/hooks/useUserPreference'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
-  formatCurrencyInput,
   formatCurrencyValue,
   parseCurrencyInput,
-  sanitizeExpressionInput,
 } from '@/lib/utils'
 import {
   categoryCreateSchema,
@@ -829,6 +826,17 @@ function Transactions() {
     }
   }
   const paginationItems = buildPaginationItems(page, totalPages)
+  const {
+    handleLimitChange,
+    goToPreviousPage,
+    goToNextPage,
+    goToPage,
+  } = useTransactionsPagination({
+    page,
+    totalPages,
+    navigate,
+    setLimitPreference,
+  })
 
   const accountMap = new Map(
     (accountsQuery.data ?? []).map((account) => [account.id, account.name]),
@@ -888,118 +896,51 @@ function Transactions() {
     setIsCreateCategoryTreeOpen(false)
     setCreateCategoryTreeSearch('')
   }, [resetCreateRecurrenceDraft])
-
-  const handleCreateAmountChange = useCallback(
-    (rawValue: string, onChange: SetTransactionAmountValue) => {
-      if (rawValue.trimStart().startsWith('=')) {
-        onChange(sanitizeExpressionInput(rawValue))
-        return
-      }
-      onChange(formatCurrencyInput(rawValue))
+  const {
+    handleTransactionAmountChange,
+    handleCreateAmountBlur,
+    onCreateSubmit,
+    onEditSubmit,
+  } = useTransactionForm({
+    isCreateRecurrenceEnabled,
+    recurrenceDraft: {
+      startDate: createRecurrenceStartDate,
+      frequency: createRecurrenceFrequency,
+      endType: createRecurrenceEndType,
+      endOccurrences: createRecurrenceEndOccurrences,
+      endDate: createRecurrenceEndDate,
+      dayOfWeek: createRecurrenceDayOfWeek,
+      dayOfMonth: createRecurrenceDayOfMonth,
+      monthOfYear: createRecurrenceMonthOfYear,
     },
-    [],
-  )
-
-  const handleCreateAmountBlur = useCallback(
-    (value: string, onChange: SetTransactionAmountValue) => {
-      const trimmed = value.trim()
-      if (!trimmed.startsWith('=')) {
-        return
-      }
-
-      const parsed = parseCurrencyInput(trimmed)
-      if (parsed === null || Number.isNaN(parsed) || parsed <= 0) {
-        setError('amount', {
-          type: 'manual',
-          message: 'Informe uma expressão válida.',
-        })
-        return
-      }
-
-      onChange(`$ ${formatCurrencyValue(parsed)}`)
-      clearErrors('amount')
-    },
-    [clearErrors, setError],
-  )
-
-  const submitCreateTransaction = handleSubmit(async (formData) => {
-    const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
-    const transactionPayload = {
-      accountId: formData.accountId,
-      categoryId: formData.categoryId,
-      subcategoryId: formData.subcategoryId ? formData.subcategoryId : null,
-      type: formData.type as Transaction['type'],
-      amount: parsedAmount,
-      date: formData.date,
-      description: formData.description?.trim() || null,
-      notes: formData.notes?.trim() || null,
-    }
-
-    const recurrencePayloadResult: BuildRecurrencePayloadResult = isCreateRecurrenceEnabled
-      ? buildRecurrencePayloadFromDraft({
-          accountId: formData.accountId,
-          categoryId: formData.categoryId,
-          subcategoryId: formData.subcategoryId || undefined,
-          amount: parsedAmount,
-          description: formData.description ?? undefined,
-          notes: formData.notes ?? undefined,
-          startDate: createRecurrenceStartDate,
-          frequency: createRecurrenceFrequency,
-          endType: createRecurrenceEndType,
-          endOccurrences: createRecurrenceEndOccurrences,
-          endDate: createRecurrenceEndDate,
-          dayOfWeek: createRecurrenceDayOfWeek,
-          dayOfMonth: createRecurrenceDayOfMonth,
-          monthOfYear: createRecurrenceMonthOfYear,
-        })
-      : { payload: null, error: null }
-
-    if (recurrencePayloadResult.error) {
-      setError('root', { message: recurrencePayloadResult.error })
-      return
-    }
-
-    try {
-      const createdTransaction = await createTransactionMutation.mutateAsync(
-        transactionPayload,
-      )
-
-      if (recurrencePayloadResult.payload) {
-        try {
-          await createRecurrenceMutation.mutateAsync(recurrencePayloadResult.payload)
-        } catch (recurrenceError) {
-          let rollbackSucceeded = false
-          try {
-            await deleteTransactionMutation.mutateAsync(createdTransaction.id)
-            rollbackSucceeded = true
-          } catch {
-            // best-effort rollback
-          }
-
-          const rollbackMessage = rollbackSucceeded
-            ? 'A transação foi revertida.'
-            : 'Não foi possível reverter a transação automaticamente. Verifique a lista de transações.'
-
-          setError('root', {
-            message: `Falha ao criar recorrência. ${rollbackMessage} ${getApiErrorMessage(
-              recurrenceError,
-              { defaultMessage: '' },
-            )}`.trim(),
-          })
-          return
-        }
-      }
-
+    selectedTransactionId: selectedTransaction?.id ?? null,
+    createTransaction: createTransactionMutation.mutateAsync,
+    createRecurrence: createRecurrenceMutation.mutateAsync,
+    deleteTransaction: deleteTransactionMutation.mutateAsync,
+    updateTransaction: updateTransactionMutation.mutateAsync,
+    onCreateSuccess: () => {
       resetCreateForm()
       setIsCreateOpen(false)
-    } catch (error: unknown) {
-      setError('root', {
-        message: getApiErrorMessage(error, {
-          defaultMessage: 'Erro ao criar transação. Tente novamente.',
-        }),
-      })
-    }
+    },
+    onEditSuccess: () => {
+      setIsEditOpen(false)
+      setSelectedTransaction(null)
+    },
+    setCreateRootError: (message) => {
+      setError('root', { message })
+    },
+    setEditRootError: (message) => {
+      setEditError('root', { message })
+    },
+    setCreateAmountError: (message) => {
+      setError('amount', { type: 'manual', message })
+    },
+    clearCreateAmountError: () => {
+      clearErrors('amount')
+    },
   })
+  const submitCreateTransaction = handleSubmit(onCreateSubmit)
+  const submitEditTransaction = handleEditSubmit(onEditSubmit)
 
   const filterSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-filter', categoryFilter],
@@ -2981,17 +2922,7 @@ function Transactions() {
             <Select
               value={String(limit)}
               disabled={isTransactionsRefetching}
-              onValueChange={(value) => {
-                const nextLimit = Number(value)
-                setLimitPreference(nextLimit)
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    limit: nextLimit,
-                    page: 1,
-                  }),
-                })
-              }}
+              onValueChange={handleLimitChange}
             >
               <SelectTrigger
                 className="h-9 w-[84px] bg-background px-2 text-xs dark:border-muted/80"
@@ -3013,14 +2944,7 @@ function Transactions() {
               variant="outline"
               className="h-11 flex-1"
               disabled={page === 1 || isTransactionsRefetching}
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    page: Math.max(1, page - 1),
-                  }),
-                })
-              }
+              onClick={goToPreviousPage}
             >
               Anterior
             </Button>
@@ -3028,14 +2952,7 @@ function Transactions() {
               variant="outline"
               className="h-11 flex-1"
               disabled={page === totalPages || isTransactionsRefetching}
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    page: Math.min(totalPages, page + 1),
-                  }),
-                })
-              }
+              onClick={goToNextPage}
             >
               Próxima
             </Button>
@@ -3295,17 +3212,7 @@ function Transactions() {
               <Select
                 value={String(limit)}
                 disabled={isTransactionsRefetching}
-                onValueChange={(value) => {
-                  const nextLimit = Number(value)
-                  setLimitPreference(nextLimit)
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      limit: nextLimit,
-                      page: 1,
-                    }),
-                  })
-                }}
+                onValueChange={handleLimitChange}
               >
                 <SelectTrigger
                   className="h-8 w-[72px] bg-background px-2 text-xs dark:border-muted/80"
@@ -3326,14 +3233,7 @@ function Transactions() {
                   variant="outline"
                   size="sm"
                   disabled={page === 1 || isTransactionsRefetching}
-                  onClick={() =>
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        page: Math.max(1, page - 1),
-                      }),
-                    })
-                  }
+                  onClick={goToPreviousPage}
                   aria-label="Página anterior"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -3352,14 +3252,7 @@ function Transactions() {
                       variant={item === page ? 'default' : 'outline'}
                       size="sm"
                       disabled={isTransactionsRefetching}
-                      onClick={() =>
-                        navigate({
-                          search: (prev) => ({
-                            ...prev,
-                            page: item,
-                          }),
-                        })
-                      }
+                      onClick={() => goToPage(item)}
                     >
                       {item}
                     </Button>
@@ -3369,14 +3262,7 @@ function Transactions() {
                   variant="outline"
                   size="sm"
                   disabled={page === totalPages || isTransactionsRefetching}
-                  onClick={() =>
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        page: Math.min(totalPages, page + 1),
-                      }),
-                    })
-                  }
+                  onClick={goToNextPage}
                   aria-label="Próxima página"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -3632,7 +3518,7 @@ function Transactions() {
                         ref={createAmountRef}
                         value={field.value}
                         onChange={(event) => {
-                          handleCreateAmountChange(
+                          handleTransactionAmountChange(
                             event.target.value,
                             field.onChange,
                           )
@@ -4513,7 +4399,7 @@ function Transactions() {
                         ref={transferAmountRef}
                         value={field.value}
                         onChange={(event) => {
-                          handleCreateAmountChange(
+                          handleTransactionAmountChange(
                             event.target.value,
                             field.onChange,
                           )
@@ -4802,35 +4688,7 @@ function Transactions() {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={handleEditSubmit(async (formData) => {
-                try {
-                  const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
-                  await updateTransactionMutation.mutateAsync({
-                    id: selectedTransaction.id,
-                    payload: {
-                      accountId: formData.accountId,
-                      categoryId: formData.categoryId,
-                      subcategoryId: formData.subcategoryId
-                        ? formData.subcategoryId
-                        : null,
-                      type: formData.type as Transaction['type'],
-                      amount: parsedAmount,
-                      date: formData.date,
-                      description: formData.description?.trim() || null,
-                      notes: formData.notes?.trim() || null,
-                    },
-                  })
-                  setIsEditOpen(false)
-                  setSelectedTransaction(null)
-                } catch (error: unknown) {
-                  setEditError('root', {
-                    message: getApiErrorMessage(error, {
-                      defaultMessage:
-                        'Erro ao atualizar transação. Tente novamente.',
-                    }),
-                  })
-                }
-              })}
+              onSubmit={submitEditTransaction}
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -5070,7 +4928,7 @@ function Transactions() {
                         ref={editAmountRef}
                         value={field.value}
                         onChange={(event) => {
-                          handleCreateAmountChange(
+                          handleTransactionAmountChange(
                             event.target.value,
                             field.onChange,
                           )
