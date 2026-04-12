@@ -1,6 +1,7 @@
 export * from './transactions.api'
 export * from './hooks/use-transactions-filters'
 export * from './hooks/use-transactions-search-params'
+export * from './hooks/use-transactions-selection'
 export * from './model/transactions.constants'
 export * from './model/transactions.helpers'
 export * from './model/transactions.types'

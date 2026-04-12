@@ -60,6 +60,7 @@ import {
   TRANSACTION_TYPE_VALUES,
   useTransactionsFilters,
   useTransactionsSearchParams,
+  useTransactionsSelection,
   useCreateTransaction,
   useDeleteTransaction,
   useTransactionDescriptions,
@@ -409,7 +410,6 @@ function Transactions() {
     navigate,
     limitPreference,
   })
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
 
   const transactionsQuery = useTransactions(
     queryParams,
@@ -783,6 +783,21 @@ function Transactions() {
     () => (isAmountFilterInvalid ? [] : rawTransactions),
     [isAmountFilterInvalid, rawTransactions],
   )
+  const {
+    selectedIds,
+    selectedTransactions,
+    selectedCount,
+    allSelected,
+    hasSelection,
+    selectedTotal,
+    selectedAverage,
+    clearSelection,
+    toggleTransactionSelection,
+    selectAllOnPage,
+    getBulkDeleteIds,
+  } = useTransactionsSelection({
+    transactions,
+  })
   const total = isAmountFilterInvalid ? 0 : (transactionsQuery.data?.total ?? 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const isTransactionsRefetching =
@@ -798,37 +813,10 @@ function Transactions() {
     hasLoadedPageData: transactionsQuery.data !== undefined,
   })
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
-  const selectedTransactions = transactions.filter((transaction) =>
-    selectedIds.has(transaction.id),
-  )
-  const selectedCount = selectedTransactions.length
-  const allSelected =
-    transactions.length > 0 && selectedCount === transactions.length
-  const hasSelection = selectedCount > 0
-  const selectedTotal = selectedTransactions.reduce((acc, transaction) => {
-    const signedAmount =
-      transaction.type === 'income' ? transaction.amount : -transaction.amount
-    return acc + signedAmount
-  }, 0)
-  const selectedAverage = selectedCount >= 1 ? selectedTotal / selectedCount : 0
   const amountTone = (value: number) => {
     if (value > 0) return 'text-emerald-600'
     if (value < 0) return 'text-rose-600'
     return 'text-muted-foreground'
-  }
-  const buildBulkDeleteIds = (items: Transaction[]) => {
-    const ids = new Set<string>()
-    const seenTransfers = new Set<string>()
-    items.forEach((transaction) => {
-      if (transaction.transferId) {
-        if (seenTransfers.has(transaction.transferId)) {
-          return
-        }
-        seenTransfers.add(transaction.transferId)
-      }
-      ids.add(transaction.id)
-    })
-    return Array.from(ids)
   }
 
   const handleDateFocus = (event: FocusEvent<HTMLInputElement>) => {
@@ -1142,13 +1130,14 @@ function Transactions() {
         return
       }
       if (selectedIds.size > 0) {
-        setSelectedIds(new Set())
+        clearSelection()
       }
     }
 
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
   }, [
+    clearSelection,
     handleClearFilters,
     hasActiveFilters,
     isCreateCategoryOpen,
@@ -2041,24 +2030,6 @@ function Transactions() {
   }
 
   useEffect(() => {
-    setSelectedIds((prev) => {
-      if (prev.size === 0) {
-        return prev
-      }
-      const idsOnPage = new Set(
-        transactions.map((transaction) => transaction.id),
-      )
-      const next = new Set<string>()
-      prev.forEach((id) => {
-        if (idsOnPage.has(id)) {
-          next.add(id)
-        }
-      })
-      return next
-    })
-  }, [transactions])
-
-  useEffect(() => {
     if (!selectAllRef.current) {
       return
     }
@@ -2698,14 +2669,10 @@ function Transactions() {
                 checked={allSelected}
                 onChange={(event) => {
                   if (event.target.checked) {
-                    setSelectedIds(
-                      new Set(
-                        transactions.map((transaction) => transaction.id),
-                      ),
-                    )
+                    selectAllOnPage()
                     return
                   }
-                  setSelectedIds(new Set())
+                  clearSelection()
                 }}
                 aria-label="Selecionar todas as transações"
               />
@@ -2833,17 +2800,7 @@ function Transactions() {
                   className="h-5 w-5 cursor-pointer"
                   checked={selectedIds.has(transaction.id)}
                   onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev)
-                      if (event.target.checked) {
-                        next.add(transaction.id)
-                      } else {
-                        next.delete(transaction.id)
-                      }
-                      return next
-                    })
-                  }}
+                  onChange={() => toggleTransactionSelection(transaction.id)}
                   aria-label="Selecionar transação"
                 />
               </div>
@@ -3100,14 +3057,10 @@ function Transactions() {
                       checked={allSelected}
                       onChange={(event) => {
                         if (event.target.checked) {
-                          setSelectedIds(
-                            new Set(
-                              transactions.map((transaction) => transaction.id),
-                            ),
-                          )
+                          selectAllOnPage()
                           return
                         }
-                        setSelectedIds(new Set())
+                        clearSelection()
                       }}
                       aria-label="Selecionar todas as transações"
                     />
@@ -3247,15 +3200,7 @@ function Transactions() {
                       className="cursor-pointer px-4 py-2 text-center"
                       onClick={(event) => {
                         event.stopPropagation()
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(transaction.id)) {
-                            next.delete(transaction.id)
-                          } else {
-                            next.add(transaction.id)
-                          }
-                          return next
-                        })
+                        toggleTransactionSelection(transaction.id)
                       }}
                       onMouseDown={(event) => event.stopPropagation()}
                     >
@@ -3272,17 +3217,7 @@ function Transactions() {
                           checked={selectedIds.has(transaction.id)}
                           onClick={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
-                          onChange={(event) => {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev)
-                              if (event.target.checked) {
-                                next.add(transaction.id)
-                              } else {
-                                next.delete(transaction.id)
-                              }
-                              return next
-                            })
-                          }}
+                          onChange={() => toggleTransactionSelection(transaction.id)}
                           aria-label="Selecionar transação"
                         />
                       </label>
@@ -5328,7 +5263,7 @@ function Transactions() {
                 variant="destructive"
                 className="w-full sm:w-auto"
                 onClick={async () => {
-                  const idsArray = buildBulkDeleteIds(selectedTransactions)
+                  const idsArray = getBulkDeleteIds(selectedTransactions)
                   if (idsArray.length === 0) {
                     setIsBulkDeleteOpen(false)
                     return
@@ -5351,7 +5286,7 @@ function Transactions() {
                       return
                     }
                     setIsBulkDeleteOpen(false)
-                    setSelectedIds(new Set())
+                    clearSelection()
                   } catch (error: unknown) {
                     setBulkDeleteError(
                       getApiErrorMessage(error, {
