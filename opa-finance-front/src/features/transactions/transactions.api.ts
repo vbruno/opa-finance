@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
@@ -146,6 +151,7 @@ export function useTransactions(
       return response.data
     },
     enabled: options?.enabled,
+    placeholderData: keepPreviousData,
   })
 }
 

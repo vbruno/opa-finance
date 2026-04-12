@@ -55,10 +55,11 @@ import {
   formatDateInput,
   isIsoDate,
   normalizeText,
-  parseAmountFilter,
   SORT_DIRECTION_VALUES,
   TRANSACTION_SORT_VALUES,
   TRANSACTION_TYPE_VALUES,
+  useTransactionsFilters,
+  useTransactionsSearchParams,
   useCreateTransaction,
   useDeleteTransaction,
   useTransactionDescriptions,
@@ -324,8 +325,6 @@ function Transactions() {
   const detailCopyTimeoutRef = useRef<number | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
-  const isClearingDescription = useRef(false)
-  const isClearingAmount = useRef(false)
   const isCreateFromDuplicate = useRef(false)
   const isMobile = useMediaQuery('(max-width: 639px)')
   const handleMobileDateKeyDown: KeyboardEventHandler<HTMLInputElement> = (
@@ -368,81 +367,54 @@ function Transactions() {
       },
     },
   )
-  const page = search.page ?? 1
-  const limit = search.limit ?? limitPreference
-  const typeFilter = search.type ?? ''
-  const accountFilter = search.accountId ?? ''
-  const categoryFilter = search.categoryId ?? ''
-  const subcategoryFilter = search.subcategoryId ?? ''
-  const descriptionFilter = search.description ?? ''
-  const includeNotes = search.includeNotes ?? false
-  const notesOnly = search.notesOnly ?? false
-  const amountMode = search.amountMode ?? false
-  const amountFilter = search.amount ?? ''
-  const sortKey = search.sort ?? null
-  const sortDirection = search.dir ?? 'desc'
-  const startDateFilter = search.startDate ?? ''
-  const endDateFilter = search.endDate ?? ''
-  const hasActiveFilters =
-    typeFilter ||
-    accountFilter ||
-    categoryFilter ||
-    subcategoryFilter ||
-    descriptionFilter ||
-    includeNotes ||
-    notesOnly ||
-    amountMode ||
-    amountFilter ||
-    startDateFilter ||
-    endDateFilter
-  const [isFilterExpanded, setIsFilterExpanded] = useState(false)
-  const [descriptionDraft, setDescriptionDraft] = useState(descriptionFilter)
-  const [amountDraft, setAmountDraft] = useState(amountFilter)
-  const debouncedDescription = useDebouncedValue(descriptionDraft, 500)
-  const debouncedAmount = useDebouncedValue(amountDraft, 500)
-  const effectiveDescriptionFilter = debouncedDescription.trim()
-  const effectiveAmountFilter = debouncedAmount.trim()
-  const canSearchNotes = !amountMode && descriptionDraft.trim().length > 0
+  const {
+    page,
+    limit,
+    typeFilter,
+    accountFilter,
+    categoryFilter,
+    subcategoryFilter,
+    includeNotes,
+    notesOnly,
+    amountMode,
+    sortKey,
+    sortDirection,
+    startDateFilter,
+    endDateFilter,
+    hasActiveFilters,
+    isFilterExpanded,
+    setIsFilterExpanded,
+    descriptionDraft,
+    setDescriptionDraft,
+    amountDraft,
+    setAmountDraft,
+    canSearchNotes,
+    isAmountFilterInvalid,
+    amountFilterErrorMessage,
+    queryParams,
+    isQueryEnabled,
+    handleClearFilters,
+    handleSort,
+    setIncludeNotesFilter,
+    setNotesOnlyFilter,
+    setAmountModeFilter,
+    setStartDateFilter,
+    setEndDateFilter,
+    setTypeFilterValue,
+    setAccountFilterValue,
+    setCategoryFilterValue,
+    setSubcategoryFilterValue,
+  } = useTransactionsSearchParams({
+    search,
+    navigate,
+    limitPreference,
+  })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
-  const parsedAmountFilter = amountMode
-    ? parseAmountFilter(effectiveAmountFilter)
-    : null
-  const isAmountFilterInvalid =
-    amountMode &&
-    amountDraft.trim().length > 0 &&
-    !parseAmountFilter(amountDraft.trim())
-  const amountFilterErrorMessage = isAmountFilterInvalid
-    ? 'Filtro por valor aceita apenas números ou expressões válidas.'
-    : ''
 
   const transactionsQuery = useTransactions(
+    queryParams,
     {
-      page,
-      limit,
-      type: typeFilter || undefined,
-      accountId: accountFilter || undefined,
-      categoryId: categoryFilter || undefined,
-      subcategoryId: subcategoryFilter || undefined,
-      description: amountMode
-        ? undefined
-        : notesOnly
-          ? undefined
-          : effectiveDescriptionFilter || undefined,
-      notes:
-        !amountMode && (includeNotes || notesOnly) && effectiveDescriptionFilter
-          ? effectiveDescriptionFilter
-          : undefined,
-      amount: parsedAmountFilter?.amount,
-      amountMin: parsedAmountFilter?.amountMin,
-      amountMax: parsedAmountFilter?.amountMax,
-      amountOp: parsedAmountFilter?.amountOp,
-      sort: sortKey || undefined,
-      dir: sortKey ? sortDirection : undefined,
-      startDate: startDateFilter || undefined,
-      endDate: endDateFilter || undefined,
-    },
-    {
-      enabled: !isAmountFilterInvalid,
+      enabled: isQueryEnabled,
     },
   )
   const createTransactionMutation = useCreateTransaction()
@@ -813,6 +785,18 @@ function Transactions() {
   )
   const total = isAmountFilterInvalid ? 0 : (transactionsQuery.data?.total ?? 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
+  const isTransactionsRefetching =
+    transactionsQuery.isFetching && !transactionsQuery.isLoading
+  useTransactionsFilters({
+    search,
+    navigate,
+    page,
+    limit,
+    sortKey,
+    sortDirection,
+    totalPages,
+    hasLoadedPageData: transactionsQuery.data !== undefined,
+  })
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const selectedTransactions = transactions.filter((transaction) =>
     selectedIds.has(transaction.id),
@@ -864,53 +848,6 @@ function Transactions() {
   const categoryMap = new Map(
     categories.map((category) => [category.id, category.name]),
   )
-
-  const handleClearFilters = useCallback(() => {
-    isClearingDescription.current = true
-    isClearingAmount.current = true
-    setDescriptionDraft('')
-    setAmountDraft('')
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        type: undefined,
-        accountId: undefined,
-        categoryId: undefined,
-        subcategoryId: undefined,
-        description: undefined,
-        includeNotes: undefined,
-        notesOnly: undefined,
-        amountMode: undefined,
-        amount: undefined,
-        startDate: undefined,
-        endDate: undefined,
-      }),
-    })
-  }, [navigate])
-  function handleSort(
-    nextKey:
-      | 'date'
-      | 'description'
-      | 'account'
-      | 'category'
-      | 'subcategory'
-      | 'type'
-      | 'amount',
-  ) {
-    navigate({
-      search: (prev) => {
-        const isSame = prev.sort === nextKey
-        const nextDirection = isSame && prev.dir === 'asc' ? 'desc' : 'asc'
-        return {
-          ...prev,
-          sort: nextKey,
-          dir: nextDirection,
-        }
-      },
-      replace: false,
-    })
-  }
 
   const resetCreateRecurrenceDraft = useCallback((baseDate?: string) => {
     const normalizedDate =
@@ -2052,13 +1989,6 @@ function Transactions() {
     selectedTransaction,
   ])
 
-  useEffect(() => {
-    setDescriptionDraft(descriptionFilter)
-  }, [descriptionFilter])
-  useEffect(() => {
-    setAmountDraft(amountFilter)
-  }, [amountFilter])
-
   const handleCopyValue = async (value: number, label: 'average' | 'total') => {
     const formatted = formatCurrencyValue(value)
     if (!navigator?.clipboard?.writeText) {
@@ -2109,88 +2039,6 @@ function Transactions() {
       // ignore clipboard errors
     }
   }
-
-  useEffect(() => {
-    if (amountMode) {
-      return
-    }
-    const trimmedValue = descriptionDraft.trim()
-    if (trimmedValue === descriptionFilter) {
-      return
-    }
-    if (isClearingDescription.current) {
-      isClearingDescription.current = false
-      return
-    }
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        description: trimmedValue ? trimmedValue : undefined,
-        includeNotes: trimmedValue ? prev.includeNotes : undefined,
-        page: 1,
-      }),
-      replace: true,
-    })
-  }, [amountMode, descriptionDraft, descriptionFilter, navigate])
-
-  useEffect(() => {
-    if (!amountMode) {
-      return
-    }
-    const trimmedValue = amountDraft.trim()
-    if (trimmedValue === amountFilter) {
-      return
-    }
-    if (isClearingAmount.current) {
-      isClearingAmount.current = false
-      return
-    }
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        amount: trimmedValue ? trimmedValue : undefined,
-        page: 1,
-      }),
-      replace: true,
-    })
-  }, [amountDraft, amountFilter, amountMode, navigate])
-
-  useEffect(() => {
-    const nextPage = totalPages > 0 ? Math.min(page, totalPages) : page
-    const nextSort = sortKey ?? 'date'
-    const nextDirection = sortKey ? sortDirection : 'desc'
-    const shouldSyncSearch =
-      search.page !== nextPage ||
-      search.limit !== limit ||
-      search.sort !== nextSort ||
-      search.dir !== nextDirection
-
-    if (!shouldSyncSearch) {
-      return
-    }
-
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: nextPage,
-        limit,
-        sort: nextSort,
-        dir: nextDirection,
-      }),
-      replace: true,
-    })
-  }, [
-    limit,
-    navigate,
-    page,
-    search.dir,
-    search.limit,
-    search.page,
-    search.sort,
-    sortDirection,
-    sortKey,
-    totalPages,
-  ])
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -2695,18 +2543,7 @@ function Transactions() {
                     className="h-5 w-5 sm:h-4 sm:w-4"
                     checked={includeNotes}
                     disabled={!canSearchNotes || amountMode}
-                    onChange={(event) =>
-                      navigate({
-                        search: (prev) => ({
-                          ...prev,
-                          includeNotes: event.target.checked ? true : undefined,
-                          notesOnly: event.target.checked
-                            ? prev.notesOnly
-                            : undefined,
-                          page: 1,
-                        }),
-                      })
-                    }
+                    onChange={(event) => setIncludeNotesFilter(event.target.checked)}
                   />
                   Buscar nas notas
                 </label>
@@ -2717,18 +2554,7 @@ function Transactions() {
                     className="h-5 w-5 sm:h-4 sm:w-4"
                     checked={notesOnly}
                     disabled={!canSearchNotes || amountMode}
-                    onChange={(event) =>
-                      navigate({
-                        search: (prev) => ({
-                          ...prev,
-                          notesOnly: event.target.checked ? true : undefined,
-                          includeNotes: event.target.checked
-                            ? true
-                            : prev.includeNotes,
-                          page: 1,
-                        }),
-                      })
-                    }
+                    onChange={(event) => setNotesOnlyFilter(event.target.checked)}
                   />
                   Somente notas
                 </label>
@@ -2738,27 +2564,7 @@ function Transactions() {
                     type="checkbox"
                     className="h-5 w-5 sm:h-4 sm:w-4"
                     checked={amountMode}
-                    onChange={(event) =>
-                      navigate({
-                        search: (prev) => ({
-                          ...prev,
-                          amountMode: event.target.checked ? true : undefined,
-                          amount: event.target.checked
-                            ? prev.amount
-                            : undefined,
-                          description: event.target.checked
-                            ? undefined
-                            : prev.description,
-                          includeNotes: event.target.checked
-                            ? undefined
-                            : prev.includeNotes,
-                          notesOnly: event.target.checked
-                            ? undefined
-                            : prev.notesOnly,
-                          page: 1,
-                        }),
-                      })
-                    }
+                    onChange={(event) => setAmountModeFilter(event.target.checked)}
                   />
                   Buscar por valor
                 </label>
@@ -2772,15 +2578,7 @@ function Transactions() {
                 value={startDateFilter}
                 className="bg-background dark:bg-muted/50"
                 inputMode={isMobile ? 'none' : undefined}
-                onChange={(event) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      startDate: event.target.value || undefined,
-                      page: 1,
-                    }),
-                  })
-                }
+                onChange={(event) => setStartDateFilter(event.target.value)}
                 onClick={handleDateClick}
                 onKeyDown={handleMobileDateKeyDown}
                 onPaste={handleMobileDatePaste}
@@ -2794,15 +2592,7 @@ function Transactions() {
                 value={endDateFilter}
                 className="bg-background dark:bg-muted/50"
                 inputMode={isMobile ? 'none' : undefined}
-                onChange={(event) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      endDate: event.target.value || undefined,
-                      page: 1,
-                    }),
-                  })
-                }
+                onChange={(event) => setEndDateFilter(event.target.value)}
                 onClick={handleDateClick}
                 onKeyDown={handleMobileDateKeyDown}
                 onPaste={handleMobileDatePaste}
@@ -2812,15 +2602,7 @@ function Transactions() {
               <Label htmlFor="filter-type">Tipo</Label>
               <Select
                 value={typeFilter ?? 'all'}
-                onValueChange={(value) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      type: value === 'all' ? undefined : value,
-                      page: 1,
-                    }),
-                  })
-                }
+                onValueChange={setTypeFilterValue}
               >
                 <SelectTrigger
                   id="filter-type"
@@ -2839,15 +2621,7 @@ function Transactions() {
               <Label htmlFor="filter-account">Conta</Label>
               <Select
                 value={accountFilter ?? 'all'}
-                onValueChange={(value) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      accountId: value === 'all' ? undefined : value,
-                      page: 1,
-                    }),
-                  })
-                }
+                onValueChange={setAccountFilterValue}
               >
                 <SelectTrigger
                   id="filter-account"
@@ -2869,16 +2643,7 @@ function Transactions() {
               <Label htmlFor="filter-category">Categoria</Label>
               <Select
                 value={categoryFilter ?? 'all'}
-                onValueChange={(value) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      categoryId: value === 'all' ? undefined : value,
-                      subcategoryId: undefined,
-                      page: 1,
-                    }),
-                  })
-                }
+                onValueChange={setCategoryFilterValue}
               >
                 <SelectTrigger
                   id="filter-category"
@@ -2900,15 +2665,7 @@ function Transactions() {
               <Label htmlFor="filter-subcategory">Subcategoria</Label>
               <Select
                 value={subcategoryFilter ?? 'all'}
-                onValueChange={(value) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      subcategoryId: value === 'all' ? undefined : value,
-                      page: 1,
-                    }),
-                  })
-                }
+                onValueChange={setSubcategoryFilterValue}
                 disabled={!categoryFilter}
               >
                 <SelectTrigger
@@ -3260,10 +3017,13 @@ function Transactions() {
         <div className="mt-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-xs mobile-only">
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground">
-              Página {page} de {totalPages}
+              {isTransactionsRefetching
+                ? `Carregando página ${page}...`
+                : `Página ${page} de ${totalPages}`}
             </span>
             <Select
               value={String(limit)}
+              disabled={isTransactionsRefetching}
               onValueChange={(value) => {
                 const nextLimit = Number(value)
                 setLimitPreference(nextLimit)
@@ -3295,7 +3055,7 @@ function Transactions() {
             <Button
               variant="outline"
               className="h-11 flex-1"
-              disabled={page === 1}
+              disabled={page === 1 || isTransactionsRefetching}
               onClick={() =>
                 navigate({
                   search: (prev) => ({
@@ -3310,7 +3070,7 @@ function Transactions() {
             <Button
               variant="outline"
               className="h-11 flex-1"
-              disabled={page === totalPages}
+              disabled={page === totalPages || isTransactionsRefetching}
               onClick={() =>
                 navigate({
                   search: (prev) => ({
@@ -3592,11 +3352,14 @@ function Transactions() {
           </div>
           <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
             <span className="text-muted-foreground">
-              Página {page} de {totalPages}
+              {isTransactionsRefetching
+                ? `Carregando página ${page}...`
+                : `Página ${page} de ${totalPages}`}
             </span>
             <div className="flex items-center gap-3">
               <Select
                 value={String(limit)}
+                disabled={isTransactionsRefetching}
                 onValueChange={(value) => {
                   const nextLimit = Number(value)
                   setLimitPreference(nextLimit)
@@ -3627,7 +3390,7 @@ function Transactions() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={page === 1}
+                  disabled={page === 1 || isTransactionsRefetching}
                   onClick={() =>
                     navigate({
                       search: (prev) => ({
@@ -3653,6 +3416,7 @@ function Transactions() {
                       key={`pagination-page-${item}`}
                       variant={item === page ? 'default' : 'outline'}
                       size="sm"
+                      disabled={isTransactionsRefetching}
                       onClick={() =>
                         navigate({
                           search: (prev) => ({
@@ -3669,7 +3433,7 @@ function Transactions() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || isTransactionsRefetching}
                   onClick={() =>
                     navigate({
                       search: (prev) => ({
