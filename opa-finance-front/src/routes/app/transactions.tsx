@@ -46,14 +46,26 @@ import {
 } from '@/features/categories'
 import {
   useCreateRecurrence,
-  type RecurrenceCreatePayload,
 } from '@/features/recurrences'
 import {
+  buildPaginationItems,
+  buildRecurrencePayloadFromDraft,
+  CATEGORY_TYPE_RANK,
+  formatDateDisplay,
+  formatDateInput,
+  isIsoDate,
+  normalizeText,
+  parseAmountFilter,
+  SORT_DIRECTION_VALUES,
+  TRANSACTION_SORT_VALUES,
+  TRANSACTION_TYPE_VALUES,
   useCreateTransaction,
   useDeleteTransaction,
   useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
+  type BuildRecurrencePayloadResult,
+  type SetTransactionAmountValue,
   type TransactionsListResponse,
   type Transaction,
 } from '@/features/transactions'
@@ -108,13 +120,16 @@ export const Route = createFileRoute('/app/transactions')({
     type: z
       .preprocess(
         (value) => {
-          const allowed = ['income', 'expense']
           if (typeof value !== 'string') {
             return undefined
           }
-          return allowed.includes(value) ? value : undefined
+          return TRANSACTION_TYPE_VALUES.includes(
+            value as (typeof TRANSACTION_TYPE_VALUES)[number],
+          )
+            ? value
+            : undefined
         },
-        z.enum(['income', 'expense']),
+        z.enum(TRANSACTION_TYPE_VALUES),
       )
       .optional(),
     accountId: z.string().optional(),
@@ -167,41 +182,31 @@ export const Route = createFileRoute('/app/transactions')({
     sort: z
       .preprocess(
         (value) => {
-          const allowed = [
-            'date',
-            'description',
-            'account',
-            'category',
-            'subcategory',
-            'type',
-            'amount',
-          ]
           if (typeof value !== 'string') {
             return undefined
           }
-          return allowed.includes(value) ? value : undefined
+          return TRANSACTION_SORT_VALUES.includes(
+            value as (typeof TRANSACTION_SORT_VALUES)[number],
+          )
+            ? value
+            : undefined
         },
-        z.enum([
-          'date',
-          'description',
-          'account',
-          'category',
-          'subcategory',
-          'type',
-          'amount',
-        ]),
+        z.enum(TRANSACTION_SORT_VALUES),
       )
       .optional(),
     dir: z
       .preprocess(
         (value) => {
-          const allowed = ['asc', 'desc']
           if (typeof value !== 'string') {
             return undefined
           }
-          return allowed.includes(value) ? value : undefined
+          return SORT_DIRECTION_VALUES.includes(
+            value as (typeof SORT_DIRECTION_VALUES)[number],
+          )
+            ? value
+            : undefined
         },
-        z.enum(['asc', 'desc']),
+        z.enum(SORT_DIRECTION_VALUES),
       )
       .optional(),
     startDate: z
@@ -543,12 +548,9 @@ function Transactions() {
   )
   const availableCategories = useMemo(() => {
     const items = categories.filter((category) => !category.system)
-    const typeRank: Record<string, number> = {
-      income: 0,
-      expense: 1,
-    }
     return [...items].sort((a, b) => {
-      const typeDiff = (typeRank[a.type] ?? 99) - (typeRank[b.type] ?? 99)
+      const typeDiff =
+        (CATEGORY_TYPE_RANK[a.type] ?? 99) - (CATEGORY_TYPE_RANK[b.type] ?? 99)
       if (typeDiff !== 0) return typeDiff
       return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
     })
@@ -963,7 +965,7 @@ function Transactions() {
   }, [resetCreateRecurrenceDraft])
 
   const handleCreateAmountChange = useCallback(
-    (rawValue: string, onChange: SetStringValue) => {
+    (rawValue: string, onChange: SetTransactionAmountValue) => {
       if (rawValue.trimStart().startsWith('=')) {
         onChange(sanitizeExpressionInput(rawValue))
         return
@@ -974,7 +976,7 @@ function Transactions() {
   )
 
   const handleCreateAmountBlur = useCallback(
-    (value: string, onChange: SetStringValue) => {
+    (value: string, onChange: SetTransactionAmountValue) => {
       const trimmed = value.trim()
       if (!trimmed.startsWith('=')) {
         return
@@ -1008,7 +1010,7 @@ function Transactions() {
       notes: formData.notes?.trim() || null,
     }
 
-    const recurrencePayloadResult = isCreateRecurrenceEnabled
+    const recurrencePayloadResult: BuildRecurrencePayloadResult = isCreateRecurrenceEnabled
       ? buildRecurrencePayloadFromDraft({
           accountId: formData.accountId,
           categoryId: formData.categoryId,
@@ -1025,7 +1027,7 @@ function Transactions() {
           dayOfMonth: createRecurrenceDayOfMonth,
           monthOfYear: createRecurrenceMonthOfYear,
         })
-      : { payload: null as RecurrenceCreatePayload | null, error: null as string | null }
+      : { payload: null, error: null }
 
     if (recurrencePayloadResult.error) {
       setError('root', { message: recurrencePayloadResult.error })
@@ -5607,378 +5609,6 @@ function Transactions() {
       )}
     </div>
   )
-}
-
-type AmountFilterResult = {
-  amount?: number
-  amountMin?: number
-  amountMax?: number
-  amountOp?: 'gt' | 'gte' | 'lt' | 'lte'
-}
-
-type SetStringValue = ControllerRenderProps<
-  TransactionCreateFormData,
-  'amount'
->['onChange']
-
-function parseAmountFilter(value: string): AmountFilterResult | null {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return null
-  }
-
-  if (trimmed.startsWith('=')) {
-    const expressionValue = evaluateArithmeticExpression(trimmed.slice(1))
-    if (expressionValue === null) {
-      return null
-    }
-    return { amount: expressionValue }
-  }
-
-  if (trimmed.includes(';')) {
-    const parts = trimmed.split(';')
-    if (parts.length !== 2) {
-      return null
-    }
-    const minValue = parseNumberInput(parts[0])
-    const maxValue = parseNumberInput(parts[1])
-    if (minValue === null || maxValue === null) {
-      return null
-    }
-    const min = Math.min(minValue, maxValue)
-    const max = Math.max(minValue, maxValue)
-    return { amountMin: min, amountMax: max }
-  }
-
-  const comparatorMatch = trimmed.match(/^(>=|<=|>|<)\s*(.+)$/)
-  if (comparatorMatch) {
-    const amountValue = parseNumberInput(comparatorMatch[2])
-    if (amountValue === null) {
-      return null
-    }
-    const opMap: Record<string, 'gt' | 'gte' | 'lt' | 'lte'> = {
-      '>': 'gt',
-      '>=': 'gte',
-      '<': 'lt',
-      '<=': 'lte',
-    }
-    return { amountOp: opMap[comparatorMatch[1]], amount: amountValue }
-  }
-
-  const exactValue = parseNumberInput(trimmed)
-  if (exactValue === null) {
-    return null
-  }
-  return { amount: exactValue }
-}
-
-function evaluateArithmeticExpression(value: string): number | null {
-  const tokens = tokenizeExpression(value)
-  if (!tokens || tokens.length === 0) {
-    return null
-  }
-  return evaluateTokens(tokens)
-}
-
-function tokenizeExpression(
-  value: string,
-): Array<number | '+' | '-' | '*' | '/'> | null {
-  const input = value.trim()
-  if (!input) {
-    return null
-  }
-
-  const tokens: Array<number | '+' | '-' | '*' | '/'> = []
-  let index = 0
-  let expectingNumber = true
-
-  while (index < input.length) {
-    const char = input[index]
-    if (char === ' ' || char === '\t') {
-      index += 1
-      continue
-    }
-
-    if (expectingNumber) {
-      const match = input.slice(index).match(/^[+-]?[0-9.,]+/)
-      if (!match) {
-        return null
-      }
-      const parsedNumber = parseNumberInput(match[0])
-      if (parsedNumber === null) {
-        return null
-      }
-      tokens.push(parsedNumber)
-      index += match[0].length
-      expectingNumber = false
-      continue
-    }
-
-    if (char === '+' || char === '-' || char === '*' || char === '/') {
-      tokens.push(char)
-      index += 1
-      expectingNumber = true
-      continue
-    }
-
-    return null
-  }
-
-  if (expectingNumber) {
-    return null
-  }
-
-  return tokens
-}
-
-function evaluateTokens(
-  tokens: Array<number | '+' | '-' | '*' | '/'>,
-): number | null {
-  if (tokens.length % 2 === 0) {
-    return null
-  }
-  if (typeof tokens[0] !== 'number') {
-    return null
-  }
-
-  const values: number[] = [tokens[0]]
-  const operations: Array<'+' | '-'> = []
-
-  for (let i = 1; i < tokens.length; i += 2) {
-    const op = tokens[i]
-    const next = tokens[i + 1]
-    if (typeof op !== 'string' || typeof next !== 'number') {
-      return null
-    }
-    if (op === '*' || op === '/') {
-      const current = values[values.length - 1]
-      if (op === '/' && next === 0) {
-        return null
-      }
-      values[values.length - 1] = op === '*' ? current * next : current / next
-    } else {
-      operations.push(op)
-      values.push(next)
-    }
-  }
-
-  let result = values[0]
-  for (let i = 0; i < operations.length; i += 1) {
-    const next = values[i + 1]
-    result = operations[i] === '+' ? result + next : result - next
-  }
-
-  if (!Number.isFinite(result)) {
-    return null
-  }
-  return result
-}
-
-function parseNumberInput(value: string): number | null {
-  const cleaned = value.replace(/\s+/g, '')
-  if (!cleaned) {
-    return null
-  }
-  if (!/^[+-]?[0-9.,]+$/.test(cleaned)) {
-    return null
-  }
-  const sign = cleaned.startsWith('-') ? -1 : 1
-  const unsigned = cleaned.replace(/^[-+]/, '')
-  if (!/[0-9]/.test(unsigned)) {
-    return null
-  }
-  const lastDot = unsigned.lastIndexOf('.')
-  const lastComma = unsigned.lastIndexOf(',')
-  const decimalIndex = Math.max(lastDot, lastComma)
-  let integerPart = unsigned
-  let fractionalPart = ''
-  if (decimalIndex >= 0) {
-    integerPart = unsigned.slice(0, decimalIndex)
-    fractionalPart = unsigned.slice(decimalIndex + 1)
-  }
-  const integerDigits = integerPart.replace(/[.,]/g, '') || '0'
-  const fractionalDigits = fractionalPart.replace(/[.,]/g, '')
-  const normalized = fractionalDigits
-    ? `${integerDigits}.${fractionalDigits}`
-    : integerDigits
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed)) {
-    return null
-  }
-  return sign * parsed
-}
-
-function buildPaginationItems(current: number, total: number) {
-  if (total <= 1) {
-    return [1]
-  }
-
-  const items: Array<number | '...'> = []
-  const add = (value: number | '...') => items.push(value)
-  const siblings = 1
-
-  const showLeftEllipsis = current > 2 + siblings
-  const showRightEllipsis = current < total - (1 + siblings)
-
-  add(1)
-
-  if (showLeftEllipsis) {
-    add('...')
-  }
-
-  const start = Math.max(2, current - siblings)
-  const end = Math.min(total - 1, current + siblings)
-
-  for (let page = start; page <= end; page += 1) {
-    add(page)
-  }
-
-  if (showRightEllipsis) {
-    add('...')
-  }
-
-  if (total > 1) {
-    add(total)
-  }
-
-  return items
-}
-
-function formatDateDisplay(
-  value: string | Date | null | undefined,
-  formatter: Intl.DateTimeFormat,
-) {
-  if (!value) {
-    return '-'
-  }
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '-'
-  }
-  return formatter.format(date)
-}
-
-function buildRecurrencePayloadFromDraft(input: {
-  accountId: string
-  categoryId: string
-  subcategoryId?: string
-  amount: number
-  description?: string
-  notes?: string
-  startDate: string
-  frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
-  endType: 'never' | 'by_occurrences' | 'until_date'
-  endOccurrences: string
-  endDate: string
-  dayOfWeek: string
-  dayOfMonth: string
-  monthOfYear: string
-}) {
-  if (!isIsoDate(input.startDate)) {
-    return {
-      payload: null as RecurrenceCreatePayload | null,
-      error: 'Informe uma data inicial válida para a recorrência.',
-    }
-  }
-
-  const payload: RecurrenceCreatePayload = {
-    originType: 'transaction',
-    accountId: input.accountId,
-    categoryId: input.categoryId,
-    subcategoryId: input.subcategoryId,
-    amount: input.amount,
-    description: input.description?.trim() || undefined,
-    notes: input.notes?.trim() || undefined,
-    frequency: input.frequency,
-    startDate: input.startDate,
-    endType: input.endType,
-  }
-
-  if (input.frequency === 'weekly' || input.frequency === 'biweekly') {
-    const dayOfWeek = Number(input.dayOfWeek)
-    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
-      return {
-        payload: null,
-        error: 'Informe o dia da semana (0 a 6) para a recorrência.',
-      }
-    }
-    payload.dayOfWeek = dayOfWeek
-  }
-
-  if (input.frequency === 'monthly' || input.frequency === 'yearly') {
-    const dayOfMonth = Number(input.dayOfMonth)
-    if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
-      return {
-        payload: null,
-        error: 'Informe o dia do mês (1 a 31) para a recorrência.',
-      }
-    }
-    payload.dayOfMonth = dayOfMonth
-  }
-
-  if (input.frequency === 'yearly') {
-    const monthOfYear = Number(input.monthOfYear)
-    if (!Number.isInteger(monthOfYear) || monthOfYear < 1 || monthOfYear > 12) {
-      return {
-        payload: null,
-        error: 'Informe o mês (1 a 12) para a recorrência anual.',
-      }
-    }
-    payload.monthOfYear = monthOfYear
-  }
-
-  if (input.endType === 'by_occurrences') {
-    const endOccurrences = Number(input.endOccurrences)
-    if (!Number.isInteger(endOccurrences) || endOccurrences < 1) {
-      return {
-        payload: null,
-        error: 'Informe a quantidade de ocorrências da recorrência.',
-      }
-    }
-    payload.endOccurrences = endOccurrences
-  }
-
-  if (input.endType === 'until_date') {
-    if (!isIsoDate(input.endDate)) {
-      return {
-        payload: null,
-        error: 'Informe a data final da recorrência.',
-      }
-    }
-    if (input.endDate < input.startDate) {
-      return {
-        payload: null,
-        error: 'A data final da recorrência não pode ser menor que a data inicial.',
-      }
-    }
-    payload.endDate = input.endDate
-  }
-
-  return {
-    payload,
-    error: null as string | null,
-  }
-}
-
-function formatDateInput(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function isIsoDate(value: string | null | undefined) {
-  if (!value) {
-    return false
-  }
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
-}
-
-function normalizeText(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
