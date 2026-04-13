@@ -52,33 +52,29 @@ import {
   CATEGORY_TYPE_RANK,
   formatDateDisplay,
   formatDateInput,
-  isIsoDate,
   normalizeText,
   SORT_DIRECTION_VALUES,
   TRANSACTION_SORT_VALUES,
   TRANSACTION_TYPE_VALUES,
+  useTransactionRecurrenceDraft,
   useTransactionsFilters,
   useTransactionsPagination,
   useTransactionsSearchParams,
   useTransactionsSelection,
   useTransactionForm,
+  useTransferForm,
   useCreateTransaction,
   useDeleteTransaction,
   useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
-  type TransactionsListResponse,
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useUserPreference } from '@/hooks/useUserPreference'
-import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
-import {
-  formatCurrencyValue,
-  parseCurrencyInput,
-} from '@/lib/utils'
+import { formatCurrencyValue } from '@/lib/utils'
 import {
   categoryCreateSchema,
   type CategoryCreateFormData,
@@ -91,10 +87,6 @@ import {
   transactionCreateSchema,
   type TransactionCreateFormData,
 } from '@/schemas/transaction.schema'
-import {
-  transferCreateSchema,
-  type TransferCreateFormData,
-} from '@/schemas/transfer.schema'
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
@@ -239,20 +231,8 @@ function Transactions() {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [repeatTransferError, setRepeatTransferError] = useState<string | null>(
-    null,
-  )
-  const [transferEditError, setTransferEditError] = useState<string | null>(
-    null,
-  )
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
-  const [isRepeatTransferLoading, setIsRepeatTransferLoading] = useState(false)
-  const [isEditTransferLoading, setIsEditTransferLoading] = useState(false)
-  const [transferEditContext, setTransferEditContext] = useState<{
-    expenseId: string
-    incomeId: string
-  } | null>(null)
   const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
     null,
   )
@@ -265,23 +245,6 @@ function Transactions() {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
   const [isCreateCategoryTreeOpen, setIsCreateCategoryTreeOpen] =
     useState(false)
-  const [isCreateRecurrenceEnabled, setIsCreateRecurrenceEnabled] =
-    useState(false)
-  const [createRecurrenceStartDate, setCreateRecurrenceStartDate] = useState('')
-  const [isCreateRecurrenceStartDateTouched, setIsCreateRecurrenceStartDateTouched] =
-    useState(false)
-  const [createRecurrenceFrequency, setCreateRecurrenceFrequency] = useState<
-    'weekly' | 'biweekly' | 'monthly' | 'yearly'
-  >('monthly')
-  const [createRecurrenceEndType, setCreateRecurrenceEndType] = useState<
-    'never' | 'by_occurrences' | 'until_date'
-  >('never')
-  const [createRecurrenceEndOccurrences, setCreateRecurrenceEndOccurrences] =
-    useState('12')
-  const [createRecurrenceEndDate, setCreateRecurrenceEndDate] = useState('')
-  const [createRecurrenceDayOfWeek, setCreateRecurrenceDayOfWeek] = useState('1')
-  const [createRecurrenceDayOfMonth, setCreateRecurrenceDayOfMonth] = useState('1')
-  const [createRecurrenceMonthOfYear, setCreateRecurrenceMonthOfYear] = useState('1')
   const [isCreateAccountSelectOpen, setIsCreateAccountSelectOpen] =
     useState(false)
   const [isEditAccountSelectOpen, setIsEditAccountSelectOpen] = useState(false)
@@ -449,17 +412,6 @@ function Transactions() {
     },
   })
 
-  const transferForm = useForm<TransferCreateFormData>({
-    resolver: zodResolver(transferCreateSchema),
-    defaultValues: {
-      fromAccountId: '',
-      toAccountId: '',
-      amount: '',
-      date: '',
-      description: '',
-    },
-  })
-
   const categoryCreateForm = useForm<CategoryCreateFormData>({
     resolver: zodResolver(categoryCreateSchema),
     defaultValues: {
@@ -505,9 +457,30 @@ function Transactions() {
   const createType = watch('type')
   const createAccountId = watch('accountId')
   const createDate = watch('date')
+  const {
+    isCreateRecurrenceEnabled,
+    setIsCreateRecurrenceEnabled,
+    createRecurrenceStartDate,
+    setCreateRecurrenceStartDate,
+    setIsCreateRecurrenceStartDateTouched,
+    createRecurrenceFrequency,
+    setCreateRecurrenceFrequency,
+    createRecurrenceEndType,
+    setCreateRecurrenceEndType,
+    createRecurrenceEndOccurrences,
+    setCreateRecurrenceEndOccurrences,
+    createRecurrenceEndDate,
+    setCreateRecurrenceEndDate,
+    createRecurrenceDayOfWeek,
+    setCreateRecurrenceDayOfWeek,
+    createRecurrenceDayOfMonth,
+    setCreateRecurrenceDayOfMonth,
+    createRecurrenceMonthOfYear,
+    setCreateRecurrenceMonthOfYear,
+    resetCreateRecurrenceDraft,
+    recurrenceDraft,
+  } = useTransactionRecurrenceDraft({ createDate })
   const createDescription = watch('description') ?? ''
-  const transferFromAccountId = transferForm.watch('fromAccountId')
-  const transferToAccountId = transferForm.watch('toAccountId')
   const editCategoryId = watchEdit('categoryId')
   const editSubcategoryId = watchEdit('subcategoryId')
   const editType = watchEdit('type')
@@ -781,6 +754,39 @@ function Transactions() {
     [isAmountFilterInvalid, rawTransactions],
   )
   const {
+    transferForm,
+    transferEditContext,
+    transferEditError,
+    repeatTransferError,
+    isRepeatTransferLoading,
+    isEditTransferLoading,
+    clearTransferFeedback,
+    openTransferCreate,
+    handleCloseTransferModal,
+    submitTransferForm,
+    handleSwapTransferAccounts,
+    handleOpenRepeatTransfer,
+    handleOpenEditTransfer,
+  } = useTransferForm({
+    isTransferOpen,
+    primaryAccountId,
+    defaultTransferToAccountId,
+    transactions,
+    createTransfer: createTransferMutation.mutateAsync,
+    updateTransaction: updateTransactionMutation.mutateAsync,
+    onTransferModalOpen: () => {
+      setIsTransferOpen(true)
+    },
+    onTransferModalClose: () => {
+      setIsTransferFromAccountSelectOpen(false)
+      setIsTransferToAccountSelectOpen(false)
+      setIsTransferOpen(false)
+    },
+    onTransactionDetailsClose: () => {
+      setSelectedTransaction(null)
+    },
+  })
+  const {
     selectedIds,
     selectedTransactions,
     selectedCount,
@@ -845,23 +851,6 @@ function Transactions() {
     categories.map((category) => [category.id, category.name]),
   )
 
-  const resetCreateRecurrenceDraft = useCallback((baseDate?: string) => {
-    const normalizedDate =
-      isIsoDate(baseDate) && baseDate ? baseDate : formatDateInput(new Date())
-    const fallbackDate = new Date(`${normalizedDate}T00:00:00`)
-    const safeDate = Number.isNaN(fallbackDate.getTime()) ? new Date() : fallbackDate
-
-    setCreateRecurrenceStartDate(normalizedDate)
-    setIsCreateRecurrenceStartDateTouched(false)
-    setCreateRecurrenceFrequency('monthly')
-    setCreateRecurrenceEndType('never')
-    setCreateRecurrenceEndOccurrences('12')
-    setCreateRecurrenceEndDate('')
-    setCreateRecurrenceDayOfWeek(String(safeDate.getDay()))
-    setCreateRecurrenceDayOfMonth(String(safeDate.getDate()))
-    setCreateRecurrenceMonthOfYear(String(safeDate.getMonth() + 1))
-  }, [])
-
   const resetCreateForm = useCallback(() => {
     isCreateFromDuplicate.current = false
     lastCreateCategoryId.current = null
@@ -882,7 +871,13 @@ function Transactions() {
       notes: '',
     })
     clearErrors()
-  }, [clearErrors, primaryAccountId, reset, resetCreateRecurrenceDraft])
+  }, [
+    clearErrors,
+    primaryAccountId,
+    reset,
+    resetCreateRecurrenceDraft,
+    setIsCreateRecurrenceEnabled,
+  ])
 
   const handleClearCreateForm = useCallback(() => {
     resetCreateForm()
@@ -895,7 +890,7 @@ function Transactions() {
     setIsCreateAccountSelectOpen(false)
     setIsCreateCategoryTreeOpen(false)
     setCreateCategoryTreeSearch('')
-  }, [resetCreateRecurrenceDraft])
+  }, [resetCreateRecurrenceDraft, setIsCreateRecurrenceEnabled])
   const {
     handleTransactionAmountChange,
     handleCreateAmountBlur,
@@ -903,16 +898,7 @@ function Transactions() {
     onEditSubmit,
   } = useTransactionForm({
     isCreateRecurrenceEnabled,
-    recurrenceDraft: {
-      startDate: createRecurrenceStartDate,
-      frequency: createRecurrenceFrequency,
-      endType: createRecurrenceEndType,
-      endOccurrences: createRecurrenceEndOccurrences,
-      endDate: createRecurrenceEndDate,
-      dayOfWeek: createRecurrenceDayOfWeek,
-      dayOfMonth: createRecurrenceDayOfMonth,
-      monthOfYear: createRecurrenceMonthOfYear,
-    },
+    recurrenceDraft,
     selectedTransactionId: selectedTransaction?.id ?? null,
     createTransaction: createTransactionMutation.mutateAsync,
     createRecurrence: createRecurrenceMutation.mutateAsync,
@@ -1116,16 +1102,6 @@ function Transactions() {
   }, [clearErrors, createAccountId, isCreateOpen, primaryAccountId, setValue])
 
   useEffect(() => {
-    if (!isCreateRecurrenceEnabled || isCreateRecurrenceStartDateTouched) {
-      return
-    }
-    if (!isIsoDate(createDate)) {
-      return
-    }
-    setCreateRecurrenceStartDate(createDate)
-  }, [createDate, isCreateRecurrenceEnabled, isCreateRecurrenceStartDateTouched])
-
-  useEffect(() => {
     if (!isCreateCategoryOpen) {
       return
     }
@@ -1167,31 +1143,12 @@ function Transactions() {
   ])
 
   useEffect(() => {
-    if (isTransferOpen) {
-      if (!transferEditContext) {
-        transferForm.setValue('date', formatDateInput(new Date()))
-        if (!transferFromAccountId && primaryAccountId) {
-          transferForm.setValue('fromAccountId', primaryAccountId)
-        }
-        if (
-          !transferToAccountId &&
-          defaultTransferToAccountId &&
-          defaultTransferToAccountId !== transferFromAccountId
-        ) {
-          transferForm.setValue('toAccountId', defaultTransferToAccountId)
-        }
-      }
-      transferAmountRef.current?.focus()
+    if (!isTransferOpen) {
+      return
     }
-  }, [
-    defaultTransferToAccountId,
-    isTransferOpen,
-    primaryAccountId,
-    transferEditContext,
-    transferForm,
-    transferFromAccountId,
-    transferToAccountId,
-  ])
+
+    transferAmountRef.current?.focus()
+  }, [isTransferOpen])
 
   const focusCreateCategoryOption = useCallback((direction: 'up' | 'down') => {
     const content = createCategoryTreeContentRef.current
@@ -1857,13 +1814,7 @@ function Transactions() {
     setIsCreateRecurrenceEnabled(false)
     resetCreateRecurrenceDraft()
     setIsCreateOpen(true)
-  }, [resetCreateRecurrenceDraft])
-
-  const openTransferCreate = useCallback(() => {
-    setTransferEditContext(null)
-    setTransferEditError(null)
-    setIsTransferOpen(true)
-  }, [])
+  }, [resetCreateRecurrenceDraft, setIsCreateRecurrenceEnabled])
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -2018,239 +1969,7 @@ function Transactions() {
       setSelectedTransaction(null)
       setIsCreateOpen(true)
     },
-    [reset, resetCreateRecurrenceDraft],
-  )
-
-  const handleCloseTransferModal = () => {
-    setIsTransferFromAccountSelectOpen(false)
-    setIsTransferToAccountSelectOpen(false)
-    setIsTransferOpen(false)
-    setTransferEditContext(null)
-    setTransferEditError(null)
-    transferForm.reset()
-  }
-
-  const submitTransferForm = transferForm.handleSubmit(async (formData) => {
-    try {
-      const parsedAmount = parseCurrencyInput(formData.amount) ?? 0
-
-      if (transferEditContext) {
-        await Promise.all([
-          updateTransactionMutation.mutateAsync({
-            id: transferEditContext.expenseId,
-            payload: {
-              accountId: formData.fromAccountId,
-              amount: parsedAmount,
-              date: formData.date,
-              description: formData.description?.trim() || null,
-            },
-          }),
-          updateTransactionMutation.mutateAsync({
-            id: transferEditContext.incomeId,
-            payload: {
-              accountId: formData.toAccountId,
-              amount: parsedAmount,
-              date: formData.date,
-              description: formData.description?.trim() || null,
-            },
-          }),
-        ])
-      } else {
-        await createTransferMutation.mutateAsync({
-          fromAccountId: formData.fromAccountId,
-          toAccountId: formData.toAccountId,
-          amount: parsedAmount,
-          date: formData.date,
-          description: formData.description?.trim() || null,
-        })
-      }
-
-      handleCloseTransferModal()
-    } catch (error: unknown) {
-      transferForm.setError('root', {
-        message: getApiErrorMessage(error, {
-          defaultMessage: transferEditContext
-            ? 'Erro ao atualizar transferência. Tente novamente.'
-            : 'Erro ao criar transferência. Tente novamente.',
-        }),
-      })
-    }
-  })
-
-  useEffect(() => {
-    if (!isTransferOpen) {
-      return
-    }
-
-    const handleTransferShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault()
-        void submitTransferForm()
-      }
-    }
-
-    window.addEventListener('keydown', handleTransferShortcut, true)
-    return () => {
-      window.removeEventListener('keydown', handleTransferShortcut, true)
-    }
-  }, [isTransferOpen, submitTransferForm])
-
-  const handleSwapTransferAccounts = () => {
-    const fromAccountId = transferForm.getValues('fromAccountId')
-    const toAccountId = transferForm.getValues('toAccountId')
-    transferForm.setValue('fromAccountId', toAccountId)
-    transferForm.setValue('toAccountId', fromAccountId)
-  }
-
-  const findTransferCounterpart = useCallback(
-    async (transaction: Transaction) => {
-      if (!transaction.transferId) {
-        return null
-      }
-      const localMatch = transactions.find(
-        (item) =>
-          item.transferId === transaction.transferId &&
-          item.id !== transaction.id,
-      )
-      if (localMatch) {
-        return localMatch
-      }
-      const limit = 100
-      let page = 1
-      let totalPages = 1
-
-      while (page <= totalPages) {
-        const response = await api.get<TransactionsListResponse>(
-          '/transactions',
-          {
-            params: {
-              page,
-              limit,
-              startDate: transaction.date,
-              endDate: transaction.date,
-            },
-          },
-        )
-        const result = response.data
-        totalPages = Math.max(1, Math.ceil(result.total / result.limit))
-        const match = result.data.find(
-          (item) =>
-            item.transferId === transaction.transferId &&
-            item.id !== transaction.id,
-        )
-        if (match) {
-          return match
-        }
-        page += 1
-      }
-
-      return null
-    },
-    [transactions],
-  )
-
-  const handleOpenRepeatTransfer = async (transaction: Transaction) => {
-    if (!transaction.transferId) {
-      return
-    }
-    if (isRepeatTransferLoading) {
-      return
-    }
-    setTransferEditContext(null)
-    setRepeatTransferError(null)
-    setIsRepeatTransferLoading(true)
-    try {
-      const relatedTransfer = await findTransferCounterpart(transaction)
-      if (!relatedTransfer) {
-        setRepeatTransferError(
-          'Não foi possível localizar a outra conta da transferência.',
-        )
-        return
-      }
-      const isExpense = transaction.type === 'expense'
-      const fromAccountId = isExpense
-        ? transaction.accountId
-        : relatedTransfer.accountId
-      const toAccountId = isExpense
-        ? relatedTransfer.accountId
-        : transaction.accountId
-
-      if (!fromAccountId || !toAccountId) {
-        setRepeatTransferError(
-          'Não foi possível definir as contas da transferência.',
-        )
-        return
-      }
-
-      transferForm.reset({
-        fromAccountId,
-        toAccountId,
-        amount: `$ ${formatCurrencyValue(transaction.amount)}`,
-        date: formatDateInput(new Date()),
-        description: transaction.description ?? '',
-      })
-      setSelectedTransaction(null)
-      setIsTransferOpen(true)
-    } catch (error: unknown) {
-      setRepeatTransferError(
-        getApiErrorMessage(error, {
-          defaultMessage:
-            'Erro ao carregar os dados da transferência. Tente novamente.',
-        }),
-      )
-    } finally {
-      setIsRepeatTransferLoading(false)
-    }
-  }
-
-  const handleOpenEditTransfer = useCallback(
-    async (transaction: Transaction) => {
-      if (!transaction.transferId) {
-        return
-      }
-      if (isEditTransferLoading) {
-        return
-      }
-      setTransferEditError(null)
-      setIsEditTransferLoading(true)
-      try {
-        const relatedTransfer = await findTransferCounterpart(transaction)
-        if (!relatedTransfer) {
-          setTransferEditError(
-            'Não foi possível localizar a outra conta da transferência.',
-          )
-          return
-        }
-        const isExpense = transaction.type === 'expense'
-        const expenseTransaction = isExpense ? transaction : relatedTransfer
-        const incomeTransaction = isExpense ? relatedTransfer : transaction
-
-        setTransferEditContext({
-          expenseId: expenseTransaction.id,
-          incomeId: incomeTransaction.id,
-        })
-
-        transferForm.reset({
-          fromAccountId: expenseTransaction.accountId,
-          toAccountId: incomeTransaction.accountId,
-          amount: `$ ${formatCurrencyValue(transaction.amount)}`,
-          date: transaction.date,
-          description: transaction.description ?? '',
-        })
-        setSelectedTransaction(null)
-        setIsTransferOpen(true)
-      } catch (error: unknown) {
-        setTransferEditError(
-          getApiErrorMessage(error, {
-            defaultMessage:
-              'Erro ao carregar os dados da transferência. Tente novamente.',
-          }),
-        )
-      } finally {
-        setIsEditTransferLoading(false)
-      }
-    },
-    [findTransferCounterpart, isEditTransferLoading, transferForm],
+    [reset, resetCreateRecurrenceDraft, setIsCreateRecurrenceEnabled],
   )
 
   const handleOpenDelete = (transaction: Transaction) => {
@@ -2726,8 +2445,7 @@ function Transactions() {
               className="cursor-pointer rounded-lg border bg-background p-3 transition hover:bg-muted/30"
               onClick={() => {
                 setDeleteError(null)
-                setRepeatTransferError(null)
-                setTransferEditError(null)
+                clearTransferFeedback()
                 setSelectedTransaction(transaction)
               }}
             >
@@ -3108,8 +2826,7 @@ function Transactions() {
                     className="cursor-pointer border-t hover:bg-muted/30"
                     onClick={() => {
                       setDeleteError(null)
-                      setRepeatTransferError(null)
-                      setTransferEditError(null)
+                      clearTransferFeedback()
                       setSelectedTransaction(transaction)
                     }}
                   >

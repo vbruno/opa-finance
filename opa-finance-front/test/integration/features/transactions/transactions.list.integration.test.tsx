@@ -5,7 +5,7 @@ import { logout, setAuth, type User } from '@/features/auth'
 import type { Account } from '@/features/accounts'
 import type { Category } from '@/features/categories'
 import type { Transaction, TransactionsListResponse } from '@/features/transactions'
-import { renderRouteWithProviders, screen, waitFor } from '../../../setup/render'
+import { renderRouteWithProviders, screen } from '../../../setup/render'
 import { ok, server } from '../../../setup/msw'
 
 const testUser: User = {
@@ -118,21 +118,14 @@ describe('transactions list component', () => {
 
     renderRouteWithProviders({ initialEntries: ['/app/transactions'] })
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'Transações' }),
-      ).toBeInTheDocument()
-    })
+    await screen.findByRole('heading', { name: 'Transações' })
 
-    await waitFor(() => {
-      expect(transactionsHits).toBeGreaterThan(0)
-    })
+    const aluguelItems = await screen.findAllByText('Aluguel')
+    const eatingOutItems = await screen.findAllByText('Eating Out')
 
-    await screen.findByText('Aluguel')
-    await screen.findByText('Eating Out')
-
-    expect(screen.getByText('Aluguel')).toBeInTheDocument()
-    expect(screen.getByText('Eating Out')).toBeInTheDocument()
+    expect(transactionsHits).toBeGreaterThan(0)
+    expect(aluguelItems.length).toBeGreaterThan(0)
+    expect(eatingOutItems.length).toBeGreaterThan(0)
     expect(screen.getAllByText('CommBank ACC').length).toBeGreaterThan(0)
     expect(screen.getByText('Página 1 de 1')).toBeInTheDocument()
   })

@@ -15,7 +15,10 @@ import {
   buildTransactionCreatePayloadFromForm,
   buildTransactionUpdatePayloadFromForm,
 } from '../mappers/transaction-payload.mapper'
-import type { SetTransactionAmountValue } from '../model/transactions.types'
+import type {
+  SetTransactionAmountValue,
+  TransactionRecurrenceDraft,
+} from '../model/transactions.types'
 import type {
   Transaction,
   TransactionCreatePayload,
@@ -24,16 +27,7 @@ import type {
 
 type UseTransactionFormInput = {
   isCreateRecurrenceEnabled: boolean
-  recurrenceDraft: {
-    startDate: string
-    frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
-    endType: 'never' | 'by_occurrences' | 'until_date'
-    endOccurrences: string
-    endDate: string
-    dayOfWeek: string
-    dayOfMonth: string
-    monthOfYear: string
-  }
+  recurrenceDraft: TransactionRecurrenceDraft
   selectedTransactionId: string | null
   createTransaction: (payload: TransactionCreatePayload) => Promise<Transaction>
   createRecurrence: (payload: RecurrenceCreatePayload) => Promise<unknown>

@@ -21,6 +21,10 @@ if (!window.matchMedia) {
 }
 
 beforeAll(() => {
+  if (!HTMLElement.prototype.scrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = () => {}
+  }
+
   server.listen({ onUnhandledRequest: 'error' })
 })
 

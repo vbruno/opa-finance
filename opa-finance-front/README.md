@@ -86,6 +86,9 @@ VITE_API_URL=http://localhost:3333
 - `npm run lint` - lint do projeto
 - `npm run lint:fix` - lint com fix
 - `npm run format` - formatacao com Prettier
+- `npm test` - roda todos os testes (unit + integration)
+- `npm run test:unit` - roda apenas testes unitários
+- `npm run test:integration` - roda apenas testes de integração
 
 ## Tema
 
@@ -98,6 +101,7 @@ VITE_API_URL=http://localhost:3333
 - [doc/FRONTEND_GUIDE.md](doc/FRONTEND_GUIDE.md)
 - [doc/FRONTEND_REGRAS_DE_NEGOCIO.md](doc/FRONTEND_REGRAS_DE_NEGOCIO.md)
 - [doc/API_REFERENCE_FRONTEND.md](doc/API_REFERENCE_FRONTEND.md) (fonte única no backend: [opa-finance-api/docs/API_REFERENCE_FRONTEND.md](../opa-finance-api/docs/API_REFERENCE_FRONTEND.md))
+- [test/README.md](test/README.md) (guia oficial para rodar e escrever testes frontend)
 
 ## 👨‍💻 Autor
 
