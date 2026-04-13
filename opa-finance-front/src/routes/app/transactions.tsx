@@ -2,10 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import {
-  ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
-  SlidersHorizontal,
 } from 'lucide-react'
 import {
   useCallback,
@@ -35,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ShortcutLabel, ShortcutTooltip } from '@/components/ui/shortcut-hint'
+import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
@@ -68,6 +66,12 @@ import {
   useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
+  TransactionsCreateModal,
+  TransactionsEditModal,
+  TransactionsDetailsModal,
+  TransactionsTableDesktop,
+  TransactionsToolbar,
+  TransactionsTransferModal,
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
@@ -2038,73 +2042,15 @@ function Transactions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Transações</h2>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-          <Button
-            variant={
-              hasActiveFilters || isFiltersOpen ? 'secondary' : 'outline'
-            }
-            size="icon"
-            className="h-10 w-10 sm:hidden"
-            aria-label={isFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
-            onClick={() => setIsFiltersOpen((prev) => !prev)}
-          >
-            <SlidersHorizontal className="size-4" />
-          </Button>
-          <div className="relative">
-            <Button
-              variant="default"
-              className="h-10"
-              aria-haspopup="menu"
-              aria-expanded={isCreateMenuOpen}
-              onClick={() => setIsCreateMenuOpen((prev) => !prev)}
-            >
-              Adicionar
-            </Button>
-            {isCreateMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsCreateMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-md border bg-background p-2 shadow-lg">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    title="Atalho: N"
-                    onClick={() => {
-                      setIsCreateMenuOpen(false)
-                      openTransactionCreate()
-                    }}
-                  >
-                    <span className="flex flex-1 items-center justify-between">
-                      Transação
-                      <span className="text-xs text-muted-foreground">N</span>
-                    </span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    title="Atalho: T"
-                    onClick={() => {
-                      setIsCreateMenuOpen(false)
-                      openTransferCreate()
-                    }}
-                  >
-                    <span className="flex flex-1 items-center justify-between">
-                      Transferência
-                      <span className="text-xs text-muted-foreground">T</span>
-                    </span>
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      <TransactionsToolbar
+        isFiltersOpen={isFiltersOpen}
+        hasActiveFilters={Boolean(hasActiveFilters)}
+        isCreateMenuOpen={isCreateMenuOpen}
+        setIsFiltersOpen={setIsFiltersOpen}
+        setIsCreateMenuOpen={setIsCreateMenuOpen}
+        onOpenTransactionCreate={openTransactionCreate}
+        onOpenTransferCreate={openTransferCreate}
+      />
 
       <div
         className={`rounded-lg border bg-card p-3 ${
@@ -2680,245 +2626,43 @@ function Transactions() {
 
       <div className="desktop-only">
         <div className="overflow-x-auto rounded-lg border">
-          <div className="max-h-[520px] overflow-y-auto">
-            <table className="min-w-[900px] w-full text-sm">
-              <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
-                <tr>
-                  <th className="w-12 px-4 py-2 text-center">
-                    <input
-                      ref={selectAllRef}
-                      type="checkbox"
-                      className="h-4 w-4 cursor-pointer"
-                      checked={allSelected}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          selectAllOnPage()
-                          return
-                        }
-                        clearSelection()
-                      }}
-                      aria-label="Selecionar todas as transações"
-                    />
-                  </th>
-                  <th className="px-4 py-2">
-                    <button
-                      className="inline-flex items-center gap-2 text-left"
-                      type="button"
-                      onClick={() => handleSort('date')}
-                    >
-                      Data
-                      <SortIcon
-                        isActive={sortKey === 'date'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-4 py-2">
-                    <button
-                      className="inline-flex items-center gap-2 text-left"
-                      type="button"
-                      onClick={() => handleSort('description')}
-                    >
-                      Descrição
-                      <SortIcon
-                        isActive={sortKey === 'description'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-4 py-2">
-                    <button
-                      className="inline-flex items-center gap-2 text-left"
-                      type="button"
-                      onClick={() => handleSort('account')}
-                    >
-                      Conta
-                      <SortIcon
-                        isActive={sortKey === 'account'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-4 py-2">
-                    <button
-                      className="inline-flex items-center gap-2 text-left"
-                      type="button"
-                      onClick={() => handleSort('category')}
-                    >
-                      Categoria
-                      <SortIcon
-                        isActive={sortKey === 'category'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-4 py-2">
-                    <button
-                      className="inline-flex items-center gap-2 text-left"
-                      type="button"
-                      onClick={() => handleSort('subcategory')}
-                    >
-                      Subcategoria
-                      <SortIcon
-                        isActive={sortKey === 'subcategory'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-4 py-2 text-center">
-                    <button
-                      className="inline-flex items-center gap-2 text-center"
-                      type="button"
-                      onClick={() => handleSort('type')}
-                    >
-                      Tipo
-                      <SortIcon
-                        isActive={sortKey === 'type'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-4 py-2 text-right">
-                    <button
-                      className="inline-flex items-center gap-2 text-right"
-                      type="button"
-                      onClick={() => handleSort('amount')}
-                    >
-                      Valor
-                      <SortIcon
-                        isActive={sortKey === 'amount'}
-                        direction={sortDirection}
-                      />
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactionsQuery.isLoading && (
-                  <tr>
-                    <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                      Carregando transações...
-                    </td>
-                  </tr>
-                )}
-                {!transactionsQuery.isLoading && isAmountFilterInvalid && (
-                  <tr>
-                    <td className="px-4 py-5 text-muted-foreground" colSpan={8}>
-                      {amountFilterErrorMessage}
-                    </td>
-                  </tr>
-                )}
-                {!transactionsQuery.isLoading &&
-                  !isAmountFilterInvalid &&
-                  transactions.length === 0 && (
-                    <tr>
-                      <td
-                        className="px-4 py-5 text-muted-foreground"
-                        colSpan={8}
-                      >
-                        Nenhuma transação encontrada.
-                      </td>
-                    </tr>
-                  )}
-                {transactions.map((transaction) => (
-                  <tr
-                    key={transaction.id}
-                    className="cursor-pointer border-t hover:bg-muted/30"
-                    onClick={() => {
-                      setDeleteError(null)
-                      clearTransferFeedback()
-                      setSelectedTransaction(transaction)
-                    }}
-                  >
-                    <td
-                      className="cursor-pointer px-4 py-2 text-center"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        toggleTransactionSelection(transaction.id)
-                      }}
-                      onMouseDown={(event) => event.stopPropagation()}
-                    >
-                      <label
-                        htmlFor={`transaction-select-${transaction.id}`}
-                        className="flex h-full w-full cursor-pointer items-center justify-center rounded-md p-1.5 hover:bg-muted/40"
-                        onClick={(event) => event.stopPropagation()}
-                        onMouseDown={(event) => event.stopPropagation()}
-                      >
-                        <input
-                          id={`transaction-select-${transaction.id}`}
-                          type="checkbox"
-                          className="h-4 w-4 cursor-pointer"
-                          checked={selectedIds.has(transaction.id)}
-                          onClick={(event) => event.stopPropagation()}
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onChange={() => toggleTransactionSelection(transaction.id)}
-                          aria-label="Selecionar transação"
-                        />
-                      </label>
-                    </td>
-                    <td className="px-4 py-2">
-                      {formatDateDisplay(transaction.date, dateFormatter)}
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <span>
-                          {transaction.description ||
-                            transaction.categoryName ||
-                            categoryMap.get(transaction.categoryId) ||
-                            'Sem descrição'}
-                        </span>
-                        {transaction.notes && (
-                          <span
-                            className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
-                            title={transaction.notes}
-                          >
-                            Notas
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2">
-                      {transaction.accountName ||
-                        accountMap.get(transaction.accountId) ||
-                        '-'}
-                    </td>
-                    <td className="px-4 py-2">
-                      {transaction.categoryName ||
-                        categoryMap.get(transaction.categoryId) ||
-                        '-'}
-                    </td>
-                    <td className="px-4 py-2">
-                      {transaction.subcategoryId
-                        ? transaction.subcategoryName || '-'
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span
-                        className={
-                          transaction.type === 'income'
-                            ? 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700'
-                            : 'rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700'
-                        }
-                      >
-                        {transaction.type === 'income' ? 'Receita' : 'Despesa'}
-                      </span>
-                    </td>
-                    <td
-                      className={
-                        transaction.type === 'income'
-                          ? 'sensitive px-4 py-2 text-right font-medium text-emerald-600'
-                          : transaction.type === 'expense'
-                            ? 'sensitive px-4 py-2 text-right font-medium text-rose-600'
-                            : 'sensitive px-4 py-2 text-right font-medium text-muted-foreground'
-                      }
-                    >
-                      {formatCurrencyValue(transaction.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TransactionsTableDesktop
+            transactions={transactions}
+            isLoading={transactionsQuery.isLoading}
+            isAmountFilterInvalid={isAmountFilterInvalid}
+            amountFilterErrorMessage={amountFilterErrorMessage}
+            selectedIds={selectedIds}
+            allSelected={allSelected}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            selectAllRef={selectAllRef}
+            accountMap={accountMap}
+            categoryMap={categoryMap}
+            dateFormatter={dateFormatter}
+            onSort={handleSort}
+            onSelectAllChange={(checked) => {
+              if (checked) {
+                selectAllOnPage()
+                return
+              }
+              clearSelection()
+            }}
+            onToggleTransactionSelection={toggleTransactionSelection}
+            onRowClick={(transaction) => {
+              setDeleteError(null)
+              clearTransferFeedback()
+              setSelectedTransaction(transaction)
+            }}
+            renderSortIcon={({
+              isActive,
+              direction,
+            }: {
+              isActive: boolean
+              direction: 'asc' | 'desc'
+            }) => <SortIcon isActive={isActive} direction={direction} />}
+            formatDateDisplay={formatDateDisplay}
+            formatCurrencyValue={formatCurrencyValue}
+          />
           <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
             <span className="text-muted-foreground">
               {isTransactionsRefetching
@@ -2990,17 +2734,10 @@ function Transactions() {
         </div>
       </div>
 
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="fixed inset-0" onClick={handleCloseCreateModal} />
-          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-lg border bg-background p-4 shadow-lg sm:p-6">
-            <div>
-              <h3 className="text-lg font-semibold">Nova transação</h3>
-              <p className="text-sm text-muted-foreground">
-                Preencha os dados para registrar uma nova transação.
-              </p>
-            </div>
-
+      <TransactionsCreateModal
+        isOpen={isCreateOpen}
+        onClose={handleCloseCreateModal}
+      >
             <form
               className="mt-6 space-y-4 pb-10 sm:pb-0"
               onSubmit={submitCreateTransaction}
@@ -3664,9 +3401,7 @@ function Transactions() {
                 </div>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </TransactionsCreateModal>
 
       {isCreateCategoryOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -3947,794 +3682,90 @@ function Transactions() {
         </div>
       )}
 
-      {isTransferOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="fixed inset-0" onClick={handleCloseTransferModal} />
-          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
-            <div>
-              <h3 className="text-lg font-semibold">
-                {transferEditContext
-                  ? 'Editar transferência'
-                  : 'Nova transferência'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {transferEditContext
-                  ? 'Atualize os dados da transferência selecionada.'
-                  : 'Informe as contas de origem e destino.'}
-              </p>
-            </div>
+      <TransactionsTransferModal
+        isOpen={isTransferOpen}
+        transferEditContext={transferEditContext}
+        transferForm={transferForm}
+        accounts={accountsQuery.data ?? []}
+        isTransferFromAccountSelectOpen={isTransferFromAccountSelectOpen}
+        setIsTransferFromAccountSelectOpen={setIsTransferFromAccountSelectOpen}
+        isTransferToAccountSelectOpen={isTransferToAccountSelectOpen}
+        setIsTransferToAccountSelectOpen={setIsTransferToAccountSelectOpen}
+        isMobile={isMobile}
+        transferAmountRef={transferAmountRef}
+        onClose={handleCloseTransferModal}
+        onSwapAccounts={handleSwapTransferAccounts}
+        onSubmit={submitTransferForm}
+        onDateFocus={handleDateFocus}
+        onDateClick={handleDateClick}
+        onDateKeyDown={handleMobileDateKeyDown}
+        onDatePaste={handleMobileDatePaste}
+        onTransferAmountChange={handleTransactionAmountChange}
+      />
 
-            <form className="mt-6 space-y-4" onSubmit={submitTransferForm}>
-              <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-                <div className="space-y-2">
-                  <Label htmlFor="transfer-from-account">Conta de origem</Label>
-                  <Controller
-                    control={transferForm.control}
-                    name="fromAccountId"
-                    render={({ field }) => (
-                      <Select
-                        open={isTransferFromAccountSelectOpen}
-                        value={field.value ? field.value : '__none__'}
-                        onValueChange={(value) =>
-                          field.onChange(value === '__none__' ? '' : value)
-                        }
-                        onOpenChange={setIsTransferFromAccountSelectOpen}
-                      >
-                        <SelectTrigger
-                          id="transfer-from-account"
-                          className="h-10"
-                          aria-invalid={
-                            !!transferForm.formState.errors.fromAccountId
-                          }
-                        >
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent
-                          onEscapeKeyDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsTransferFromAccountSelectOpen(false)
-                          }}
-                        >
-                          <SelectItem value="__none__" className="hidden">
-                            Selecione
-                          </SelectItem>
-                          {(accountsQuery.data ?? []).map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {transferForm.formState.errors.fromAccountId && (
-                    <p className="text-sm text-destructive">
-                      {transferForm.formState.errors.fromAccountId.message}
-                    </p>
-                  )}
-                </div>
+      <TransactionsDetailsModal
+        selectedTransaction={!isEditOpen ? selectedTransaction : null}
+        detailModalRef={detailModalRef}
+        detailCopiedField={detailCopiedField}
+        dateFormatter={dateFormatter}
+        categoryMap={categoryMap}
+        accountMap={accountMap}
+        repeatTransferError={repeatTransferError}
+        transferEditError={transferEditError}
+        isRepeatTransferLoading={isRepeatTransferLoading}
+        isEditTransferLoading={isEditTransferLoading}
+        onClose={() => setSelectedTransaction(null)}
+        onCopyDetail={handleCopyDetail}
+        onOpenRepeatTransfer={handleOpenRepeatTransfer}
+        onOpenDuplicate={handleOpenDuplicate}
+        onOpenEdit={handleOpenEdit}
+        onOpenEditTransfer={handleOpenEditTransfer}
+        onOpenDelete={handleOpenDelete}
+        formatDateDisplay={formatDateDisplay}
+        formatCurrencyValue={formatCurrencyValue}
+      />
 
-                <div className="flex items-center justify-center sm:pb-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 w-9 p-0"
-                    title="Inverter contas"
-                    aria-label="Inverter contas"
-                    onClick={handleSwapTransferAccounts}
-                  >
-                    <ArrowLeftRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transfer-to-account">Conta de destino</Label>
-                  <Controller
-                    control={transferForm.control}
-                    name="toAccountId"
-                    render={({ field }) => (
-                      <Select
-                        open={isTransferToAccountSelectOpen}
-                        value={field.value ? field.value : '__none__'}
-                        onValueChange={(value) =>
-                          field.onChange(value === '__none__' ? '' : value)
-                        }
-                        onOpenChange={setIsTransferToAccountSelectOpen}
-                      >
-                        <SelectTrigger
-                          id="transfer-to-account"
-                          className="h-10"
-                          aria-invalid={
-                            !!transferForm.formState.errors.toAccountId
-                          }
-                        >
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent
-                          onEscapeKeyDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsTransferToAccountSelectOpen(false)
-                          }}
-                        >
-                          <SelectItem value="__none__" className="hidden">
-                            Selecione
-                          </SelectItem>
-                          {(accountsQuery.data ?? []).map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {transferForm.formState.errors.toAccountId && (
-                    <p className="text-sm text-destructive">
-                      {transferForm.formState.errors.toAccountId.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="transfer-date">Data</Label>
-                  <Input
-                    id="transfer-date"
-                    type="date"
-                    className="h-10"
-                    aria-invalid={!!transferForm.formState.errors.date}
-                    onFocus={handleDateFocus}
-                    inputMode={isMobile ? 'none' : undefined}
-                    {...transferForm.register('date')}
-                    onClick={handleDateClick}
-                    onKeyDown={handleMobileDateKeyDown}
-                    onPaste={handleMobileDatePaste}
-                  />
-                  {transferForm.formState.errors.date && (
-                    <p className="text-sm text-destructive">
-                      {transferForm.formState.errors.date.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transfer-amount">Valor</Label>
-                  <Controller
-                    control={transferForm.control}
-                    name="amount"
-                    render={({ field }) => (
-                      <Input
-                        id="transfer-amount"
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="$ 0,00"
-                        className="h-10"
-                        ref={transferAmountRef}
-                        value={field.value}
-                        onChange={(event) => {
-                          handleTransactionAmountChange(
-                            event.target.value,
-                            field.onChange,
-                          )
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === '=') {
-                            event.preventDefault()
-                            field.onChange('=')
-                            transferForm.clearErrors('amount')
-                          }
-                        }}
-                        aria-invalid={!!transferForm.formState.errors.amount}
-                      />
-                    )}
-                  />
-                  {transferForm.formState.errors.amount && (
-                    <p className="text-sm text-destructive">
-                      {transferForm.formState.errors.amount.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transfer-description">Descrição</Label>
-                <Input
-                  id="transfer-description"
-                  placeholder="Opcional"
-                  className="h-10"
-                  aria-invalid={!!transferForm.formState.errors.description}
-                  {...transferForm.register('description')}
-                />
-                {transferForm.formState.errors.description && (
-                  <p className="text-sm text-destructive">
-                    {transferForm.formState.errors.description.message}
-                  </p>
-                )}
-              </div>
-
-              {transferForm.formState.errors.root && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {transferForm.formState.errors.root.message}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <ShortcutTooltip label="Atalho: Esc">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    onClick={handleCloseTransferModal}
-                  >
-                    Cancelar
-                  </Button>
-                </ShortcutTooltip>
-                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
-                  <Button
-                    type="submit"
-                    className="w-full sm:w-auto"
-                    disabled={transferForm.formState.isSubmitting}
-                  >
-                    {transferEditContext ? 'Salvar' : 'Transferir'}
-                  </Button>
-                </ShortcutTooltip>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {selectedTransaction && !isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setSelectedTransaction(null)}
-          />
-          <div
-            className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
-            ref={detailModalRef}
-            tabIndex={-1}
-          >
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">Detalhes da transação</h3>
-              <p className="text-sm text-muted-foreground">
-                Informações da transação selecionada.
-              </p>
-            </div>
-
-            <div className="mt-6 grid gap-4 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Data</span>
-                <span className="font-medium">
-                  {formatDateDisplay(selectedTransaction.date, dateFormatter)}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Descrição</span>
-                <span className="relative">
-                  <button
-                    type="button"
-                    className="cursor-pointer font-medium hover:underline"
-                    onClick={() =>
-                      handleCopyDetail(
-                        selectedTransaction.description ||
-                          categoryMap.get(selectedTransaction.categoryId) ||
-                          'Sem descrição',
-                        'description',
-                      )
-                    }
-                  >
-                    {selectedTransaction.description ||
-                      selectedTransaction.categoryName ||
-                      categoryMap.get(selectedTransaction.categoryId) ||
-                      'Sem descrição'}
-                  </button>
-                  {detailCopiedField === 'description' && (
-                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
-                      Copiado!
-                    </span>
-                  )}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Conta</span>
-                <span className="font-medium">
-                  {selectedTransaction.accountName ||
-                    accountMap.get(selectedTransaction.accountId) ||
-                    '-'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Categoria</span>
-                <span className="font-medium">
-                  {selectedTransaction.categoryName ||
-                    categoryMap.get(selectedTransaction.categoryId) ||
-                    '-'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Subcategoria</span>
-                <span className="font-medium">
-                  {selectedTransaction.subcategoryId
-                    ? selectedTransaction.subcategoryName || '-'
-                    : '-'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Tipo</span>
-                <span className="font-medium">
-                  {selectedTransaction.type === 'income'
-                    ? 'Receita'
-                    : 'Despesa'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Valor</span>
-                <span className="relative">
-                  <button
-                    type="button"
-                    className="sensitive cursor-pointer font-semibold hover:underline"
-                    onClick={() =>
-                      handleCopyDetail(
-                        formatCurrencyValue(selectedTransaction.amount),
-                        'amount',
-                      )
-                    }
-                  >
-                    {formatCurrencyValue(selectedTransaction.amount)}
-                  </button>
-                  {detailCopiedField === 'amount' && (
-                    <span className="absolute -top-6 right-0 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
-                      Copiado!
-                    </span>
-                  )}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Notas</span>
-                <span className="font-medium">
-                  {selectedTransaction.notes || 'Sem notas'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">Criada em</span>
-                <span className="font-medium">
-                  {formatDateDisplay(
-                    selectedTransaction.createdAt,
-                    dateFormatter,
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-end">
-              <div className="flex w-full flex-col gap-3 sm:items-end">
-                {repeatTransferError && (
-                  <p className="text-sm text-destructive">
-                    {repeatTransferError}
-                  </p>
-                )}
-                {transferEditError && (
-                  <p className="text-sm text-destructive">
-                    {transferEditError}
-                  </p>
-                )}
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                  {selectedTransaction.transferId ? (
-                    <Button
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      disabled={isRepeatTransferLoading}
-                      aria-busy={isRepeatTransferLoading}
-                      onClick={() =>
-                        handleOpenRepeatTransfer(selectedTransaction)
-                      }
-                    >
-                      {isRepeatTransferLoading ? 'Carregando...' : 'Repetir'}
-                    </Button>
-                  ) : (
-                    <ShortcutTooltip label="Atalho: D">
-                      <Button
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        onClick={() => handleOpenDuplicate(selectedTransaction)}
-                      >
-                        <ShortcutLabel label="Duplicar" shortcutIndex={0} />
-                      </Button>
-                    </ShortcutTooltip>
-                  )}
-                  <ShortcutTooltip label="Atalho: E">
-                    <Button
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      autoFocus
-                      disabled={
-                        Boolean(selectedTransaction.transferId) &&
-                        isEditTransferLoading
-                      }
-                      aria-busy={
-                        Boolean(selectedTransaction.transferId) &&
-                        isEditTransferLoading
-                      }
-                      onClick={() => {
-                        if (selectedTransaction.transferId) {
-                          handleOpenEditTransfer(selectedTransaction)
-                        } else {
-                          handleOpenEdit(selectedTransaction)
-                        }
-                      }}
-                    >
-                      {selectedTransaction.transferId &&
-                      isEditTransferLoading ? (
-                        'Carregando...'
-                      ) : (
-                        <ShortcutLabel label="Editar" shortcutIndex={0} />
-                      )}
-                    </Button>
-                  </ShortcutTooltip>
-                  <ShortcutTooltip label="Atalho: R">
-                    <Button
-                      variant="destructive"
-                      className="w-full sm:w-auto"
-                      onClick={() => handleOpenDelete(selectedTransaction)}
-                    >
-                      <ShortcutLabel label="Excluir" shortcutIndex={6} />
-                    </Button>
-                  </ShortcutTooltip>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isEditOpen && selectedTransaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="fixed inset-0" onClick={() => setIsEditOpen(false)} />
-          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
-            <div>
-              <h3 className="text-lg font-semibold">Editar transação</h3>
-              <p className="text-sm text-muted-foreground">
-                Atualize os dados da transação selecionada.
-              </p>
-            </div>
-
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitEditTransaction}
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-edit-account">Conta</Label>
-                  <Controller
-                    control={editControl}
-                    name="accountId"
-                    render={({ field }) => (
-                      <Select
-                        open={isEditAccountSelectOpen}
-                        value={field.value ? field.value : '__none__'}
-                        onValueChange={(value) =>
-                          field.onChange(value === '__none__' ? '' : value)
-                        }
-                        onOpenChange={setIsEditAccountSelectOpen}
-                      >
-                        <SelectTrigger
-                          id="transaction-edit-account"
-                          className="h-10"
-                          aria-invalid={!!editErrors.accountId}
-                          tabIndex={7}
-                        >
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent
-                          onEscapeKeyDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsEditAccountSelectOpen(false)
-                          }}
-                        >
-                          <SelectItem value="__none__" className="hidden">
-                            Selecione
-                          </SelectItem>
-                          {(accountsQuery.data ?? []).map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {editErrors.accountId && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.accountId.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-edit-date">Data</Label>
-                  <Input
-                    id="transaction-edit-date"
-                    type="date"
-                    className="h-10"
-                    aria-invalid={!!editErrors.date}
-                    onFocus={handleDateFocus}
-                    inputMode={isMobile ? 'none' : undefined}
-                    tabIndex={6}
-                    {...editRegister('date')}
-                    onClick={handleDateClick}
-                    onKeyDown={handleMobileDateKeyDown}
-                    onPaste={handleMobileDatePaste}
-                  />
-                  {editErrors.date && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.date.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-edit-category">
-                    Categoria/Subcategoria
-                  </Label>
-                  <Controller
-                    control={editControl}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <Select
-                        open={isEditCategoryTreeOpen}
-                        value={getEditCategoryTreeValue()}
-                        onValueChange={(value) =>
-                          handleEditCategoryTreeValueChange(
-                            value,
-                            field.onChange,
-                          )
-                        }
-                        onOpenChange={handleEditCategoryTreeOpenChange}
-                      >
-                        <SelectTrigger
-                          id="transaction-edit-category"
-                          className="h-10 [&>span]:truncate"
-                          aria-invalid={!!editErrors.categoryId}
-                          tabIndex={4}
-                        >
-                          <SelectValue placeholder="Selecione categoria/subcategoria" />
-                        </SelectTrigger>
-                        <SelectContent
-                          ref={editCategoryTreeContentRef}
-                          onEscapeKeyDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsEditCategoryTreeOpen(false)
-                          }}
-                        >
-                          <div className="px-2 pb-2">
-                            <Input
-                              placeholder="Buscar categoria ou subcategoria..."
-                              className="h-9"
-                              value={editCategoryTreeSearch}
-                              onChange={(event) => {
-                                setEditCategoryTreeSearch(event.target.value)
-                                window.requestAnimationFrame(() => {
-                                  editCategoryTreeSearchInputRef.current?.focus()
-                                })
-                              }}
-                              onKeyDown={handleEditCategoryTreeSearchKeyDown}
-                              onKeyUp={(event) => {
-                                const isTypingKey =
-                                  (event.key.length === 1 ||
-                                    event.key === 'Dead' ||
-                                    event.key === 'Backspace' ||
-                                    event.key === 'Delete') &&
-                                  !event.ctrlKey &&
-                                  !event.metaKey &&
-                                  !event.altKey
-                                if (isTypingKey) {
-                                  event.stopPropagation()
-                                  event.nativeEvent.stopImmediatePropagation?.()
-                                }
-                              }}
-                              ref={editCategoryTreeSearchInputRef}
-                            />
-                          </div>
-                          <SelectItem
-                            value={CREATE_CATEGORY_TREE_NONE}
-                            className="hidden"
-                            textValue="none"
-                          >
-                            Selecione
-                          </SelectItem>
-                          <SelectItem
-                            value={CREATE_CATEGORY_TREE_CREATE_CATEGORY}
-                            onKeyDown={handleEditCategoryTreeItemKeyDown}
-                            textValue="create-category"
-                          >
-                            + Nova categoria
-                          </SelectItem>
-                          <SelectItem
-                            value={CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY}
-                            onKeyDown={handleEditCategoryTreeItemKeyDown}
-                            textValue="create-subcategory"
-                          >
-                            + Nova subcategoria
-                          </SelectItem>
-                          {editCategoryTreeOptions.map(
-                            (option, optionIndex) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                                onKeyDown={handleEditCategoryTreeItemKeyDown}
-                                textValue={`option-${optionIndex}`}
-                                className={
-                                  option.level === 'subcategory'
-                                    ? 'pl-10 text-muted-foreground'
-                                    : 'font-medium'
-                                }
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ),
-                          )}
-                          {editCategoryTreeOptions.length === 0 && (
-                            <div className="px-2 py-2 text-sm text-muted-foreground">
-                              Nenhuma categoria/subcategoria encontrada.
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {editErrors.categoryId && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.categoryId.message}
-                    </p>
-                  )}
-                  {editErrors.subcategoryId && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.subcategoryId.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-edit-type">Tipo</Label>
-                  <input type="hidden" {...editRegister('type')} />
-                  <Input
-                    id="transaction-edit-type"
-                    className="h-10 cursor-not-allowed bg-muted/30"
-                    readOnly
-                    tabIndex={-1}
-                    placeholder="Receita/Despesa"
-                    aria-invalid={!!editErrors.type}
-                    value={
-                      editType === 'income'
-                        ? 'Receita'
-                        : editType === 'expense'
-                          ? 'Despesa'
-                          : ''
-                    }
-                  />
-                  {editErrors.type && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.type.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-edit-amount">Valor</Label>
-                  <Controller
-                    control={editControl}
-                    name="amount"
-                    render={({ field }) => (
-                      <Input
-                        id="transaction-edit-amount"
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="$ 0,00"
-                        className="h-10"
-                        ref={editAmountRef}
-                        value={field.value}
-                        onChange={(event) => {
-                          handleTransactionAmountChange(
-                            event.target.value,
-                            field.onChange,
-                          )
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === '=') {
-                            event.preventDefault()
-                            field.onChange('=')
-                            clearEditErrors('amount')
-                          }
-                        }}
-                        aria-invalid={!!editErrors.amount}
-                        tabIndex={3}
-                      />
-                    )}
-                  />
-                  {editErrors.amount && (
-                    <p className="text-sm text-destructive">
-                      {editErrors.amount.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transaction-edit-description">Descrição</Label>
-                <Input
-                  id="transaction-edit-description"
-                  placeholder="Ex: Supermercado"
-                  className="h-10"
-                  aria-invalid={!!editErrors.description}
-                  tabIndex={1}
-                  {...editRegister('description')}
-                />
-                {editErrors.description && (
-                  <p className="text-sm text-destructive">
-                    {editErrors.description.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transaction-edit-notes">Notas</Label>
-                <Input
-                  id="transaction-edit-notes"
-                  placeholder="Opcional"
-                  className="h-10"
-                  aria-invalid={!!editErrors.notes}
-                  tabIndex={2}
-                  {...editRegister('notes')}
-                />
-                {editErrors.notes && (
-                  <p className="text-sm text-destructive">
-                    {editErrors.notes.message}
-                  </p>
-                )}
-              </div>
-
-              {editErrors.root && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {editErrors.root.message}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <ShortcutTooltip label="Atalho: Esc">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    onClick={() => setIsEditOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                </ShortcutTooltip>
-                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
-                  <Button
-                    type="submit"
-                    className="w-full sm:w-auto"
-                    disabled={isEditSubmitting}
-                  >
-                    Atualizar
-                  </Button>
-                </ShortcutTooltip>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <TransactionsEditModal
+        isOpen={isEditOpen}
+        selectedTransaction={selectedTransaction}
+        editControl={editControl}
+        editRegister={editRegister}
+        editErrors={editErrors}
+        clearEditErrors={clearEditErrors}
+        isEditFormSubmitting={isEditSubmitting}
+        editType={editType}
+        isMobile={isMobile}
+        accounts={accountsQuery.data ?? []}
+        isEditSubmitting={isEditSubmitting}
+        isEditAccountSelectOpen={isEditAccountSelectOpen}
+        setIsEditAccountSelectOpen={setIsEditAccountSelectOpen}
+        isEditCategoryTreeOpen={isEditCategoryTreeOpen}
+        editCategoryTreeSearch={editCategoryTreeSearch}
+        setEditCategoryTreeSearch={setEditCategoryTreeSearch}
+        editCategoryTreeOptions={editCategoryTreeOptions}
+        editCategoryTreeContentRef={editCategoryTreeContentRef}
+        editCategoryTreeSearchInputRef={editCategoryTreeSearchInputRef}
+        editAmountRef={editAmountRef}
+        getEditCategoryTreeValue={getEditCategoryTreeValue}
+        handleEditCategoryTreeValueChange={handleEditCategoryTreeValueChange}
+        handleEditCategoryTreeOpenChange={handleEditCategoryTreeOpenChange}
+        handleEditCategoryTreeSearchKeyDown={handleEditCategoryTreeSearchKeyDown}
+        handleEditCategoryTreeItemKeyDown={handleEditCategoryTreeItemKeyDown}
+        handleTransactionAmountChange={handleTransactionAmountChange}
+        onSubmit={submitEditTransaction}
+        onClose={() => setIsEditOpen(false)}
+        onDateFocus={handleDateFocus}
+        onDateClick={handleDateClick}
+        onDateKeyDown={handleMobileDateKeyDown}
+        onDatePaste={handleMobileDatePaste}
+        createCategoryTreeNoneValue={CREATE_CATEGORY_TREE_NONE}
+        createCategoryTreeCreateCategoryValue={
+          CREATE_CATEGORY_TREE_CREATE_CATEGORY
+        }
+        createCategoryTreeCreateSubcategoryValue={
+          CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY
+        }
+      />
 
       {isDeleteConfirmOpen && selectedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
