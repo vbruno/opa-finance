@@ -40,7 +40,7 @@ type TransactionsEditModalProps = {
   editErrors: FieldErrors<TransactionCreateFormData>
   clearEditErrors: (name?: keyof TransactionCreateFormData) => void
   isEditFormSubmitting: boolean
-  editType: string
+  editType: 'income' | 'expense' | ''
   isMobile: boolean
   accounts: Account[]
   isEditSubmitting: boolean

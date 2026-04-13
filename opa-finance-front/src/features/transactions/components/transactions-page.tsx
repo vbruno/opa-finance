@@ -363,7 +363,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const createDescription = watch('description') ?? ''
   const editCategoryId = watchEdit('categoryId')
   const editSubcategoryId = watchEdit('subcategoryId')
-  const editType = watchEdit('type')
+  const editTypeRaw = watchEdit('type')
+  const editType: 'income' | 'expense' | '' =
+    editTypeRaw === 'income' || editTypeRaw === 'expense' ? editTypeRaw : ''
   const categories = useMemo(
     () => categoriesQuery.data ?? [],
     [categoriesQuery.data],

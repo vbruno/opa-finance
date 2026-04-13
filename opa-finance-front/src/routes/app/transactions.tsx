@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 
+import { TransactionsPage } from '@/features/transactions/components/transactions-page'
 import {
   SORT_DIRECTION_VALUES,
   TRANSACTION_SORT_VALUES,
   TRANSACTION_TYPE_VALUES,
-  TransactionsPage,
-} from '@/features/transactions'
+} from '@/features/transactions/model/transactions.constants'
 
 export const Route = createFileRoute('/app/transactions')({
   validateSearch: z.object({
