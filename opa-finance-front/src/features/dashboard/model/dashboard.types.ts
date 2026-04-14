@@ -11,3 +11,10 @@ export type DashboardSearchParams = {
   startDate?: string
   endDate?: string
 }
+
+type DashboardNavigateSearch = {
+  search: (previous: DashboardSearchParams) => DashboardSearchParams
+  replace?: boolean
+}
+
+export type DashboardNavigateFn = (options: DashboardNavigateSearch) => void
