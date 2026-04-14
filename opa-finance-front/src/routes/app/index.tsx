@@ -22,6 +22,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAccounts } from '@/features/accounts'
 import {
+  DASHBOARD_PERIOD_OPTIONS,
+  DASHBOARD_PERIOD_VALUES,
+  isDashboardPeriod,
+  isDashboardPresetPeriod,
+  type DashboardPeriod,
+} from '@/features/dashboard/model/dashboard.constants'
+import {
+  formatDashboardDateDisplay,
+  getDashboardDateRange,
+} from '@/features/dashboard/model/dashboard.helpers'
+import {
   useTransactions,
   useTransactionsTopCategories,
   useTransactionsSummary,
@@ -36,27 +47,12 @@ export const Route = createFileRoute('/app/')({
     period: z
       .preprocess(
         (value) => {
-          const allowed = [
-            'month',
-            'previousMonth',
-            'last7',
-            'last15',
-            'last30',
-            'custom',
-          ]
           if (typeof value !== 'string') {
             return undefined
           }
-          return allowed.includes(value) ? value : undefined
+          return isDashboardPeriod(value) ? value : undefined
         },
-        z.enum([
-          'month',
-          'previousMonth',
-          'last7',
-          'last15',
-          'last30',
-          'custom',
-        ]),
+        z.enum(DASHBOARD_PERIOD_VALUES),
       )
       .optional(),
     accountId: z.string().optional(),
@@ -75,7 +71,7 @@ export const Route = createFileRoute('/app/')({
 function Dashboard() {
   const navigate = Route.useNavigate()
   const search = Route.useSearch()
-  const period = search.period ?? 'month'
+  const period: DashboardPeriod = search.period ?? 'month'
   const accountParam = search.accountId
   const customStartDate = search.startDate ?? ''
   const customEndDate = search.endDate ?? ''
@@ -102,7 +98,7 @@ function Dashboard() {
   const isMobile = useMediaQuery('(max-width: 639px)')
   const detailModalRef = useRef<HTMLDivElement | null>(null)
   const detailCopyTimeoutRef = useRef<number | null>(null)
-  const { startDate, endDate } = getDateRange(
+  const { startDate, endDate } = getDashboardDateRange(
     period,
     customStartDate,
     customEndDate,
@@ -387,12 +383,7 @@ function Dashboard() {
     navigate({
       search: (prev) => ({
         ...prev,
-        period: value as
-          | 'month'
-          | 'previousMonth'
-          | 'last7'
-          | 'last15'
-          | 'last30',
+        period: isDashboardPresetPeriod(value) ? value : 'month',
         startDate: undefined,
         endDate: undefined,
       }),
@@ -433,12 +424,11 @@ function Dashboard() {
               value={period}
               onChange={(event) => handlePeriodChange(event.target.value)}
             >
-              <option value="month">Mês atual</option>
-              <option value="previousMonth">Mês anterior</option>
-              <option value="last7">Últimos 7 dias</option>
-              <option value="last15">Últimos 15 dias</option>
-              <option value="last30">Últimos 30 dias</option>
-              <option value="custom">Customizado</option>
+              {DASHBOARD_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -647,7 +637,10 @@ function Dashboard() {
                           {formatCurrencyValue(transaction.amount)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {formatDateDisplay(transaction.date, dateFormatter)}
+                          {formatDashboardDateDisplay(
+                            transaction.date,
+                            dateFormatter,
+                          )}
                         </span>
                       </div>
                     </button>
@@ -1101,7 +1094,10 @@ function Dashboard() {
                           {formatCurrencyValue(transaction.amount)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {formatDateDisplay(transaction.date, dateFormatter)}
+                          {formatDashboardDateDisplay(
+                            transaction.date,
+                            dateFormatter,
+                          )}
                         </span>
                       </div>
                     </button>
@@ -1134,7 +1130,10 @@ function Dashboard() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">Data</span>
                 <span className="font-medium">
-                  {formatDateDisplay(selectedTransaction.date, dateFormatter)}
+                  {formatDashboardDateDisplay(
+                    selectedTransaction.date,
+                    dateFormatter,
+                  )}
                 </span>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1220,7 +1219,7 @@ function Dashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Criada em</span>
                 <span className="font-medium">
-                  {formatDateDisplay(
+                  {formatDashboardDateDisplay(
                     selectedTransaction.createdAt,
                     dateFormatter,
                   )}
@@ -1232,87 +1231,4 @@ function Dashboard() {
       )}
     </div>
   )
-}
-
-function getDateRange(
-  period: 'month' | 'previousMonth' | 'last7' | 'last15' | 'last30' | 'custom',
-  customStartDate: string,
-  customEndDate: string,
-) {
-  const today = new Date()
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-  const previousMonthStart = new Date(
-    today.getFullYear(),
-    today.getMonth() - 1,
-    1,
-  )
-  const previousMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
-  const last7Start = new Date(today)
-  last7Start.setDate(today.getDate() - 6)
-  const last15Start = new Date(today)
-  last15Start.setDate(today.getDate() - 14)
-  const last30Start = new Date(today)
-  last30Start.setDate(today.getDate() - 29)
-
-  if (period === 'previousMonth') {
-    return {
-      startDate: formatDateInput(previousMonthStart),
-      endDate: formatDateInput(previousMonthEnd),
-    }
-  }
-
-  if (period === 'last7') {
-    return {
-      startDate: formatDateInput(last7Start),
-      endDate: formatDateInput(today),
-    }
-  }
-
-  if (period === 'last15') {
-    return {
-      startDate: formatDateInput(last15Start),
-      endDate: formatDateInput(today),
-    }
-  }
-
-  if (period === 'last30') {
-    return {
-      startDate: formatDateInput(last30Start),
-      endDate: formatDateInput(today),
-    }
-  }
-
-  if (period === 'custom') {
-    return {
-      startDate: customStartDate || formatDateInput(monthStart),
-      endDate: customEndDate || formatDateInput(monthEnd),
-    }
-  }
-
-  return {
-    startDate: formatDateInput(monthStart),
-    endDate: formatDateInput(monthEnd),
-  }
-}
-
-function formatDateDisplay(
-  value: string | Date | null | undefined,
-  formatter: Intl.DateTimeFormat,
-) {
-  if (!value) {
-    return '-'
-  }
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '-'
-  }
-  return formatter.format(date)
-}
-
-function formatDateInput(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
