@@ -1,12 +1,6 @@
 import { z } from 'zod'
 
-const accountTypes = [
-  'cash',
-  'checking_account',
-  'savings_account',
-  'credit_card',
-  'investment',
-] as const
+import { ACCOUNT_TYPE_VALUES } from '@/features/accounts/model/accounts.constants'
 
 export const accountCreateSchema = z.object({
   name: z
@@ -17,7 +11,10 @@ export const accountCreateSchema = z.object({
     .string()
     .min(1, 'Selecione o tipo da conta.')
     .refine(
-      (value) => accountTypes.includes(value as (typeof accountTypes)[number]),
+      (value) =>
+        ACCOUNT_TYPE_VALUES.includes(
+          value as (typeof ACCOUNT_TYPE_VALUES)[number],
+        ),
       {
         message: 'Selecione o tipo da conta.',
       },
@@ -38,7 +35,10 @@ export const accountUpdateSchema = z.object({
     .string()
     .min(1, 'Selecione o tipo da conta.')
     .refine(
-      (value) => accountTypes.includes(value as (typeof accountTypes)[number]),
+      (value) =>
+        ACCOUNT_TYPE_VALUES.includes(
+          value as (typeof ACCOUNT_TYPE_VALUES)[number],
+        ),
       {
         message: 'Selecione o tipo da conta.',
       },
