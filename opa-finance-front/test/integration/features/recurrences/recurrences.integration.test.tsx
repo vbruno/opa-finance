@@ -1,11 +1,17 @@
 import { http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Account } from '@/features/accounts'
 import { logout, setAuth, type User } from '@/features/auth'
 import type { Category } from '@/features/categories'
 import type { RecurrenceListResponse } from '@/features/recurrences'
-import { fireEvent, renderRouteWithProviders, screen } from '../../../setup/render'
+import {
+  fireEvent,
+  renderRouteWithProviders,
+  screen,
+  waitFor,
+  within,
+} from '../../../setup/render'
 import { ok, server } from '../../../setup/msw'
 
 const testUser: User = {
@@ -105,6 +111,7 @@ describe('recurrences feature', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     logout()
     localStorage.clear()
   })
@@ -199,5 +206,117 @@ describe('recurrences feature', () => {
     expect(
       screen.queryByText('Configure a regra para geração automática de lançamentos.'),
     ).toBeNull()
+  })
+
+  it('deve bloquear exclusão quando recorrência está ativa', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(
+      screen.getByRole('button', { name: /Excluir recorrência ativa/i }),
+    )
+
+    expect(
+      await screen.findByText('Finalize a recorrência antes de excluir.'),
+    ).toBeInTheDocument()
+  })
+
+  it('deve finalizar recorrência ativa', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    let finalizeCalled = false
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.put('*/recurrences/:id/finalize', ({ params }) => {
+        finalizeCalled = true
+        return ok({
+          ...recurrencesMock.data[0],
+          id: String(params.id),
+          status: 'finalized',
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalizar recorrência/i }))
+    await waitFor(() => expect(finalizeCalled).toBe(true))
+  })
+
+  it('deve mostrar erro de conflito 409 ao salvar edição', async () => {
+    let updateCalled = false
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id', () => ok(recurrencesMock.data[0])),
+      http.put(
+        '*/recurrences/:id',
+        () => {
+          updateCalled = true
+          return new Response(JSON.stringify({ message: 'Conflito de versão' }), {
+            status: 409,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      ),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar recorrência/i }))
+    const modalHint = await screen.findByText(
+      'Atualize os dados da regra e escolha o escopo da edição.',
+    )
+    const modal = modalHint.closest('div')?.parentElement
+    if (!modal) {
+      throw new Error('Modal de edição não encontrado')
+    }
+
+    const descriptionInput = within(modal).getByDisplayValue('Academia')
+    fireEvent.change(descriptionInput, { target: { value: 'Academia atualizada' } })
+
+    const saveButton = screen.getByRole('button', { name: 'Salvar edição' })
+    await waitFor(() => expect(saveButton).not.toBeDisabled())
+    fireEvent.click(saveButton)
+    await waitFor(() => expect(updateCalled).toBe(true))
+
+    expect((await screen.findAllByText(/Conflito de edição:/i)).length).toBeGreaterThan(0)
   })
 })

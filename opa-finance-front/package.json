@@ -16,7 +16,7 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run --passWithNoTests",
     "test:unit": "vitest run --passWithNoTests test/unit",
-    "test:integration": "vitest run --passWithNoTests test/integration",
+    "test:integration": "vitest run --passWithNoTests --fileParallelism=false test/integration",
     "format": "prettier --write .",
     "preview": "vite preview"
   },

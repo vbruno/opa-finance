@@ -1,4 +1,3 @@
-import { getUser } from '@/features/auth'
 import type { Category } from '@/features/categories'
 import type {
   Recurrence,
@@ -14,8 +13,9 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { parseCurrencyInput } from '@/lib/utils'
 import type { RecurrenceFormData } from '@/schemas/recurrence.schema'
 
-export function getDefaultRecurrenceFormValues(): RecurrenceFormData {
-  const userTimezone = getUser()?.timezone
+export function getDefaultRecurrenceFormValues(
+  userTimezone?: string | null,
+): RecurrenceFormData {
   return {
     originType: 'transaction',
     frequency: 'monthly',

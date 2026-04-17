@@ -1,9 +1,15 @@
 import type {
   Recurrence,
-  RecurrenceFrequency,
-  RecurrenceOriginType,
-  RecurrenceStatus,
 } from '@/features/recurrences'
+
+export const RECURRENCE_ORIGIN_TYPES = ['transaction', 'transfer'] as const
+export const RECURRENCE_STATUSES = ['active', 'finalized'] as const
+export const RECURRENCE_FREQUENCIES = [
+  'weekly',
+  'biweekly',
+  'monthly',
+  'yearly',
+] as const
 
 export const RECURRENCE_DAY_OF_WEEK_OPTIONS = [
   { value: '0', label: 'Domingo' },
@@ -30,19 +36,28 @@ export const RECURRENCE_MONTH_OPTIONS = [
   { value: '12', label: 'Dezembro' },
 ] as const
 
-export const RECURRENCE_ORIGIN_LABELS: Record<RecurrenceOriginType, string> = {
+export const RECURRENCE_ORIGIN_LABELS: Record<
+  (typeof RECURRENCE_ORIGIN_TYPES)[number],
+  string
+> = {
   transaction: 'Transação',
   transfer: 'Transferência',
 }
 
-export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
+export const RECURRENCE_FREQUENCY_LABELS: Record<
+  (typeof RECURRENCE_FREQUENCIES)[number],
+  string
+> = {
   weekly: 'Semanal',
   biweekly: 'Quinzenal',
   monthly: 'Mensal',
   yearly: 'Anual',
 }
 
-export const RECURRENCE_STATUS_LABELS: Record<RecurrenceStatus, string> = {
+export const RECURRENCE_STATUS_LABELS: Record<
+  (typeof RECURRENCE_STATUSES)[number],
+  string
+> = {
   active: 'Em execução',
   finalized: 'Finalizada',
 }

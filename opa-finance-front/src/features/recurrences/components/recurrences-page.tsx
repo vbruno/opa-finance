@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarRange, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CalendarRange, Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
+import { getUser } from '@/features/auth'
 import {
   fetchSubcategories,
   useCategories,
@@ -39,12 +40,7 @@ import {
   buildScopedRecurrenceUpdatePayload,
   compareIsoDate,
   formatDerivedTransactionTypeLabel,
-  formatIsoDateToPtBr,
   formatRecurrenceCategoryTypeLabel,
-  formatRecurrenceFrequency,
-  formatRecurrenceOriginType,
-  formatRecurrenceStatus,
-  formatRecurrenceTarget,
   getDefaultRecurrenceFormValues,
   getRecurrenceEditErrorMessage,
   getRecurrenceFormValuesFromEntity,
@@ -62,6 +58,9 @@ import {
   type RecurrenceFormData,
 } from '@/schemas/recurrence.schema'
 
+import { RecurrencesFilters } from './recurrences-filters'
+import { RecurrencesList } from './recurrences-list'
+
 type RecurrencesPageProps = {
   search: RecurrencesSearchParams
   navigate: RecurrencesNavigateFn
@@ -69,6 +68,7 @@ type RecurrencesPageProps = {
 
 export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const isDesktop = useMediaQuery('(min-width: 960px)')
+  const userTimezone = getUser()?.timezone
 
   const { page, limit, setSearch } = useRecurrencesSearchParams({ search, navigate })
 
@@ -115,7 +115,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
   const form = useForm<RecurrenceFormData>({
     resolver: zodResolver(recurrenceFormSchema),
-    defaultValues: getDefaultRecurrenceFormValues(),
+    defaultValues: getDefaultRecurrenceFormValues(userTimezone),
   })
 
   const originType = form.watch('originType')
@@ -162,6 +162,9 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
   const total = recurrencesQuery.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / limit))
+  const recurrencesErrorMessage = recurrencesQuery.isError
+    ? getApiErrorMessage(recurrencesQuery.error)
+    : undefined
 
   useEffect(() => {
     const currentCategoryId = form.getValues('categoryId')
@@ -188,7 +191,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setEditingRecurrence(null)
     setFormError(null)
     setConflictRecurrenceId(null)
-    form.reset(getDefaultRecurrenceFormValues())
+    form.reset(getDefaultRecurrenceFormValues(userTimezone))
     setIsFormOpen(true)
   }
 
@@ -206,8 +209,8 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setEditingRecurrence(null)
     setFormError(null)
     setConflictRecurrenceId(null)
-    form.reset(getDefaultRecurrenceFormValues())
-  }, [form, isAnyMutationPending])
+    form.reset(getDefaultRecurrenceFormValues(userTimezone))
+  }, [form, isAnyMutationPending, userTimezone])
 
   useEffect(() => {
     if (!isFormOpen) return
@@ -280,7 +283,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         setConflictRecurrenceId(null)
         setEditingRecurrence(null)
         setIsFormOpen(false)
-        form.reset(getDefaultRecurrenceFormValues())
+        form.reset(getDefaultRecurrenceFormValues(userTimezone))
         setFormError(
           'A recorrência não foi encontrada após recarregar. Atualize os filtros da listagem.',
         )
@@ -399,117 +402,11 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         </Button>
       </div>
 
-      <div className="rounded-lg border p-3">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
-          <Input
-            placeholder="Buscar por descrição/nota"
-            value={search.q ?? ''}
-            onChange={(event) =>
-              setSearch({ page: 1, q: event.target.value || undefined })
-            }
-            className="md:col-span-2"
-          />
-
-          <Select
-            value={search.originType ?? '__all__'}
-            onValueChange={(value) =>
-              setSearch({
-                page: 1,
-                originType:
-                  value === '__all__' ? undefined : (value as 'transaction' | 'transfer'),
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Tipo de origem" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas as origens</SelectItem>
-              <SelectItem value="transaction">Transação</SelectItem>
-              <SelectItem value="transfer">Transferência</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={search.status ?? '__all__'}
-            onValueChange={(value) =>
-              setSearch({
-                page: 1,
-                status: value === '__all__' ? undefined : (value as 'active' | 'finalized'),
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todos os status</SelectItem>
-              <SelectItem value="active">Em execução</SelectItem>
-              <SelectItem value="finalized">Finalizada</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={search.frequency ?? '__all__'}
-            onValueChange={(value) =>
-              setSearch({
-                page: 1,
-                frequency:
-                  value === '__all__'
-                    ? undefined
-                    : (value as 'weekly' | 'biweekly' | 'monthly' | 'yearly'),
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Frequência" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas as frequências</SelectItem>
-              <SelectItem value="weekly">Semanal</SelectItem>
-              <SelectItem value="biweekly">Quinzenal</SelectItem>
-              <SelectItem value="monthly">Mensal</SelectItem>
-              <SelectItem value="yearly">Anual</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={search.accountId ?? '__all__'}
-            onValueChange={(value) =>
-              setSearch({ page: 1, accountId: value === '__all__' ? undefined : value })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Conta" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas as contas</SelectItem>
-              {(accountsQuery.data ?? []).map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              setSearch({
-                page: 1,
-                q: undefined,
-                originType: undefined,
-                status: undefined,
-                frequency: undefined,
-                accountId: undefined,
-              })
-            }
-          >
-            Limpar filtros
-          </Button>
-        </div>
-      </div>
+      <RecurrencesFilters
+        search={search}
+        accounts={accountsQuery.data ?? []}
+        onSetSearch={setSearch}
+      />
 
       {accountsQuery.isError || categoriesQuery.isError ? (
         <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
@@ -539,134 +436,26 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-md border">
-        <div className="grid grid-cols-[1.3fr_0.9fr_0.9fr_1.2fr_0.9fr_0.7fr_1fr] gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
-          <span>Descrição</span>
-          <span>Origem</span>
-          <span>Frequência</span>
-          <span>Conta/Categoria</span>
-          <span>Próxima</span>
-          <span>Status</span>
-          <span className="text-right">Ações</span>
-        </div>
-
-        {recurrencesQuery.isLoading ? (
-          <div className="space-y-2 p-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={`recurrence-skeleton-${index}`}
-                className="h-10 animate-pulse rounded bg-muted/40"
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {recurrencesQuery.isError ? (
-          <div className="space-y-2 p-4 text-sm text-red-300">
-            <p>{getApiErrorMessage(recurrencesQuery.error)}</p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void recurrencesQuery.refetch()}
-            >
-              Tentar novamente
-            </Button>
-          </div>
-        ) : null}
-
-        {!recurrencesQuery.isLoading &&
-        !recurrencesQuery.isError &&
-        (recurrencesQuery.data?.data.length ?? 0) === 0 ? (
-          <div className="space-y-2 p-4 text-sm text-muted-foreground">
-            <p>Nenhuma recorrência encontrada para os filtros informados.</p>
-            <Button size="sm" variant="outline" onClick={openCreateModal}>
-              <Plus className="mr-2 size-4" />
-              Criar recorrência
-            </Button>
-          </div>
-        ) : null}
-
-        {recurrencesQuery.data?.data.map((recurrence) => (
-          <div
-            key={recurrence.id}
-            className="grid grid-cols-[1.3fr_0.9fr_0.9fr_1.2fr_0.9fr_0.7fr_1fr] items-center gap-2 border-b px-3 py-2 text-sm last:border-b-0"
-          >
-            <div className="truncate">
-              {recurrence.description || recurrence.notes || 'Sem descrição'}
-            </div>
-            <div>{formatRecurrenceOriginType(recurrence.originType)}</div>
-            <div>{formatRecurrenceFrequency(recurrence.frequency)}</div>
-            <div className="truncate">
-              {formatRecurrenceTarget(recurrence, accountsById, categoriesById)}
-            </div>
-            <div>{formatIsoDateToPtBr(recurrence.nextOccurrenceDate)}</div>
-            <div>{formatRecurrenceStatus(recurrence.status)}</div>
-            <div className="flex justify-end gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openEditModal(recurrence)}
-                disabled={recurrence.status !== 'active'}
-              >
-                <Pencil className="size-4" />
-              </Button>
-              {recurrence.status === 'active' ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleFinalize(recurrence)}
-                    disabled={finalizeMutation.isPending}
-                  >
-                    Finalizar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => void handleDelete(recurrence)}
-                    aria-label="Excluir (finalize primeiro para excluir)"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => void handleDelete(recurrence)}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
-        <span>
-          Página {page} de {totalPages} · {total} registros
-        </span>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setSearch({ page: Math.max(1, page - 1) })}
-          >
-            Anterior
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => setSearch({ page: Math.min(totalPages, page + 1) })}
-          >
-            Próxima
-          </Button>
-        </div>
-      </div>
+      <RecurrencesList
+        recurrences={recurrencesQuery.data?.data ?? []}
+        page={page}
+        total={total}
+        totalPages={totalPages}
+        isLoading={recurrencesQuery.isLoading}
+        isError={recurrencesQuery.isError}
+        errorMessage={recurrencesErrorMessage}
+        finalizePending={finalizeMutation.isPending}
+        deletePending={deleteMutation.isPending}
+        accountsById={accountsById}
+        categoriesById={categoriesById}
+        onRetry={() => void recurrencesQuery.refetch()}
+        onOpenCreateModal={openCreateModal}
+        onOpenEditModal={openEditModal}
+        onFinalize={(recurrence) => void handleFinalize(recurrence)}
+        onDelete={(recurrence) => void handleDelete(recurrence)}
+        onPrevPage={() => setSearch({ page: Math.max(1, page - 1) })}
+        onNextPage={() => setSearch({ page: Math.min(totalPages, page + 1) })}
+      />
 
       {isFormOpen ? (
         <div
