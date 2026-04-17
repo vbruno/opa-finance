@@ -1,0 +1,115 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import {
+  buildScopedRecurrenceUpdatePayload,
+  compareIsoDate,
+  formatIsoDateToPtBr,
+  formatRecurrenceFrequency,
+  formatRecurrenceOriginType,
+  formatRecurrenceStatus,
+  toRecurrenceCreatePayload,
+} from '@/features/recurrences/model/recurrences.helpers'
+import type { Recurrence } from '@/features/recurrences'
+import type { RecurrenceFormData } from '@/schemas/recurrence.schema'
+
+vi.mock('@/features/auth', () => ({
+  getUser: () => null,
+}))
+
+function makeRecurrence(partial: Partial<Recurrence> = {}): Recurrence {
+  return {
+    id: 'rec-1',
+    userId: 'user-1',
+    originType: 'transaction',
+    status: 'active',
+    timezone: 'Australia/Adelaide',
+    frequency: 'monthly',
+    startDate: '2026-04-01',
+    dayOfWeek: null,
+    dayOfMonth: 1,
+    monthOfYear: null,
+    endType: 'never',
+    endOccurrences: null,
+    endDate: null,
+    accountId: 'acc-1',
+    categoryId: 'cat-1',
+    subcategoryId: 'sub-1',
+    fromAccountId: null,
+    toAccountId: null,
+    amount: 120,
+    description: 'Academia',
+    notes: null,
+    nextOccurrenceDate: '2026-05-01',
+    lastMaterializedDate: null,
+    lastMaterializedAt: null,
+    finalizedAt: null,
+    deletedAt: null,
+    version: 3,
+    createdAt: '2026-04-01T00:00:00.000Z',
+    updatedAt: '2026-04-01T00:00:00.000Z',
+    ...partial,
+  }
+}
+
+function makeForm(partial: Partial<RecurrenceFormData> = {}): RecurrenceFormData {
+  return {
+    originType: 'transaction',
+    frequency: 'monthly',
+    startDate: '2026-04-01',
+    dayOfWeek: '',
+    dayOfMonth: '1',
+    monthOfYear: '',
+    endType: 'never',
+    endOccurrences: '',
+    endDate: '',
+    accountId: 'acc-1',
+    categoryId: 'cat-1',
+    subcategoryId: 'sub-1',
+    fromAccountId: '',
+    toAccountId: '',
+    amount: '120,00',
+    description: 'Academia',
+    notes: '',
+    editScope: 'all',
+    occurrenceDate: '2026-05-01',
+    ...partial,
+  }
+}
+
+describe('recurrences.helpers', () => {
+  it('deve mapear labels de origem/frequência/status', () => {
+    expect(formatRecurrenceOriginType('transaction')).toBe('Transação')
+    expect(formatRecurrenceFrequency('biweekly')).toBe('Quinzenal')
+    expect(formatRecurrenceStatus('finalized')).toBe('Finalizada')
+  })
+
+  it('deve formatar data ISO e comparar datas ISO', () => {
+    expect(formatIsoDateToPtBr('2026-04-17')).toBe('17/04/2026')
+    expect(compareIsoDate('2026-04-17', '2026-04-17')).toBe(0)
+    expect(compareIsoDate('2026-04-16', '2026-04-17')).toBe(-1)
+    expect(compareIsoDate('2026-04-18', '2026-04-17')).toBe(1)
+  })
+
+  it('deve gerar payload de criação para transação', () => {
+    const payload = toRecurrenceCreatePayload(makeForm())
+    expect(payload.originType).toBe('transaction')
+    expect(payload.amount).toBe(120)
+  })
+
+  it('deve remover campos de agenda no escopo single no payload de update', () => {
+    const diff = buildScopedRecurrenceUpdatePayload(
+      makeForm({
+        editScope: 'single',
+        amount: '150,00',
+        frequency: 'weekly',
+        dayOfWeek: '1',
+        dayOfMonth: '',
+      }),
+      makeRecurrence(),
+    )
+
+    expect(diff.amount).toBe(150)
+    expect(diff.frequency).toBeUndefined()
+    expect(diff.dayOfWeek).toBeUndefined()
+  })
+})

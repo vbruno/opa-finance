@@ -1,7 +1,4 @@
-import type {
-  RecurrenceAction,
-  RecurrenceFilters,
-} from '@/features/recurrences/model/recurrences.constants'
+import type { RecurrenceFilters } from '@/features/recurrences/model/recurrences.constants'
 
 export type RecurrencesSearchParams = {
   page?: number
@@ -29,5 +26,3 @@ export type RecurrencesSetSearchInput = Partial<{
   accountId: string | undefined
   q: string | undefined
 }>
-
-export type RecurrenceFormAction = RecurrenceAction

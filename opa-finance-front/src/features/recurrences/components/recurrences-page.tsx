@@ -18,7 +18,6 @@ import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
   useCategories,
-  type Category,
 } from '@/features/categories'
 import {
   useCreateRecurrence,
@@ -595,13 +594,13 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
             <div className="truncate">
               {recurrence.description || recurrence.notes || 'Sem descrição'}
             </div>
-            <div>{formatOriginType(recurrence.originType)}</div>
-            <div>{formatFrequency(recurrence.frequency)}</div>
+            <div>{formatRecurrenceOriginType(recurrence.originType)}</div>
+            <div>{formatRecurrenceFrequency(recurrence.frequency)}</div>
             <div className="truncate">
               {formatRecurrenceTarget(recurrence, accountsById, categoriesById)}
             </div>
-            <div>{formatDate(recurrence.nextOccurrenceDate)}</div>
-            <div>{formatStatus(recurrence.status)}</div>
+            <div>{formatIsoDateToPtBr(recurrence.nextOccurrenceDate)}</div>
+            <div>{formatRecurrenceStatus(recurrence.status)}</div>
             <div className="flex justify-end gap-1">
               <Button
                 size="sm"
@@ -767,7 +766,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Selecione</SelectItem>
-                        {dayOfWeekOptions.map((option) => (
+                        {RECURRENCE_DAY_OF_WEEK_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -805,7 +804,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Selecione</SelectItem>
-                        {monthOptions.map((option) => (
+                        {RECURRENCE_MONTH_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -902,7 +901,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
                         <SelectItem value="__none__">Selecione</SelectItem>
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
-                            {`${category.name} (${formatCategoryTypeLabel(category.type)})`}
+                            {`${category.name} (${formatRecurrenceCategoryTypeLabel(category.type)})`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1104,324 +1103,4 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
       ) : null}
     </div>
   )
-}
-
-function getDefaultFormValues(): RecurrenceFormData {
-  const userTimezone = getUser()?.timezone
-  return {
-    originType: 'transaction',
-    frequency: 'monthly',
-    startDate: getTodayIsoDateInTimezone(userTimezone),
-    dayOfWeek: '',
-    dayOfMonth: '',
-    monthOfYear: '',
-    endType: 'never',
-    endOccurrences: '',
-    endDate: '',
-    accountId: '',
-    categoryId: '',
-    subcategoryId: '',
-    fromAccountId: '',
-    toAccountId: '',
-    amount: '',
-    description: '',
-    notes: '',
-    editScope: 'all',
-    occurrenceDate: '',
-  }
-}
-
-function getFormValuesFromRecurrence(recurrence: Recurrence): RecurrenceFormData {
-  return {
-    originType: recurrence.originType,
-    frequency: recurrence.frequency,
-    startDate: recurrence.startDate,
-    dayOfWeek: recurrence.dayOfWeek?.toString() ?? '',
-    dayOfMonth: recurrence.dayOfMonth?.toString() ?? '',
-    monthOfYear: recurrence.monthOfYear?.toString() ?? '',
-    endType: recurrence.endType,
-    endOccurrences: recurrence.endOccurrences?.toString() ?? '',
-    endDate: recurrence.endDate ?? '',
-    accountId: recurrence.accountId ?? '',
-    categoryId: recurrence.categoryId ?? '',
-    subcategoryId: recurrence.subcategoryId ?? '',
-    fromAccountId: recurrence.fromAccountId ?? '',
-    toAccountId: recurrence.toAccountId ?? '',
-    amount: recurrence.amount.toString().replace('.', ','),
-    description: recurrence.description ?? '',
-    notes: recurrence.notes ?? '',
-    editScope: 'all',
-    occurrenceDate: recurrence.nextOccurrenceDate,
-  }
-}
-
-function toCreatePayload(values: RecurrenceFormData): RecurrenceCreatePayload {
-  const parsedAmount = parseCurrencyInput(values.amount)
-  if (parsedAmount === null || parsedAmount <= 0) {
-    throw new Error('Valor inválido.')
-  }
-
-  const common = {
-    frequency: values.frequency,
-    startDate: values.startDate,
-    dayOfWeek: values.dayOfWeek ? Number(values.dayOfWeek) : undefined,
-    dayOfMonth: values.dayOfMonth ? Number(values.dayOfMonth) : undefined,
-    monthOfYear: values.monthOfYear ? Number(values.monthOfYear) : undefined,
-    endType: values.endType,
-    endOccurrences: values.endOccurrences
-      ? Number(values.endOccurrences)
-      : undefined,
-    endDate: values.endDate || undefined,
-    amount: parsedAmount,
-    description: values.description || undefined,
-    notes: values.notes || undefined,
-  } as const
-
-  if (values.originType === 'transaction') {
-    return {
-      originType: 'transaction',
-      accountId: values.accountId || '',
-      categoryId: values.categoryId || '',
-      subcategoryId: values.subcategoryId || undefined,
-      ...common,
-    }
-  }
-
-  return {
-    originType: 'transfer',
-    fromAccountId: values.fromAccountId || '',
-    toAccountId: values.toAccountId || '',
-    ...common,
-  }
-}
-
-function buildScopedUpdatePayload(
-  values: RecurrenceFormData,
-  recurrence: Recurrence,
-): RecurrenceUpdatePayload {
-  const parsedAmount = parseCurrencyInput(values.amount)
-  if (parsedAmount === null || parsedAmount <= 0) {
-    throw new Error('Valor inválido.')
-  }
-
-  const normalizeOptionalText = (value: string | undefined) => {
-    const trimmed = value?.trim() ?? ''
-    return trimmed.length > 0 ? trimmed : null
-  }
-
-  const scheduleCandidate = {
-    frequency: values.frequency,
-    startDate: values.startDate,
-    dayOfWeek: values.dayOfWeek ? Number(values.dayOfWeek) : null,
-    dayOfMonth: values.dayOfMonth ? Number(values.dayOfMonth) : null,
-    monthOfYear: values.monthOfYear ? Number(values.monthOfYear) : null,
-    endType: values.endType,
-    endOccurrences:
-      values.endType === 'by_occurrences' && values.endOccurrences
-        ? Number(values.endOccurrences)
-        : null,
-    endDate:
-      values.endType === 'until_date' && values.endDate ? values.endDate : null,
-  }
-
-  const businessCandidate: {
-    accountId: string | null
-    categoryId: string | null
-    subcategoryId: string | null
-    fromAccountId: string | null
-    toAccountId: string | null
-    amount: number
-    description: string | null
-    notes: string | null
-  } = {
-    accountId: values.originType === 'transaction' ? values.accountId || null : null,
-    categoryId:
-      values.originType === 'transaction' ? values.categoryId || null : null,
-    subcategoryId:
-      values.originType === 'transaction' ? values.subcategoryId || null : null,
-    fromAccountId:
-      values.originType === 'transfer' ? values.fromAccountId || null : null,
-    toAccountId: values.originType === 'transfer' ? values.toAccountId || null : null,
-    amount: parsedAmount,
-    description: normalizeOptionalText(values.description),
-    notes: normalizeOptionalText(values.notes),
-  }
-
-  const diff: RecurrenceUpdatePayload = {}
-  const addChange = <K extends keyof RecurrenceUpdatePayload>(
-    key: K,
-    nextValue: RecurrenceUpdatePayload[K],
-    currentValue: unknown,
-  ) => {
-    if (nextValue !== currentValue) {
-      diff[key] = nextValue
-    }
-  }
-
-  addChange('frequency', scheduleCandidate.frequency, recurrence.frequency)
-  addChange('startDate', scheduleCandidate.startDate, recurrence.startDate)
-  addChange('dayOfWeek', scheduleCandidate.dayOfWeek ?? undefined, recurrence.dayOfWeek)
-  addChange('dayOfMonth', scheduleCandidate.dayOfMonth ?? undefined, recurrence.dayOfMonth)
-  addChange('monthOfYear', scheduleCandidate.monthOfYear ?? undefined, recurrence.monthOfYear)
-  addChange('endType', scheduleCandidate.endType, recurrence.endType)
-  addChange(
-    'endOccurrences',
-    scheduleCandidate.endOccurrences ?? undefined,
-    recurrence.endOccurrences,
-  )
-  addChange('endDate', scheduleCandidate.endDate ?? undefined, recurrence.endDate)
-  addChange('amount', businessCandidate.amount, recurrence.amount)
-  addChange('description', businessCandidate.description, recurrence.description)
-  addChange('notes', businessCandidate.notes, recurrence.notes)
-
-  if (values.originType === 'transaction') {
-    addChange('accountId', businessCandidate.accountId ?? undefined, recurrence.accountId)
-    addChange('categoryId', businessCandidate.categoryId ?? undefined, recurrence.categoryId)
-    addChange(
-      'subcategoryId',
-      businessCandidate.subcategoryId,
-      recurrence.subcategoryId,
-    )
-  } else {
-    addChange(
-      'fromAccountId',
-      businessCandidate.fromAccountId ?? undefined,
-      recurrence.fromAccountId,
-    )
-    addChange(
-      'toAccountId',
-      businessCandidate.toAccountId ?? undefined,
-      recurrence.toAccountId,
-    )
-  }
-
-  if (values.editScope === 'single') {
-    delete diff.frequency
-    delete diff.startDate
-    delete diff.dayOfWeek
-    delete diff.dayOfMonth
-    delete diff.monthOfYear
-    delete diff.endType
-    delete diff.endOccurrences
-    delete diff.endDate
-  }
-
-  if (values.editScope === 'this_and_next') {
-    delete diff.startDate
-  }
-
-  return diff
-}
-
-function formatOriginType(originType: Recurrence['originType']) {
-  return originType === 'transaction' ? 'Transação' : 'Transferência'
-}
-
-function formatFrequency(frequency: Recurrence['frequency']) {
-  if (frequency === 'weekly') return 'Semanal'
-  if (frequency === 'biweekly') return 'Quinzenal'
-  if (frequency === 'monthly') return 'Mensal'
-  return 'Anual'
-}
-
-function formatCategoryTypeLabel(type: Category['type']) {
-  return type === 'income' ? 'receita' : 'despesa'
-}
-
-function formatDerivedTransactionTypeLabel(type: Category['type'] | null) {
-  if (type === 'income') return 'Receita'
-  if (type === 'expense') return 'Despesa'
-  return 'Selecione uma categoria'
-}
-
-function formatStatus(status: Recurrence['status']) {
-  return status === 'active' ? 'Em execução' : 'Finalizada'
-}
-
-function formatRecurrenceTarget(
-  recurrence: Recurrence,
-  accountsById: Map<string, { name: string }>,
-  categoriesById: Map<string, Category>,
-) {
-  if (recurrence.originType === 'transaction') {
-    const accountName = recurrence.accountId
-      ? accountsById.get(recurrence.accountId)?.name ?? recurrence.accountId
-      : '-'
-    const categoryName = recurrence.categoryId
-      ? categoriesById.get(recurrence.categoryId)?.name ?? recurrence.categoryId
-      : '-'
-    return `${accountName} · ${categoryName}`
-  }
-
-  const fromName = recurrence.fromAccountId
-    ? accountsById.get(recurrence.fromAccountId)?.name ?? recurrence.fromAccountId
-    : '-'
-  const toName = recurrence.toAccountId
-    ? accountsById.get(recurrence.toAccountId)?.name ?? recurrence.toAccountId
-    : '-'
-  return `${fromName} → ${toName}`
-}
-
-function formatDate(isoDate: string | null | undefined) {
-  if (!isoDate) return '-'
-  const [year, month, day] = isoDate.split('-')
-  if (!year || !month || !day) return isoDate
-  return `${day}/${month}/${year}`
-}
-
-function compareIsoDate(a: string, b: string) {
-  if (a === b) return 0
-  return a < b ? -1 : 1
-}
-
-function getRecurrenceEditErrorMessage(error: unknown) {
-  const message = getApiErrorMessage(error)
-  const normalizedMessage = message
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-
-  if (
-    normalizedMessage.includes('ocorrencia materializada passada') ||
-    normalizedMessage.includes('ja materializada')
-  ) {
-    return 'Ocorrência materializada no passado não pode ser editada por este fluxo. Faça o ajuste manual em Transações.'
-  }
-
-  return message
-}
-
-function getTodayIsoDate() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getTodayIsoDateInTimezone(timezone?: string | null) {
-  if (!timezone) {
-    return getTodayIsoDate()
-  }
-
-  try {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-    const parts = formatter.formatToParts(new Date())
-    const year = parts.find((part) => part.type === 'year')?.value
-    const month = parts.find((part) => part.type === 'month')?.value
-    const day = parts.find((part) => part.type === 'day')?.value
-
-    if (!year || !month || !day) {
-      return getTodayIsoDate()
-    }
-    return `${year}-${month}-${day}`
-  } catch {
-    return getTodayIsoDate()
-  }
 }
