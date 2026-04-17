@@ -35,6 +35,7 @@ export function normalizeSearch(value: string) {
   return value
     .trim()
     .toLowerCase()
+    .replace(/_/g, ' ')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 }
