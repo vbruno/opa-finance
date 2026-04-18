@@ -10,10 +10,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type ClipboardEventHandler,
   type FocusEvent,
   type KeyboardEventHandler,
-  type MouseEventHandler,
 } from 'react'
 import {
   Controller,
@@ -56,6 +54,7 @@ import {
   useTransactionsPagination,
   useTransactionsSearchParams,
   useTransactionsSelection,
+  useTransactionsUiState,
   useTransactionForm,
   useTransferForm,
   useCreateTransaction,
@@ -72,7 +71,6 @@ import {
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
-import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useUserPreference } from '@/hooks/useUserPreference'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
@@ -95,103 +93,97 @@ type TransactionsPageProps = {
 }
 
 export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [isTransferOpen, setIsTransferOpen] = useState(false)
-  const [isEditOpen, setIsEditOpen] = useState(false)
-  const [isCreateCategoryOpen, setIsCreateCategoryOpen] = useState(false)
-  const [isCreateSubcategoryOpen, setIsCreateSubcategoryOpen] = useState(false)
-  const [lastCreatedSubcategory, setLastCreatedSubcategory] =
-    useState<Subcategory | null>(null)
-  const pendingCategorySelection = useRef<string | null>(null)
-  const pendingSubcategorySelection = useRef<{
-    categoryId: string
-    subcategoryId: string
-  } | null>(null)
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
-  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<Transaction | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
-  const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
-    null,
-  )
-  const [detailCopiedField, setDetailCopiedField] = useState<
-    'description' | 'amount' | null
-  >(null)
-  const [isDescriptionSuggestionsOpen, setIsDescriptionSuggestionsOpen] =
-    useState(false)
-  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
-  const [isCreateCategoryTreeOpen, setIsCreateCategoryTreeOpen] =
-    useState(false)
-  const [isCreateAccountSelectOpen, setIsCreateAccountSelectOpen] =
-    useState(false)
-  const [isEditAccountSelectOpen, setIsEditAccountSelectOpen] = useState(false)
-  const [isTransferFromAccountSelectOpen, setIsTransferFromAccountSelectOpen] =
-    useState(false)
-  const [isTransferToAccountSelectOpen, setIsTransferToAccountSelectOpen] =
-    useState(false)
-  const [createCategoryTreeSearch, setCreateCategoryTreeSearch] = useState('')
-  const [isEditCategoryTreeOpen, setIsEditCategoryTreeOpen] = useState(false)
-  const [editCategoryTreeSearch, setEditCategoryTreeSearch] = useState('')
-  const [createCategoryModalTarget, setCreateCategoryModalTarget] = useState<
-    'create' | 'edit'
-  >('create')
-  const [createSubcategoryModalTarget, setCreateSubcategoryModalTarget] =
-    useState<'create' | 'edit'>('create')
-  const CREATE_CATEGORY_TREE_NONE = '__none__'
-  const CREATE_CATEGORY_TREE_CREATE_CATEGORY = '__create_category__'
-  const CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY = '__create_subcategory__'
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
-  const createAmountRef = useRef<HTMLInputElement | null>(null)
-  const transferAmountRef = useRef<HTMLInputElement | null>(null)
-  const editAmountRef = useRef<HTMLInputElement | null>(null)
-  const descriptionInputRef = useRef<HTMLInputElement | null>(null)
-  const dateInputRef = useRef<HTMLInputElement | null>(null)
-  const createCategorySelectRef = useRef<HTMLButtonElement | null>(null)
-  const createCategoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const createCategoryTreeContentRef = useRef<HTMLDivElement | null>(null)
-  const editCategoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const editCategoryTreeContentRef = useRef<HTMLDivElement | null>(null)
-  const subcategoryNameRef = useRef<HTMLInputElement | null>(null)
-  const categoryNameRef = useRef<HTMLInputElement | null>(null)
-  const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
-  const detailModalRef = useRef<HTMLDivElement | null>(null)
-  const deleteModalRef = useRef<HTMLDivElement | null>(null)
-  const bulkDeleteModalRef = useRef<HTMLDivElement | null>(null)
-  const selectAllRef = useRef<HTMLInputElement | null>(null)
-  const copyTimeoutRef = useRef<number | null>(null)
-  const detailCopyTimeoutRef = useRef<number | null>(null)
-  const lastCreateCategoryId = useRef<string | null>(null)
-  const lastEditCategoryId = useRef<string | null>(null)
-  const isCreateFromDuplicate = useRef(false)
-  const isMobile = useMediaQuery('(max-width: 639px)')
-  const handleMobileDateKeyDown: KeyboardEventHandler<HTMLInputElement> = (
-    event,
-  ) => {
-    if (isMobile) {
-      event.preventDefault()
-    }
-  }
-  const handleMobileDatePaste: ClipboardEventHandler<HTMLInputElement> = (
-    event,
-  ) => {
-    if (isMobile) {
-      event.preventDefault()
-    }
-  }
-  const handleDateClick: MouseEventHandler<HTMLInputElement> = (event) => {
-    const target = event.currentTarget
-    if (typeof target.showPicker !== 'function') {
-      return
-    }
-    if (isMobile || event.detail > 0) {
-      target.showPicker()
-    }
-  }
+  const {
+    isCreateOpen,
+    setIsCreateOpen,
+    isTransferOpen,
+    setIsTransferOpen,
+    isEditOpen,
+    setIsEditOpen,
+    isCreateCategoryOpen,
+    setIsCreateCategoryOpen,
+    isCreateSubcategoryOpen,
+    setIsCreateSubcategoryOpen,
+    lastCreatedSubcategory,
+    setLastCreatedSubcategory,
+    pendingCategorySelection,
+    pendingSubcategorySelection,
+    isDeleteConfirmOpen,
+    setIsDeleteConfirmOpen,
+    isBulkDeleteOpen,
+    setIsBulkDeleteOpen,
+    selectedTransaction,
+    setSelectedTransaction,
+    deleteError,
+    setDeleteError,
+    bulkDeleteError,
+    setBulkDeleteError,
+    isBulkDeleting,
+    setIsBulkDeleting,
+    copiedValue,
+    setCopiedValue,
+    detailCopiedField,
+    setDetailCopiedField,
+    isDescriptionSuggestionsOpen,
+    setIsDescriptionSuggestionsOpen,
+    isDescriptionFocused,
+    setIsDescriptionFocused,
+    activeSuggestionIndex,
+    setActiveSuggestionIndex,
+    isCreateCategoryTreeOpen,
+    setIsCreateCategoryTreeOpen,
+    isCreateAccountSelectOpen,
+    setIsCreateAccountSelectOpen,
+    isEditAccountSelectOpen,
+    setIsEditAccountSelectOpen,
+    isTransferFromAccountSelectOpen,
+    setIsTransferFromAccountSelectOpen,
+    isTransferToAccountSelectOpen,
+    setIsTransferToAccountSelectOpen,
+    createCategoryTreeSearch,
+    setCreateCategoryTreeSearch,
+    isEditCategoryTreeOpen,
+    setIsEditCategoryTreeOpen,
+    editCategoryTreeSearch,
+    setEditCategoryTreeSearch,
+    createCategoryModalTarget,
+    setCreateCategoryModalTarget,
+    createSubcategoryModalTarget,
+    setCreateSubcategoryModalTarget,
+    CREATE_CATEGORY_TREE_NONE,
+    CREATE_CATEGORY_TREE_CREATE_CATEGORY,
+    CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY,
+    isFiltersOpen,
+    setIsFiltersOpen,
+    isCreateMenuOpen,
+    setIsCreateMenuOpen,
+    createAmountRef,
+    transferAmountRef,
+    editAmountRef,
+    descriptionInputRef,
+    dateInputRef,
+    createCategorySelectRef,
+    createCategoryTreeSearchInputRef,
+    createCategoryTreeContentRef,
+    editCategoryTreeSearchInputRef,
+    editCategoryTreeContentRef,
+    subcategoryNameRef,
+    categoryNameRef,
+    categoryTypeRef,
+    detailModalRef,
+    deleteModalRef,
+    bulkDeleteModalRef,
+    selectAllRef,
+    copyTimeoutRef,
+    detailCopyTimeoutRef,
+    lastCreateCategoryId,
+    lastEditCategoryId,
+    isCreateFromDuplicate,
+    isMobile,
+    handleMobileDateKeyDown,
+    handleMobileDatePaste,
+    handleDateClick,
+  } = useTransactionsUiState()
 
   const hasInitializedAccountFilterRef = useRef(false)
   const [limitPreference, setLimitPreference] = useUserPreference<number>(
@@ -625,7 +617,11 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   })()
   useEffect(() => {
     setActiveSuggestionIndex(0)
-  }, [descriptionSuggestions.length, isDescriptionSuggestionsOpen])
+  }, [
+    descriptionSuggestions.length,
+    isDescriptionSuggestionsOpen,
+    setActiveSuggestionIndex,
+  ])
 
   const rawTransactions = useMemo(
     () => transactionsQuery.data?.data ?? [],
@@ -755,9 +751,15 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     clearErrors()
   }, [
     clearErrors,
+    isCreateFromDuplicate,
+    lastCreateCategoryId,
+    pendingCategorySelection,
+    pendingSubcategorySelection,
     primaryAccountId,
     reset,
     resetCreateRecurrenceDraft,
+    setCreateCategoryTreeSearch,
+    setIsCreateAccountSelectOpen,
     setIsCreateRecurrenceEnabled,
   ])
 
@@ -772,7 +774,14 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsCreateAccountSelectOpen(false)
     setIsCreateCategoryTreeOpen(false)
     setCreateCategoryTreeSearch('')
-  }, [resetCreateRecurrenceDraft, setIsCreateRecurrenceEnabled])
+  }, [
+    resetCreateRecurrenceDraft,
+    setCreateCategoryTreeSearch,
+    setIsCreateAccountSelectOpen,
+    setIsCreateCategoryTreeOpen,
+    setIsCreateOpen,
+    setIsCreateRecurrenceEnabled,
+  ])
   const {
     handleTransactionAmountChange,
     handleCreateAmountBlur,
@@ -834,7 +843,14 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     if (createCategory?.type) {
       setValue('type', createCategory.type)
     }
-  }, [createCategory?.type, createCategoryId, setValue])
+  }, [
+    createCategory?.type,
+    createCategoryId,
+    lastCreateCategoryId,
+    pendingCategorySelection,
+    pendingSubcategorySelection,
+    setValue,
+  ])
 
   useEffect(() => {
     const pending = pendingCategorySelection.current
@@ -846,7 +862,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     }
     setValue('categoryId', pending, { shouldDirty: true, shouldTouch: true })
     pendingCategorySelection.current = null
-  }, [categories, setValue])
+  }, [categories, pendingCategorySelection, setValue])
 
   useEffect(() => {
     const pending = pendingSubcategorySelection.current
@@ -865,7 +881,12 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       shouldTouch: true,
     })
     pendingSubcategorySelection.current = null
-  }, [createCategoryId, createSubcategories, setValue])
+  }, [
+    createCategoryId,
+    createSubcategories,
+    pendingSubcategorySelection,
+    setValue,
+  ])
 
   useEffect(() => {
     if (!editCategoryId) {
@@ -883,7 +904,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     if (editCategory?.type) {
       setEditValue('type', editCategory.type)
     }
-  }, [editCategory?.type, editCategoryId, setEditValue])
+  }, [editCategory?.type, editCategoryId, lastEditCategoryId, setEditValue])
 
   useEffect(() => {
     const hasOpenModal =
@@ -981,7 +1002,16 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         descriptionInputRef.current?.focus()
       }
     }
-  }, [clearErrors, createAccountId, isCreateOpen, primaryAccountId, setValue])
+  }, [
+    clearErrors,
+    createAccountId,
+    dateInputRef,
+    descriptionInputRef,
+    isCreateFromDuplicate,
+    isCreateOpen,
+    primaryAccountId,
+    setValue,
+  ])
 
   useEffect(() => {
     if (!isCreateCategoryOpen) {
@@ -995,7 +1025,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       categoryTypeRef.current?.focus()
     }, 0)
     return () => window.clearTimeout(focusId)
-  }, [categoryCreateForm, createType, isCreateCategoryOpen])
+  }, [categoryCreateForm, categoryTypeRef, createType, isCreateCategoryOpen])
 
   useEffect(() => {
     if (!isCreateSubcategoryOpen) {
@@ -1021,6 +1051,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     createSubcategoryModalTarget,
     editCategoryId,
     isCreateSubcategoryOpen,
+    subcategoryNameRef,
     subcategoryCreateForm,
   ])
 
@@ -1030,7 +1061,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     }
 
     transferAmountRef.current?.focus()
-  }, [isTransferOpen])
+  }, [isTransferOpen, transferAmountRef])
 
   const focusCreateCategoryOption = useCallback((direction: 'up' | 'down') => {
     const content = createCategoryTreeContentRef.current
@@ -1067,7 +1098,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
           : Math.max(selectedIndex - 1, 0)
 
     options[nextIndex]?.focus({ preventScroll: true })
-  }, [])
+  }, [createCategoryTreeContentRef])
 
   const getCreateCategoryTreeValue = useCallback(() => {
     if (!createCategoryId) {
@@ -1088,7 +1119,11 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     window.requestAnimationFrame(() => {
       createCategoryTreeSearchInputRef.current?.focus()
     })
-  }, [])
+  }, [
+    createCategoryTreeSearchInputRef,
+    setCreateCategoryTreeSearch,
+    setIsCreateCategoryTreeOpen,
+  ])
 
   const handleCreateCategoryTreeSelectValueChange = useCallback(
     (
@@ -1143,6 +1178,12 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       CREATE_CATEGORY_TREE_CREATE_CATEGORY,
       CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY,
       CREATE_CATEGORY_TREE_NONE,
+      lastCreateCategoryId,
+      setCreateCategoryModalTarget,
+      setCreateCategoryTreeSearch,
+      setCreateSubcategoryModalTarget,
+      setIsCreateCategoryOpen,
+      setIsCreateSubcategoryOpen,
       setValue,
     ],
   )
@@ -1250,7 +1291,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       event.stopPropagation()
       createCategoryTreeSearchInputRef.current?.focus()
     },
-    [findVisibleSiblingOption],
+    [createCategoryTreeSearchInputRef, findVisibleSiblingOption],
   )
 
   const focusEditCategoryOption = useCallback((direction: 'up' | 'down') => {
@@ -1288,7 +1329,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
           : Math.max(selectedIndex - 1, 0)
 
     options[nextIndex]?.focus({ preventScroll: true })
-  }, [])
+  }, [editCategoryTreeContentRef])
 
   const getEditCategoryTreeValue = useCallback(() => {
     if (!editCategoryId) {
@@ -1309,7 +1350,11 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     window.requestAnimationFrame(() => {
       editCategoryTreeSearchInputRef.current?.focus()
     })
-  }, [])
+  }, [
+    editCategoryTreeSearchInputRef,
+    setEditCategoryTreeSearch,
+    setIsEditCategoryTreeOpen,
+  ])
 
   const handleEditCategoryTreeValueChange = useCallback(
     (
@@ -1364,6 +1409,12 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       CREATE_CATEGORY_TREE_CREATE_CATEGORY,
       CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY,
       CREATE_CATEGORY_TREE_NONE,
+      lastEditCategoryId,
+      setCreateCategoryModalTarget,
+      setCreateSubcategoryModalTarget,
+      setEditCategoryTreeSearch,
+      setIsCreateCategoryOpen,
+      setIsCreateSubcategoryOpen,
       setEditValue,
     ],
   )
@@ -1444,7 +1495,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       event.stopPropagation()
       editCategoryTreeSearchInputRef.current?.focus()
     },
-    [findVisibleSiblingOption],
+    [editCategoryTreeSearchInputRef, findVisibleSiblingOption],
   )
 
   useEffect(() => {
@@ -1460,7 +1511,14 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsTransferFromAccountSelectOpen(false)
     setIsEditCategoryTreeOpen(false)
     setEditCategoryTreeSearch('')
-  }, [isEditOpen])
+  }, [
+    isEditOpen,
+    setEditCategoryTreeSearch,
+    setIsCreateAccountSelectOpen,
+    setIsEditAccountSelectOpen,
+    setIsEditCategoryTreeOpen,
+    setIsTransferFromAccountSelectOpen,
+  ])
 
   useEffect(() => {
     if (!isCreateOpen && !isEditOpen) {
@@ -1586,7 +1644,15 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     if (selectedTransaction && !isEditOpen) {
       detailModalRef.current?.focus()
     }
-  }, [isDeleteConfirmOpen, isBulkDeleteOpen, isEditOpen, selectedTransaction])
+  }, [
+    bulkDeleteModalRef,
+    deleteModalRef,
+    detailModalRef,
+    isDeleteConfirmOpen,
+    isBulkDeleteOpen,
+    isEditOpen,
+    selectedTransaction,
+  ])
 
   useEffect(() => {
     const hasOpenModal =
@@ -1684,6 +1750,20 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     isTransferFromAccountSelectOpen,
     isTransferToAccountSelectOpen,
     isEditOpen,
+    setIsBulkDeleteOpen,
+    setIsCreateAccountSelectOpen,
+    setIsCreateCategoryOpen,
+    setIsCreateCategoryTreeOpen,
+    setIsCreateSubcategoryOpen,
+    setIsDeleteConfirmOpen,
+    setIsDescriptionSuggestionsOpen,
+    setIsEditAccountSelectOpen,
+    setIsEditCategoryTreeOpen,
+    setIsEditOpen,
+    setIsTransferFromAccountSelectOpen,
+    setIsTransferOpen,
+    setIsTransferToAccountSelectOpen,
+    setSelectedTransaction,
     isEditAccountSelectOpen,
     isEditCategoryTreeOpen,
     isDeleteConfirmOpen,
@@ -1696,7 +1776,12 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsCreateRecurrenceEnabled(false)
     resetCreateRecurrenceDraft()
     setIsCreateOpen(true)
-  }, [resetCreateRecurrenceDraft, setIsCreateRecurrenceEnabled])
+  }, [
+    isCreateFromDuplicate,
+    resetCreateRecurrenceDraft,
+    setIsCreateOpen,
+    setIsCreateRecurrenceEnabled,
+  ])
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -1780,7 +1865,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         window.clearTimeout(detailCopyTimeoutRef.current)
       }
     }
-  }, [])
+  }, [copyTimeoutRef, detailCopyTimeoutRef])
 
   const handleCopyDetail = async (
     value: string,
@@ -1808,7 +1893,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       return
     }
     selectAllRef.current.indeterminate = hasSelection && !allSelected
-  }, [allSelected, hasSelection])
+  }, [allSelected, hasSelection, selectAllRef])
 
   const handleOpenEdit = useCallback(
     (transaction: Transaction) => {
@@ -1826,7 +1911,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       })
       setIsEditOpen(true)
     },
-    [resetEdit],
+    [lastEditCategoryId, resetEdit, setIsEditOpen, setSelectedTransaction],
   )
 
   const handleOpenDuplicate = useCallback(
@@ -1851,14 +1936,22 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       setSelectedTransaction(null)
       setIsCreateOpen(true)
     },
-    [reset, resetCreateRecurrenceDraft, setIsCreateRecurrenceEnabled],
+    [
+      isCreateFromDuplicate,
+      lastCreateCategoryId,
+      reset,
+      resetCreateRecurrenceDraft,
+      setIsCreateOpen,
+      setIsCreateRecurrenceEnabled,
+      setSelectedTransaction,
+    ],
   )
 
-  const handleOpenDelete = (transaction: Transaction) => {
+  const handleOpenDelete = useCallback((transaction: Transaction) => {
     setSelectedTransaction(transaction)
     setDeleteError(null)
     setIsDeleteConfirmOpen(true)
-  }
+  }, [setDeleteError, setIsDeleteConfirmOpen, setSelectedTransaction])
 
   useEffect(() => {
     if (!selectedTransaction || isEditOpen || isDeleteConfirmOpen) {
@@ -1915,6 +2008,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     handleOpenEditTransfer,
     isDeleteConfirmOpen,
     isEditOpen,
+    handleOpenDelete,
     selectedTransaction,
   ])
 
