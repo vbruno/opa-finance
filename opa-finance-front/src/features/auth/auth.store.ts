@@ -16,7 +16,8 @@ let accessToken: string | null = loadToken()
 
 function isValidToken(value: string | null): value is string {
   if (!value) return false
-  return value.split('.').length === 3
+  const normalized = value.trim()
+  return normalized.split('.').length === 3
 }
 
 function isValidUser(value: unknown): value is User {
@@ -84,6 +85,14 @@ export function getUser() {
 }
 
 export function setAuth(token: string, user: User) {
+  if (!token || token.trim().length === 0 || !isValidUser(user)) {
+    accessToken = null
+    currentUser = null
+    saveToken(null)
+    saveUser(null)
+    return
+  }
+
   accessToken = token
   currentUser = user
   saveToken(token)
@@ -91,6 +100,12 @@ export function setAuth(token: string, user: User) {
 }
 
 export function setAccessToken(token: string) {
+  if (!isValidToken(token)) {
+    accessToken = null
+    saveToken(null)
+    return
+  }
+
   accessToken = token
   saveToken(token)
 }

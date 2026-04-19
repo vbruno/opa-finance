@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
 } from '@/features/accounts'
 import { useAccountsFormActions } from '@/features/accounts/hooks/use-accounts-form-actions'
 import { useAccountsLinkedActions } from '@/features/accounts/hooks/use-accounts-linked-actions'
+import { useAccountsPageInteractions } from '@/features/accounts/hooks/use-accounts-page-interactions'
 import { useAccountsSearchParams } from '@/features/accounts/hooks/use-accounts-search-params'
 import { useAccountsSelection } from '@/features/accounts/hooks/use-accounts-selection'
 import {
@@ -237,305 +238,42 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
 
   const deleteAccountMutation = useDeleteAccount()
 
-  useEffect(() => {
-    setDeleteError(null)
-    setDeleteBlockedReason(null)
-    resetLinkedErrors()
-  }, [resetLinkedErrors, selectedAccountId])
-
-  useEffect(() => {
-    const nextPage =
-      totalPages > 0 ? Math.min(currentPage, totalPages) : currentPage
-
-    if (selectedAccountId && !accountsQuery.isLoading && !selectedAccount) {
-      navigate({
-        search: (prev) => ({ ...prev, id: undefined }),
-        replace: true,
-      })
-      return
-    }
-
-    if (nextPage !== currentPage) {
-      navigate({
-        search: (prev) => ({ ...prev, page: nextPage }),
-        replace: true,
-      })
-    }
-  }, [
-    accountsQuery.isLoading,
-    currentPage,
-    navigate,
-    selectedAccount,
-    selectedAccountId,
-    totalPages,
-  ])
-
-  useEffect(() => {
-    if (!hasOpenModal) {
-      return
-    }
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [hasOpenModal])
-
-  useEffect(() => {
-    if (!isCreateOpen) {
-      return
-    }
-    createNameRef.current?.focus()
-  }, [isCreateOpen])
-
-  useEffect(() => {
-    if (!isEditOpen) {
-      return
-    }
-    editNameRef.current?.focus()
-  }, [isEditOpen])
-
-  useEffect(() => {
-    if (isDeleteConfirmOpen) {
-      deleteModalRef.current?.focus()
-      return
-    }
-    if (selectedAccount && !isEditOpen) {
-      detailModalRef.current?.focus()
-    }
-  }, [isDeleteConfirmOpen, isEditOpen, selectedAccount])
-
-  useEffect(() => {
-    if (
-      !selectedAccount ||
-      isEditOpen ||
-      isDeleteConfirmOpen ||
-      isPrimaryConfirmOpen
-    ) {
-      return
-    }
-    const detailAccount = selectedAccount
-
-    function handleDetailShortcut(event: KeyboardEvent) {
-      if (event.metaKey || event.ctrlKey || event.altKey) {
-        return
-      }
-
-      const target = event.target as HTMLElement | null
-      const tagName = target?.tagName?.toLowerCase()
-      if (
-        tagName === 'input' ||
-        tagName === 'textarea' ||
-        tagName === 'select' ||
-        target?.isContentEditable
-      ) {
-        return
-      }
-
-      const key = event.key.toLowerCase()
-
-      if (key === 'r') {
-        event.preventDefault()
-        openAccountDeleteConfirm()
-        return
-      }
-
-      if (key === 'e') {
-        event.preventDefault()
-        openAccountEdit()
-        return
-      }
-
-      const visibilityShortcutKey = detailAccount.isHiddenOnDashboard
-        ? 'm'
-        : 'o'
-
-      if (
-        key === visibilityShortcutKey &&
-        !detailAccount.isPrimary &&
-        !isTogglingDashboardVisibility
-      ) {
-        event.preventDefault()
-        void handleToggleDashboardVisibility()
-      }
-    }
-
-    window.addEventListener('keydown', handleDetailShortcut, true)
-    return () =>
-      window.removeEventListener('keydown', handleDetailShortcut, true)
-  }, [
-    handleToggleDashboardVisibility,
-    isDeleteConfirmOpen,
-    isEditOpen,
-    isPrimaryConfirmOpen,
-    isTogglingDashboardVisibility,
-    openAccountEdit,
-    selectedAccount,
-  ])
-
-  useEffect(() => {
-    if (!hasOpenModal) {
-      return
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      if (isPrimaryConfirmOpen) {
-        closePrimaryConfirm()
-        return
-      }
-
-      if (isDeleteConfirmOpen) {
-        setIsDeleteConfirmOpen(false)
-        return
-      }
-
-      if (isEditOpen) {
-        setIsEditOpen(false)
-        navigate({
-          search: (prev) => ({ ...prev, id: undefined }),
-          replace: true,
-        })
-        return
-      }
-
-      if (isCreateOpen) {
-        setIsCreateOpen(false)
-        return
-      }
-
-      if (selectedAccount) {
-        navigate({
-          search: (prev) => ({ ...prev, id: undefined }),
-          replace: true,
-        })
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [
-    closePrimaryConfirm,
-    hasOpenModal,
-    isCreateOpen,
-    isDeleteConfirmOpen,
-    isEditOpen,
-    isPrimaryConfirmOpen,
-    navigate,
-    selectedAccount,
-  ])
-
-  useEffect(() => {
-    const hasOpenModal =
-      isCreateOpen ||
-      isEditOpen ||
-      isDeleteConfirmOpen ||
-      isPrimaryConfirmOpen ||
-      !!selectedAccount
-    if (hasOpenModal) {
-      return
-    }
-
-    function handleCreateShortcut(event: KeyboardEvent) {
-      if (event.metaKey || event.ctrlKey || event.altKey) {
-        return
-      }
-
-      const target = event.target as HTMLElement | null
-      const tagName = target?.tagName?.toLowerCase()
-      if (
-        tagName === 'input' ||
-        tagName === 'textarea' ||
-        tagName === 'select' ||
-        target?.isContentEditable
-      ) {
-        return
-      }
-
-      if (event.key.toLowerCase() !== 'n') {
-        return
-      }
-
-      event.preventDefault()
-      reset()
-      setIsCreateOpen(true)
-    }
-
-    window.addEventListener('keydown', handleCreateShortcut, true)
-    return () =>
-      window.removeEventListener('keydown', handleCreateShortcut, true)
-  }, [
-    isCreateOpen,
-    isDeleteConfirmOpen,
-    isEditOpen,
-    isPrimaryConfirmOpen,
-    reset,
-    selectedAccount,
-  ])
-
   const submitCreateAccount = handleSubmit(onSubmitCreateAccount)
   const submitEditAccount = handleEditSubmit(onSubmitEditAccount)
 
-  useEffect(() => {
-    if (!isCreateOpen) {
-      return
-    }
-
-    function handleCreateShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault()
-        void submitCreateAccount()
-      }
-    }
-
-    window.addEventListener('keydown', handleCreateShortcut, true)
-    return () =>
-      window.removeEventListener('keydown', handleCreateShortcut, true)
-  }, [isCreateOpen, submitCreateAccount])
-
-  useEffect(() => {
-    if (!isEditOpen) {
-      return
-    }
-
-    function handleEditShortcut(event: KeyboardEvent) {
-      if (isPrimaryConfirmOpen) {
-        return
-      }
-
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        event.key.toLowerCase() === 'p' &&
-        selectedAccount &&
-        !selectedAccount.isPrimary &&
-        !isSettingPrimary
-      ) {
-        event.preventDefault()
-        openPrimaryConfirm()
-        return
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault()
-        void submitEditAccount()
-      }
-    }
-
-    window.addEventListener('keydown', handleEditShortcut, true)
-    return () => window.removeEventListener('keydown', handleEditShortcut, true)
-  }, [
-    isEditOpen,
-    isPrimaryConfirmOpen,
-    isSettingPrimary,
-    openPrimaryConfirm,
+  useAccountsPageInteractions({
+    currentPage,
+    totalPages,
+    selectedAccountId,
     selectedAccount,
+    isAccountsLoading: accountsQuery.isLoading,
+    navigate,
+    resetLinkedErrors,
+    setDeleteError,
+    setDeleteBlockedReason,
+    hasOpenModal,
+    isCreateOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    isPrimaryConfirmOpen,
+    isTogglingDashboardVisibility,
+    isSettingPrimary,
+    setIsCreateOpen,
+    setIsEditOpen,
+    setIsDeleteConfirmOpen,
+    resetCreateForm: reset,
+    openAccountDeleteConfirm,
+    openAccountEdit,
+    openPrimaryConfirm,
+    closePrimaryConfirm,
+    handleToggleDashboardVisibility,
+    submitCreateAccount,
     submitEditAccount,
-  ])
+    createNameRef,
+    editNameRef,
+    detailModalRef,
+    deleteModalRef,
+  })
 
   function getErrorStatus(error: unknown) {
     if (!error || typeof error !== 'object' || !('response' in error)) {

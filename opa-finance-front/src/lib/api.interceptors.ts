@@ -1,4 +1,4 @@
-import { getToken, getUser, logout, setAuth } from '@/features/auth'
+import { getToken, logout, setAccessToken } from '@/features/auth'
 import { router } from '@/router/router'
 
 import { api } from './api'
@@ -80,8 +80,11 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
+          .then((queuedToken) => {
+            if (typeof queuedToken !== 'string' || queuedToken.length === 0) {
+              throw new Error('Missing access token in refresh queue')
+            }
+            originalRequest.headers.Authorization = `Bearer ${queuedToken}`
             return api(originalRequest)
           })
           .catch((err) => {
@@ -101,11 +104,12 @@ api.interceptors.response.use(
         )
         const { accessToken } = response.data
 
-        // Atualiza o token no store (sem atualizar user, pois vem do cookie)
-        const user = getUser()
-        if (user && accessToken) {
-          setAuth(accessToken, user)
+        if (typeof accessToken !== 'string' || accessToken.length === 0) {
+          throw new Error('Missing access token in refresh response')
         }
+
+        // Atualiza somente token; usuário permanece o mesmo.
+        setAccessToken(accessToken)
 
         processQueue(null, accessToken)
 

@@ -9,7 +9,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type FocusEvent,
   type KeyboardEventHandler,
 } from 'react'
@@ -55,6 +54,7 @@ import {
   useTransactionsSearchParams,
   useTransactionsSelection,
   useTransactionsUiState,
+  useDebouncedValue,
   useTransactionForm,
   useTransferForm,
   useCreateTransaction,
@@ -3886,19 +3886,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       )}
     </div>
   )
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedValue(value)
-    }, delayMs)
-    return () => window.clearTimeout(timeoutId)
-  }, [value, delayMs])
-
-  return debouncedValue
 }
 
 function SortIcon({

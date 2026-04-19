@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, asc, desc, eq, gt, gte, ilike, isNotNull, lt, lte, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, isNotNull, lte, sql, sum } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
@@ -24,6 +24,11 @@ import {
   users,
 } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
+import {
+  appendTransactionAmountFilters,
+  appendTransactionTypeFilter,
+  buildTransactionOrderBy,
+} from "./transaction-list.helpers";
 import { TransactionType } from "./transaction.enums";
 import type {
   CreateTransactionInput,
@@ -226,37 +231,6 @@ export class TransactionService {
     if (query.excludeHiddenAccounts) filters.push(this.hiddenDashboardAccountsFilter(userId));
 
     return filters;
-  }
-
-  private applyAmountFilters(filters: SQL[], query: ListTransactionsQuery) {
-    if (query.amountOp && query.amount !== undefined) {
-      const amountValue = query.amount.toString();
-      switch (query.amountOp) {
-        case "gt":
-          filters.push(gt(transactions.amount, amountValue));
-          break;
-        case "gte":
-          filters.push(gte(transactions.amount, amountValue));
-          break;
-        case "lt":
-          filters.push(lt(transactions.amount, amountValue));
-          break;
-        case "lte":
-          filters.push(lte(transactions.amount, amountValue));
-          break;
-      }
-      return;
-    }
-
-    if (query.amountMin !== undefined && query.amountMax !== undefined) {
-      filters.push(gte(transactions.amount, query.amountMin.toString()));
-      filters.push(lte(transactions.amount, query.amountMax.toString()));
-      return;
-    }
-
-    if (query.amount !== undefined) {
-      filters.push(eq(transactions.amount, query.amount.toString()));
-    }
   }
 
   private async applyTextFilters(filters: SQL[], query: ListTransactionsQuery) {
@@ -516,32 +490,11 @@ export class TransactionService {
     const offset = (page - 1) * limit;
 
     const filters = await this.buildBaseFilters(userId, query);
-    if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
-    this.applyAmountFilters(filters, query);
+    appendTransactionTypeFilter(filters, query);
+    appendTransactionAmountFilters(filters, query);
     await this.applyTextFilters(filters, query);
 
-    const sortKey = query.sort ?? "date";
-    const sortDirection = query.dir === "asc" ? asc : desc;
-    const orderBy = (() => {
-      switch (sortKey) {
-        case "amount":
-          return [sortDirection(transactions.amount), desc(transactions.createdAt)];
-        case "type":
-          return [sortDirection(transactions.type), desc(transactions.createdAt)];
-        case "description":
-          return [sortDirection(transactions.description), desc(transactions.createdAt)];
-        case "account":
-          return [sortDirection(accounts.name), desc(transactions.createdAt)];
-        case "category":
-          return [sortDirection(categories.name), desc(transactions.createdAt)];
-        case "subcategory":
-          return [sortDirection(subcategories.name), desc(transactions.createdAt)];
-        case "date":
-          return [sortDirection(transactions.date), desc(transactions.createdAt)];
-        default:
-          return [desc(transactions.date), desc(transactions.createdAt)];
-      }
-    })();
+    const orderBy = buildTransactionOrderBy(query);
 
     const [{ count }] = await this.app.db
       .select({ count: sql<number>`count(*)` })

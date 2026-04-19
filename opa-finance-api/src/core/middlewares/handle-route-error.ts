@@ -12,8 +12,18 @@ import {
   UnauthorizedProblem,
 } from "../errors/problems";
 
-function isFastifyValidationError(error: Error & { code?: string; statusCode?: number }) {
+type FastifyRouteError = Error & {
+  code?: string;
+  statusCode?: number;
+  validation?: unknown;
+};
+
+function isFastifyValidationError(error: FastifyRouteError) {
   return error.code === "FST_ERR_VALIDATION" || error.statusCode === 400;
+}
+
+function isFastifyJwtError(error: FastifyRouteError) {
+  return typeof error.code === "string" && error.code.startsWith("FST_JWT_");
 }
 
 function routeRequiresBearerAuth(req: { routeOptions?: { schema?: { security?: unknown } } }) {
@@ -21,10 +31,8 @@ function routeRequiresBearerAuth(req: { routeOptions?: { schema?: { security?: u
   return Array.isArray(security) && security.length > 0;
 }
 
-function getRequiredFieldMessage(error: Error & { validation?: unknown }) {
-  const validations = Array.isArray((error as { validation?: unknown[] }).validation)
-    ? ((error as { validation?: unknown[] }).validation ?? [])
-    : [];
+function getRequiredFieldMessage(error: FastifyRouteError) {
+  const validations = Array.isArray(error.validation) ? error.validation : [];
 
   const requiredError = validations.find((issue) => {
     if (!issue || typeof issue !== "object") return false;
@@ -69,7 +77,7 @@ export function registerErrorHandler(app: FastifyInstance) {
     /* -------------------------------------------------------------
      * JWT ERRORS → Unauthorized (FST_JWT_*)
      * ----------------------------------------------------------- */
-    if ((err as any).code && String((err as any).code).startsWith("FST_JWT_")) {
+    if (isFastifyJwtError(err as FastifyRouteError)) {
       return reply
         .status(401)
         .send(new UnauthorizedProblem("Token ausente ou inválido.", req.url).toJSON());

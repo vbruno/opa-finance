@@ -2,6 +2,7 @@ import "fastify";
 import "@fastify/jwt";
 
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type { DB } from "../core/plugins/drizzle";
 import * as schema from "../db/schema";
 
 declare module "fastify" {
@@ -16,8 +17,9 @@ declare module "fastify" {
     // Método de autenticação JWT
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
 
-    // Banco de dados (Postgres em produção, SQLite em testes)
-    db: BetterSQLite3Database<typeof schema> | any;
+    // Banco em runtime varia entre ambientes/plugins; manter compatibilidade atual.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    db: DB | BetterSQLite3Database<typeof schema> | any;
   }
 
   interface FastifyReply {

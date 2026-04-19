@@ -17,6 +17,25 @@ import { users } from "../../db/schema";
 import type { RegisterInput, LoginInput } from "./auth.schemas";
 import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
 
+type ResetTokenPayload = {
+  sub: string;
+  type: "reset";
+};
+
+type ForgotPasswordResult = {
+  email: string;
+  resetToken?: string;
+};
+
+function isResetTokenPayload(payload: unknown): payload is ResetTokenPayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const value = payload as Partial<ResetTokenPayload>;
+  return value.type === "reset" && typeof value.sub === "string" && value.sub.length > 0;
+}
+
 export class AuthService {
   constructor(
     private app: FastifyInstance,
@@ -113,7 +132,7 @@ export class AuthService {
   /* -------------------------------------------------------------------------- */
   /*                             FORGOT PASSWORD                                */
   /* -------------------------------------------------------------------------- */
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string): Promise<ForgotPasswordResult> {
     const [user] = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
 
     // ❗ Se o usuário não existir, retorna como se existisse
@@ -141,16 +160,11 @@ export class AuthService {
       throw new ValidationProblem("Token inválido ou expirado.", "/auth/reset-password");
     }
 
-    if (
-      !payload ||
-      typeof payload !== "object" ||
-      !("type" in payload) ||
-      (payload as any).type !== "reset"
-    ) {
+    if (!isResetTokenPayload(payload)) {
       throw new ValidationProblem("Token inválido.", "/auth/reset-password");
     }
 
-    const userId = (payload as any).sub;
+    const userId = payload.sub;
 
     const [user] = await this.db.select().from(users).where(eq(users.id, userId));
 
