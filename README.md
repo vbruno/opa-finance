@@ -19,7 +19,7 @@ opa-finance/
 
 - Node.js 18+
 - npm 9+
-- PostgreSQL **local ou remoto** **ou** Docker + Docker Compose (para subir o banco)
+- PostgreSQL local ou remoto, ou Docker + Docker Compose (para subir o banco)
 
 ## 🚀 Como rodar (visão rápida)
 
@@ -64,7 +64,7 @@ opa-finance/
   - [Reports](opa-finance-api/docs/modules/modules_reports.md)
   - [Audit](opa-finance-api/docs/modules/modules_audit.md)
 
-Materiais historicos e operacionais da raiz foram movidos para `docs-hidden/`.
+Materiais históricos e operacionais da raiz foram movidos para `docs-hidden/`.
 
 ## 🧪 Testes
 
@@ -107,5 +107,5 @@ MIT — consulte o arquivo [LICENSE](LICENSE).
 
 **Bruno S Velho**
 - Email: bruno.velho@gmail.com
-- GitHub: https://github.com/vbruno
-- LinkedIn: https://www.linkedin.com/in/brunovelho/
+- GitHub: [github.com/vbruno](https://github.com/vbruno)
+- LinkedIn: [linkedin.com/in/brunovelho](https://www.linkedin.com/in/brunovelho/)

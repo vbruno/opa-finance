@@ -25,8 +25,9 @@ Este frontend depende do backend em execução para autenticação e dados.
 
 ## Arquitetura
 
-- Feature-based architecture: hooks e tipos ficam em `src/features/*`.
-- Rotas (`src/routes/*`) concentram a UI e a orquestracao.
+- Feature-first híbrida com rotas finas.
+- `src/features/*` concentra hooks, mappers, model e componentes por domínio.
+- `src/routes/*` atua como entrypoint de navegação e composição mínima.
 
 ## Responsividade
 
@@ -100,7 +101,8 @@ VITE_API_URL=http://localhost:3333
 
 - [doc/FRONTEND_GUIDE.md](doc/FRONTEND_GUIDE.md)
 - [doc/FRONTEND_REGRAS_DE_NEGOCIO.md](doc/FRONTEND_REGRAS_DE_NEGOCIO.md)
-- [doc/API_REFERENCE_FRONTEND.md](doc/API_REFERENCE_FRONTEND.md) (fonte única no backend: [opa-finance-api/docs/API_REFERENCE_FRONTEND.md](../opa-finance-api/docs/API_REFERENCE_FRONTEND.md))
+- [doc/API_REFERENCE_FRONTEND.md](doc/API_REFERENCE_FRONTEND.md) (ponte local)
+- Fonte única da referência de API: [../opa-finance-api/docs/API_REFERENCE_FRONTEND.md](../opa-finance-api/docs/API_REFERENCE_FRONTEND.md)
 - [test/README.md](test/README.md) (guia oficial para rodar e escrever testes frontend)
 
 ## 👨‍💻 Autor
@@ -108,5 +110,5 @@ VITE_API_URL=http://localhost:3333
 **Bruno S Velho**
 
 - Email: bruno.velho@gmail.com
-- GitHub: https://github.com/vbruno
-- LinkedIn: https://www.linkedin.com/in/brunovelho/
+- GitHub: [github.com/vbruno](https://github.com/vbruno)
+- LinkedIn: [linkedin.com/in/brunovelho](https://www.linkedin.com/in/brunovelho/)

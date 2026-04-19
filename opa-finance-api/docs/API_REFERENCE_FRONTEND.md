@@ -9,6 +9,7 @@ Documentação completa da API para integração com o frontend.
 - [Configuração Base](#configuração-base)
 - [Autenticação](#autenticação)
 - [Estrutura de Erros](#estrutura-de-erros)
+- [Health](#-health)
 - [Endpoints](#endpoints)
   - [Auth](#auth)
   - [Users](#users)
@@ -20,6 +21,14 @@ Documentação completa da API para integração com o frontend.
   - [Recurrences](#recurrences)
   - [Reports](#reports)
   - [Audit](#audit)
+
+---
+
+## 🔗 Navegação rápida
+
+- Swagger UI: [/docs](http://localhost:3333/docs)
+- JSON OpenAPI: [/docs/json](http://localhost:3333/docs/json)
+- Import Insomnia: [insomnia-import-opa-finance.json](./insomnia-import-opa-finance.json)
 
 ---
 
@@ -113,7 +122,7 @@ Health check simples da API.
 
 ### GET `/`
 
-Retorna mensagem basica de status.
+Retorna mensagem básica de status.
 
 **Response 200:**
 

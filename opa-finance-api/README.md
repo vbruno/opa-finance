@@ -57,9 +57,12 @@ src/
     auth/
     accounts/
     categories/
-    subcategories/
     transactions/
     transfers/
+    recurrences/
+    reports/
+    audit/
+    users/
   core/
     config/
     plugins/
@@ -72,11 +75,10 @@ src/
 
 Camadas:
 
-- **Routes** → define rotas
-- **Controller** → recebe requisições
+- **Routes** → define rotas e contratos HTTP
 - **Service** → implementa regras de negócio
-- **Repository** → comunicação com o banco
 - **Schemas** → validações Zod
+- **DB/Schema (Drizzle)** → modelagem e acesso ao banco
 
 Autenticação:
 
@@ -244,7 +246,8 @@ Tipos suportados:
 ### 1️⃣ Clonar repositório
 
 ```sh
-git clone https://github.com/SEU_USUARIO/NOME_DO_REPO.git
+git clone https://github.com/vbruno/opa-finance.git
+cd opa-finance
 cd opa-finance-api
 ```
 
@@ -318,6 +321,11 @@ npm run db:sync:dev
 Detalhes do fluxo de trabalho para devs, ambientes, backup, sanitizacao e validacao estao em:
 
 - [docs/guia_fluxo_trabalho_devs.md](docs/guia_fluxo_trabalho_devs.md)
+
+## 🧾 Referências de API
+
+- Referência para frontend: [docs/API_REFERENCE_FRONTEND.md](docs/API_REFERENCE_FRONTEND.md)
+- Import do Insomnia: [docs/insomnia-import-opa-finance.json](docs/insomnia-import-opa-finance.json)
 
 ### 📖 Swagger
 
