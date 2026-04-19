@@ -112,3 +112,13 @@ export function buildDescriptionSuggestions({
   )
   return fallbackFiltered.slice(0, limit)
 }
+
+export function getTransactionAmountToneClass(value: number) {
+  if (value > 0) {
+    return 'text-emerald-600'
+  }
+  if (value < 0) {
+    return 'text-rose-600'
+  }
+  return 'text-muted-foreground'
+}

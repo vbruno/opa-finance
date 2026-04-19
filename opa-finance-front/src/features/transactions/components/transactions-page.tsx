@@ -35,18 +35,16 @@ import {
   useCategories,
   useCreateCategory,
   useCreateSubcategory,
-  type Subcategory,
 } from '@/features/categories'
 import {
   useCreateRecurrence,
 } from '@/features/recurrences'
 import {
   buildPaginationItems,
-  buildCategoryTreeOptions,
-  buildDescriptionSuggestions,
   CATEGORY_TYPE_RANK,
   formatDateDisplay,
   formatDateInput,
+  getTransactionAmountToneClass,
   resolveDefaultTransferToAccountId,
   type TransactionsNavigateFn,
   type TransactionsSearchParams,
@@ -57,11 +55,11 @@ import {
   useTransactionsSelection,
   useTransactionsUiState,
   useDebouncedValue,
+  useTransactionsCreateSupport,
   useTransactionForm,
   useTransferForm,
   useCreateTransaction,
   useDeleteTransaction,
-  useTransactionDescriptions,
   useTransactions,
   useUpdateTransaction,
   TransactionsCreateModal,
@@ -416,112 +414,29 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const editCategory = categories.find(
     (category) => category.id === editCategoryId,
   )
-
-  const createAllSubcategoriesQuery = useQuery({
-    queryKey: ['subcategories', 'transaction-create-all', createCategoryIdsKey],
-    queryFn: async () => {
-      const entries = await Promise.all(
-        availableCategories.map(async (category) => {
-          const subcategories = await fetchSubcategories(category.id)
-          return [category.id, subcategories] as const
-        }),
-      )
-      return Object.fromEntries(entries) as Record<string, Subcategory[]>
-    },
-    enabled: Boolean(
-      (isCreateOpen || isEditOpen) && availableCategories.length,
-    ),
-  })
-
-  const createSubcategoriesByCategory = useMemo(() => {
-    const source = createAllSubcategoriesQuery.data ?? {}
-    const next: Record<string, Subcategory[]> = {}
-    Object.entries(source).forEach(([categoryId, items]) => {
-      next[categoryId] = [...items].sort((a, b) =>
-        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
-      )
-    })
-
-    if (lastCreatedSubcategory) {
-      const list = next[lastCreatedSubcategory.categoryId] ?? []
-      if (!list.some((item) => item.id === lastCreatedSubcategory.id)) {
-        next[lastCreatedSubcategory.categoryId] = [
-          ...list,
-          lastCreatedSubcategory,
-        ].sort((a, b) =>
-          a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }),
-        )
-      }
-    }
-
-    return next
-  }, [createAllSubcategoriesQuery.data, lastCreatedSubcategory])
-
-  const createSubcategories = useMemo(
-    () => createSubcategoriesByCategory[createCategoryId] ?? [],
-    [createCategoryId, createSubcategoriesByCategory],
-  )
-  const createSubcategoryName = useMemo(
-    () =>
-      createSubcategories.find((subcategory) => subcategory.id === createSubcategoryId)?.name ??
-      '',
-    [createSubcategories, createSubcategoryId],
-  )
-  const createAccountName = useMemo(
-    () => accounts.find((account) => account.id === createAccountId)?.name ?? '',
-    [accounts, createAccountId],
-  )
-
-  const createCategoryTreeOptions = useMemo(() => buildCategoryTreeOptions({
-    categories: availableCategories,
-    subcategoriesByCategory: createSubcategoriesByCategory,
-    search: createCategoryTreeSearch,
-  }), [
+  const {
+    createSubcategories,
+    createSubcategoryName,
+    createAccountName,
+    createCategoryTreeOptions,
+    editCategoryTreeOptions,
+    descriptionSuggestions,
+    areDescriptionSuggestionsLoading,
+    hasDescriptionSuggestionsError,
+    shouldFilterSuggestions,
+  } = useTransactionsCreateSupport({
     availableCategories,
+    createCategoryIdsKey,
+    createCategoryId,
+    createSubcategoryId: createSubcategoryId ?? '',
+    createAccountId,
     createCategoryTreeSearch,
-    createSubcategoriesByCategory,
-  ])
-
-  const editCategoryTreeOptions = useMemo(() => buildCategoryTreeOptions({
-    categories: availableCategories,
-    subcategoriesByCategory: createSubcategoriesByCategory,
-    search: editCategoryTreeSearch,
-  }), [
-    availableCategories,
-    createSubcategoriesByCategory,
     editCategoryTreeSearch,
-  ])
-
-  const suggestionsQueryText = debouncedCreateDescription
-  const trimmedSuggestionsQueryText = suggestionsQueryText.trim()
-  const shouldFilterSuggestions =
-    /\s/.test(suggestionsQueryText) || trimmedSuggestionsQueryText.length > 0
-  const baseDescriptionSuggestionsQuery = useTransactionDescriptions(
-    {
-      accountId: createAccountId || '',
-      limit: 20,
-    },
-    {
-      enabled: Boolean(isCreateOpen && createAccountId),
-    },
-  )
-  const filteredDescriptionSuggestionsQuery = useTransactionDescriptions(
-    {
-      accountId: createAccountId || '',
-      q: shouldFilterSuggestions ? trimmedSuggestionsQueryText : undefined,
-      limit: 20,
-    },
-    {
-      enabled: Boolean(
-        isCreateOpen && createAccountId && shouldFilterSuggestions,
-      ),
-    },
-  )
-  const descriptionSuggestions = buildDescriptionSuggestions({
-    baseItems: baseDescriptionSuggestionsQuery.data?.items ?? [],
-    filteredItems: filteredDescriptionSuggestionsQuery.data?.items ?? [],
-    shouldFilter: shouldFilterSuggestions,
-    queryText: trimmedSuggestionsQueryText,
+    debouncedCreateDescription,
+    isCreateOpen,
+    isEditOpen,
+    lastCreatedSubcategory,
+    accounts,
   })
   useEffect(() => {
     setActiveSuggestionIndex(0)
@@ -602,11 +517,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     hasLoadedPageData: transactionsQuery.data !== undefined,
   })
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
-  const amountTone = (value: number) => {
-    if (value > 0) return 'text-emerald-600'
-    if (value < 0) return 'text-rose-600'
-    return 'text-muted-foreground'
-  }
 
   const handleDateFocus = (event: FocusEvent<HTMLInputElement>) => {
     if (!isMobile) {
@@ -2179,7 +2089,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                   <span className="text-muted-foreground">Média:</span>
                   <span className="relative">
                     <span
-                      className={`sensitive cursor-pointer font-semibold ${amountTone(
+                      className={`sensitive cursor-pointer font-semibold ${getTransactionAmountToneClass(
                         selectedAverage,
                       )}`}
                       role="button"
@@ -2208,7 +2118,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                   <span className="text-muted-foreground">Soma:</span>
                   <span className="relative">
                     <span
-                      className={`sensitive cursor-pointer font-semibold ${amountTone(
+                      className={`sensitive cursor-pointer font-semibold ${getTransactionAmountToneClass(
                         selectedTotal,
                       )}`}
                       role="button"
@@ -2400,7 +2310,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                 Média:{' '}
                 <span className="relative">
                   <span
-                    className={`sensitive cursor-pointer font-semibold ${amountTone(
+                    className={`sensitive cursor-pointer font-semibold ${getTransactionAmountToneClass(
                       selectedAverage,
                     )}`}
                     role="button"
@@ -2427,7 +2337,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                 Soma:{' '}
                 <span className="relative">
                   <span
-                    className={`sensitive cursor-pointer font-semibold ${amountTone(
+                    className={`sensitive cursor-pointer font-semibold ${getTransactionAmountToneClass(
                       selectedTotal,
                     )}`}
                     role="button"
@@ -2958,20 +2868,18 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                             setIsDescriptionSuggestionsOpen(false)
                           }
                         }}
-                        autoComplete="off"
-                        tabIndex={1}
-                      />
+                          autoComplete="off"
+                          tabIndex={1}
+                        />
                       {isDescriptionSuggestionsOpen && (
                         <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
-                          {filteredDescriptionSuggestionsQuery.isLoading ||
-                          baseDescriptionSuggestionsQuery.isLoading ? (
+                          {areDescriptionSuggestionsLoading ? (
                             <div className="px-3 py-2 text-sm text-muted-foreground">
                               {shouldFilterSuggestions
                                 ? 'Buscando sugestões...'
                                 : 'Carregando sugestões...'}
                             </div>
-                          ) : filteredDescriptionSuggestionsQuery.isError ||
-                            baseDescriptionSuggestionsQuery.isError ? (
+                          ) : hasDescriptionSuggestionsError ? (
                             <div className="px-3 py-2 text-sm text-destructive">
                               Erro ao carregar sugestões.
                             </div>

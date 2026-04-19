@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCategoryTreeOptions,
   buildDescriptionSuggestions,
+  getTransactionAmountToneClass,
   resolveDefaultTransferToAccountId,
 } from '@/features/transactions/model/transactions-page.helpers'
 
@@ -187,6 +188,14 @@ describe('transactions-page.helpers', () => {
       })
 
       expect(result).toEqual(['Combustível'])
+    })
+  })
+
+  describe('getTransactionAmountToneClass', () => {
+    it('retorna classe de tom correta', () => {
+      expect(getTransactionAmountToneClass(10)).toBe('text-emerald-600')
+      expect(getTransactionAmountToneClass(-10)).toBe('text-rose-600')
+      expect(getTransactionAmountToneClass(0)).toBe('text-muted-foreground')
     })
   })
 })
