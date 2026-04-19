@@ -1,5 +1,6 @@
 // src/modules/transactions/transaction.service.ts
 import { and, asc, desc, eq, gt, gte, ilike, isNotNull, lt, lte, sql, sum } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
 import {
@@ -200,6 +201,158 @@ export class TransactionService {
     }
   }
 
+  private async buildBaseFilters(
+    userId: string,
+    query: {
+      startDate?: string;
+      endDate?: string;
+      accountId?: string;
+      categoryId?: string;
+      subcategoryId?: string;
+      excludeHiddenAccounts?: boolean;
+    },
+  ): Promise<SQL[]> {
+    const filters: SQL[] = [eq(transactions.userId, userId)];
+
+    if (query.accountId) {
+      await this.validateAccount(userId, query.accountId);
+    }
+
+    if (query.startDate) filters.push(gte(transactions.date, query.startDate));
+    if (query.endDate) filters.push(lte(transactions.date, query.endDate));
+    if (query.accountId) filters.push(eq(transactions.accountId, query.accountId));
+    if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
+    if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
+    if (query.excludeHiddenAccounts) filters.push(this.hiddenDashboardAccountsFilter(userId));
+
+    return filters;
+  }
+
+  private applyAmountFilters(filters: SQL[], query: ListTransactionsQuery) {
+    if (query.amountOp && query.amount !== undefined) {
+      const amountValue = query.amount.toString();
+      switch (query.amountOp) {
+        case "gt":
+          filters.push(gt(transactions.amount, amountValue));
+          break;
+        case "gte":
+          filters.push(gte(transactions.amount, amountValue));
+          break;
+        case "lt":
+          filters.push(lt(transactions.amount, amountValue));
+          break;
+        case "lte":
+          filters.push(lte(transactions.amount, amountValue));
+          break;
+      }
+      return;
+    }
+
+    if (query.amountMin !== undefined && query.amountMax !== undefined) {
+      filters.push(gte(transactions.amount, query.amountMin.toString()));
+      filters.push(lte(transactions.amount, query.amountMax.toString()));
+      return;
+    }
+
+    if (query.amount !== undefined) {
+      filters.push(eq(transactions.amount, query.amount.toString()));
+    }
+  }
+
+  private async applyTextFilters(filters: SQL[], query: ListTransactionsQuery) {
+    const useUnaccent = query.description || query.notes ? await this.hasUnaccent() : false;
+
+    if (query.description && query.notes) {
+      if (useUnaccent) {
+        filters.push(
+          sql`(
+            unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})
+            OR unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})
+          )`,
+        );
+      } else {
+        filters.push(
+          sql`(
+            ${transactions.description} ILIKE ${`%${query.description}%`}
+            OR ${transactions.notes} ILIKE ${`%${query.notes}%`}
+          )`,
+        );
+      }
+      return;
+    }
+
+    if (query.description) {
+      if (useUnaccent) {
+        filters.push(
+          sql`unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})`,
+        );
+      } else {
+        filters.push(ilike(transactions.description, `%${query.description}%`));
+      }
+      return;
+    }
+
+    if (query.notes) {
+      if (useUnaccent) {
+        filters.push(sql`unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})`);
+      } else {
+        filters.push(ilike(transactions.notes, `%${query.notes}%`));
+      }
+    }
+  }
+
+  private async resolveAuditSnapshot(
+    userId: string,
+    tx: Pick<
+      typeof transactions.$inferSelect,
+      | "id"
+      | "userId"
+      | "accountId"
+      | "categoryId"
+      | "subcategoryId"
+      | "type"
+      | "amount"
+      | "date"
+      | "description"
+      | "notes"
+      | "transferId"
+      | "createdAt"
+      | "updatedAt"
+    > & { amount: string | number },
+  ) {
+    const names = await this.resolveAuditNames(
+      userId,
+      tx.accountId,
+      tx.categoryId,
+      tx.subcategoryId,
+    );
+    return this.toAuditTransaction(tx, names);
+  }
+
+  private async resolveAuditSnapshots(
+    userId: string,
+    txs: Array<
+      Pick<
+        typeof transactions.$inferSelect,
+        | "id"
+        | "userId"
+        | "accountId"
+        | "categoryId"
+        | "subcategoryId"
+        | "type"
+        | "amount"
+        | "date"
+        | "description"
+        | "notes"
+        | "transferId"
+        | "createdAt"
+        | "updatedAt"
+      > & { amount: string | number }
+    >,
+  ) {
+    return Promise.all(txs.map((tx) => this.resolveAuditSnapshot(userId, tx)));
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                               CREATE                                        */
   /* -------------------------------------------------------------------------- */
@@ -362,77 +515,10 @@ export class TransactionService {
     const limit = query.limit ?? 10;
     const offset = (page - 1) * limit;
 
-    const filters = [eq(transactions.userId, userId)];
-
-    if (query.accountId) {
-      await this.validateAccount(userId, query.accountId);
-    }
-
-    if (query.startDate) filters.push(gte(transactions.date, query.startDate));
-    if (query.endDate) filters.push(lte(transactions.date, query.endDate));
-    if (query.accountId) filters.push(eq(transactions.accountId, query.accountId));
-    if (query.categoryId) filters.push(eq(transactions.categoryId, query.categoryId));
-    if (query.subcategoryId) filters.push(eq(transactions.subcategoryId, query.subcategoryId));
+    const filters = await this.buildBaseFilters(userId, query);
     if (query.type) filters.push(eq(transactions.type, query.type as TransactionType));
-    if (query.excludeHiddenAccounts) filters.push(this.hiddenDashboardAccountsFilter(userId));
-
-    if (query.amountOp && query.amount !== undefined) {
-      const amountValue = query.amount.toString();
-      switch (query.amountOp) {
-        case "gt":
-          filters.push(gt(transactions.amount, amountValue));
-          break;
-        case "gte":
-          filters.push(gte(transactions.amount, amountValue));
-          break;
-        case "lt":
-          filters.push(lt(transactions.amount, amountValue));
-          break;
-        case "lte":
-          filters.push(lte(transactions.amount, amountValue));
-          break;
-      }
-    } else if (query.amountMin !== undefined && query.amountMax !== undefined) {
-      const minValue = query.amountMin.toString();
-      const maxValue = query.amountMax.toString();
-      filters.push(gte(transactions.amount, minValue));
-      filters.push(lte(transactions.amount, maxValue));
-    } else if (query.amount !== undefined) {
-      filters.push(eq(transactions.amount, query.amount.toString()));
-    }
-    const useUnaccent = query.description || query.notes ? await this.hasUnaccent() : false;
-
-    if (query.description && query.notes) {
-      if (useUnaccent) {
-        filters.push(
-          sql`(
-            unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})
-            OR unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})
-          )`,
-        );
-      } else {
-        filters.push(
-          sql`(
-            ${transactions.description} ILIKE ${`%${query.description}%`}
-            OR ${transactions.notes} ILIKE ${`%${query.notes}%`}
-          )`,
-        );
-      }
-    } else if (query.description) {
-      if (useUnaccent) {
-        filters.push(
-          sql`unaccent(${transactions.description}) ILIKE unaccent(${`%${query.description}%`})`,
-        );
-      } else {
-        filters.push(ilike(transactions.description, `%${query.description}%`));
-      }
-    } else if (query.notes) {
-      if (useUnaccent) {
-        filters.push(sql`unaccent(${transactions.notes}) ILIKE unaccent(${`%${query.notes}%`})`);
-      } else {
-        filters.push(ilike(transactions.notes, `%${query.notes}%`));
-      }
-    }
+    this.applyAmountFilters(filters, query);
+    await this.applyTextFilters(filters, query);
 
     const sortKey = query.sort ?? "date";
     const sortDirection = query.dir === "asc" ? asc : desc;
@@ -550,17 +636,7 @@ export class TransactionService {
       };
 
       const rowsToUpdate = related.length > 0 ? related : [tx];
-      const rowsBeforeUpdate = await Promise.all(
-        rowsToUpdate.map(async (row: (typeof rowsToUpdate)[number]) => {
-          const names = await this.resolveAuditNames(
-            userId,
-            row.accountId,
-            row.categoryId,
-            row.subcategoryId,
-          );
-          return this.toAuditTransaction(row, names);
-        }),
-      );
+      const rowsBeforeUpdate = await this.resolveAuditSnapshots(userId, rowsToUpdate);
 
       const updatedRows = await this.app.db.transaction(async (db: typeof this.app.db) => {
         const results = [];
@@ -581,12 +657,6 @@ export class TransactionService {
             rowsBeforeUpdate.find(
               (item: (typeof rowsBeforeUpdate)[number]) => item.id === updated.id,
             ) ?? null;
-          const namesAfter = await this.resolveAuditNames(
-            userId,
-            updated.accountId,
-            updated.categoryId,
-            updated.subcategoryId,
-          );
           await this.audit.log(
             {
               userId,
@@ -594,7 +664,7 @@ export class TransactionService {
               entityId: updated.id,
               action: "update",
               beforeData: before,
-              afterData: this.toAuditTransaction(updated, namesAfter),
+              afterData: await this.resolveAuditSnapshot(userId, updated),
               metadata: {
                 transferId: tx.transferId,
                 operation: "transfer-update",
@@ -707,13 +777,7 @@ export class TransactionService {
 
   async delete(id: string, userId: string) {
     const tx = await this.getOne(id, userId);
-    const txDeleteNames = await this.resolveAuditNames(
-      userId,
-      tx.accountId,
-      tx.categoryId,
-      tx.subcategoryId,
-    );
-    const txBeforeDelete = this.toAuditTransaction(tx, txDeleteNames);
+    const txBeforeDelete = await this.resolveAuditSnapshot(userId, tx);
 
     if (!tx.transferId) {
       await this.app.db.transaction(async (db: typeof this.app.db) => {
@@ -759,17 +823,7 @@ export class TransactionService {
     }
 
     await this.app.db.transaction(async (db: typeof this.app.db) => {
-      const toDelete = await Promise.all(
-        related.map(async (row: (typeof related)[number]) => {
-          const names = await this.resolveAuditNames(
-            userId,
-            row.accountId,
-            row.categoryId,
-            row.subcategoryId,
-          );
-          return this.toAuditTransaction(row, names);
-        }),
-      );
+      const toDelete = await this.resolveAuditSnapshots(userId, related);
 
       await db
         .delete(transactions)
@@ -801,34 +855,7 @@ export class TransactionService {
   /* -------------------------------------------------------------------------- */
 
   async summary(userId: string, query: SummaryTransactionsQuery) {
-    const filters = [eq(transactions.userId, userId)];
-
-    if (query.accountId) {
-      await this.validateAccount(userId, query.accountId);
-    }
-
-    if (query.startDate) {
-      filters.push(gte(transactions.date, query.startDate));
-    }
-
-    if (query.endDate) {
-      filters.push(lte(transactions.date, query.endDate));
-    }
-
-    if (query.accountId) {
-      filters.push(eq(transactions.accountId, query.accountId));
-    }
-
-    if (query.categoryId) {
-      filters.push(eq(transactions.categoryId, query.categoryId));
-    }
-
-    if (query.subcategoryId) {
-      filters.push(eq(transactions.subcategoryId, query.subcategoryId));
-    }
-    if (query.excludeHiddenAccounts) {
-      filters.push(this.hiddenDashboardAccountsFilter(userId));
-    }
+    const filters = await this.buildBaseFilters(userId, query);
 
     const [incomeRow] = await this.app.db
       .select({
@@ -859,26 +886,7 @@ export class TransactionService {
   /* -------------------------------------------------------------------------- */
 
   async topCategories(userId: string, query: TopCategoriesQuery) {
-    const filters = [eq(transactions.userId, userId)];
-
-    if (query.accountId) {
-      await this.validateAccount(userId, query.accountId);
-    }
-
-    if (query.startDate) {
-      filters.push(gte(transactions.date, query.startDate));
-    }
-
-    if (query.endDate) {
-      filters.push(lte(transactions.date, query.endDate));
-    }
-
-    if (query.accountId) {
-      filters.push(eq(transactions.accountId, query.accountId));
-    }
-    if (query.excludeHiddenAccounts) {
-      filters.push(this.hiddenDashboardAccountsFilter(userId));
-    }
+    const filters = await this.buildBaseFilters(userId, query);
 
     const typeFilter = (query.type ?? "expense") as TransactionType;
     filters.push(eq(transactions.type, typeFilter));

@@ -9,13 +9,13 @@ const FALLBACK_TIMEZONES = [
 ]
 
 export function getIanaTimezones() {
-  const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: Function })
-    .supportedValuesOf
+  const intlWithSupportedValues = Intl as typeof Intl & {
+    supportedValuesOf?: (key: 'timeZone') => readonly string[]
+  }
+  const supportedValuesOf = intlWithSupportedValues.supportedValuesOf
 
   if (typeof supportedValuesOf === 'function') {
-    const list = (supportedValuesOf as any)('timeZone')
-    const normalizedList = Array.isArray(list) ? (list as string[]) : []
-    const sortedList = normalizedList
+    const sortedList = [...supportedValuesOf('timeZone')]
       .filter((timezone) => timezone && timezone.includes('/'))
       .sort((a, b) => a.localeCompare(b))
     if (sortedList.length > 0) {

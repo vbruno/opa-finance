@@ -5,12 +5,27 @@ import { NotFoundProblem, ForbiddenProblem, ConflictProblem } from "../../core/e
 
 import { categories, recurrences, subcategories } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
-import { CreateCategoryInput } from "./category.schemas";
+import type { CreateCategoryInput, UpdateCategoryInput } from "./category.schemas";
+
+type SqlRowsResult<T> = {
+  rows?: T[];
+};
+
+function extractSqlRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+
+  if (result && typeof result === "object") {
+    const rows = (result as SqlRowsResult<T>).rows;
+    if (Array.isArray(rows)) return rows;
+  }
+
+  return [];
+}
 
 type DefaultCategoryTemplate = {
   name: string;
   description: string;
-  type: "income" | "expense";
+  type: (typeof categories.$inferInsert)["type"];
   subcategories: Array<{ name: string; description: string }>;
 };
 
@@ -283,7 +298,7 @@ export class CategoryService {
   /* -------------------------------------------------------------------------- */
   /*                                  UPDATE                                    */
   /* -------------------------------------------------------------------------- */
-  async update(id: string, userId: string, data: any) {
+  async update(id: string, userId: string, data: UpdateCategoryInput) {
     const category = await this.getOne(id, userId);
 
     // 🚫 Categoria de sistema não pode ser alterada
@@ -342,9 +357,7 @@ export class CategoryService {
       const lockResult = await txDb.execute(
         sql`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`,
       );
-      const lockRows = Array.isArray(lockResult)
-        ? lockResult
-        : ((lockResult as { rows?: unknown[] }).rows ?? []);
+      const lockRows = extractSqlRows<{ id: string }>(lockResult);
       if (lockRows.length === 0) {
         throw new NotFoundProblem("Categoria não encontrada.", `/categories/${id}`);
       }

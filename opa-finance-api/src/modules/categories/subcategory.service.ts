@@ -8,6 +8,22 @@ import {
 } from "../../core/errors/problems";
 import { categories, recurrences, subcategories } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
+import type { CreateSubcategoryInput, UpdateSubcategoryInput } from "./subcategory.schemas";
+
+type SqlRowsResult<T> = {
+  rows?: T[];
+};
+
+function extractSqlRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+
+  if (result && typeof result === "object") {
+    const rows = (result as SqlRowsResult<T>).rows;
+    if (Array.isArray(rows)) return rows;
+  }
+
+  return [];
+}
 
 export class SubcategoryService {
   private audit: AuditService;
@@ -32,7 +48,7 @@ export class SubcategoryService {
   /* -------------------------------------------------------------------------- */
   /*                                   CREATE                                    */
   /* -------------------------------------------------------------------------- */
-  async create(userId: string, data: any) {
+  async create(userId: string, data: CreateSubcategoryInput) {
     const [category] = await this.app.db
       .select()
       .from(categories)
@@ -131,7 +147,7 @@ export class SubcategoryService {
   /* -------------------------------------------------------------------------- */
   /*                                   UPDATE                                    */
   /* -------------------------------------------------------------------------- */
-  async update(id: string, userId: string, data: any) {
+  async update(id: string, userId: string, data: UpdateSubcategoryInput) {
     const existingSub = await this.getOne(id, userId);
 
     const [updated] = await this.app.db.transaction(async (txDb: typeof this.app.db) => {
@@ -174,9 +190,7 @@ export class SubcategoryService {
       const lockResult = await txDb.execute(
         sql`SELECT id FROM subcategories WHERE id = ${id} FOR UPDATE`,
       );
-      const lockRows = Array.isArray(lockResult)
-        ? lockResult
-        : ((lockResult as { rows?: unknown[] }).rows ?? []);
+      const lockRows = extractSqlRows<{ id: string }>(lockResult);
       if (lockRows.length === 0) {
         throw new NotFoundProblem("Subcategoria não encontrada.", `/subcategories/${id}`);
       }
