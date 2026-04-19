@@ -13,19 +13,23 @@ import {
   useDeleteAccount,
   useUpdateAccount,
 } from '@/features/accounts'
+import { AccountsSortIcon } from '@/features/accounts/components/accounts-sort-icon'
 import { useAccountsFormActions } from '@/features/accounts/hooks/use-accounts-form-actions'
 import { useAccountsLinkedActions } from '@/features/accounts/hooks/use-accounts-linked-actions'
 import { useAccountsPageInteractions } from '@/features/accounts/hooks/use-accounts-page-interactions'
 import { useAccountsSearchParams } from '@/features/accounts/hooks/use-accounts-search-params'
 import { useAccountsSelection } from '@/features/accounts/hooks/use-accounts-selection'
+import { getApiErrorStatus } from '@/features/accounts/model/accounts-errors.helpers'
 import {
   ACCOUNT_TYPE_LABELS,
   ACCOUNT_TYPE_OPTIONS,
 } from '@/features/accounts/model/accounts.constants'
 import {
   filterAccounts,
+  getBalanceToneClass,
   isRecurrenceConflictMessage,
   paginateAccounts,
+  resolveAccountsDisplayedTotal,
   sortAccounts,
 } from '@/features/accounts/model/accounts.helpers'
 import {
@@ -235,6 +239,12 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
     typeFilter,
     hasOpenModal,
   })
+  const displayedTotal = resolveAccountsDisplayedTotal({
+    selectedCount,
+    selectedTotal,
+    totalFilteredBalance,
+  })
+  const displayedTotalToneClass = getBalanceToneClass(displayedTotal)
 
   const deleteAccountMutation = useDeleteAccount()
 
@@ -274,14 +284,6 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
     detailModalRef,
     deleteModalRef,
   })
-
-  function getErrorStatus(error: unknown) {
-    if (!error || typeof error !== 'object' || !('response' in error)) {
-      return undefined
-    }
-    const response = (error as { response?: { status?: number } }).response
-    return response?.status
-  }
 
   return (
     <div className="space-y-6">
@@ -429,12 +431,7 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
           !accountsQuery.isError &&
           paginatedAccounts.map((account) => {
             const displayBalance = account.currentBalance ?? 0
-            const balanceClass =
-              displayBalance < 0
-                ? 'text-rose-600'
-                : displayBalance > 0
-                  ? 'text-emerald-600'
-                  : 'text-muted-foreground'
+            const balanceClass = getBalanceToneClass(displayBalance)
             return (
               <div
                 key={account.id}
@@ -534,22 +531,8 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
                 <span className="text-muted-foreground">
                   {selectedCount >= 1 ? 'Parcial' : 'Total'}
                 </span>
-                <span
-                  className={
-                    (selectedCount >= 1
-                      ? selectedTotal
-                      : totalFilteredBalance) < 0
-                      ? 'sensitive font-semibold text-rose-600'
-                      : (selectedCount >= 1
-                            ? selectedTotal
-                            : totalFilteredBalance) > 0
-                        ? 'sensitive font-semibold text-emerald-600'
-                        : 'sensitive font-semibold text-muted-foreground'
-                  }
-                >
-                  {`$ ${formatCurrencyValue(
-                    selectedCount >= 1 ? selectedTotal : totalFilteredBalance,
-                  )}`}
+                <span className={`sensitive font-semibold ${displayedTotalToneClass}`}>
+                  {`$ ${formatCurrencyValue(displayedTotal)}`}
                 </span>
               </div>
             </div>
@@ -578,7 +561,7 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
                     onClick={() => handleSort('name')}
                   >
                     Conta
-                    <SortIcon
+                    <AccountsSortIcon
                       isActive={sortKey === 'name'}
                       direction={sortDirection}
                     />
@@ -591,7 +574,7 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
                     onClick={() => handleSort('type')}
                   >
                     Tipo
-                    <SortIcon
+                    <AccountsSortIcon
                       isActive={sortKey === 'type'}
                       direction={sortDirection}
                     />
@@ -608,7 +591,7 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
                     onClick={() => handleSort('balance')}
                   >
                     Saldo atual
-                    <SortIcon
+                    <AccountsSortIcon
                       isActive={sortKey === 'balance'}
                       direction={sortDirection}
                     />
@@ -1161,7 +1144,7 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
                       replace: true,
                     })
                   } catch (error: unknown) {
-                    const status = getErrorStatus(error)
+                    const status = getApiErrorStatus(error)
                     const message = getApiErrorMessage(error, {
                       defaultMessage: 'Erro ao excluir conta. Tente novamente.',
                     })
@@ -1352,45 +1335,5 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
         </div>
       )}
     </div>
-  )
-}
-
-function SortIcon({
-  isActive,
-  direction,
-}: {
-  isActive: boolean
-  direction: 'asc' | 'desc'
-}) {
-  if (!isActive) {
-    return (
-      <span className="text-muted-foreground">
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-          <path
-            d="M5 3l3-3 3 3M11 13l-3 3-3-3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-    )
-  }
-
-  return (
-    <span className="text-foreground">
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-        <path
-          d={direction === 'asc' ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
   )
 }

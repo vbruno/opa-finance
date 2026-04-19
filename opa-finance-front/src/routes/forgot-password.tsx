@@ -6,8 +6,11 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { isAuthenticated, useForgotPassword } from '@/features/auth'
-import { getApiErrorMessage } from '@/lib/apiError'
+import {
+  isAuthenticated,
+  setApiRootFormError,
+  useForgotPassword,
+} from '@/features/auth'
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormData,
@@ -45,10 +48,10 @@ function ForgotPasswordPage() {
     try {
       await forgotPasswordMutation.mutateAsync(formData)
     } catch (error: unknown) {
-      setError('root', {
-        message: getApiErrorMessage(error, {
-          defaultMessage: 'Erro ao solicitar recuperação de senha.',
-        }),
+      setApiRootFormError({
+        error,
+        setError,
+        defaultMessage: 'Erro ao solicitar recuperação de senha.',
       })
     }
   }

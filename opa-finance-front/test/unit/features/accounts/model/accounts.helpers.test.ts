@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   filterAccounts,
+  getBalanceToneClass,
   isRecurrenceConflictMessage,
   normalizeAccountsSearch,
   paginateAccounts,
+  resolveAccountsDisplayedTotal,
   sortAccounts,
 } from '@/features/accounts/model/accounts.helpers'
 
@@ -83,5 +85,29 @@ describe('accounts.helpers', () => {
       ),
     ).toBe(true)
     expect(isRecurrenceConflictMessage('Erro genérico')).toBe(false)
+  })
+
+  it('resolve a classe de tom por saldo', () => {
+    expect(getBalanceToneClass(-1)).toBe('text-rose-600')
+    expect(getBalanceToneClass(10)).toBe('text-emerald-600')
+    expect(getBalanceToneClass(0)).toBe('text-muted-foreground')
+  })
+
+  it('resolve total exibido priorizando seleção', () => {
+    expect(
+      resolveAccountsDisplayedTotal({
+        selectedCount: 0,
+        selectedTotal: 10,
+        totalFilteredBalance: 100,
+      }),
+    ).toBe(100)
+
+    expect(
+      resolveAccountsDisplayedTotal({
+        selectedCount: 2,
+        selectedTotal: 10,
+        totalFilteredBalance: 100,
+      }),
+    ).toBe(10)
   })
 })

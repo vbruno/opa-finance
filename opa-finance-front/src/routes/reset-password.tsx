@@ -8,8 +8,11 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { isAuthenticated, useResetPassword } from '@/features/auth'
-import { getApiErrorMessage } from '@/lib/apiError'
+import {
+  isAuthenticated,
+  setApiRootFormError,
+  useResetPassword,
+} from '@/features/auth'
 import {
   resetPasswordSchema,
   type ResetPasswordFormData,
@@ -59,10 +62,10 @@ function ResetPasswordPage() {
     try {
       await resetPasswordMutation.mutateAsync(formData)
     } catch (error: unknown) {
-      setError('root', {
-        message: getApiErrorMessage(error, {
-          defaultMessage: 'Erro ao redefinir senha.',
-        }),
+      setApiRootFormError({
+        error,
+        setError,
+        defaultMessage: 'Erro ao redefinir senha.',
       })
     }
   }

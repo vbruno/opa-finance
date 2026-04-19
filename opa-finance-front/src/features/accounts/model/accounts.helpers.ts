@@ -84,3 +84,22 @@ export function paginateAccounts(
     paginatedAccounts,
   }
 }
+
+export function getBalanceToneClass(value: number) {
+  if (value < 0) {
+    return 'text-rose-600'
+  }
+  if (value > 0) {
+    return 'text-emerald-600'
+  }
+  return 'text-muted-foreground'
+}
+
+export function resolveAccountsDisplayedTotal(params: {
+  selectedCount: number
+  selectedTotal: number
+  totalFilteredBalance: number
+}) {
+  const { selectedCount, selectedTotal, totalFilteredBalance } = params
+  return selectedCount >= 1 ? selectedTotal : totalFilteredBalance
+}

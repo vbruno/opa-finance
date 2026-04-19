@@ -7,8 +7,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { isAuthenticated, useLogin } from '@/features/auth'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { isAuthenticated, setApiRootFormError, useLogin } from '@/features/auth'
 import { loginSchema, type LoginFormData } from '@/schemas/auth.schema'
 
 export const Route = createFileRoute('/login')({
@@ -43,11 +42,11 @@ function Login() {
       await loginMutation.mutateAsync(formData)
       navigate({ to: '/app' })
     } catch (error: unknown) {
-      setError('root', {
-        message: getApiErrorMessage(error, {
-          defaultMessage: 'Erro ao fazer login. Tente novamente.',
-          invalidCredentialsMessage: 'Email ou senha inválidos',
-        }),
+      setApiRootFormError({
+        error,
+        setError,
+        defaultMessage: 'Erro ao fazer login. Tente novamente.',
+        invalidCredentialsMessage: 'Email ou senha inválidos',
       })
     }
   }

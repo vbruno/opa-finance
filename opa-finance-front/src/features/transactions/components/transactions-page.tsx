@@ -42,10 +42,12 @@ import {
 } from '@/features/recurrences'
 import {
   buildPaginationItems,
+  buildCategoryTreeOptions,
+  buildDescriptionSuggestions,
   CATEGORY_TYPE_RANK,
   formatDateDisplay,
   formatDateInput,
-  normalizeText,
+  resolveDefaultTransferToAccountId,
   type TransactionsNavigateFn,
   type TransactionsSearchParams,
   useTransactionRecurrenceDraft,
@@ -64,6 +66,7 @@ import {
   useUpdateTransaction,
   TransactionsCreateModal,
   TransactionsEditModal,
+  TransactionsSortIcon,
   TransactionsDetailsModal,
   TransactionsTableDesktop,
   TransactionsToolbar,
@@ -381,32 +384,10 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   )
   const primaryAccountId =
     accounts.find((account) => account.isPrimary)?.id ?? accounts[0]?.id ?? ''
-  const defaultTransferToAccountId = useMemo(() => {
-    if (!primaryAccountId || accounts.length <= 1) {
-      return ''
-    }
-
-    const primaryIndex = accounts.findIndex((account) => account.id === primaryAccountId)
-    if (primaryIndex < 0) {
-      return accounts[0]?.id ?? ''
-    }
-
-    for (let index = primaryIndex + 1; index < accounts.length; index += 1) {
-      const candidateId = accounts[index]?.id
-      if (candidateId && candidateId !== primaryAccountId) {
-        return candidateId
-      }
-    }
-
-    for (let index = 0; index < primaryIndex; index += 1) {
-      const candidateId = accounts[index]?.id
-      if (candidateId && candidateId !== primaryAccountId) {
-        return candidateId
-      }
-    }
-
-    return ''
-  }, [accounts, primaryAccountId])
+  const defaultTransferToAccountId = useMemo(
+    () => resolveDefaultTransferToAccountId(accounts, primaryAccountId),
+    [accounts, primaryAccountId],
+  )
   const debouncedCreateDescription = useDebouncedValue(createDescription, 1000)
 
   useEffect(() => {
@@ -491,85 +472,21 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     [accounts, createAccountId],
   )
 
-  const createCategoryTreeOptions = useMemo(() => {
-    const query = normalizeText(createCategoryTreeSearch.trim())
-    const options: Array<
-      | { value: string; label: string; level: 'category' }
-      | { value: string; label: string; level: 'subcategory' }
-    > = []
-
-    availableCategories.forEach((category) => {
-      const subcategories = createSubcategoriesByCategory[category.id] ?? []
-      const categoryMatches = normalizeText(category.name).includes(query)
-      const matchedSubcategories = query
-        ? subcategories.filter((subcategory) =>
-            normalizeText(subcategory.name).includes(query),
-          )
-        : subcategories
-
-      if (query && !categoryMatches && matchedSubcategories.length === 0) {
-        return
-      }
-
-      options.push({
-        value: `category:${category.id}`,
-        label: category.name,
-        level: 'category',
-      })
-
-      matchedSubcategories.forEach((subcategory) => {
-        options.push({
-          value: `subcategory:${category.id}:${subcategory.id}`,
-          label: `${subcategory.name} · ${category.name}`,
-          level: 'subcategory',
-        })
-      })
-    })
-
-    return options
-  }, [
+  const createCategoryTreeOptions = useMemo(() => buildCategoryTreeOptions({
+    categories: availableCategories,
+    subcategoriesByCategory: createSubcategoriesByCategory,
+    search: createCategoryTreeSearch,
+  }), [
     availableCategories,
     createCategoryTreeSearch,
     createSubcategoriesByCategory,
   ])
 
-  const editCategoryTreeOptions = useMemo(() => {
-    const query = normalizeText(editCategoryTreeSearch.trim())
-    const options: Array<
-      | { value: string; label: string; level: 'category' }
-      | { value: string; label: string; level: 'subcategory' }
-    > = []
-
-    availableCategories.forEach((category) => {
-      const subcategories = createSubcategoriesByCategory[category.id] ?? []
-      const categoryMatches = normalizeText(category.name).includes(query)
-      const matchedSubcategories = query
-        ? subcategories.filter((subcategory) =>
-            normalizeText(subcategory.name).includes(query),
-          )
-        : subcategories
-
-      if (query && !categoryMatches && matchedSubcategories.length === 0) {
-        return
-      }
-
-      options.push({
-        value: `category:${category.id}`,
-        label: category.name,
-        level: 'category',
-      })
-
-      matchedSubcategories.forEach((subcategory) => {
-        options.push({
-          value: `subcategory:${category.id}:${subcategory.id}`,
-          label: `${subcategory.name} · ${category.name}`,
-          level: 'subcategory',
-        })
-      })
-    })
-
-    return options
-  }, [
+  const editCategoryTreeOptions = useMemo(() => buildCategoryTreeOptions({
+    categories: availableCategories,
+    subcategoriesByCategory: createSubcategoriesByCategory,
+    search: editCategoryTreeSearch,
+  }), [
     availableCategories,
     createSubcategoriesByCategory,
     editCategoryTreeSearch,
@@ -600,21 +517,12 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       ),
     },
   )
-  const descriptionSuggestions = (() => {
-    const baseItems = baseDescriptionSuggestionsQuery.data?.items ?? []
-    const filteredItems = filteredDescriptionSuggestionsQuery.data?.items ?? []
-    if (!shouldFilterSuggestions) {
-      return baseItems.slice(0, 5)
-    }
-    if (filteredItems.length > 0) {
-      return filteredItems.slice(0, 5)
-    }
-    const query = normalizeText(trimmedSuggestionsQueryText)
-    const filtered = baseItems.filter((item) =>
-      normalizeText(item).includes(query),
-    )
-    return filtered.slice(0, 5)
-  })()
+  const descriptionSuggestions = buildDescriptionSuggestions({
+    baseItems: baseDescriptionSuggestionsQuery.data?.items ?? [],
+    filteredItems: filteredDescriptionSuggestionsQuery.data?.items ?? [],
+    shouldFilter: shouldFilterSuggestions,
+    queryText: trimmedSuggestionsQueryText,
+  })
   useEffect(() => {
     setActiveSuggestionIndex(0)
   }, [
@@ -2631,7 +2539,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             }: {
               isActive: boolean
               direction: 'asc' | 'desc'
-            }) => <SortIcon isActive={isActive} direction={direction} />}
+            }) => (
+              <TransactionsSortIcon isActive={isActive} direction={direction} />
+            )}
             formatDateDisplay={formatDateDisplay}
             formatCurrencyValue={formatCurrencyValue}
           />
@@ -3885,45 +3795,5 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         </div>
       )}
     </div>
-  )
-}
-
-function SortIcon({
-  isActive,
-  direction,
-}: {
-  isActive: boolean
-  direction: 'asc' | 'desc'
-}) {
-  if (!isActive) {
-    return (
-      <span className="text-muted-foreground">
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-          <path
-            d="M5 3l3-3 3 3M11 13l-3 3-3-3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-    )
-  }
-
-  return (
-    <span className="text-foreground">
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-        <path
-          d={direction === 'asc' ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
   )
 }

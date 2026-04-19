@@ -39,6 +39,29 @@ import type {
   TransactionDescriptionsQuery,
 } from "./transaction.schemas";
 
+type AuditTransactionRecord = Pick<
+  typeof transactions.$inferSelect,
+  | "id"
+  | "userId"
+  | "accountId"
+  | "categoryId"
+  | "subcategoryId"
+  | "type"
+  | "amount"
+  | "date"
+  | "description"
+  | "notes"
+  | "transferId"
+  | "createdAt"
+  | "updatedAt"
+> & { amount: string | number };
+
+type AuditNames = {
+  accountName?: string | null;
+  categoryName?: string | null;
+  subcategoryName?: string | null;
+};
+
 export class TransactionService {
   private audit: AuditService;
 
@@ -73,29 +96,7 @@ export class TransactionService {
     )`;
   }
 
-  private toAuditTransaction(
-    tx: Pick<
-      typeof transactions.$inferSelect,
-      | "id"
-      | "userId"
-      | "accountId"
-      | "categoryId"
-      | "subcategoryId"
-      | "type"
-      | "amount"
-      | "date"
-      | "description"
-      | "notes"
-      | "transferId"
-      | "createdAt"
-      | "updatedAt"
-    > & { amount: string | number },
-    names?: {
-      accountName?: string | null;
-      categoryName?: string | null;
-      subcategoryName?: string | null;
-    },
-  ) {
+  private toAuditTransaction(tx: AuditTransactionRecord, names?: AuditNames) {
     return {
       id: tx.id,
       userId: tx.userId,
@@ -275,25 +276,7 @@ export class TransactionService {
     }
   }
 
-  private async resolveAuditSnapshot(
-    userId: string,
-    tx: Pick<
-      typeof transactions.$inferSelect,
-      | "id"
-      | "userId"
-      | "accountId"
-      | "categoryId"
-      | "subcategoryId"
-      | "type"
-      | "amount"
-      | "date"
-      | "description"
-      | "notes"
-      | "transferId"
-      | "createdAt"
-      | "updatedAt"
-    > & { amount: string | number },
-  ) {
+  private async resolveAuditSnapshot(userId: string, tx: AuditTransactionRecord) {
     const names = await this.resolveAuditNames(
       userId,
       tx.accountId,
@@ -303,27 +286,7 @@ export class TransactionService {
     return this.toAuditTransaction(tx, names);
   }
 
-  private async resolveAuditSnapshots(
-    userId: string,
-    txs: Array<
-      Pick<
-        typeof transactions.$inferSelect,
-        | "id"
-        | "userId"
-        | "accountId"
-        | "categoryId"
-        | "subcategoryId"
-        | "type"
-        | "amount"
-        | "date"
-        | "description"
-        | "notes"
-        | "transferId"
-        | "createdAt"
-        | "updatedAt"
-      > & { amount: string | number }
-    >,
-  ) {
+  private async resolveAuditSnapshots(userId: string, txs: AuditTransactionRecord[]) {
     return Promise.all(txs.map((tx) => this.resolveAuditSnapshot(userId, tx)));
   }
 
