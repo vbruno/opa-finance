@@ -8,9 +8,18 @@ type ApiError = {
   }
 }
 
-type ApiErrorMessageOptions = {
+export type ApiErrorMessageOptions = {
   defaultMessage?: string
   invalidCredentialsMessage?: string
+}
+
+export function getApiErrorStatus(error: unknown) {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return undefined
+  }
+
+  const apiError = error as ApiError
+  return apiError.response?.status
 }
 
 export function getApiErrorMessage(
@@ -27,7 +36,7 @@ export function getApiErrorMessage(
   }
 
   const apiError = error as ApiError
-  const status = apiError.response?.status
+  const status = getApiErrorStatus(error)
   const detail =
     apiError.response?.data?.detail || apiError.response?.data?.title
 

@@ -74,6 +74,7 @@ import {
 import { useCreateTransfer } from '@/features/transfers'
 import { useUserPreference } from '@/hooks/useUserPreference'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { setFormApiRootError } from '@/lib/form-api-error'
 import { formatCurrencyValue } from '@/lib/utils'
 import {
   categoryCreateSchema,
@@ -3236,11 +3237,13 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                     createCategorySelectRef.current?.focus()
                   }
                 } catch (error: unknown) {
-                  categoryCreateForm.setError('root', {
-                    message: getApiErrorMessage(error, {
+                  setFormApiRootError({
+                    error,
+                    setError: categoryCreateForm.setError,
+                    options: {
                       defaultMessage:
                         'Erro ao criar categoria. Tente novamente.',
-                    }),
+                    },
                   })
                 }
               })}
@@ -3378,11 +3381,13 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                     createCategorySelectRef.current?.focus()
                   }
                 } catch (error: unknown) {
-                  subcategoryCreateForm.setError('root', {
-                    message: getApiErrorMessage(error, {
+                  setFormApiRootError({
+                    error,
+                    setError: subcategoryCreateForm.setError,
+                    options: {
                       defaultMessage:
                         'Erro ao criar subcategoria. Tente novamente.',
-                    }),
+                    },
                   })
                 }
               })}

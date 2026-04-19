@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useTransferForm } from '@/features/transactions'
@@ -107,5 +107,40 @@ describe('useTransferForm', () => {
     })
     expect(onTransactionDetailsClose).toHaveBeenCalledTimes(1)
     expect(onTransferModalOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('deve aplicar erro root ao falhar criação de transferência', async () => {
+    const createTransfer = vi.fn().mockRejectedValue(new Error('network'))
+    const hook = renderHook(() =>
+      useTransferForm({
+        isTransferOpen: true,
+        primaryAccountId: 'acc-1',
+        defaultTransferToAccountId: 'acc-2',
+        transactions: [],
+        createTransfer,
+        updateTransaction: vi.fn(),
+        onTransferModalOpen: vi.fn(),
+        onTransferModalClose: vi.fn(),
+        onTransactionDetailsClose: vi.fn(),
+      }),
+    )
+
+    await act(async () => {
+      hook.result.current.transferForm.reset({
+        fromAccountId: 'acc-1',
+        toAccountId: 'acc-2',
+        amount: '10',
+        date: '2026-04-13',
+        description: 'Teste',
+      })
+      await hook.result.current.submitTransferForm()
+    })
+
+    expect(createTransfer).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(hook.result.current.transferForm.getFieldState('root').error?.message).toBe(
+        'Erro ao criar transferência. Tente novamente.',
+      )
+    })
   })
 })

@@ -6,7 +6,7 @@ import {
   mapUpdateAccountPayload,
 } from '@/features/accounts/mappers/accounts-payload.mapper'
 import type { AccountsNavigateFn } from '@/features/accounts/model/accounts.types'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { setFormApiRootError } from '@/lib/form-api-error'
 import type {
   AccountCreateFormData,
   AccountUpdateFormData,
@@ -67,10 +67,12 @@ export function useAccountsFormActions({
         closeCreateModal()
         resetCreateForm()
       } catch (error: unknown) {
-        setCreateFormError('root', {
-          message: getApiErrorMessage(error, {
+        setFormApiRootError({
+          error,
+          setError: setCreateFormError,
+          options: {
             defaultMessage: 'Erro ao criar conta. Tente novamente.',
-          }),
+          },
         })
       }
     },
@@ -94,10 +96,12 @@ export function useAccountsFormActions({
         })
         resetEditForm()
       } catch (error: unknown) {
-        setEditFormError('root', {
-          message: getApiErrorMessage(error, {
+        setFormApiRootError({
+          error,
+          setError: setEditFormError,
+          options: {
             defaultMessage: 'Erro ao atualizar conta. Tente novamente.',
-          }),
+          },
         })
       }
     },

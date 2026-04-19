@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import type { TransferCreatePayload } from '@/features/transfers'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { setFormApiRootError } from '@/lib/form-api-error'
 import { formatCurrencyValue } from '@/lib/utils'
 import {
   transferCreateSchema,
@@ -132,12 +133,14 @@ export function useTransferForm({
 
         handleCloseTransferModal()
       } catch (error: unknown) {
-        transferForm.setError('root', {
-          message: getApiErrorMessage(error, {
+        setFormApiRootError({
+          error,
+          setError: transferForm.setError,
+          options: {
             defaultMessage: transferEditContext
               ? 'Erro ao atualizar transferência. Tente novamente.'
               : 'Erro ao criar transferência. Tente novamente.',
-          }),
+          },
         })
       }
     },

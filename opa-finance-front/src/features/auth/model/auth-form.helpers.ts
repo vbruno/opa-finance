@@ -1,6 +1,6 @@
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form'
 
-import { getApiErrorMessage } from '@/lib/apiError'
+import { setFormApiError } from '@/lib/form-api-error'
 
 type SetApiRootFormErrorInput<TFormValues extends FieldValues> = {
   error: unknown
@@ -17,10 +17,63 @@ export function setApiRootFormError<TFormValues extends FieldValues>({
   invalidCredentialsMessage,
   fieldPath,
 }: SetApiRootFormErrorInput<TFormValues>) {
-  const message = getApiErrorMessage(error, {
-    defaultMessage,
-    invalidCredentialsMessage,
+  setFormApiError({
+    error,
+    setError,
+    fieldPath,
+    options: {
+      defaultMessage,
+      invalidCredentialsMessage,
+    },
   })
+}
 
-  setError(fieldPath ?? ('root' as Path<TFormValues>), { message })
+type SubmitWithApiRootErrorInput<
+  TFormValues extends FieldValues,
+  TPayload,
+  TResult,
+> = {
+  payload: TPayload
+  execute: (payload: TPayload) => Promise<TResult>
+  setError: UseFormSetError<TFormValues>
+  defaultMessage: string
+  invalidCredentialsMessage?: string
+  clearRootError?: () => void
+  onSuccess?: (result: TResult) => void | Promise<void>
+}
+
+export async function submitWithApiRootError<
+  TFormValues extends FieldValues,
+  TPayload,
+  TResult,
+>({
+  payload,
+  execute,
+  setError,
+  defaultMessage,
+  invalidCredentialsMessage,
+  clearRootError,
+  onSuccess,
+}: SubmitWithApiRootErrorInput<TFormValues, TPayload, TResult>) {
+  clearRootError?.()
+  try {
+    const result = await execute(payload)
+    if (onSuccess) {
+      await onSuccess(result)
+    }
+  } catch (error: unknown) {
+    setApiRootFormError({
+      error,
+      setError,
+      defaultMessage,
+      invalidCredentialsMessage,
+    })
+  }
+}
+
+export function isAuthFormPending(
+  isSubmitting: boolean,
+  isMutationPending: boolean,
+) {
+  return isSubmitting || isMutationPending
 }

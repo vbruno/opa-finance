@@ -73,6 +73,44 @@ describe('useAccountsFormActions', () => {
     expect(resetCreateForm).toHaveBeenCalled()
   })
 
+  it('aplica erro root no formulário de criação quando API falha', async () => {
+    const setCreateFormError = vi.fn()
+    const createAccount = vi.fn().mockRejectedValue({
+      response: {
+        status: 400,
+        data: { detail: 'Conta já existe.' },
+      },
+    })
+
+    const { result } = renderHook(() =>
+      useAccountsFormActions({
+        selectedAccount: null,
+        createAccount,
+        updateAccount: vi.fn(),
+        navigate: vi.fn(),
+        resetCreateForm: vi.fn(),
+        resetEditForm: vi.fn(),
+        setCreateFormError,
+        setEditFormError: vi.fn(),
+        openEditModal: vi.fn(),
+        closeCreateModal: vi.fn(),
+        closeEditModal: vi.fn(),
+      }),
+    )
+
+    await act(async () => {
+      await result.current.submitCreateAccount({
+        name: 'Conta Nova',
+        type: 'checking_account',
+        confirm: true,
+      })
+    })
+
+    expect(setCreateFormError).toHaveBeenCalledWith('root', {
+      message: 'Conta já existe.',
+    })
+  })
+
   it('submete edição e limpa id da URL', async () => {
     const updateAccount = vi.fn().mockResolvedValue(undefined)
     const navigate = vi.fn()
@@ -110,5 +148,38 @@ describe('useAccountsFormActions', () => {
     expect(closeEditModal).toHaveBeenCalled()
     expect(navigate).toHaveBeenCalled()
     expect(resetEditForm).toHaveBeenCalled()
+  })
+
+  it('aplica erro root no formulário de edição quando API falha', async () => {
+    const setEditFormError = vi.fn()
+    const updateAccount = vi.fn().mockRejectedValue(new Error('network'))
+
+    const { result } = renderHook(() =>
+      useAccountsFormActions({
+        selectedAccount: { id: 'a-1', name: 'Conta A', type: 'cash' },
+        createAccount: vi.fn(),
+        updateAccount,
+        navigate: vi.fn(),
+        resetCreateForm: vi.fn(),
+        resetEditForm: vi.fn(),
+        setCreateFormError: vi.fn(),
+        setEditFormError,
+        openEditModal: vi.fn(),
+        closeCreateModal: vi.fn(),
+        closeEditModal: vi.fn(),
+      }),
+    )
+
+    await act(async () => {
+      await result.current.submitEditAccount({
+        name: 'Conta Editada',
+        type: 'savings_account',
+        confirm: true,
+      })
+    })
+
+    expect(setEditFormError).toHaveBeenCalledWith('root', {
+      message: 'Erro ao atualizar conta. Tente novamente.',
+    })
   })
 })

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 
 import type { AccountPayload } from '@/features/accounts/accounts.api'
 import { isRecurrenceConflictMessage } from '@/features/accounts/model/accounts.helpers'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { getApiErrorMessage, getApiErrorStatus } from '@/lib/apiError'
 
 type SelectedAccountLike = {
   id: string
@@ -75,7 +75,7 @@ export function useAccountsLinkedActions({
         defaultMessage:
           'Erro ao atualizar visibilidade no dashboard. Tente novamente.',
       })
-      const status = getErrorStatus(error)
+      const status = getApiErrorStatus(error)
       setDashboardVisibilityError(
         status === 409 && isRecurrenceConflictMessage(message)
           ? `${message} Finalize ou remapeie as recorrências antes de ocultar/inativar a conta.`
@@ -112,12 +112,4 @@ export function useAccountsLinkedActions({
     handleSetPrimaryAccount,
     handleToggleDashboardVisibility,
   }
-}
-
-function getErrorStatus(error: unknown) {
-  if (!error || typeof error !== 'object' || !('response' in error)) {
-    return undefined
-  }
-  const response = (error as { response?: { status?: number } }).response
-  return response?.status
 }

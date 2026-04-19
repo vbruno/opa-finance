@@ -1,8 +1,25 @@
-export function getApiErrorStatus(error: unknown) {
-  if (!error || typeof error !== 'object' || !('response' in error)) {
-    return undefined
+type AccountDeleteErrorFeedbackInput = {
+  status: number | undefined
+  message: string
+  isRecurrenceConflict: boolean
+}
+
+export function resolveAccountDeleteErrorFeedback({
+  status,
+  message,
+  isRecurrenceConflict,
+}: AccountDeleteErrorFeedbackInput) {
+  if (status === 409) {
+    return {
+      deleteError: null,
+      deleteBlockedReason: isRecurrenceConflict
+        ? `${message} Finalize ou remapeie as recorrências antes de excluir a conta.`
+        : message,
+    }
   }
 
-  const response = (error as { response?: { status?: number } }).response
-  return response?.status
+  return {
+    deleteError: message,
+    deleteBlockedReason: null,
+  }
 }

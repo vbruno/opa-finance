@@ -1,5 +1,6 @@
 export * from './auth.api'
 export * from './auth.store'
+export * from './components/auth-page-shell'
 export * from './model/auth-form.helpers'
 export * from './useAuth'
 export * from './useLogin'

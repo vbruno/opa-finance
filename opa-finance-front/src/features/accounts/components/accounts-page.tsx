@@ -14,12 +14,12 @@ import {
   useUpdateAccount,
 } from '@/features/accounts'
 import { AccountsSortIcon } from '@/features/accounts/components/accounts-sort-icon'
+import { useAccountsDeleteAction } from '@/features/accounts/hooks/use-accounts-delete-action'
 import { useAccountsFormActions } from '@/features/accounts/hooks/use-accounts-form-actions'
 import { useAccountsLinkedActions } from '@/features/accounts/hooks/use-accounts-linked-actions'
 import { useAccountsPageInteractions } from '@/features/accounts/hooks/use-accounts-page-interactions'
 import { useAccountsSearchParams } from '@/features/accounts/hooks/use-accounts-search-params'
 import { useAccountsSelection } from '@/features/accounts/hooks/use-accounts-selection'
-import { getApiErrorStatus } from '@/features/accounts/model/accounts-errors.helpers'
 import {
   ACCOUNT_TYPE_LABELS,
   ACCOUNT_TYPE_OPTIONS,
@@ -27,7 +27,6 @@ import {
 import {
   filterAccounts,
   getBalanceToneClass,
-  isRecurrenceConflictMessage,
   paginateAccounts,
   resolveAccountsDisplayedTotal,
   sortAccounts,
@@ -37,7 +36,6 @@ import {
   type AccountsSearchParams,
 } from '@/features/accounts/model/accounts.types'
 import { useUserPreference } from '@/hooks/useUserPreference'
-import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
 import {
   accountCreateSchema,
@@ -56,10 +54,6 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
-    null,
-  )
   const createNameRef = useRef<HTMLInputElement | null>(null)
   const editNameRef = useRef<HTMLInputElement | null>(null)
   const detailModalRef = useRef<HTMLDivElement | null>(null)
@@ -162,12 +156,6 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
     updateAccount: updateAccountMutation.mutateAsync,
   })
 
-  const openAccountDeleteConfirm = () => {
-    setDeleteBlockedReason(null)
-    setDeleteError(null)
-    setIsDeleteConfirmOpen(true)
-  }
-
   const {
     openAccountEdit,
     submitCreateAccount: onSubmitCreateAccount,
@@ -247,6 +235,24 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
   const displayedTotalToneClass = getBalanceToneClass(displayedTotal)
 
   const deleteAccountMutation = useDeleteAccount()
+  const {
+    deleteError,
+    deleteBlockedReason,
+    setDeleteError,
+    setDeleteBlockedReason,
+    resetDeleteFeedback,
+    submitDeleteAccount,
+  } = useAccountsDeleteAction({
+    selectedAccountId: selectedAccount?.id ?? null,
+    deleteAccount: deleteAccountMutation.mutateAsync,
+    navigate,
+    closeDeleteConfirmModal: () => setIsDeleteConfirmOpen(false),
+  })
+
+  const openAccountDeleteConfirm = () => {
+    resetDeleteFeedback()
+    setIsDeleteConfirmOpen(true)
+  }
 
   const submitCreateAccount = handleSubmit(onSubmitCreateAccount)
   const submitEditAccount = handleEditSubmit(onSubmitEditAccount)
@@ -1133,34 +1139,7 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
                 variant="destructive"
                 className="w-full sm:w-auto"
                 disabled={deleteAccountMutation.isPending}
-                onClick={async () => {
-                  setDeleteBlockedReason(null)
-                  setDeleteError(null)
-                  try {
-                    await deleteAccountMutation.mutateAsync(selectedAccount.id)
-                    setIsDeleteConfirmOpen(false)
-                    navigate({
-                      search: (prev) => ({ ...prev, id: undefined }),
-                      replace: true,
-                    })
-                  } catch (error: unknown) {
-                    const status = getApiErrorStatus(error)
-                    const message = getApiErrorMessage(error, {
-                      defaultMessage: 'Erro ao excluir conta. Tente novamente.',
-                    })
-                    if (status === 409) {
-                      setDeleteError(null)
-                      setDeleteBlockedReason(
-                        isRecurrenceConflictMessage(message)
-                          ? `${message} Finalize ou remapeie as recorrências antes de excluir a conta.`
-                          : message,
-                      )
-                    } else {
-                      setDeleteBlockedReason(null)
-                      setDeleteError(message)
-                    }
-                  }
-                }}
+                onClick={() => void submitDeleteAccount()}
               >
                 {deleteAccountMutation.isPending
                   ? 'Excluindo...'

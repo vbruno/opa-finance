@@ -73,4 +73,31 @@ describe('useAccountsLinkedActions', () => {
       payload: { isHiddenOnDashboard: true },
     })
   })
+
+  it('aplica mensagem de bloqueio de recorrência ao ocultar conta', async () => {
+    const updateAccount = vi.fn().mockRejectedValue({
+      response: {
+        status: 409,
+        data: { detail: 'Conta com recorrência ativa vinculada.' },
+      },
+    })
+    const { result } = renderHook(() =>
+      useAccountsLinkedActions({
+        selectedAccount: {
+          id: 'a-1',
+          isPrimary: false,
+          isHiddenOnDashboard: false,
+        },
+        updateAccount,
+      }),
+    )
+
+    await act(async () => {
+      await result.current.handleToggleDashboardVisibility()
+    })
+
+    expect(result.current.dashboardVisibilityError).toContain(
+      'Finalize ou remapeie as recorrências antes de ocultar/inativar a conta.',
+    )
+  })
 })
