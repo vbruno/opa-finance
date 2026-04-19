@@ -14,8 +14,32 @@ const STORAGE_KEY_USER = 'opa-finance:user'
 let currentUser: User | null = loadUser()
 let accessToken: string | null = loadToken()
 
+function isValidToken(value: string | null): value is string {
+  if (!value) return false
+  return value.split('.').length === 3
+}
+
+function isValidUser(value: unknown): value is User {
+  if (!value || typeof value !== 'object') return false
+  const user = value as Partial<User>
+  return (
+    typeof user.id === 'string' &&
+    user.id.length > 0 &&
+    typeof user.name === 'string' &&
+    user.name.length > 0 &&
+    typeof user.email === 'string' &&
+    user.email.length > 0 &&
+    typeof user.createdAt === 'string'
+  )
+}
+
 function loadToken(): string | null {
-  return localStorage.getItem(STORAGE_KEY_TOKEN)
+  const raw = localStorage.getItem(STORAGE_KEY_TOKEN)
+  if (!isValidToken(raw)) {
+    localStorage.removeItem(STORAGE_KEY_TOKEN)
+    return null
+  }
+  return raw
 }
 
 function loadUser(): User | null {
@@ -23,8 +47,14 @@ function loadUser(): User | null {
   if (!raw) return null
 
   try {
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw) as unknown
+    if (!isValidUser(parsed)) {
+      localStorage.removeItem(STORAGE_KEY_USER)
+      return null
+    }
+    return parsed
   } catch {
+    localStorage.removeItem(STORAGE_KEY_USER)
     return null
   }
 }
@@ -58,6 +88,11 @@ export function setAuth(token: string, user: User) {
   currentUser = user
   saveToken(token)
   saveUser(user)
+}
+
+export function setAccessToken(token: string) {
+  accessToken = token
+  saveToken(token)
 }
 
 export function updateUser(user: User | null) {

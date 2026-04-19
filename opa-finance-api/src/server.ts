@@ -25,6 +25,28 @@ import { userRoutes } from "./modules/users/user.routes";
 
 config();
 
+function buildCorsOrigin(nodeEnv: string, configuredOrigins: string[]) {
+  const isDevLike = nodeEnv === "development" || nodeEnv === "test";
+
+  if (isDevLike) {
+    return true;
+  }
+
+  const sanitized = configuredOrigins.filter((origin) => origin !== "*");
+  if (sanitized.length === 0) {
+    return false;
+  }
+
+  return (origin: string | undefined, callback: (error: Error | null, allow: boolean) => void) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    callback(null, sanitized.includes(origin));
+  };
+}
+
 async function start() {
   const app = Fastify({
     logger:
@@ -50,10 +72,7 @@ async function start() {
     env.CORS_ORIGINS?.split(",")
       .map((origin) => origin.trim())
       .filter(Boolean) ?? [];
-  // TODO: restringir CORS_ORIGINS quando o frontend estiver em producao.
-  const isDev = env.NODE_ENV === "development";
-  const allowAny = corsOrigins.includes("*");
-  const corsOrigin = isDev || allowAny ? true : corsOrigins.length > 0 ? corsOrigins : false;
+  const corsOrigin = buildCorsOrigin(env.NODE_ENV, corsOrigins);
   app.register(cors, {
     origin: corsOrigin,
     credentials: true,

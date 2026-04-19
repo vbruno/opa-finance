@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
@@ -125,6 +125,12 @@ function Login() {
           >
             {isSubmitting || loginMutation.isPending ? 'Entrando...' : 'Entrar'}
           </Button>
+
+          <div className="text-center text-sm">
+            <Link to="/forgot-password" className="text-primary hover:underline">
+              Esqueci minha senha
+            </Link>
+          </div>
         </form>
       </div>
     </div>

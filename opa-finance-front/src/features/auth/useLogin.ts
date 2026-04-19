@@ -2,7 +2,7 @@ import { useMutation, type UseMutationResult } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
-import { setAuth, logout } from './auth.store'
+import { setAccessToken, setAuth, logout } from './auth.store'
 
 type LoginInput = {
   email: string
@@ -30,14 +30,8 @@ export function useLogin(): UseMutationResult<void, unknown, LoginInput> {
 
       const { accessToken } = response.data
 
-      // Atualiza o token no store para que o interceptor possa usá-lo
-      // Usa dados temporários até buscar do servidor
-      setAuth(accessToken, {
-        id: '',
-        name: '',
-        email: formData.email,
-        createdAt: '',
-      })
+      // Atualiza o token antes do /auth/me para o interceptor já autenticar a requisição.
+      setAccessToken(accessToken)
 
       // Busca dados completos do usuário (o interceptor já adiciona o token)
       try {
