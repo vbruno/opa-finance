@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -35,6 +36,7 @@ export const Route = createFileRoute('/reset-password')({
 
 function ResetPasswordPage() {
   const search = Route.useSearch()
+  const [showPassword, setShowPassword] = useState(false)
   const resetPasswordMutation = useResetPassword()
   const {
     register,
@@ -111,7 +113,7 @@ function ResetPasswordPage() {
           <Label htmlFor="newPassword">Nova senha</Label>
           <Input
             id="newPassword"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             placeholder="Nova senha"
             disabled={isPending}
             aria-invalid={!!errors.newPassword}
@@ -128,7 +130,7 @@ function ResetPasswordPage() {
           <Label htmlFor="confirmNewPassword">Confirmar nova senha</Label>
           <Input
             id="confirmNewPassword"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             placeholder="Confirme a nova senha"
             disabled={isPending}
             aria-invalid={!!errors.confirmNewPassword}
@@ -140,6 +142,20 @@ function ResetPasswordPage() {
             </p>
           )}
         </div>
+
+        <label
+          htmlFor="toggle-reset-password-visibility"
+          className="flex items-center gap-2 text-sm"
+        >
+          <input
+            id="toggle-reset-password-visibility"
+            type="checkbox"
+            className="h-5 w-5 accent-primary"
+            checked={showPassword}
+            onChange={(event) => setShowPassword(event.target.checked)}
+          />
+          <span>Mostrar senha</span>
+        </label>
 
         <Button
           type="submit"
