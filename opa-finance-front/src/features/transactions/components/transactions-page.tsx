@@ -258,6 +258,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const deleteTransactionMutation = useDeleteTransaction()
   const createCategoryMutation = useCreateCategory()
   const createSubcategoryMutation = useCreateSubcategory()
+  const isDeletingSingleTransaction =
+    isDeleteConfirmOpen && deleteTransactionMutation.isPending
 
   const accountsQuery = useAccounts()
   const categoriesQuery = useCategories()
@@ -3601,6 +3603,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                 variant="destructive"
                 className="w-full sm:w-auto"
                 onClick={async () => {
+                  if (isDeletingSingleTransaction) {
+                    return
+                  }
                   try {
                     await deleteTransactionMutation.mutateAsync(
                       selectedTransaction.id,
@@ -3616,8 +3621,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                     )
                   }
                 }}
+                disabled={isDeletingSingleTransaction}
               >
-                Excluir
+                {isDeletingSingleTransaction ? 'Excluindo...' : 'Excluir'}
               </Button>
             </div>
           </div>
