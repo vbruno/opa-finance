@@ -56,6 +56,8 @@ import {
   useTransactionsUiState,
   useDebouncedValue,
   useTransactionsCreateSupport,
+  useTransactionsDeleteActions,
+  useTransactionsInlineCategoryActions,
   useTransactionForm,
   useTransferForm,
   useCreateTransaction,
@@ -69,12 +71,12 @@ import {
   TransactionsTableDesktop,
   TransactionsToolbar,
   TransactionsTransferModal,
+  TransactionsDeleteConfirmModal,
+  TransactionsBulkDeleteModal,
   type Transaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
 import { useUserPreference } from '@/hooks/useUserPreference'
-import { getApiErrorMessage } from '@/lib/apiError'
-import { setFormApiRootError } from '@/lib/form-api-error'
 import { formatCurrencyValue } from '@/lib/utils'
 import {
   categoryCreateSchema,
@@ -116,12 +118,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsBulkDeleteOpen,
     selectedTransaction,
     setSelectedTransaction,
-    deleteError,
-    setDeleteError,
-    bulkDeleteError,
-    setBulkDeleteError,
-    isBulkDeleting,
-    setIsBulkDeleting,
     copiedValue,
     setCopiedValue,
     detailCopiedField,
@@ -258,8 +254,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const deleteTransactionMutation = useDeleteTransaction()
   const createCategoryMutation = useCreateCategory()
   const createSubcategoryMutation = useCreateSubcategory()
-  const isDeletingSingleTransaction =
-    isDeleteConfirmOpen && deleteTransactionMutation.isPending
 
   const accountsQuery = useAccounts()
   const categoriesQuery = useCategories()
@@ -505,6 +499,29 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   } = useTransactionsSelection({
     transactions,
   })
+  const {
+    deleteError,
+    bulkDeleteError,
+    isBulkDeleting,
+    isDeletePending,
+    clearDeleteError,
+    openDeleteConfirm,
+    closeDeleteConfirm,
+    submitDeleteSelectedTransaction,
+    openBulkDeleteConfirm,
+    closeBulkDeleteConfirm,
+    submitBulkDelete,
+  } = useTransactionsDeleteActions({
+    isDeleteConfirmOpen,
+    selectedTransaction,
+    selectedTransactions,
+    getBulkDeleteIds,
+    deleteTransaction: deleteTransactionMutation.mutateAsync,
+    clearSelection,
+    setSelectedTransaction,
+    setIsDeleteConfirmOpen,
+    setIsBulkDeleteOpen,
+  })
   const total = isAmountFilterInvalid ? 0 : (transactionsQuery.data?.total ?? 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const isTransactionsRefetching =
@@ -639,6 +656,26 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   })
   const submitCreateTransaction = handleSubmit(onCreateSubmit)
   const submitEditTransaction = handleEditSubmit(onEditSubmit)
+  const { submitCreateCategory, submitCreateSubcategory } =
+    useTransactionsInlineCategoryActions({
+      createCategoryModalTarget,
+      createSubcategoryModalTarget,
+      createCategoryId,
+      categoryCreateForm,
+      subcategoryCreateForm,
+      createCategory: createCategoryMutation.mutateAsync,
+      createSubcategory: createSubcategoryMutation.mutateAsync,
+      setIsCreateCategoryOpen,
+      setIsCreateSubcategoryOpen,
+      setLastCreatedSubcategory,
+      pendingCategorySelection,
+      pendingSubcategorySelection,
+      lastCreateCategoryId,
+      lastEditCategoryId,
+      createCategorySelectRef,
+      setCreateValue: setValue,
+      setEditValue,
+    })
 
   const filterSubcategoriesQuery = useQuery({
     queryKey: ['subcategories', 'transaction-filter', categoryFilter],
@@ -1769,10 +1806,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   )
 
   const handleOpenDelete = useCallback((transaction: Transaction) => {
-    setSelectedTransaction(transaction)
-    setDeleteError(null)
-    setIsDeleteConfirmOpen(true)
-  }, [setDeleteError, setIsDeleteConfirmOpen, setSelectedTransaction])
+    openDeleteConfirm(transaction)
+  }, [openDeleteConfirm])
 
   useEffect(() => {
     if (!selectedTransaction || isEditOpen || isDeleteConfirmOpen) {
@@ -2183,7 +2218,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
               key={transaction.id}
               className="cursor-pointer rounded-lg border bg-background p-3 transition hover:bg-muted/30"
               onClick={() => {
-                setDeleteError(null)
+                clearDeleteError()
                 clearTransferFeedback()
                 setSelectedTransaction(transaction)
               }}
@@ -2279,8 +2314,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             variant="destructive"
             className="h-11 w-full"
             onClick={() => {
-              setBulkDeleteError(null)
-              setIsBulkDeleteOpen(true)
+              openBulkDeleteConfirm()
             }}
             disabled={isBulkDeleting}
           >
@@ -2297,8 +2331,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                 variant="destructive"
                 size="sm"
                 onClick={() => {
-                  setBulkDeleteError(null)
-                  setIsBulkDeleteOpen(true)
+                  openBulkDeleteConfirm()
                 }}
                 disabled={isBulkDeleting}
               >
@@ -2442,7 +2475,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             }}
             onToggleTransactionSelection={toggleTransactionSelection}
             onRowClick={(transaction) => {
-              setDeleteError(null)
+              clearDeleteError()
               clearTransferFeedback()
               setSelectedTransaction(transaction)
             }}
@@ -3212,43 +3245,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={categoryCreateForm.handleSubmit(async (formData) => {
-                try {
-                  const created = await createCategoryMutation.mutateAsync({
-                    name: formData.name,
-                    type: formData.type,
-                  })
-                  setIsCreateCategoryOpen(false)
-                  categoryCreateForm.reset()
-                  if (createCategoryModalTarget === 'edit') {
-                    lastEditCategoryId.current = created.id
-                    setEditValue('categoryId', created.id, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    setEditValue('subcategoryId', '', {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  } else {
-                    pendingCategorySelection.current = created.id
-                    setValue('categoryId', created.id, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    createCategorySelectRef.current?.focus()
-                  }
-                } catch (error: unknown) {
-                  setFormApiRootError({
-                    error,
-                    setError: categoryCreateForm.setError,
-                    options: {
-                      defaultMessage:
-                        'Erro ao criar categoria. Tente novamente.',
-                    },
-                  })
-                }
-              })}
+              onSubmit={submitCreateCategory}
             >
               <div className="space-y-2">
                 <Label htmlFor="transaction-category-new-type">Tipo</Label>
@@ -3349,50 +3346,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
 
             <form
               className="mt-6 space-y-4"
-              onSubmit={subcategoryCreateForm.handleSubmit(async (formData) => {
-                try {
-                  const created = await createSubcategoryMutation.mutateAsync({
-                    categoryId: formData.categoryId,
-                    name: formData.name,
-                  })
-                  setLastCreatedSubcategory(created)
-                  setIsCreateSubcategoryOpen(false)
-                  subcategoryCreateForm.reset()
-                  if (createSubcategoryModalTarget === 'edit') {
-                    lastEditCategoryId.current = created.categoryId
-                    setEditValue('categoryId', created.categoryId, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    setEditValue('subcategoryId', created.id, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  } else {
-                    pendingSubcategorySelection.current = {
-                      categoryId: created.categoryId,
-                      subcategoryId: created.id,
-                    }
-                    if (createCategoryId !== created.categoryId) {
-                      lastCreateCategoryId.current = created.categoryId
-                      setValue('categoryId', created.categoryId, {
-                        shouldDirty: true,
-                        shouldTouch: true,
-                      })
-                    }
-                    createCategorySelectRef.current?.focus()
-                  }
-                } catch (error: unknown) {
-                  setFormApiRootError({
-                    error,
-                    setError: subcategoryCreateForm.setError,
-                    options: {
-                      defaultMessage:
-                        'Erro ao criar subcategoria. Tente novamente.',
-                    },
-                  })
-                }
-              })}
+              onSubmit={submitCreateSubcategory}
             >
               <div className="space-y-2">
                 <Label htmlFor="transaction-subcategory-new-category">
@@ -3564,155 +3518,24 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         }
       />
 
-      {isDeleteConfirmOpen && selectedTransaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsDeleteConfirmOpen(false)}
-          />
-          <div
-            className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
-            ref={deleteModalRef}
-            tabIndex={-1}
-          >
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Confirmar exclusao</h3>
-              <p className="text-sm text-muted-foreground">
-                Tem certeza que deseja excluir esta transação? Essa ação não
-                pode ser desfeita.
-              </p>
-            </div>
+      <TransactionsDeleteConfirmModal
+        isOpen={isDeleteConfirmOpen && !!selectedTransaction}
+        deleteError={deleteError}
+        isDeleting={isDeletePending}
+        deleteModalRef={deleteModalRef}
+        onClose={closeDeleteConfirm}
+        onConfirmDelete={submitDeleteSelectedTransaction}
+      />
 
-            {deleteError && (
-              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {deleteError}
-              </div>
-            )}
-
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <ShortcutTooltip label="Atalho: Esc">
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsDeleteConfirmOpen(false)}
-                >
-                  Cancelar
-                </Button>
-              </ShortcutTooltip>
-              <Button
-                variant="destructive"
-                className="w-full sm:w-auto"
-                onClick={async () => {
-                  if (isDeletingSingleTransaction) {
-                    return
-                  }
-                  try {
-                    await deleteTransactionMutation.mutateAsync(
-                      selectedTransaction.id,
-                    )
-                    setIsDeleteConfirmOpen(false)
-                    setSelectedTransaction(null)
-                  } catch (error: unknown) {
-                    setDeleteError(
-                      getApiErrorMessage(error, {
-                        defaultMessage:
-                          'Erro ao excluir transação. Tente novamente.',
-                      }),
-                    )
-                  }
-                }}
-                disabled={isDeletingSingleTransaction}
-              >
-                {isDeletingSingleTransaction ? 'Excluindo...' : 'Excluir'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isBulkDeleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsBulkDeleteOpen(false)}
-          />
-          <div
-            className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
-            ref={bulkDeleteModalRef}
-            tabIndex={-1}
-          >
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Confirmar exclusão</h3>
-              <p className="text-sm text-muted-foreground">
-                Tem certeza que deseja excluir {selectedCount} transações
-                selecionadas? Essa ação não pode ser desfeita.
-              </p>
-            </div>
-
-            {bulkDeleteError && (
-              <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {bulkDeleteError}
-              </div>
-            )}
-
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <ShortcutTooltip label="Atalho: Esc">
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setIsBulkDeleteOpen(false)}
-                  disabled={isBulkDeleting}
-                >
-                  Cancelar
-                </Button>
-              </ShortcutTooltip>
-              <Button
-                variant="destructive"
-                className="w-full sm:w-auto"
-                onClick={async () => {
-                  const idsArray = getBulkDeleteIds(selectedTransactions)
-                  if (idsArray.length === 0) {
-                    setIsBulkDeleteOpen(false)
-                    return
-                  }
-                  setIsBulkDeleting(true)
-                  setBulkDeleteError(null)
-                  try {
-                    const results = await Promise.allSettled(
-                      idsArray.map((id) =>
-                        deleteTransactionMutation.mutateAsync(id),
-                      ),
-                    )
-                    const hasError = results.some(
-                      (result) => result.status === 'rejected',
-                    )
-                    if (hasError) {
-                      setBulkDeleteError(
-                        'Erro ao excluir transações. Tente novamente.',
-                      )
-                      return
-                    }
-                    setIsBulkDeleteOpen(false)
-                    clearSelection()
-                  } catch (error: unknown) {
-                    setBulkDeleteError(
-                      getApiErrorMessage(error, {
-                        defaultMessage:
-                          'Erro ao excluir transações. Tente novamente.',
-                      }),
-                    )
-                  } finally {
-                    setIsBulkDeleting(false)
-                  }
-                }}
-                disabled={isBulkDeleting}
-              >
-                {isBulkDeleting ? 'Excluindo...' : 'Excluir'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TransactionsBulkDeleteModal
+        isOpen={isBulkDeleteOpen}
+        selectedCount={selectedCount}
+        bulkDeleteError={bulkDeleteError}
+        isBulkDeleting={isBulkDeleting}
+        bulkDeleteModalRef={bulkDeleteModalRef}
+        onClose={closeBulkDeleteConfirm}
+        onConfirmDelete={submitBulkDelete}
+      />
     </div>
   )
 }
