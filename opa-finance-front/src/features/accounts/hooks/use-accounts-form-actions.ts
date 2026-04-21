@@ -20,34 +20,45 @@ type SelectedAccountLike = {
 
 type UseAccountsFormActionsInput = {
   selectedAccount: SelectedAccountLike | null
-  createAccount: (payload: ReturnType<typeof mapCreateAccountPayload>) => Promise<unknown>
-  updateAccount: (input: {
-    id: string
-    payload: ReturnType<typeof mapUpdateAccountPayload>
-  }) => Promise<unknown>
+  services: {
+    createAccount: (
+      payload: ReturnType<typeof mapCreateAccountPayload>,
+    ) => Promise<unknown>
+    updateAccount: (input: {
+      id: string
+      payload: ReturnType<typeof mapUpdateAccountPayload>
+    }) => Promise<unknown>
+  }
+  forms: {
+    resetCreateForm: UseFormReset<AccountCreateFormData>
+    resetEditForm: UseFormReset<AccountUpdateFormData>
+    setCreateFormError: UseFormSetError<AccountCreateFormData>
+    setEditFormError: UseFormSetError<AccountUpdateFormData>
+  }
+  modalActions: {
+    openEditModal: () => void
+    closeCreateModal: () => void
+    closeEditModal: () => void
+  }
   navigate: AccountsNavigateFn
-  resetCreateForm: UseFormReset<AccountCreateFormData>
-  resetEditForm: UseFormReset<AccountUpdateFormData>
-  setCreateFormError: UseFormSetError<AccountCreateFormData>
-  setEditFormError: UseFormSetError<AccountUpdateFormData>
-  openEditModal: () => void
-  closeCreateModal: () => void
-  closeEditModal: () => void
 }
 
 export function useAccountsFormActions({
   selectedAccount,
-  createAccount,
-  updateAccount,
+  services,
+  forms,
+  modalActions,
   navigate,
-  resetCreateForm,
-  resetEditForm,
-  setCreateFormError,
-  setEditFormError,
-  openEditModal,
-  closeCreateModal,
-  closeEditModal,
 }: UseAccountsFormActionsInput) {
+  const { createAccount, updateAccount } = services
+  const {
+    resetCreateForm,
+    resetEditForm,
+    setCreateFormError,
+    setEditFormError,
+  } = forms
+  const { openEditModal, closeCreateModal, closeEditModal } = modalActions
+
   const openAccountEdit = useCallback(() => {
     if (!selectedAccount) {
       return

@@ -13,7 +13,7 @@ describe('useAccountsLinkedActions', () => {
           isPrimary: false,
           isHiddenOnDashboard: false,
         },
-        updateAccount,
+        actions: { updateAccount },
       }),
     )
 
@@ -37,7 +37,7 @@ describe('useAccountsLinkedActions', () => {
           isPrimary: false,
           isHiddenOnDashboard: false,
         },
-        updateAccount,
+        actions: { updateAccount },
       }),
     )
 
@@ -60,7 +60,7 @@ describe('useAccountsLinkedActions', () => {
           isPrimary: false,
           isHiddenOnDashboard: false,
         },
-        updateAccount,
+        actions: { updateAccount },
       }),
     )
 
@@ -88,7 +88,7 @@ describe('useAccountsLinkedActions', () => {
           isPrimary: false,
           isHiddenOnDashboard: false,
         },
-        updateAccount,
+        actions: { updateAccount },
       }),
     )
 

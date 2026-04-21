@@ -1,42 +1,52 @@
 import { useEffect, type RefObject } from 'react'
 
 import type { Account } from '@/features/accounts'
+import type { AccountsNavigateFn } from '@/features/accounts/model/accounts.types'
 
 type AccountsPageInteractionsParams = {
-  currentPage: number
-  totalPages: number
-  selectedAccountId: string | null
-  selectedAccount: Account | undefined
-  isAccountsLoading: boolean
-  navigate: (input: {
-    search: (prev: Record<string, unknown>) => Record<string, unknown>
-    replace: boolean
-  }) => void
-  resetLinkedErrors: () => void
-  setDeleteError: (value: string | null) => void
-  setDeleteBlockedReason: (value: string | null) => void
-  hasOpenModal: boolean
-  isCreateOpen: boolean
-  isEditOpen: boolean
-  isDeleteConfirmOpen: boolean
-  isPrimaryConfirmOpen: boolean
-  isTogglingDashboardVisibility: boolean
-  isSettingPrimary: boolean
-  setIsCreateOpen: (value: boolean) => void
-  setIsEditOpen: (value: boolean) => void
-  setIsDeleteConfirmOpen: (value: boolean) => void
-  resetCreateForm: () => void
-  openAccountDeleteConfirm: () => void
-  openAccountEdit: () => void
-  openPrimaryConfirm: () => void
-  closePrimaryConfirm: () => void
-  handleToggleDashboardVisibility: () => Promise<void>
-  submitCreateAccount: () => Promise<void>
-  submitEditAccount: () => Promise<void>
-  createNameRef: RefObject<HTMLInputElement | null>
-  editNameRef: RefObject<HTMLInputElement | null>
-  detailModalRef: RefObject<HTMLDivElement | null>
-  deleteModalRef: RefObject<HTMLDivElement | null>
+  pagination: {
+    currentPage: number
+    totalPages: number
+  }
+  selection: {
+    selectedAccountId: string | null
+    selectedAccount: Account | undefined
+    isAccountsLoading: boolean
+  }
+  modalState: {
+    hasOpenModal: boolean
+    isCreateOpen: boolean
+    isEditOpen: boolean
+    isDeleteConfirmOpen: boolean
+    isPrimaryConfirmOpen: boolean
+    isTogglingDashboardVisibility: boolean
+    isSettingPrimary: boolean
+  }
+  modalSetters: {
+    setIsCreateOpen: (value: boolean) => void
+    setIsEditOpen: (value: boolean) => void
+    setIsDeleteConfirmOpen: (value: boolean) => void
+  }
+  refs: {
+    createNameRef: RefObject<HTMLInputElement | null>
+    editNameRef: RefObject<HTMLInputElement | null>
+    detailModalRef: RefObject<HTMLDivElement | null>
+    deleteModalRef: RefObject<HTMLDivElement | null>
+  }
+  actions: {
+    navigate: AccountsNavigateFn
+    resetLinkedErrors: () => void
+    setDeleteError: (value: string | null) => void
+    setDeleteBlockedReason: (value: string | null) => void
+    resetCreateForm: () => void
+    openAccountDeleteConfirm: () => void
+    openAccountEdit: () => void
+    openPrimaryConfirm: () => void
+    closePrimaryConfirm: () => void
+    handleToggleDashboardVisibility: () => Promise<void>
+    submitCreateAccount: () => Promise<void>
+    submitEditAccount: () => Promise<void>
+  }
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -51,38 +61,41 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export function useAccountsPageInteractions({
-  currentPage,
-  totalPages,
-  selectedAccountId,
-  selectedAccount,
-  isAccountsLoading,
-  navigate,
-  resetLinkedErrors,
-  setDeleteError,
-  setDeleteBlockedReason,
-  hasOpenModal,
-  isCreateOpen,
-  isEditOpen,
-  isDeleteConfirmOpen,
-  isPrimaryConfirmOpen,
-  isTogglingDashboardVisibility,
-  isSettingPrimary,
-  setIsCreateOpen,
-  setIsEditOpen,
-  setIsDeleteConfirmOpen,
-  resetCreateForm,
-  openAccountDeleteConfirm,
-  openAccountEdit,
-  openPrimaryConfirm,
-  closePrimaryConfirm,
-  handleToggleDashboardVisibility,
-  submitCreateAccount,
-  submitEditAccount,
-  createNameRef,
-  editNameRef,
-  detailModalRef,
-  deleteModalRef,
+  pagination,
+  selection,
+  modalState,
+  modalSetters,
+  refs,
+  actions,
 }: AccountsPageInteractionsParams) {
+  const { currentPage, totalPages } = pagination
+  const { selectedAccountId, selectedAccount, isAccountsLoading } = selection
+  const {
+    hasOpenModal,
+    isCreateOpen,
+    isEditOpen,
+    isDeleteConfirmOpen,
+    isPrimaryConfirmOpen,
+    isTogglingDashboardVisibility,
+    isSettingPrimary,
+  } = modalState
+  const { setIsCreateOpen, setIsEditOpen, setIsDeleteConfirmOpen } = modalSetters
+  const { createNameRef, editNameRef, detailModalRef, deleteModalRef } = refs
+  const {
+    navigate,
+    resetLinkedErrors,
+    setDeleteError,
+    setDeleteBlockedReason,
+    resetCreateForm,
+    openAccountDeleteConfirm,
+    openAccountEdit,
+    openPrimaryConfirm,
+    closePrimaryConfirm,
+    handleToggleDashboardVisibility,
+    submitCreateAccount,
+    submitEditAccount,
+  } = actions
+
   useEffect(() => {
     setDeleteError(null)
     setDeleteBlockedReason(null)

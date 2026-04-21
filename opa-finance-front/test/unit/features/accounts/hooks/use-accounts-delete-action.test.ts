@@ -12,9 +12,11 @@ describe('useAccountsDeleteAction', () => {
     const { result } = renderHook(() =>
       useAccountsDeleteAction({
         selectedAccountId: 'a-1',
-        deleteAccount,
-        navigate,
-        closeDeleteConfirmModal,
+        actions: {
+          deleteAccount,
+          navigate,
+          closeDeleteConfirmModal,
+        },
       }),
     )
 
@@ -40,9 +42,11 @@ describe('useAccountsDeleteAction', () => {
     const { result } = renderHook(() =>
       useAccountsDeleteAction({
         selectedAccountId: 'a-1',
-        deleteAccount,
-        navigate: vi.fn(),
-        closeDeleteConfirmModal: vi.fn(),
+        actions: {
+          deleteAccount,
+          navigate: vi.fn(),
+          closeDeleteConfirmModal: vi.fn(),
+        },
       }),
     )
 

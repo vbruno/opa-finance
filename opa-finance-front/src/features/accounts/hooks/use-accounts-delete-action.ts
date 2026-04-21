@@ -11,17 +11,18 @@ type AccountsNavigateFn = (input: {
 
 type UseAccountsDeleteActionInput = {
   selectedAccountId: string | null
-  deleteAccount: (id: string) => Promise<unknown>
-  navigate: AccountsNavigateFn
-  closeDeleteConfirmModal: () => void
+  actions: {
+    deleteAccount: (id: string) => Promise<unknown>
+    navigate: AccountsNavigateFn
+    closeDeleteConfirmModal: () => void
+  }
 }
 
 export function useAccountsDeleteAction({
   selectedAccountId,
-  deleteAccount,
-  navigate,
-  closeDeleteConfirmModal,
+  actions,
 }: UseAccountsDeleteActionInput) {
+  const { deleteAccount, navigate, closeDeleteConfirmModal } = actions
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteBlockedReason, setDeleteBlockedReason] = useState<string | null>(
     null,

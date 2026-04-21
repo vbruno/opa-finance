@@ -17,13 +17,16 @@ type UpdateAccountFn = (input: {
 
 type UseAccountsLinkedActionsInput = {
   selectedAccount: SelectedAccountLike | null
-  updateAccount: UpdateAccountFn
+  actions: {
+    updateAccount: UpdateAccountFn
+  }
 }
 
 export function useAccountsLinkedActions({
   selectedAccount,
-  updateAccount,
+  actions,
 }: UseAccountsLinkedActionsInput) {
+  const { updateAccount } = actions
   const [isPrimaryConfirmOpen, setIsPrimaryConfirmOpen] = useState(false)
   const [isTogglingDashboardVisibility, setIsTogglingDashboardVisibility] =
     useState(false)

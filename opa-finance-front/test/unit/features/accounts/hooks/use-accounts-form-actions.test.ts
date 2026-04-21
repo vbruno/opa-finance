@@ -11,16 +11,22 @@ describe('useAccountsFormActions', () => {
     const { result } = renderHook(() =>
       useAccountsFormActions({
         selectedAccount: { id: 'a-1', name: 'Conta A', type: 'cash' },
-        createAccount: vi.fn(),
-        updateAccount: vi.fn(),
+        services: {
+          createAccount: vi.fn(),
+          updateAccount: vi.fn(),
+        },
+        forms: {
+          resetCreateForm: vi.fn(),
+          resetEditForm,
+          setCreateFormError: vi.fn(),
+          setEditFormError: vi.fn(),
+        },
+        modalActions: {
+          openEditModal,
+          closeCreateModal: vi.fn(),
+          closeEditModal: vi.fn(),
+        },
         navigate: vi.fn(),
-        resetCreateForm: vi.fn(),
-        resetEditForm,
-        setCreateFormError: vi.fn(),
-        setEditFormError: vi.fn(),
-        openEditModal,
-        closeCreateModal: vi.fn(),
-        closeEditModal: vi.fn(),
       }),
     )
 
@@ -44,16 +50,22 @@ describe('useAccountsFormActions', () => {
     const { result } = renderHook(() =>
       useAccountsFormActions({
         selectedAccount: null,
-        createAccount,
-        updateAccount: vi.fn(),
+        services: {
+          createAccount,
+          updateAccount: vi.fn(),
+        },
+        forms: {
+          resetCreateForm,
+          resetEditForm: vi.fn(),
+          setCreateFormError: vi.fn(),
+          setEditFormError: vi.fn(),
+        },
+        modalActions: {
+          openEditModal: vi.fn(),
+          closeCreateModal,
+          closeEditModal: vi.fn(),
+        },
         navigate: vi.fn(),
-        resetCreateForm,
-        resetEditForm: vi.fn(),
-        setCreateFormError: vi.fn(),
-        setEditFormError: vi.fn(),
-        openEditModal: vi.fn(),
-        closeCreateModal,
-        closeEditModal: vi.fn(),
       }),
     )
 
@@ -85,16 +97,22 @@ describe('useAccountsFormActions', () => {
     const { result } = renderHook(() =>
       useAccountsFormActions({
         selectedAccount: null,
-        createAccount,
-        updateAccount: vi.fn(),
+        services: {
+          createAccount,
+          updateAccount: vi.fn(),
+        },
+        forms: {
+          resetCreateForm: vi.fn(),
+          resetEditForm: vi.fn(),
+          setCreateFormError,
+          setEditFormError: vi.fn(),
+        },
+        modalActions: {
+          openEditModal: vi.fn(),
+          closeCreateModal: vi.fn(),
+          closeEditModal: vi.fn(),
+        },
         navigate: vi.fn(),
-        resetCreateForm: vi.fn(),
-        resetEditForm: vi.fn(),
-        setCreateFormError,
-        setEditFormError: vi.fn(),
-        openEditModal: vi.fn(),
-        closeCreateModal: vi.fn(),
-        closeEditModal: vi.fn(),
       }),
     )
 
@@ -120,16 +138,22 @@ describe('useAccountsFormActions', () => {
     const { result } = renderHook(() =>
       useAccountsFormActions({
         selectedAccount: { id: 'a-1', name: 'Conta A', type: 'cash' },
-        createAccount: vi.fn(),
-        updateAccount,
+        services: {
+          createAccount: vi.fn(),
+          updateAccount,
+        },
+        forms: {
+          resetCreateForm: vi.fn(),
+          resetEditForm,
+          setCreateFormError: vi.fn(),
+          setEditFormError: vi.fn(),
+        },
+        modalActions: {
+          openEditModal: vi.fn(),
+          closeCreateModal: vi.fn(),
+          closeEditModal,
+        },
         navigate,
-        resetCreateForm: vi.fn(),
-        resetEditForm,
-        setCreateFormError: vi.fn(),
-        setEditFormError: vi.fn(),
-        openEditModal: vi.fn(),
-        closeCreateModal: vi.fn(),
-        closeEditModal,
       }),
     )
 
@@ -157,16 +181,22 @@ describe('useAccountsFormActions', () => {
     const { result } = renderHook(() =>
       useAccountsFormActions({
         selectedAccount: { id: 'a-1', name: 'Conta A', type: 'cash' },
-        createAccount: vi.fn(),
-        updateAccount,
+        services: {
+          createAccount: vi.fn(),
+          updateAccount,
+        },
+        forms: {
+          resetCreateForm: vi.fn(),
+          resetEditForm: vi.fn(),
+          setCreateFormError: vi.fn(),
+          setEditFormError,
+        },
+        modalActions: {
+          openEditModal: vi.fn(),
+          closeCreateModal: vi.fn(),
+          closeEditModal: vi.fn(),
+        },
         navigate: vi.fn(),
-        resetCreateForm: vi.fn(),
-        resetEditForm: vi.fn(),
-        setCreateFormError: vi.fn(),
-        setEditFormError,
-        openEditModal: vi.fn(),
-        closeCreateModal: vi.fn(),
-        closeEditModal: vi.fn(),
       }),
     )
 
