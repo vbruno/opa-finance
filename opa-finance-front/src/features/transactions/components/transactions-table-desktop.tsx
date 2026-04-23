@@ -55,9 +55,9 @@ export function TransactionsTableDesktop({
   formatCurrencyValue,
 }: TransactionsTableDesktopProps) {
   return (
-    <div className="max-h-[520px] overflow-y-auto">
+    <div className="h-full overflow-y-auto">
       <table className="min-w-[900px] w-full text-sm">
-        <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
+        <thead className="sticky top-0 z-10 bg-muted/40 text-left text-[11px] uppercase text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/70">
           <tr>
                 <th className="w-12 px-4 py-2 text-center">
                   <input

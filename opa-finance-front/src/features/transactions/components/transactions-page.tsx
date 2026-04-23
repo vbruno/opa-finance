@@ -1869,7 +1869,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   ])
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-6">
       <TransactionsToolbar
         isFiltersOpen={isFiltersOpen}
         hasActiveFilters={Boolean(hasActiveFilters)}
@@ -2450,8 +2450,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         </div>
       )}
 
-      <div className="desktop-only">
-        <div className="overflow-x-auto rounded-lg border">
+      <div className="desktop-only min-h-0 flex-1">
+        <div className="flex h-full min-h-[520px] flex-col overflow-hidden rounded-lg border">
+          <div className="min-h-0 flex-1 overflow-x-auto">
           <TransactionsTableDesktop
             transactions={transactions}
             isLoading={transactionsQuery.isLoading}
@@ -2491,6 +2492,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             formatDateDisplay={formatDateDisplay}
             formatCurrencyValue={formatCurrencyValue}
           />
+          </div>
           <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
             <span className="text-muted-foreground">
               {isTransactionsRefetching
