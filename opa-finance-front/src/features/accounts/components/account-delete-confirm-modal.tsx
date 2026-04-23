@@ -30,15 +30,24 @@ export function AccountDeleteConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
         className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
         ref={deleteModalRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-delete-modal-title"
+        aria-describedby="account-delete-modal-description"
       >
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Confirmar exclusão</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 id="account-delete-modal-title" className="text-lg font-semibold">
+            Confirmar exclusão
+          </h3>
+          <p
+            id="account-delete-modal-description"
+            className="text-sm text-muted-foreground"
+          >
             Tem certeza que deseja excluir a conta{' '}
             <span className="font-medium">{accountName}</span>? Essa ação não pode
             ser desfeita.

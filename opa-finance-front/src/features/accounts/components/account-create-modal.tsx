@@ -44,12 +44,23 @@ export function AccountCreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-create-modal-title"
+        aria-describedby="account-create-modal-description"
+      >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Criar nova conta</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 id="account-create-modal-title" className="text-lg font-semibold">
+              Criar nova conta
+            </h3>
+            <p
+              id="account-create-modal-description"
+              className="text-sm text-muted-foreground"
+            >
               Preencha os dados básicos para adicionar uma conta.
             </p>
           </div>

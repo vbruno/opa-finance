@@ -24,11 +24,22 @@ export function AccountPrimaryConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-primary-modal-title"
+        aria-describedby="account-primary-modal-description"
+      >
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Definir conta principal</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 id="account-primary-modal-title" className="text-lg font-semibold">
+            Definir conta principal
+          </h3>
+          <p
+            id="account-primary-modal-description"
+            className="text-sm text-muted-foreground"
+          >
             Deseja definir a conta {accountName} como principal?
           </p>
         </div>

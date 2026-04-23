@@ -1,15 +1,19 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ACCOUNT_TYPE_OPTIONS } from '@/features/accounts/model/accounts.constants'
+import {
+  ACCOUNT_TYPE_OPTIONS,
+  isAccountType,
+} from '@/features/accounts/model/accounts.constants'
+import type { AccountsTypeFilter } from '@/features/accounts/model/accounts.types'
 
 type AccountsFiltersPanelProps = {
   isFiltersOpen: boolean
   searchDraft: string
-  typeFilter: string
+  typeFilter: AccountsTypeFilter
   hasActiveFilters: boolean
   onSearchDraftChange: (value: string) => void
   onSearchEnter: (value: string) => void
-  onTypeFilterChange: (value: string) => void
+  onTypeFilterChange: (value: AccountsTypeFilter) => void
   onClearFilters: () => void
 }
 
@@ -52,7 +56,10 @@ export function AccountsFiltersPanel({
                 <select
                   className="h-10 w-full appearance-none rounded-md border bg-background px-3 pr-10 text-sm"
                   value={typeFilter}
-                  onChange={(event) => onTypeFilterChange(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    onTypeFilterChange(value === '' ? '' : resolveAccountType(value))
+                  }}
                 >
                   <option value="">Todos</option>
                   {ACCOUNT_TYPE_OPTIONS.map((option) => (
@@ -92,4 +99,11 @@ export function AccountsFiltersPanel({
       </div>
     </div>
   )
+}
+
+function resolveAccountType(value: string): AccountsTypeFilter {
+  if (isAccountType(value)) {
+    return value
+  }
+  return ''
 }

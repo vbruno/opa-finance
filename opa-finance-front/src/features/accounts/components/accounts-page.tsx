@@ -23,6 +23,7 @@ import { AccountsPagination } from '@/features/accounts/components/accounts-pagi
 import { useAccountsDeleteAction } from '@/features/accounts/hooks/use-accounts-delete-action'
 import { useAccountsFormActions } from '@/features/accounts/hooks/use-accounts-form-actions'
 import { useAccountsLinkedActions } from '@/features/accounts/hooks/use-accounts-linked-actions'
+import { useAccountsPageActions } from '@/features/accounts/hooks/use-accounts-page-actions'
 import { useAccountsPageController } from '@/features/accounts/hooks/use-accounts-page-controller'
 import { useAccountsPageInteractions } from '@/features/accounts/hooks/use-accounts-page-interactions'
 import { useAccountsSearchParams } from '@/features/accounts/hooks/use-accounts-search-params'
@@ -179,21 +180,6 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
     navigate,
   })
 
-  function handleSort(nextKey: 'name' | 'type' | 'balance') {
-    navigate({
-      search: (previous) => {
-        const isSame = previous.sort === nextKey
-        const nextDirection = isSame && previous.dir === 'asc' ? 'desc' : 'asc'
-        return {
-          ...previous,
-          sort: nextKey,
-          dir: nextDirection,
-        }
-      },
-      replace: false,
-    })
-  }
-
   const [pageSize, setPageSize] = useUserPreference<number>(
     'accountsPageSize',
     10,
@@ -268,26 +254,26 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
 
   const submitCreateAccount = handleSubmit(onSubmitCreateAccount)
   const submitEditAccount = handleEditSubmit(onSubmitEditAccount)
-
-  const openAccountById = (accountId: string) =>
-    navigate({
-      search: (previous) => ({ ...previous, id: accountId }),
-    })
-  const closeAccountDetails = () =>
-    navigate({
-      search: (previous) => ({ ...previous, id: undefined }),
-      replace: true,
-    })
-
-  const closeEditModal = () => {
-    controller.closeEditModal()
-    closeAccountDetails()
-  }
-
-  const openCreateModal = () => {
-    reset()
-    controller.openCreateModal()
-  }
+  const {
+    openAccountById,
+    closeAccountDetails,
+    closeEditModal,
+    openCreateModal,
+    handleSort,
+    handlePageSizeChange,
+    goToFirstPage,
+    goToPreviousPage,
+    goToNextPage,
+    goToLastPage,
+  } = useAccountsPageActions({
+    navigate,
+    safePage,
+    totalPages,
+    setPageSize,
+    resetCreateForm: reset,
+    openCreateModalState: controller.openCreateModal,
+    closeEditModalState: controller.closeEditModal,
+  })
 
   useAccountsPageInteractions({
     pagination: {
@@ -423,52 +409,11 @@ export function AccountsPage({ search, navigate }: AccountsPageProps) {
         pageSize={pageSize}
         safePage={safePage}
         totalPages={totalPages}
-        onChangePageSize={(nextSize) => {
-          setPageSize(nextSize)
-          navigate({
-            search: (previous) => ({
-              ...previous,
-              page: 1,
-            }),
-            replace: false,
-          })
-        }}
-        onFirstPage={() =>
-          navigate({
-            search: (previous) => ({
-              ...previous,
-              page: 1,
-            }),
-            replace: false,
-          })
-        }
-        onPreviousPage={() =>
-          navigate({
-            search: (previous) => ({
-              ...previous,
-              page: safePage - 1,
-            }),
-            replace: false,
-          })
-        }
-        onNextPage={() =>
-          navigate({
-            search: (previous) => ({
-              ...previous,
-              page: safePage + 1,
-            }),
-            replace: false,
-          })
-        }
-        onLastPage={() =>
-          navigate({
-            search: (previous) => ({
-              ...previous,
-              page: totalPages,
-            }),
-            replace: false,
-          })
-        }
+        onChangePageSize={handlePageSizeChange}
+        onFirstPage={goToFirstPage}
+        onPreviousPage={goToPreviousPage}
+        onNextPage={goToNextPage}
+        onLastPage={goToLastPage}
       />
 
       <AccountCreateModal

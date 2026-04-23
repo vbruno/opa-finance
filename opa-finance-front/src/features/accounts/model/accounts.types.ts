@@ -5,6 +5,7 @@ import type {
 } from '@/features/accounts/model/accounts.constants'
 
 export type AccountType = (typeof ACCOUNT_TYPE_VALUES)[number]
+export type AccountsTypeFilter = AccountType | ''
 export type AccountsSortKey = (typeof ACCOUNTS_SORT_VALUES)[number] | null
 export type AccountsSortDirection =
   (typeof ACCOUNTS_SORT_DIRECTION_VALUES)[number]

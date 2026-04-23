@@ -51,11 +51,22 @@ export function AccountEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-edit-modal-title"
+        aria-describedby="account-edit-modal-description"
+      >
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Editar conta</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 id="account-edit-modal-title" className="text-lg font-semibold">
+            Editar conta
+          </h3>
+          <p
+            id="account-edit-modal-description"
+            className="text-sm text-muted-foreground"
+          >
             Atualize as informações da conta selecionada.
           </p>
         </div>

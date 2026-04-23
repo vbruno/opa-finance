@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { isAccountType } from '@/features/accounts/model/accounts.constants'
 import { normalizeAccountsSearch } from '@/features/accounts/model/accounts.helpers'
 import type {
+  AccountsTypeFilter,
   AccountsNavigateFn,
   AccountsSearchParams,
   AccountsSortDirection,
@@ -24,7 +25,7 @@ export function useAccountsSearchParams({
   const searchTerm = search.q ?? ''
   const [searchDraft, setSearchDraft] = useState(searchTerm)
   const debouncedSearch = useDebouncedValue(searchDraft, 300)
-  const typeFilter = search.type ?? ''
+  const typeFilter: AccountsTypeFilter = search.type ?? ''
   const selectedAccountId = search.id ?? null
   const sortKey: AccountsSortKey = search.sort ?? null
   const sortDirection: AccountsSortDirection = search.dir ?? 'asc'
@@ -70,7 +71,7 @@ export function useAccountsSearchParams({
     })
   }
 
-  const handleTypeFilterChange = (value: string) => {
+  const handleTypeFilterChange = (value: AccountsTypeFilter) => {
     navigate({
       search: (prev) => ({
         ...prev,

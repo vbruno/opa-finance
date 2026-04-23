@@ -40,15 +40,21 @@ export function AccountDetailsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
         className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
         ref={detailModalRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-details-modal-title"
+        aria-describedby="account-details-modal-description"
       >
         <div className="space-y-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-semibold">{account.name}</h3>
+            <h3 id="account-details-modal-title" className="text-lg font-semibold">
+              {account.name}
+            </h3>
             <div className="flex flex-wrap items-center gap-2">
               {account.isPrimary && (
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
@@ -62,7 +68,12 @@ export function AccountDetailsModal({
               )}
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">Detalhes da conta</p>
+          <p
+            id="account-details-modal-description"
+            className="text-sm text-muted-foreground"
+          >
+            Detalhes da conta
+          </p>
         </div>
 
         <div className="mt-6 grid gap-4 text-sm">
@@ -119,12 +130,18 @@ export function AccountDetailsModal({
                 variant="destructive"
                 className="w-full sm:w-auto"
                 onClick={onOpenDeleteConfirm}
+                aria-label="Excluir conta"
               >
                 <ShortcutLabel label="Excluir" shortcutIndex={6} />
               </Button>
             </ShortcutTooltip>
             <ShortcutTooltip label="Atalho: E">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={onOpenEdit}>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={onOpenEdit}
+                aria-label="Editar conta"
+              >
                 <ShortcutLabel label="Editar" shortcutIndex={0} />
               </Button>
             </ShortcutTooltip>
