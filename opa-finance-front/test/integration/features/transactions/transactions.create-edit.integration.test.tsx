@@ -13,6 +13,7 @@ import type {
 import {
   renderRouteWithProviders,
   screen,
+  waitFor,
   waitForElementToBeRemoved,
 } from '../../../setup/render'
 import { ok, parsePaginationFromUrl, server } from '../../../setup/msw'
@@ -254,6 +255,21 @@ describe('transactions create/edit flow', () => {
     expect(createdTransactionId).toBeTruthy()
 
     await screen.findAllByText('Fluxo create teste')
+
+    fireEvent.click(screen.getAllByText('Fluxo create teste')[0]!)
+    await screen.findByRole('heading', { name: 'Detalhes da transação' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicar' }))
+    await screen.findByRole('heading', { name: 'Nova transação' })
+    expect(
+      getElementByIdOrThrow<HTMLInputElement>('transaction-description').value,
+    ).toBe('Fluxo create teste')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() =>
+      expect(
+      screen.queryByRole('heading', { name: 'Nova transação' }),
+      ).not.toBeInTheDocument(),
+    )
 
     fireEvent.click(screen.getAllByText('Fluxo create teste')[0]!)
     await screen.findByRole('heading', { name: 'Detalhes da transação' })

@@ -13,9 +13,8 @@ import {
   type KeyboardEventHandler,
 } from 'react'
 import {
-  Controller,
-  type ControllerRenderProps,
   useForm,
+  type ControllerRenderProps,
 } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
@@ -28,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import { useAccounts } from '@/features/accounts'
 import {
   fetchSubcategories,
@@ -64,12 +62,14 @@ import {
   useTransactions,
   useUpdateTransaction,
   TransactionsCreateModal,
+  TransactionsCreateModalForm,
   TransactionsEditModal,
   TransactionsSortIcon,
   TransactionsDetailsModal,
   TransactionsTableDesktop,
   TransactionsToolbar,
   TransactionsTransferModal,
+  TransactionsInlineCategoryFlow,
   TransactionsDeleteConfirmModal,
   TransactionsBulkDeleteModal,
   type Transaction,
@@ -317,7 +317,11 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
 
   const createCategoryId = watch('categoryId')
   const createSubcategoryId = watch('subcategoryId')
-  const createType = watch('type')
+  const createTypeRaw = watch('type')
+  const createType: 'income' | 'expense' | '' =
+    createTypeRaw === 'income' || createTypeRaw === 'expense'
+      ? createTypeRaw
+      : ''
   const createAccountId = watch('accountId')
   const createDate = watch('date')
   const {
@@ -589,18 +593,14 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsCreateOpen,
     setIsCreateRecurrenceEnabled,
   ])
-  const {
-    handleTransactionAmountChange,
-    handleCreateAmountBlur,
-    onCreateSubmit,
-    onEditSubmit,
-  } = useTransactionForm({
+  const createTransactionForm = useTransactionForm({
+    mode: 'create',
     isCreateRecurrenceEnabled,
     recurrenceDraft,
-    selectedTransactionId: selectedTransaction?.id ?? null,
     createTransaction: createTransactionMutation.mutateAsync,
     createRecurrence: createRecurrenceMutation.mutateAsync,
     deleteTransaction: deleteTransactionMutation.mutateAsync,
+    selectedTransactionId: selectedTransaction?.id ?? null,
     updateTransaction: updateTransactionMutation.mutateAsync,
     onCreateSuccess: () => {
       resetCreateForm()
@@ -623,8 +623,21 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       clearErrors('amount')
     },
   })
-  const submitCreateTransaction = handleSubmit(onCreateSubmit)
-  const submitEditTransaction = handleEditSubmit(onEditSubmit)
+  const editTransactionForm = useTransactionForm({
+    mode: 'edit',
+    selectedTransactionId: selectedTransaction?.id ?? null,
+    updateTransaction: updateTransactionMutation.mutateAsync,
+    onEditSuccess: () => {
+      setIsEditOpen(false)
+      setSelectedTransaction(null)
+    },
+    setEditRootError: (message) => {
+      setEditError('root', { message })
+    },
+  })
+
+  const submitCreateTransaction = handleSubmit(createTransactionForm.onSubmit)
+  const submitEditTransaction = handleEditSubmit(editTransactionForm.onSubmit)
   const { submitCreateCategory, submitCreateSubcategory } =
     useTransactionsInlineCategoryActions({
       createCategoryModalTarget,
@@ -2491,872 +2504,117 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         isOpen={isCreateOpen}
         onClose={handleCloseCreateModal}
       >
-            <form
-              className="mt-6 space-y-4 pb-10 sm:pb-0"
-              onSubmit={submitCreateTransaction}
-            >
-              <div
-                className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-account">Conta</Label>
-                  <Controller
-                    control={control}
-                    name="accountId"
-                    render={({ field }) => (
-                      <Select
-                        open={isCreateAccountSelectOpen}
-                        value={field.value ? field.value : '__none__'}
-                        onValueChange={(value) =>
-                          field.onChange(value === '__none__' ? '' : value)
-                        }
-                        onOpenChange={setIsCreateAccountSelectOpen}
-                      >
-                        <SelectTrigger
-                          id="transaction-account"
-                          className="h-10"
-                          aria-invalid={!!errors.accountId}
-                          tabIndex={7}
-                        >
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent
-                          onEscapeKeyDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsCreateAccountSelectOpen(false)
-                          }}
-                        >
-                          <SelectItem value="__none__" className="hidden">
-                            Selecione
-                          </SelectItem>
-                          {(accountsQuery.data ?? []).map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.accountId && (
-                    <p className="text-sm text-destructive">
-                      {errors.accountId.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-date">Data</Label>
-                  {(() => {
-                    const dateRegister = register('date')
-                    return (
-                      <Input
-                        id="transaction-date"
-                        type="date"
-                        className="h-10"
-                        aria-invalid={!!errors.date}
-                        onFocus={handleDateFocus}
-                        inputMode={isMobile ? 'none' : undefined}
-                        tabIndex={6}
-                        {...dateRegister}
-                        ref={(element) => {
-                          dateRegister.ref(element)
-                          dateInputRef.current = element
-                        }}
-                        onClick={handleDateClick}
-                        onKeyDown={handleMobileDateKeyDown}
-                        onPaste={handleMobileDatePaste}
-                      />
-                    )
-                  })()}
-                  {errors.date && (
-                    <p className="text-sm text-destructive">
-                      {errors.date.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-category">
-                    Categoria/Subcategoria
-                  </Label>
-                  <Controller
-                    control={control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <Select
-                        open={isCreateCategoryTreeOpen}
-                        value={getCreateCategoryTreeValue()}
-                        onValueChange={(value) =>
-                          handleCreateCategoryTreeSelectValueChange(
-                            value,
-                            field.onChange,
-                          )
-                        }
-                        onOpenChange={handleCreateCategoryTreeOpenChange}
-                      >
-                        <SelectTrigger
-                          id="transaction-category"
-                          className="h-10 [&>span]:truncate"
-                          aria-invalid={!!errors.categoryId}
-                          tabIndex={4}
-                          ref={createCategorySelectRef}
-                        >
-                          <SelectValue placeholder="Selecione categoria/subcategoria" />
-                        </SelectTrigger>
-                        <SelectContent
-                          ref={createCategoryTreeContentRef}
-                          onEscapeKeyDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsCreateCategoryTreeOpen(false)
-                          }}
-                        >
-                          <div className="px-2 pb-2">
-                            <Input
-                              placeholder="Buscar categoria ou subcategoria..."
-                              className="h-9"
-                              value={createCategoryTreeSearch}
-                              onChange={(event) =>
-                                setCreateCategoryTreeSearch(event.target.value)
-                              }
-                              onKeyDown={handleCreateCategoryTreeSearchKeyDown}
-                              ref={createCategoryTreeSearchInputRef}
-                            />
-                          </div>
-                          <SelectItem
-                            value={CREATE_CATEGORY_TREE_NONE}
-                            className="hidden"
-                            textValue="none"
-                          >
-                            Selecione
-                          </SelectItem>
-                          <SelectItem
-                            value={CREATE_CATEGORY_TREE_CREATE_CATEGORY}
-                            onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                            textValue="create-category"
-                          >
-                            + Nova categoria
-                          </SelectItem>
-                          <SelectItem
-                            value={CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY}
-                            onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                            textValue="create-subcategory"
-                          >
-                            + Nova subcategoria
-                          </SelectItem>
-                          {createCategoryTreeOptions.map(
-                            (option, optionIndex) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                                onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                                textValue={`option-${optionIndex}`}
-                                className={
-                                  option.level === 'subcategory'
-                                    ? 'pl-10 text-muted-foreground'
-                                    : 'font-medium'
-                                }
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ),
-                          )}
-                          {createCategoryTreeOptions.length === 0 && (
-                            <div className="px-2 py-2 text-sm text-muted-foreground">
-                              Nenhuma categoria/subcategoria encontrada.
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.categoryId && (
-                    <p className="text-sm text-destructive">
-                      {errors.categoryId.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div
-                className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-type">Tipo</Label>
-                  <input type="hidden" {...register('type')} />
-                  <Input
-                    id="transaction-type"
-                    className="h-10 cursor-not-allowed bg-muted/30"
-                    readOnly
-                    tabIndex={-1}
-                    placeholder="Receita/Despesa"
-                    aria-invalid={!!errors.type}
-                    value={
-                      createType === 'income'
-                        ? 'Receita'
-                        : createType === 'expense'
-                          ? 'Despesa'
-                          : ''
-                    }
-                  />
-                  {errors.type && (
-                    <p className="text-sm text-destructive">
-                      {errors.type.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-amount">Valor</Label>
-                  <Controller
-                    control={control}
-                    name="amount"
-                    render={({ field }) => (
-                      <Input
-                        id="transaction-amount"
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="$ 0,00"
-                        className="h-10"
-                        ref={createAmountRef}
-                        value={field.value}
-                        onChange={(event) => {
-                          handleTransactionAmountChange(
-                            event.target.value,
-                            field.onChange,
-                          )
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === '=') {
-                            event.preventDefault()
-                            field.onChange('=')
-                            clearErrors('amount')
-                          }
-                        }}
-                        onBlur={() => {
-                          handleCreateAmountBlur(field.value, field.onChange)
-                          field.onBlur()
-                        }}
-                        aria-invalid={!!errors.amount}
-                        tabIndex={3}
-                      />
-                    )}
-                  />
-                  {errors.amount && (
-                    <p className="text-sm text-destructive">
-                      {errors.amount.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transaction-description">Descrição</Label>
-                {(() => {
-                  const descriptionRegister = register('description')
-                  return (
-                    <div className="relative">
-                      <Input
-                        id="transaction-description"
-                        placeholder="Ex: Supermercado"
-                        className="h-10"
-                        aria-invalid={!!errors.description}
-                        {...descriptionRegister}
-                        ref={(element) => {
-                          descriptionRegister.ref(element)
-                          descriptionInputRef.current = element
-                        }}
-                        onFocus={() => {
-                          setIsDescriptionFocused(true)
-                          setIsDescriptionSuggestionsOpen(true)
-                        }}
-                        onBlur={(event) => {
-                          descriptionRegister.onBlur(event)
-                          setIsDescriptionFocused(false)
-                          setIsDescriptionSuggestionsOpen(false)
-                        }}
-                        onChange={(event) => {
-                          descriptionRegister.onChange(event)
-                          if (
-                            isDescriptionFocused &&
-                            event.target.value.includes(' ')
-                          ) {
-                            setIsDescriptionSuggestionsOpen(true)
-                          }
-                        }}
-                        onKeyDown={(event) => {
-                          if (!isDescriptionSuggestionsOpen) {
-                            return
-                          }
-                          if (event.key === 'ArrowDown') {
-                            event.preventDefault()
-                            setActiveSuggestionIndex((prev) =>
-                              Math.min(
-                                prev + 1,
-                                Math.max(0, descriptionSuggestions.length - 1),
-                              ),
-                            )
-                          }
-                          if (event.key === 'ArrowUp') {
-                            event.preventDefault()
-                            setActiveSuggestionIndex((prev) =>
-                              Math.max(prev - 1, 0),
-                            )
-                          }
-                          if (event.key === 'Enter') {
-                            if (descriptionSuggestions.length === 0) {
-                              return
-                            }
-                            event.preventDefault()
-                            const selected =
-                              descriptionSuggestions[activeSuggestionIndex]
-                            if (!selected) {
-                              return
-                            }
-                            setValue('description', selected, {
-                              shouldDirty: true,
-                              shouldTouch: true,
-                            })
-                            setIsDescriptionSuggestionsOpen(false)
-                          }
-                          if (event.key === 'Escape') {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setIsDescriptionSuggestionsOpen(false)
-                          }
-                        }}
-                          autoComplete="off"
-                          tabIndex={1}
-                        />
-                      {isDescriptionSuggestionsOpen && (
-                        <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
-                          {areDescriptionSuggestionsLoading ? (
-                            <div className="px-3 py-2 text-sm text-muted-foreground">
-                              {shouldFilterSuggestions
-                                ? 'Buscando sugestões...'
-                                : 'Carregando sugestões...'}
-                            </div>
-                          ) : hasDescriptionSuggestionsError ? (
-                            <div className="px-3 py-2 text-sm text-destructive">
-                              Erro ao carregar sugestões.
-                            </div>
-                          ) : descriptionSuggestions.length > 0 ? (
-                            descriptionSuggestions.map((suggestion) => (
-                              <button
-                                key={suggestion}
-                                type="button"
-                                className={`flex w-full items-center px-3 py-2 text-left text-sm ${
-                                  suggestion ===
-                                  descriptionSuggestions[activeSuggestionIndex]
-                                    ? 'bg-muted/60'
-                                    : 'hover:bg-muted/40'
-                                }`}
-                                onMouseDown={(event) => {
-                                  event.preventDefault()
-                                  setValue('description', suggestion, {
-                                    shouldDirty: true,
-                                    shouldTouch: true,
-                                  })
-                                  setIsDescriptionSuggestionsOpen(false)
-                                  window.requestAnimationFrame(() => {
-                                    descriptionInputRef.current?.focus()
-                                  })
-                                }}
-                              >
-                                {suggestion}
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-3 py-2 text-sm text-muted-foreground">
-                              Nenhuma sugestão encontrada.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-                {errors.description && (
-                  <p className="text-sm text-destructive">
-                    {errors.description.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transaction-notes">Notas</Label>
-                <Input
-                  id="transaction-notes"
-                  placeholder="Opcional"
-                  className="h-10"
-                  aria-invalid={!!errors.notes}
-                  tabIndex={2}
-                  {...register('notes')}
-                />
-                {errors.notes && (
-                  <p className="text-sm text-destructive">
-                    {errors.notes.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-md border border-border/70 bg-muted/20 p-3">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="size-4"
-                    checked={isCreateRecurrenceEnabled}
-                    onChange={(event) => {
-                      const checked = event.target.checked
-                      setIsCreateRecurrenceEnabled(checked)
-                      if (checked) {
-                        resetCreateRecurrenceDraft(createDate)
-                      }
-                    }}
-                  />
-                  <span>Tornar recorrente</span>
-                </label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Ative para configurar a regra recorrente com base nesta transação.
-                </p>
-              </div>
-
-              {isCreateRecurrenceEnabled ? (
-                <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
-                    <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
-                      Prévia ativa
-                    </span>
-                  </div>
-
-                  <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Data de início</Label>
-                        <Input
-                          type="date"
-                          value={createRecurrenceStartDate}
-                          onChange={(event) => {
-                            setCreateRecurrenceStartDate(event.target.value)
-                            setIsCreateRecurrenceStartDateTouched(true)
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Frequência</Label>
-                        <Select
-                          value={createRecurrenceFrequency}
-                          onValueChange={(value) =>
-                            setCreateRecurrenceFrequency(
-                              value as 'weekly' | 'biweekly' | 'monthly' | 'yearly',
-                            )
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="weekly">Semanal</SelectItem>
-                            <SelectItem value="biweekly">Quinzenal</SelectItem>
-                            <SelectItem value="monthly">Mensal</SelectItem>
-                            <SelectItem value="yearly">Anual</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
-                      {(createRecurrenceFrequency === 'weekly' ||
-                        createRecurrenceFrequency === 'biweekly') ? (
-                        <div className="space-y-2">
-                          <Label>Dia da semana</Label>
-                          <Select
-                            value={createRecurrenceDayOfWeek}
-                            onValueChange={setCreateRecurrenceDayOfWeek}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">Domingo</SelectItem>
-                              <SelectItem value="1">Segunda</SelectItem>
-                              <SelectItem value="2">Terça</SelectItem>
-                              <SelectItem value="3">Quarta</SelectItem>
-                              <SelectItem value="4">Quinta</SelectItem>
-                              <SelectItem value="5">Sexta</SelectItem>
-                              <SelectItem value="6">Sábado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : null}
-
-                      {(createRecurrenceFrequency === 'monthly' ||
-                        createRecurrenceFrequency === 'yearly') ? (
-                        <div className="space-y-2">
-                          <Label>Dia do mês</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={createRecurrenceDayOfMonth}
-                            onChange={(event) =>
-                              setCreateRecurrenceDayOfMonth(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-
-                      {createRecurrenceFrequency === 'yearly' ? (
-                        <div className="space-y-2">
-                          <Label>Mês</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={12}
-                            value={createRecurrenceMonthOfYear}
-                            onChange={(event) =>
-                              setCreateRecurrenceMonthOfYear(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Término</p>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label>Término</Label>
-                        <Select
-                          value={createRecurrenceEndType}
-                          onValueChange={(value) =>
-                            setCreateRecurrenceEndType(
-                              value as 'never' | 'by_occurrences' | 'until_date',
-                            )
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="never">Sem fim</SelectItem>
-                            <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
-                            <SelectItem value="until_date">Por data final</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {createRecurrenceEndType === 'by_occurrences' ? (
-                        <div className="space-y-2">
-                          <Label>Qtd. ocorrências</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={createRecurrenceEndOccurrences}
-                            onChange={(event) =>
-                              setCreateRecurrenceEndOccurrences(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                      {createRecurrenceEndType === 'until_date' ? (
-                        <div className="space-y-2">
-                          <Label>Data final</Label>
-                          <Input
-                            type="date"
-                            value={createRecurrenceEndDate}
-                            onChange={(event) =>
-                              setCreateRecurrenceEndDate(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-sky-500/20 bg-background/60 p-2.5 text-[11px] text-muted-foreground sm:p-3 sm:text-xs">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Base da transação</p>
-                    <div className="grid gap-1.5 sm:gap-2 md:grid-cols-2">
-                      <p>
-                        <strong className="text-foreground">Conta:</strong>{' '}
-                        {createAccountName || 'Selecione'}
-                      </p>
-                      <p>
-                        <strong className="text-foreground">Categoria:</strong>{' '}
-                        {createCategory?.name || 'Selecione'}
-                      </p>
-                      <p>
-                        <strong className="text-foreground">Subcategoria:</strong>{' '}
-                        {createSubcategoryName || 'Nenhuma'}
-                      </p>
-                      <p>
-                        <strong className="text-foreground">Valor:</strong>{' '}
-                        {watch('amount') || '-'}
-                      </p>
-                      <p>
-                        <strong className="text-foreground">Descrição:</strong>{' '}
-                        {createDescription || '-'}
-                      </p>
-                      <p>
-                        <strong className="text-foreground">Notas:</strong>{' '}
-                        {(watch('notes') ?? '').trim() || '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {errors.root && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {errors.root.message}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <ShortcutTooltip label="Atalho: Ctrl/Cmd+Shift+L">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full sm:w-auto h-12 sm:h-auto"
-                    onClick={handleClearCreateForm}
-                  >
-                    Limpar
-                  </Button>
-                </ShortcutTooltip>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                  <ShortcutTooltip label="Atalho: Esc">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full sm:w-auto h-12 sm:h-auto"
-                      onClick={handleCloseCreateModal}
-                    >
-                      Cancelar
-                    </Button>
-                  </ShortcutTooltip>
-                  <ShortcutTooltip label="Atalho: Ctrl/Cmd+Enter">
-                    <Button
-                      type="submit"
-                      className="w-full sm:w-auto h-12 sm:h-auto"
-                      disabled={isSubmitting}
-                    >
-                      Salvar
-                    </Button>
-                  </ShortcutTooltip>
-                </div>
-              </div>
-            </form>
+        <TransactionsCreateModalForm
+          control={control}
+          register={register}
+          errors={errors}
+          isSubmitting={isSubmitting}
+          isMobile={isMobile}
+          accounts={accountsQuery.data ?? []}
+          createType={createType}
+          createDescription={createDescription}
+          createAmount={watch('amount') ?? ''}
+          createNotes={watch('notes') ?? ''}
+          createCategoryName={createCategory?.name ?? ''}
+          createSubcategoryName={createSubcategoryName}
+          createAccountName={createAccountName}
+          isCreateAccountSelectOpen={isCreateAccountSelectOpen}
+          setIsCreateAccountSelectOpen={setIsCreateAccountSelectOpen}
+          isCreateCategoryTreeOpen={isCreateCategoryTreeOpen}
+          createCategoryTreeSearch={createCategoryTreeSearch}
+          setCreateCategoryTreeSearch={setCreateCategoryTreeSearch}
+          createCategoryTreeOptions={createCategoryTreeOptions}
+          createAmountRef={createAmountRef}
+          descriptionInputRef={descriptionInputRef}
+          dateInputRef={dateInputRef}
+          createCategorySelectRef={createCategorySelectRef}
+          createCategoryTreeSearchInputRef={createCategoryTreeSearchInputRef}
+          createCategoryTreeContentRef={createCategoryTreeContentRef}
+          descriptionSuggestions={descriptionSuggestions}
+          areDescriptionSuggestionsLoading={areDescriptionSuggestionsLoading}
+          hasDescriptionSuggestionsError={hasDescriptionSuggestionsError}
+          shouldFilterSuggestions={shouldFilterSuggestions}
+          isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
+          setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
+          isDescriptionFocused={isDescriptionFocused}
+          setIsDescriptionFocused={setIsDescriptionFocused}
+          activeSuggestionIndex={activeSuggestionIndex}
+          setActiveSuggestionIndex={setActiveSuggestionIndex}
+          isCreateRecurrenceEnabled={isCreateRecurrenceEnabled}
+          setIsCreateRecurrenceEnabled={setIsCreateRecurrenceEnabled}
+          createDate={createDate}
+          createRecurrenceStartDate={createRecurrenceStartDate}
+          setCreateRecurrenceStartDate={setCreateRecurrenceStartDate}
+          setIsCreateRecurrenceStartDateTouched={
+            setIsCreateRecurrenceStartDateTouched
+          }
+          createRecurrenceFrequency={createRecurrenceFrequency}
+          setCreateRecurrenceFrequency={setCreateRecurrenceFrequency}
+          createRecurrenceEndType={createRecurrenceEndType}
+          setCreateRecurrenceEndType={setCreateRecurrenceEndType}
+          createRecurrenceEndOccurrences={createRecurrenceEndOccurrences}
+          setCreateRecurrenceEndOccurrences={setCreateRecurrenceEndOccurrences}
+          createRecurrenceEndDate={createRecurrenceEndDate}
+          setCreateRecurrenceEndDate={setCreateRecurrenceEndDate}
+          createRecurrenceDayOfWeek={createRecurrenceDayOfWeek}
+          setCreateRecurrenceDayOfWeek={setCreateRecurrenceDayOfWeek}
+          createRecurrenceDayOfMonth={createRecurrenceDayOfMonth}
+          setCreateRecurrenceDayOfMonth={setCreateRecurrenceDayOfMonth}
+          createRecurrenceMonthOfYear={createRecurrenceMonthOfYear}
+          setCreateRecurrenceMonthOfYear={setCreateRecurrenceMonthOfYear}
+          onSubmit={submitCreateTransaction}
+          onClear={handleClearCreateForm}
+          onClose={handleCloseCreateModal}
+          onDateFocus={handleDateFocus}
+          onDateClick={handleDateClick}
+          onDateKeyDown={handleMobileDateKeyDown}
+          onDatePaste={handleMobileDatePaste}
+          onTransactionAmountChange={
+            createTransactionForm.handleTransactionAmountChange
+          }
+          onCreateAmountBlur={createTransactionForm.handleCreateAmountBlur}
+          onCreateAmountShortcut={() => {
+            clearErrors('amount')
+          }}
+          getCreateCategoryTreeValue={getCreateCategoryTreeValue}
+          handleCreateCategoryTreeSelectValueChange={
+            handleCreateCategoryTreeSelectValueChange
+          }
+          handleCreateCategoryTreeOpenChange={handleCreateCategoryTreeOpenChange}
+          handleCreateCategoryTreeSearchKeyDown={
+            handleCreateCategoryTreeSearchKeyDown
+          }
+          handleCreateCategoryTreeItemKeyDown={
+            handleCreateCategoryTreeItemKeyDown
+          }
+          createCategoryTreeNoneValue={CREATE_CATEGORY_TREE_NONE}
+          createCategoryTreeCreateCategoryValue={
+            CREATE_CATEGORY_TREE_CREATE_CATEGORY
+          }
+          createCategoryTreeCreateSubcategoryValue={
+            CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY
+          }
+          resetCreateRecurrenceDraft={resetCreateRecurrenceDraft}
+          setValue={setValue}
+        />
       </TransactionsCreateModal>
 
-      {isCreateCategoryOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsCreateCategoryOpen(false)}
-          />
-          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">Nova categoria</h3>
-              <p className="text-sm text-muted-foreground">
-                Crie uma categoria sem sair da transação.
-              </p>
-            </div>
-
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitCreateCategory}
-            >
-              <div className="space-y-2">
-                <Label htmlFor="transaction-category-new-type">Tipo</Label>
-                {(() => {
-                  const typeRegister = categoryCreateForm.register('type')
-                  return (
-                    <select
-                      id="transaction-category-new-type"
-                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                      aria-invalid={!!categoryCreateForm.formState.errors.type}
-                      {...typeRegister}
-                      ref={(element) => {
-                        typeRegister.ref(element)
-                        categoryTypeRef.current = element
-                      }}
-                    >
-                      <option value="">Selecione</option>
-                      <option value="income">Receita</option>
-                      <option value="expense">Despesa</option>
-                    </select>
-                  )
-                })()}
-                {categoryCreateForm.formState.errors.type && (
-                  <p className="text-sm text-destructive">
-                    {categoryCreateForm.formState.errors.type.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transaction-category-new-name">Nome</Label>
-                {(() => {
-                  const nameRegister = categoryCreateForm.register('name')
-                  return (
-                    <Input
-                      id="transaction-category-new-name"
-                      placeholder="Ex: Alimentação"
-                      className="h-10"
-                      aria-invalid={!!categoryCreateForm.formState.errors.name}
-                      {...nameRegister}
-                      ref={(element) => {
-                        nameRegister.ref(element)
-                        categoryNameRef.current = element
-                      }}
-                    />
-                  )
-                })()}
-                {categoryCreateForm.formState.errors.name && (
-                  <p className="text-sm text-destructive">
-                    {categoryCreateForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              {categoryCreateForm.formState.errors.root?.message && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {categoryCreateForm.formState.errors.root.message}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <ShortcutTooltip label="Atalho: Esc">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    onClick={() => setIsCreateCategoryOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                </ShortcutTooltip>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={createCategoryMutation.isPending}
-                >
-                  {createCategoryMutation.isPending ? 'Salvando...' : 'Salvar'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isCreateSubcategoryOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsCreateSubcategoryOpen(false)}
-          />
-          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">Nova subcategoria</h3>
-              <p className="text-sm text-muted-foreground">
-                Crie uma subcategoria sem sair da transação.
-              </p>
-            </div>
-
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={submitCreateSubcategory}
-            >
-              <div className="space-y-2">
-                <Label htmlFor="transaction-subcategory-new-category">
-                  Categoria
-                </Label>
-                <select
-                  id="transaction-subcategory-new-category"
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                  aria-invalid={
-                    !!subcategoryCreateForm.formState.errors.categoryId
-                  }
-                  {...subcategoryCreateForm.register('categoryId')}
-                >
-                  <option value="">Selecione</option>
-                  {availableCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                {subcategoryCreateForm.formState.errors.categoryId && (
-                  <p className="text-sm text-destructive">
-                    {subcategoryCreateForm.formState.errors.categoryId.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transaction-subcategory-new-name">Nome</Label>
-                {(() => {
-                  const nameRegister = subcategoryCreateForm.register('name')
-                  return (
-                    <Input
-                      id="transaction-subcategory-new-name"
-                      placeholder="Ex: Supermercado"
-                      className="h-10"
-                      aria-invalid={
-                        !!subcategoryCreateForm.formState.errors.name
-                      }
-                      {...nameRegister}
-                      ref={(element) => {
-                        nameRegister.ref(element)
-                        subcategoryNameRef.current = element
-                      }}
-                    />
-                  )
-                })()}
-                {subcategoryCreateForm.formState.errors.name && (
-                  <p className="text-sm text-destructive">
-                    {subcategoryCreateForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              {subcategoryCreateForm.formState.errors.root?.message && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {subcategoryCreateForm.formState.errors.root.message}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <ShortcutTooltip label="Atalho: Esc">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    onClick={() => setIsCreateSubcategoryOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                </ShortcutTooltip>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={createSubcategoryMutation.isPending}
-                >
-                  {createSubcategoryMutation.isPending
-                    ? 'Salvando...'
-                    : 'Salvar'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <TransactionsInlineCategoryFlow
+        isCreateCategoryOpen={isCreateCategoryOpen}
+        isCreateSubcategoryOpen={isCreateSubcategoryOpen}
+        availableCategories={availableCategories}
+        categoryCreateForm={categoryCreateForm}
+        subcategoryCreateForm={subcategoryCreateForm}
+        categoryTypeRef={categoryTypeRef}
+        categoryNameRef={categoryNameRef}
+        subcategoryNameRef={subcategoryNameRef}
+        isCreateCategorySubmitting={createCategoryMutation.isPending}
+        isCreateSubcategorySubmitting={createSubcategoryMutation.isPending}
+        onCloseCreateCategory={() => setIsCreateCategoryOpen(false)}
+        onCloseCreateSubcategory={() => setIsCreateSubcategoryOpen(false)}
+        onSubmitCreateCategory={submitCreateCategory}
+        onSubmitCreateSubcategory={submitCreateSubcategory}
+      />
 
       <TransactionsTransferModal
         isOpen={isTransferOpen}
@@ -3376,7 +2634,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         onDateClick={handleDateClick}
         onDateKeyDown={handleMobileDateKeyDown}
         onDatePaste={handleMobileDatePaste}
-        onTransferAmountChange={handleTransactionAmountChange}
+        onTransferAmountChange={createTransactionForm.handleTransactionAmountChange}
       />
 
       <TransactionsDetailsModal
@@ -3421,7 +2679,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         handleEditCategoryTreeOpenChange={handleEditCategoryTreeOpenChange}
         handleEditCategoryTreeSearchKeyDown={handleEditCategoryTreeSearchKeyDown}
         handleEditCategoryTreeItemKeyDown={handleEditCategoryTreeItemKeyDown}
-        handleTransactionAmountChange={handleTransactionAmountChange}
+        handleTransactionAmountChange={createTransactionForm.handleTransactionAmountChange}
         onSubmit={submitEditTransaction}
         onClose={() => setIsEditOpen(false)}
         onDateFocus={handleDateFocus}

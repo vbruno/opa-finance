@@ -26,39 +26,45 @@ import type {
 } from '../transactions.api'
 
 type UseTransactionFormInput = {
-  isCreateRecurrenceEnabled: boolean
-  recurrenceDraft: TransactionRecurrenceDraft
+  mode: 'create' | 'edit'
   selectedTransactionId: string | null
-  createTransaction: (payload: TransactionCreatePayload) => Promise<Transaction>
-  createRecurrence: (payload: RecurrenceCreatePayload) => Promise<unknown>
-  deleteTransaction: (id: string) => Promise<unknown>
   updateTransaction: (input: {
     id: string
     payload: TransactionUpdatePayload
   }) => Promise<unknown>
-  onCreateSuccess: () => void
   onEditSuccess: () => void
-  setCreateRootError: (message: string) => void
   setEditRootError: (message: string) => void
+}
+
+type UseTransactionFormCreateInput = UseTransactionFormInput & {
+  mode: 'create'
+  isCreateRecurrenceEnabled: boolean
+  recurrenceDraft: TransactionRecurrenceDraft
+  createTransaction: (payload: TransactionCreatePayload) => Promise<Transaction>
+  createRecurrence: (payload: RecurrenceCreatePayload) => Promise<unknown>
+  deleteTransaction: (id: string) => Promise<unknown>
+  onCreateSuccess: () => void
+  setCreateRootError: (message: string) => void
   setCreateAmountError: (message: string) => void
   clearCreateAmountError: () => void
 }
 
-export function useTransactionForm({
-  isCreateRecurrenceEnabled,
-  recurrenceDraft,
-  selectedTransactionId,
-  createTransaction,
-  createRecurrence,
-  deleteTransaction,
-  updateTransaction,
-  onCreateSuccess,
-  onEditSuccess,
-  setCreateRootError,
-  setEditRootError,
-  setCreateAmountError,
-  clearCreateAmountError,
-}: UseTransactionFormInput) {
+type UseTransactionFormEditInput = UseTransactionFormInput & {
+  mode: 'edit'
+}
+
+type UseTransactionFormInputUnion =
+  | UseTransactionFormCreateInput
+  | UseTransactionFormEditInput
+
+export function useTransactionForm(input: UseTransactionFormInputUnion) {
+  const {
+    selectedTransactionId,
+    updateTransaction,
+    onEditSuccess,
+    setEditRootError,
+  } = input
+
   const handleTransactionAmountChange = useCallback(
     (rawValue: string, onChange: SetTransactionAmountValue) => {
       if (rawValue.trimStart().startsWith('=')) {
@@ -72,6 +78,9 @@ export function useTransactionForm({
 
   const handleCreateAmountBlur = useCallback(
     (value: string, onChange: SetTransactionAmountValue) => {
+      if (input.mode !== 'create') {
+        return
+      }
       const trimmed = value.trim()
       if (!trimmed.startsWith('=')) {
         return
@@ -79,102 +88,86 @@ export function useTransactionForm({
 
       const parsed = parseCurrencyInput(trimmed)
       if (parsed === null || Number.isNaN(parsed) || parsed <= 0) {
-        setCreateAmountError('Informe uma expressão válida.')
+        input.setCreateAmountError('Informe uma expressão válida.')
         return
       }
 
       onChange(`$ ${formatCurrencyValue(parsed)}`)
-      clearCreateAmountError()
+      input.clearCreateAmountError()
     },
-    [clearCreateAmountError, setCreateAmountError],
+    [input],
   )
 
-  const onCreateSubmit = useCallback(
+  const onSubmit = useCallback(
     async (formData: TransactionCreateFormData) => {
-      const transactionPayload = buildTransactionCreatePayloadFromForm(formData)
+      if (input.mode === 'create') {
+        const transactionPayload = buildTransactionCreatePayloadFromForm(formData)
 
-      const recurrencePayloadResult = isCreateRecurrenceEnabled
-        ? buildRecurrencePayloadFromDraft({
-            accountId: formData.accountId,
-            categoryId: formData.categoryId,
-            subcategoryId: formData.subcategoryId || undefined,
-            amount: transactionPayload.amount,
-            description: formData.description ?? undefined,
-            notes: formData.notes ?? undefined,
-            startDate: recurrenceDraft.startDate,
-            frequency: recurrenceDraft.frequency,
-            endType: recurrenceDraft.endType,
-            endOccurrences: recurrenceDraft.endOccurrences,
-            endDate: recurrenceDraft.endDate,
-            dayOfWeek: recurrenceDraft.dayOfWeek,
-            dayOfMonth: recurrenceDraft.dayOfMonth,
-            monthOfYear: recurrenceDraft.monthOfYear,
-          })
-        : { payload: null, error: null }
+        const recurrencePayloadResult = input.isCreateRecurrenceEnabled
+          ? buildRecurrencePayloadFromDraft({
+              accountId: formData.accountId,
+              categoryId: formData.categoryId,
+              subcategoryId: formData.subcategoryId || undefined,
+              amount: transactionPayload.amount,
+              description: formData.description ?? undefined,
+              notes: formData.notes ?? undefined,
+              startDate: input.recurrenceDraft.startDate,
+              frequency: input.recurrenceDraft.frequency,
+              endType: input.recurrenceDraft.endType,
+              endOccurrences: input.recurrenceDraft.endOccurrences,
+              endDate: input.recurrenceDraft.endDate,
+              dayOfWeek: input.recurrenceDraft.dayOfWeek,
+              dayOfMonth: input.recurrenceDraft.dayOfMonth,
+              monthOfYear: input.recurrenceDraft.monthOfYear,
+            })
+          : { payload: null, error: null }
 
-      if (recurrencePayloadResult.error) {
-        setCreateRootError(recurrencePayloadResult.error)
-        return
-      }
-
-      try {
-        const createdTransaction = await createTransaction(transactionPayload)
-
-        if (recurrencePayloadResult.payload) {
-          try {
-            await createRecurrence(recurrencePayloadResult.payload)
-          } catch (recurrenceError) {
-            let rollbackSucceeded = false
-            try {
-              await deleteTransaction(createdTransaction.id)
-              rollbackSucceeded = true
-            } catch {
-              // best-effort rollback
-            }
-
-            const rollbackMessage = rollbackSucceeded
-              ? 'A transação foi revertida.'
-              : 'Não foi possível reverter a transação automaticamente. Verifique a lista de transações.'
-
-            setCreateRootError(
-              `Falha ao criar recorrência. ${rollbackMessage} ${getApiErrorMessage(
-                recurrenceError,
-                { defaultMessage: '' },
-              )}`.trim(),
-            )
-            return
-          }
+        if (recurrencePayloadResult.error) {
+          input.setCreateRootError(recurrencePayloadResult.error)
+          return
         }
 
-        onCreateSuccess()
-      } catch (error: unknown) {
-        setCreateRootError(
-          getApiErrorMessage(error, {
-            defaultMessage: 'Erro ao criar transação. Tente novamente.',
-          }),
-        )
-      }
-    },
-    [
-      createRecurrence,
-      createTransaction,
-      deleteTransaction,
-      isCreateRecurrenceEnabled,
-      onCreateSuccess,
-      recurrenceDraft.dayOfMonth,
-      recurrenceDraft.dayOfWeek,
-      recurrenceDraft.endDate,
-      recurrenceDraft.endOccurrences,
-      recurrenceDraft.endType,
-      recurrenceDraft.frequency,
-      recurrenceDraft.monthOfYear,
-      recurrenceDraft.startDate,
-      setCreateRootError,
-    ],
-  )
+        try {
+          const createdTransaction = await input.createTransaction(transactionPayload)
 
-  const onEditSubmit = useCallback(
-    async (formData: TransactionCreateFormData) => {
+          if (recurrencePayloadResult.payload) {
+            try {
+              await input.createRecurrence(recurrencePayloadResult.payload)
+            } catch (recurrenceError) {
+              let rollbackSucceeded = false
+              try {
+                await input.deleteTransaction(createdTransaction.id)
+                rollbackSucceeded = true
+              } catch {
+                // best-effort rollback
+              }
+
+              const rollbackMessage = rollbackSucceeded
+                ? 'A transação foi revertida.'
+                : 'Não foi possível reverter a transação automaticamente. Verifique a lista de transações.'
+
+              input.setCreateRootError(
+                `Falha ao criar recorrência. ${rollbackMessage} ${getApiErrorMessage(
+                  recurrenceError,
+                  { defaultMessage: '' },
+                )}`.trim(),
+              )
+              return
+            }
+          }
+
+          input.onCreateSuccess()
+          return
+        } catch (error: unknown) {
+          input.setCreateRootError(
+            getApiErrorMessage(error, {
+              defaultMessage: 'Erro ao criar transação. Tente novamente.',
+            }),
+          )
+          return
+        }
+      }
+
       if (!selectedTransactionId) {
         return
       }
@@ -193,13 +186,12 @@ export function useTransactionForm({
         )
       }
     },
-    [onEditSuccess, selectedTransactionId, setEditRootError, updateTransaction],
+    [input, onEditSuccess, selectedTransactionId, setEditRootError, updateTransaction],
   )
 
   return {
     handleTransactionAmountChange,
     handleCreateAmountBlur,
-    onCreateSubmit,
-    onEditSubmit,
+    onSubmit,
   }
 }
