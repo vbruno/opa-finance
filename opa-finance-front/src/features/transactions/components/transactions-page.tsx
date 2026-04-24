@@ -455,6 +455,26 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     repeatTransferError,
     isRepeatTransferLoading,
     isEditTransferLoading,
+    isTransferRecurrenceEnabled,
+    setIsTransferRecurrenceEnabled,
+    transferRecurrenceStartDate,
+    setTransferRecurrenceStartDate,
+    setIsTransferRecurrenceStartDateTouched,
+    transferRecurrenceFrequency,
+    setTransferRecurrenceFrequency,
+    transferRecurrenceEndType,
+    setTransferRecurrenceEndType,
+    transferRecurrenceEndOccurrences,
+    setTransferRecurrenceEndOccurrences,
+    transferRecurrenceEndDate,
+    setTransferRecurrenceEndDate,
+    transferRecurrenceDayOfWeek,
+    setTransferRecurrenceDayOfWeek,
+    transferRecurrenceDayOfMonth,
+    setTransferRecurrenceDayOfMonth,
+    transferRecurrenceMonthOfYear,
+    setTransferRecurrenceMonthOfYear,
+    resetTransferRecurrenceDraft,
     clearTransferFeedback,
     openTransferCreate,
     handleCloseTransferModal,
@@ -468,6 +488,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     defaultTransferToAccountId,
     transactions,
     createTransfer: createTransferMutation.mutateAsync,
+    createRecurrence: createRecurrenceMutation.mutateAsync,
+    deleteTransaction: deleteTransactionMutation.mutateAsync,
     updateTransaction: updateTransactionMutation.mutateAsync,
     onTransferModalOpen: () => {
       setIsTransferOpen(true)
@@ -2627,6 +2649,29 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         setIsTransferToAccountSelectOpen={setIsTransferToAccountSelectOpen}
         isMobile={isMobile}
         transferAmountRef={transferAmountRef}
+        isTransferRecurrenceEnabled={isTransferRecurrenceEnabled}
+        setIsTransferRecurrenceEnabled={setIsTransferRecurrenceEnabled}
+        transferRecurrenceStartDate={transferRecurrenceStartDate}
+        setTransferRecurrenceStartDate={setTransferRecurrenceStartDate}
+        setIsTransferRecurrenceStartDateTouched={
+          setIsTransferRecurrenceStartDateTouched
+        }
+        transferRecurrenceFrequency={transferRecurrenceFrequency}
+        setTransferRecurrenceFrequency={setTransferRecurrenceFrequency}
+        transferRecurrenceEndType={transferRecurrenceEndType}
+        setTransferRecurrenceEndType={setTransferRecurrenceEndType}
+        transferRecurrenceEndOccurrences={transferRecurrenceEndOccurrences}
+        setTransferRecurrenceEndOccurrences={setTransferRecurrenceEndOccurrences}
+        transferRecurrenceEndDate={transferRecurrenceEndDate}
+        setTransferRecurrenceEndDate={setTransferRecurrenceEndDate}
+        transferRecurrenceDayOfWeek={transferRecurrenceDayOfWeek}
+        setTransferRecurrenceDayOfWeek={setTransferRecurrenceDayOfWeek}
+        transferRecurrenceDayOfMonth={transferRecurrenceDayOfMonth}
+        setTransferRecurrenceDayOfMonth={setTransferRecurrenceDayOfMonth}
+        transferRecurrenceMonthOfYear={transferRecurrenceMonthOfYear}
+        setTransferRecurrenceMonthOfYear={setTransferRecurrenceMonthOfYear}
+        transferDate={transferForm.watch('date') ?? ''}
+        resetTransferRecurrenceDraft={resetTransferRecurrenceDraft}
         onClose={handleCloseTransferModal}
         onSwapAccounts={handleSwapTransferAccounts}
         onSubmit={submitTransferForm}
@@ -2660,7 +2705,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         editRegister={editRegister}
         editErrors={editErrors}
         clearEditErrors={clearEditErrors}
-        isEditFormSubmitting={isEditSubmitting}
         editType={editType}
         isMobile={isMobile}
         accounts={accountsQuery.data ?? []}
@@ -2679,7 +2723,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         handleEditCategoryTreeOpenChange={handleEditCategoryTreeOpenChange}
         handleEditCategoryTreeSearchKeyDown={handleEditCategoryTreeSearchKeyDown}
         handleEditCategoryTreeItemKeyDown={handleEditCategoryTreeItemKeyDown}
-        handleTransactionAmountChange={createTransactionForm.handleTransactionAmountChange}
+        handleTransactionAmountChange={editTransactionForm.handleTransactionAmountChange}
         onSubmit={submitEditTransaction}
         onClose={() => setIsEditOpen(false)}
         onDateFocus={handleDateFocus}

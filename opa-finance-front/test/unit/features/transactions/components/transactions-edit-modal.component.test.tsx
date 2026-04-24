@@ -26,8 +26,10 @@ const tx: Transaction = {
 
 function EditHarness({
   onClose,
+  transaction = tx,
 }: {
   onClose: () => void
+  transaction?: Transaction
 }) {
   const form = useForm<TransactionCreateFormData>({
     defaultValues: {
@@ -45,12 +47,11 @@ function EditHarness({
   return (
     <TransactionsEditModal
       isOpen={true}
-      selectedTransaction={tx}
+      selectedTransaction={transaction}
       editControl={form.control}
       editRegister={form.register}
       editErrors={form.formState.errors}
       clearEditErrors={() => {}}
-      isEditFormSubmitting={false}
       editType="expense"
       isMobile={false}
       accounts={[]}
@@ -91,5 +92,25 @@ describe('TransactionsEditModal', () => {
     expect(screen.getByText('Editar transação')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('deve manter categoria/subcategoria bloqueadas para transferência', () => {
+    const transferTransaction: Transaction = {
+      ...tx,
+      transferId: 'transfer-1',
+    }
+
+    renderWithProviders(
+      <EditHarness onClose={() => {}} transaction={transferTransaction} />,
+    )
+
+    expect(
+      screen.getByText(
+        'Categoria e subcategoria de transferências não podem ser alteradas.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('combobox', { name: /Categoria\/Subcategoria/i }),
+    ).toHaveAttribute('data-disabled')
   })
 })

@@ -8,6 +8,7 @@ import type { Category } from '@/features/categories'
 import type { Transaction, TransactionUpdatePayload } from '@/features/transactions'
 import type { TransferCreatePayload } from '@/features/transfers'
 import {
+  waitFor,
   renderRouteWithProviders,
   screen,
   waitForElementToBeRemoved,
@@ -116,6 +117,7 @@ describe('transactions transfer flow', () => {
     ]
 
     let transferCreatePayload: TransferCreatePayload | null = null
+    let recurrenceCreatePayload: Record<string, unknown> | null = null
     const transactionUpdateCalls: Array<{
       id: string
       payload: TransactionUpdatePayload
@@ -163,6 +165,13 @@ describe('transactions transfer flow', () => {
           { status: 201 },
         )
       }),
+      http.post('*/recurrences', async ({ request }) => {
+        recurrenceCreatePayload = (await request.json()) as Record<
+          string,
+          unknown
+        >
+        return ok({ id: 'rec-1' }, { status: 201 })
+      }),
       http.put('*/transactions/:id', async ({ params, request }) => {
         const payload = (await request.json()) as TransactionUpdatePayload
         transactionUpdateCalls.push({ id: String(params.id), payload })
@@ -187,6 +196,7 @@ describe('transactions transfer flow', () => {
     const descriptionInput =
       getElementByIdOrThrow<HTMLInputElement>('transfer-description')
     fireEvent.change(descriptionInput, { target: { value: 'Transfer teste' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tornar recorrente' }))
     fireEvent.click(screen.getByRole('button', { name: 'Transferir' }))
 
     await waitForElementToBeRemoved(() =>
@@ -198,6 +208,12 @@ describe('transactions transfer flow', () => {
       toAccountId: 'acc-2',
       amount: 123.45,
       description: 'Transfer teste',
+    })
+    expect(recurrenceCreatePayload).toMatchObject({
+      originType: 'transfer',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      frequency: 'monthly',
     })
 
     fireEvent.click(screen.getAllByText('Transfer base')[0]!)
@@ -215,5 +231,58 @@ describe('transactions transfer flow', () => {
       'tx-exp',
       'tx-inc',
     ])
+  })
+
+  it('deve bloquear submissão quando origem e destino são a mesma conta', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-12T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+      http.get('*/transactions/summary', () =>
+        ok({
+          income: 0,
+          expense: 0,
+          balance: 0,
+        }),
+      ),
+      http.get('*/transactions/top-categories', () => ok([])),
+      http.get('*/transactions', () =>
+        ok({
+          data: [],
+          page: 1,
+          limit: 30,
+          total: 0,
+        }),
+      ),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/transactions'] })
+
+    await screen.findByRole('heading', { name: 'Transações' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }))
+    fireEvent.click(screen.getByRole('button', { name: /Transferência/i }))
+    await screen.findByRole('heading', { name: 'Nova transferência' })
+
+    const toAccountSelect = getElementByIdOrThrow<HTMLButtonElement>(
+      'transfer-to-account',
+    )
+    fireEvent.click(toAccountSelect)
+    fireEvent.click(await screen.findByRole('option', { name: 'CommBank ACC' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Transferir' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('As contas precisam ser diferentes.'),
+      ).toBeInTheDocument()
+    })
   })
 })

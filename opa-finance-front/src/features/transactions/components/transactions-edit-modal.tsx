@@ -39,7 +39,6 @@ type TransactionsEditModalProps = {
   editRegister: UseFormRegister<TransactionCreateFormData>
   editErrors: FieldErrors<TransactionCreateFormData>
   clearEditErrors: (name?: keyof TransactionCreateFormData) => void
-  isEditFormSubmitting: boolean
   editType: 'income' | 'expense' | ''
   isMobile: boolean
   accounts: Account[]
@@ -87,7 +86,6 @@ export function TransactionsEditModal({
   editRegister,
   editErrors,
   clearEditErrors,
-  isEditFormSubmitting,
   editType,
   isMobile,
   accounts,
@@ -120,6 +118,8 @@ export function TransactionsEditModal({
   if (!isOpen || !selectedTransaction) {
     return null
   }
+
+  const isTransferTransaction = Boolean(selectedTransaction.transferId)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -214,6 +214,7 @@ export function TransactionsEditModal({
                 render={({ field }) => (
                   <Select
                     open={isEditCategoryTreeOpen}
+                    disabled={isTransferTransaction}
                     value={getEditCategoryTreeValue()}
                     onValueChange={(value) =>
                       handleEditCategoryTreeValueChange(value, field.onChange)
@@ -318,6 +319,12 @@ export function TransactionsEditModal({
               {editErrors.subcategoryId && (
                 <p className="text-sm text-destructive">
                   {editErrors.subcategoryId.message}
+                </p>
+              )}
+              {isTransferTransaction && (
+                <p className="text-xs text-muted-foreground">
+                  Categoria e subcategoria de transferências não podem ser
+                  alteradas.
                 </p>
               )}
             </div>
@@ -438,7 +445,7 @@ export function TransactionsEditModal({
               <Button
                 type="submit"
                 className="w-full sm:w-auto"
-                disabled={isEditSubmitting || isEditFormSubmitting}
+                disabled={isEditSubmitting}
               >
                 Atualizar
               </Button>

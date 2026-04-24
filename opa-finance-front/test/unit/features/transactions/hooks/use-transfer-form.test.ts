@@ -40,6 +40,8 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer: vi.fn(),
+        createRecurrence: vi.fn(),
+        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen,
         onTransferModalClose: vi.fn(),
@@ -62,6 +64,8 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer: vi.fn(),
+        createRecurrence: vi.fn(),
+        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen: vi.fn(),
         onTransferModalClose: vi.fn(),
@@ -90,6 +94,8 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [transferExpense, transferIncome],
         createTransfer: vi.fn(),
+        createRecurrence: vi.fn(),
+        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen,
         onTransferModalClose: vi.fn(),
@@ -118,6 +124,8 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer,
+        createRecurrence: vi.fn(),
+        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen: vi.fn(),
         onTransferModalClose: vi.fn(),
@@ -142,5 +150,54 @@ describe('useTransferForm', () => {
         'Erro ao criar transferência. Tente novamente.',
       )
     })
+  })
+
+  it('deve criar transferência recorrente quando habilitada', async () => {
+    const createTransfer = vi.fn().mockResolvedValue({})
+    const createRecurrence = vi.fn().mockResolvedValue({})
+
+    const hook = renderHook(() =>
+      useTransferForm({
+        isTransferOpen: true,
+        primaryAccountId: 'acc-1',
+        defaultTransferToAccountId: 'acc-2',
+        transactions: [],
+        createTransfer,
+        createRecurrence,
+        deleteTransaction: vi.fn(),
+        updateTransaction: vi.fn(),
+        onTransferModalOpen: vi.fn(),
+        onTransferModalClose: vi.fn(),
+        onTransactionDetailsClose: vi.fn(),
+      }),
+    )
+
+    act(() => {
+      hook.result.current.transferForm.reset({
+        fromAccountId: 'acc-1',
+        toAccountId: 'acc-2',
+        amount: '10',
+        date: '2026-04-13',
+        description: 'Transfer recorrente',
+      })
+      hook.result.current.setIsTransferRecurrenceEnabled(true)
+      hook.result.current.setTransferRecurrenceStartDate('2026-04-13')
+      hook.result.current.setTransferRecurrenceFrequency('weekly')
+      hook.result.current.setTransferRecurrenceDayOfWeek('1')
+    })
+
+    await act(async () => {
+      await hook.result.current.submitTransferForm()
+    })
+
+    expect(createTransfer).toHaveBeenCalledTimes(1)
+    expect(createRecurrence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originType: 'transfer',
+        fromAccountId: 'acc-1',
+        toAccountId: 'acc-2',
+        frequency: 'weekly',
+      }),
+    )
   })
 })

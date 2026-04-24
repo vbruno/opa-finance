@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
+import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import type { TransferCreatePayload } from '@/features/transfers'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -14,6 +15,7 @@ import {
 
 import {
   buildTransferCreatePayloadFromForm,
+  buildTransferRecurrencePayloadFromDraft,
   buildTransferUpdatePayloadsFromForm,
 } from '../mappers/transfer-payload.mapper'
 import { formatDateInput } from '../model/transactions.helpers'
@@ -30,6 +32,8 @@ type UseTransferFormInput = {
   defaultTransferToAccountId: string
   transactions: Transaction[]
   createTransfer: (payload: TransferCreatePayload) => Promise<unknown>
+  createRecurrence: (payload: RecurrenceCreatePayload) => Promise<unknown>
+  deleteTransaction: (id: string) => Promise<unknown>
   updateTransaction: (input: {
     id: string
     payload: TransactionUpdatePayload
@@ -39,12 +43,36 @@ type UseTransferFormInput = {
   onTransactionDetailsClose: () => void
 }
 
+function getCreatedTransferTransactionIds(result: unknown): string[] {
+  if (!result || typeof result !== 'object') {
+    return []
+  }
+
+  const maybeResult = result as {
+    fromAccount?: { id?: unknown }
+    toAccount?: { id?: unknown }
+  }
+
+  const fromId =
+    maybeResult.fromAccount && typeof maybeResult.fromAccount.id === 'string'
+      ? maybeResult.fromAccount.id
+      : null
+  const toId =
+    maybeResult.toAccount && typeof maybeResult.toAccount.id === 'string'
+      ? maybeResult.toAccount.id
+      : null
+
+  return [fromId, toId].filter((value): value is string => Boolean(value))
+}
+
 export function useTransferForm({
   isTransferOpen,
   primaryAccountId,
   defaultTransferToAccountId,
   transactions,
   createTransfer,
+  createRecurrence,
+  deleteTransaction,
   updateTransaction,
   onTransferModalOpen,
   onTransferModalClose,
@@ -74,6 +102,60 @@ export function useTransferForm({
 
   const transferFromAccountId = transferForm.watch('fromAccountId')
   const transferToAccountId = transferForm.watch('toAccountId')
+  const transferDate = transferForm.watch('date')
+
+  const [isTransferRecurrenceEnabled, setIsTransferRecurrenceEnabled] =
+    useState(false)
+  const [transferRecurrenceStartDate, setTransferRecurrenceStartDate] =
+    useState('')
+  const [isTransferRecurrenceStartDateTouched, setIsTransferRecurrenceStartDateTouched] =
+    useState(false)
+  const [transferRecurrenceFrequency, setTransferRecurrenceFrequency] = useState<
+    'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  >('monthly')
+  const [transferRecurrenceEndType, setTransferRecurrenceEndType] = useState<
+    'never' | 'by_occurrences' | 'until_date'
+  >('never')
+  const [transferRecurrenceEndOccurrences, setTransferRecurrenceEndOccurrences] =
+    useState('12')
+  const [transferRecurrenceEndDate, setTransferRecurrenceEndDate] = useState('')
+  const [transferRecurrenceDayOfWeek, setTransferRecurrenceDayOfWeek] =
+    useState('1')
+  const [transferRecurrenceDayOfMonth, setTransferRecurrenceDayOfMonth] =
+    useState('1')
+  const [transferRecurrenceMonthOfYear, setTransferRecurrenceMonthOfYear] =
+    useState('1')
+
+  const resetTransferRecurrenceDraft = useCallback((baseDate?: string) => {
+    const safeDate =
+      baseDate && /^\d{4}-\d{2}-\d{2}$/.test(baseDate)
+        ? new Date(`${baseDate}T12:00:00`)
+        : new Date()
+
+    setTransferRecurrenceStartDate(formatDateInput(safeDate))
+    setIsTransferRecurrenceStartDateTouched(false)
+    setTransferRecurrenceFrequency('monthly')
+    setTransferRecurrenceEndType('never')
+    setTransferRecurrenceEndOccurrences('12')
+    setTransferRecurrenceEndDate('')
+    setTransferRecurrenceDayOfWeek(String(safeDate.getDay()))
+    setTransferRecurrenceDayOfMonth(String(safeDate.getDate()))
+    setTransferRecurrenceMonthOfYear(String(safeDate.getMonth() + 1))
+  }, [])
+
+  useEffect(() => {
+    if (!isTransferRecurrenceEnabled || isTransferRecurrenceStartDateTouched) {
+      return
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(transferDate || '')) {
+      return
+    }
+    setTransferRecurrenceStartDate(transferDate)
+  }, [
+    isTransferRecurrenceEnabled,
+    isTransferRecurrenceStartDateTouched,
+    transferDate,
+  ])
 
   const clearTransferFeedback = useCallback(() => {
     setRepeatTransferError(null)
@@ -84,8 +166,10 @@ export function useTransferForm({
     onTransferModalClose()
     setTransferEditContext(null)
     setTransferEditError(null)
+    setIsTransferRecurrenceEnabled(false)
+    resetTransferRecurrenceDraft()
     transferForm.reset()
-  }, [onTransferModalClose, transferForm])
+  }, [onTransferModalClose, resetTransferRecurrenceDraft, transferForm])
 
   useEffect(() => {
     if (!isTransferOpen) {
@@ -104,6 +188,10 @@ export function useTransferForm({
       ) {
         transferForm.setValue('toAccountId', defaultTransferToAccountId)
       }
+
+      if (!isTransferRecurrenceEnabled) {
+        resetTransferRecurrenceDraft(transferForm.getValues('date'))
+      }
     }
   }, [
     defaultTransferToAccountId,
@@ -113,10 +201,38 @@ export function useTransferForm({
     transferForm,
     transferFromAccountId,
     transferToAccountId,
+    isTransferRecurrenceEnabled,
+    resetTransferRecurrenceDraft,
   ])
 
   const onTransferSubmit = useCallback(
     async (formData: TransferCreateFormData) => {
+      const transferPayload = buildTransferCreatePayloadFromForm(formData)
+      const transferRecurrencePayloadResult =
+        isTransferRecurrenceEnabled && !transferEditContext
+          ? buildTransferRecurrencePayloadFromDraft({
+              fromAccountId: formData.fromAccountId,
+              toAccountId: formData.toAccountId,
+              amount: transferPayload.amount,
+              description: formData.description ?? undefined,
+              startDate: transferRecurrenceStartDate,
+              frequency: transferRecurrenceFrequency,
+              endType: transferRecurrenceEndType,
+              endOccurrences: transferRecurrenceEndOccurrences,
+              endDate: transferRecurrenceEndDate,
+              dayOfWeek: transferRecurrenceDayOfWeek,
+              dayOfMonth: transferRecurrenceDayOfMonth,
+              monthOfYear: transferRecurrenceMonthOfYear,
+            })
+          : { payload: null, error: null }
+
+      if (transferRecurrencePayloadResult.error) {
+        transferForm.setError('root', {
+          message: transferRecurrencePayloadResult.error,
+        })
+        return
+      }
+
       try {
         if (transferEditContext) {
           const payloads = buildTransferUpdatePayloadsFromForm(
@@ -128,7 +244,37 @@ export function useTransferForm({
             updateTransaction(payloads.income),
           ])
         } else {
-          await createTransfer(buildTransferCreatePayloadFromForm(formData))
+          const createdTransfer = await createTransfer(transferPayload)
+
+          if (transferRecurrencePayloadResult.payload) {
+            try {
+              await createRecurrence(transferRecurrencePayloadResult.payload)
+            } catch (recurrenceError) {
+              const rollbackIds = getCreatedTransferTransactionIds(createdTransfer)
+              let rollbackSucceeded = false
+
+              if (rollbackIds.length > 0) {
+                const rollbackResults = await Promise.allSettled(
+                  rollbackIds.map((id) => deleteTransaction(id)),
+                )
+                rollbackSucceeded = rollbackResults.every(
+                  (result) => result.status === 'fulfilled',
+                )
+              }
+
+              const rollbackMessage = rollbackSucceeded
+                ? 'A transferência foi revertida.'
+                : 'Não foi possível reverter a transferência automaticamente. Verifique a lista de transações.'
+
+              transferForm.setError('root', {
+                message: `Falha ao criar recorrência da transferência. ${rollbackMessage} ${getApiErrorMessage(
+                  recurrenceError,
+                  { defaultMessage: '' },
+                )}`.trim(),
+              })
+              return
+            }
+          }
         }
 
         handleCloseTransferModal()
@@ -150,6 +296,17 @@ export function useTransferForm({
       transferEditContext,
       transferForm,
       updateTransaction,
+      createRecurrence,
+      deleteTransaction,
+      isTransferRecurrenceEnabled,
+      transferRecurrenceDayOfMonth,
+      transferRecurrenceDayOfWeek,
+      transferRecurrenceEndDate,
+      transferRecurrenceEndOccurrences,
+      transferRecurrenceEndType,
+      transferRecurrenceFrequency,
+      transferRecurrenceMonthOfYear,
+      transferRecurrenceStartDate,
     ],
   )
 
@@ -230,8 +387,10 @@ export function useTransferForm({
   const openTransferCreate = useCallback(() => {
     setTransferEditContext(null)
     setTransferEditError(null)
+    setIsTransferRecurrenceEnabled(false)
+    resetTransferRecurrenceDraft(formatDateInput(new Date()))
     onTransferModalOpen()
-  }, [onTransferModalOpen])
+  }, [onTransferModalOpen, resetTransferRecurrenceDraft])
 
   const handleOpenRepeatTransfer = useCallback(
     async (transaction: Transaction) => {
@@ -357,6 +516,26 @@ export function useTransferForm({
     isEditTransferLoading,
     transferFromAccountId,
     transferToAccountId,
+    isTransferRecurrenceEnabled,
+    setIsTransferRecurrenceEnabled,
+    transferRecurrenceStartDate,
+    setTransferRecurrenceStartDate,
+    setIsTransferRecurrenceStartDateTouched,
+    transferRecurrenceFrequency,
+    setTransferRecurrenceFrequency,
+    transferRecurrenceEndType,
+    setTransferRecurrenceEndType,
+    transferRecurrenceEndOccurrences,
+    setTransferRecurrenceEndOccurrences,
+    transferRecurrenceEndDate,
+    setTransferRecurrenceEndDate,
+    transferRecurrenceDayOfWeek,
+    setTransferRecurrenceDayOfWeek,
+    transferRecurrenceDayOfMonth,
+    setTransferRecurrenceDayOfMonth,
+    transferRecurrenceMonthOfYear,
+    setTransferRecurrenceMonthOfYear,
+    resetTransferRecurrenceDraft,
     clearTransferFeedback,
     openTransferCreate,
     handleCloseTransferModal,

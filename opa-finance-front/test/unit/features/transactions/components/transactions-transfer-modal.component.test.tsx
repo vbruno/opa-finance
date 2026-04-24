@@ -32,6 +32,27 @@ function TransferHarness({
       setIsTransferToAccountSelectOpen={() => {}}
       isMobile={false}
       transferAmountRef={{ current: null }}
+      isTransferRecurrenceEnabled={false}
+      setIsTransferRecurrenceEnabled={() => {}}
+      transferRecurrenceStartDate="2026-04-13"
+      setTransferRecurrenceStartDate={() => {}}
+      setIsTransferRecurrenceStartDateTouched={() => {}}
+      transferRecurrenceFrequency="monthly"
+      setTransferRecurrenceFrequency={() => {}}
+      transferRecurrenceEndType="never"
+      setTransferRecurrenceEndType={() => {}}
+      transferRecurrenceEndOccurrences="12"
+      setTransferRecurrenceEndOccurrences={() => {}}
+      transferRecurrenceEndDate=""
+      setTransferRecurrenceEndDate={() => {}}
+      transferRecurrenceDayOfWeek="1"
+      setTransferRecurrenceDayOfWeek={() => {}}
+      transferRecurrenceDayOfMonth="1"
+      setTransferRecurrenceDayOfMonth={() => {}}
+      transferRecurrenceMonthOfYear="1"
+      setTransferRecurrenceMonthOfYear={() => {}}
+      transferDate="2026-04-13"
+      resetTransferRecurrenceDraft={() => {}}
       onClose={onClose}
       onSwapAccounts={() => {}}
       onSubmit={(event) => event.preventDefault()}

@@ -46,6 +46,20 @@ describe('transaction-payload.mapper', () => {
     })
   })
 
+  it('deve mapear notes como null no update quando vazio', () => {
+    const formData = { ...baseFormData, notes: '   ' }
+    expect(buildTransactionUpdatePayloadFromForm(formData)).toEqual({
+      accountId: 'acc-1',
+      categoryId: 'cat-1',
+      subcategoryId: 'sub-1',
+      type: 'expense',
+      amount: 123.45,
+      date: '2026-04-12',
+      description: 'Mercado',
+      notes: null,
+    })
+  })
+
   it('deve construir recorrencia mensal valida', () => {
     const result = buildRecurrencePayloadFromDraft({
       accountId: 'acc-1',
