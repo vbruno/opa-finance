@@ -56,7 +56,6 @@ import {
   useTransactionsUiState,
   useDebouncedValue,
   useTransactionsCreateSupport,
-  useTransactionsDeleteActions,
   useTransactionsInlineCategoryActions,
   useTransactionForm,
   useTransferForm,
@@ -120,8 +119,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setSelectedTransaction,
     copiedValue,
     setCopiedValue,
-    detailCopiedField,
-    setDetailCopiedField,
     isDescriptionSuggestionsOpen,
     setIsDescriptionSuggestionsOpen,
     isDescriptionFocused,
@@ -168,12 +165,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     subcategoryNameRef,
     categoryNameRef,
     categoryTypeRef,
-    detailModalRef,
-    deleteModalRef,
-    bulkDeleteModalRef,
     selectAllRef,
     copyTimeoutRef,
-    detailCopyTimeoutRef,
     lastCreateCategoryId,
     lastEditCategoryId,
     isCreateFromDuplicate,
@@ -495,32 +488,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     clearSelection,
     toggleTransactionSelection,
     selectAllOnPage,
-    getBulkDeleteIds,
   } = useTransactionsSelection({
     transactions,
-  })
-  const {
-    deleteError,
-    bulkDeleteError,
-    isBulkDeleting,
-    isDeletePending,
-    clearDeleteError,
-    openDeleteConfirm,
-    closeDeleteConfirm,
-    submitDeleteSelectedTransaction,
-    openBulkDeleteConfirm,
-    closeBulkDeleteConfirm,
-    submitBulkDelete,
-  } = useTransactionsDeleteActions({
-    isDeleteConfirmOpen,
-    selectedTransaction,
-    selectedTransactions,
-    getBulkDeleteIds,
-    deleteTransaction: deleteTransactionMutation.mutateAsync,
-    clearSelection,
-    setSelectedTransaction,
-    setIsDeleteConfirmOpen,
-    setIsBulkDeleteOpen,
   })
   const total = isAmountFilterInvalid ? 0 : (transactionsQuery.data?.total ?? 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
@@ -1490,27 +1459,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     submitCreateTransaction,
   ])
 
-  useEffect(() => {
-    if (isDeleteConfirmOpen) {
-      deleteModalRef.current?.focus()
-      return
-    }
-    if (isBulkDeleteOpen) {
-      bulkDeleteModalRef.current?.focus()
-      return
-    }
-    if (selectedTransaction && !isEditOpen) {
-      detailModalRef.current?.focus()
-    }
-  }, [
-    bulkDeleteModalRef,
-    deleteModalRef,
-    detailModalRef,
-    isDeleteConfirmOpen,
-    isBulkDeleteOpen,
-    isEditOpen,
-    selectedTransaction,
-  ])
 
   useEffect(() => {
     const hasOpenModal =
@@ -1719,32 +1667,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       if (copyTimeoutRef.current) {
         window.clearTimeout(copyTimeoutRef.current)
       }
-      if (detailCopyTimeoutRef.current) {
-        window.clearTimeout(detailCopyTimeoutRef.current)
-      }
     }
-  }, [copyTimeoutRef, detailCopyTimeoutRef])
-
-  const handleCopyDetail = async (
-    value: string,
-    field: 'description' | 'amount',
-  ) => {
-    if (!navigator?.clipboard?.writeText) {
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(value)
-      setDetailCopiedField(field)
-      if (detailCopyTimeoutRef.current) {
-        window.clearTimeout(detailCopyTimeoutRef.current)
-      }
-      detailCopyTimeoutRef.current = window.setTimeout(() => {
-        setDetailCopiedField(null)
-      }, 1500)
-    } catch {
-      // ignore clipboard errors
-    }
-  }
+  }, [copyTimeoutRef])
 
   useEffect(() => {
     if (!selectAllRef.current) {
@@ -1806,8 +1730,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   )
 
   const handleOpenDelete = useCallback((transaction: Transaction) => {
-    openDeleteConfirm(transaction)
-  }, [openDeleteConfirm])
+    setSelectedTransaction(transaction)
+    setIsDeleteConfirmOpen(true)
+  }, [setIsDeleteConfirmOpen, setSelectedTransaction])
 
   useEffect(() => {
     if (!selectedTransaction || isEditOpen || isDeleteConfirmOpen) {
@@ -2218,7 +2143,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
               key={transaction.id}
               className="cursor-pointer rounded-lg border bg-background p-3 transition hover:bg-muted/30"
               onClick={() => {
-                clearDeleteError()
                 clearTransferFeedback()
                 setSelectedTransaction(transaction)
               }}
@@ -2314,9 +2238,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             variant="destructive"
             className="h-11 w-full"
             onClick={() => {
-              openBulkDeleteConfirm()
+              setIsBulkDeleteOpen(true)
             }}
-            disabled={isBulkDeleting}
+            disabled={isBulkDeleteOpen}
           >
             Excluir
           </Button>
@@ -2331,9 +2255,9 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
                 variant="destructive"
                 size="sm"
                 onClick={() => {
-                  openBulkDeleteConfirm()
+                  setIsBulkDeleteOpen(true)
                 }}
-                disabled={isBulkDeleting}
+                disabled={isBulkDeleteOpen}
               >
                 Excluir
               </Button>
@@ -2476,7 +2400,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             }}
             onToggleTransactionSelection={toggleTransactionSelection}
             onRowClick={(transaction) => {
-              clearDeleteError()
               clearTransferFeedback()
               setSelectedTransaction(transaction)
             }}
@@ -3458,9 +3381,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
 
       <TransactionsDetailsModal
         selectedTransaction={!isEditOpen ? selectedTransaction : null}
-        detailModalRef={detailModalRef}
-        detailCopiedField={detailCopiedField}
-        dateFormatter={dateFormatter}
         categoryMap={categoryMap}
         accountMap={accountMap}
         repeatTransferError={repeatTransferError}
@@ -3468,14 +3388,11 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
         isRepeatTransferLoading={isRepeatTransferLoading}
         isEditTransferLoading={isEditTransferLoading}
         onClose={() => setSelectedTransaction(null)}
-        onCopyDetail={handleCopyDetail}
         onOpenRepeatTransfer={handleOpenRepeatTransfer}
         onOpenDuplicate={handleOpenDuplicate}
         onOpenEdit={handleOpenEdit}
         onOpenEditTransfer={handleOpenEditTransfer}
         onOpenDelete={handleOpenDelete}
-        formatDateDisplay={formatDateDisplay}
-        formatCurrencyValue={formatCurrencyValue}
       />
 
       <TransactionsEditModal
@@ -3521,22 +3438,17 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       />
 
       <TransactionsDeleteConfirmModal
-        isOpen={isDeleteConfirmOpen && !!selectedTransaction}
-        deleteError={deleteError}
-        isDeleting={isDeletePending}
-        deleteModalRef={deleteModalRef}
-        onClose={closeDeleteConfirm}
-        onConfirmDelete={submitDeleteSelectedTransaction}
+        open={isDeleteConfirmOpen}
+        transaction={selectedTransaction}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onDeleted={() => setSelectedTransaction(null)}
       />
 
       <TransactionsBulkDeleteModal
-        isOpen={isBulkDeleteOpen}
-        selectedCount={selectedCount}
-        bulkDeleteError={bulkDeleteError}
-        isBulkDeleting={isBulkDeleting}
-        bulkDeleteModalRef={bulkDeleteModalRef}
-        onClose={closeBulkDeleteConfirm}
-        onConfirmDelete={submitBulkDelete}
+        open={isBulkDeleteOpen}
+        selectedTransactions={selectedTransactions}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onDeleted={clearSelection}
       />
     </div>
   )

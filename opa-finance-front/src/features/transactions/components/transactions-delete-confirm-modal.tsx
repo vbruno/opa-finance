@@ -1,39 +1,78 @@
-import type { RefObject } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
+import { getApiErrorMessage } from '@/lib/apiError'
+
+import type { Transaction } from '../transactions.api'
+import { useDeleteTransaction } from '../transactions.api'
 
 type TransactionsDeleteConfirmModalProps = {
-  isOpen: boolean
-  deleteError: string | null
-  isDeleting: boolean
-  deleteModalRef: RefObject<HTMLDivElement | null>
+  open: boolean
+  transaction: Transaction | null
   onClose: () => void
-  onConfirmDelete: () => void | Promise<void>
+  onDeleted: () => void
 }
 
 export function TransactionsDeleteConfirmModal({
-  isOpen,
-  deleteError,
-  isDeleting,
-  deleteModalRef,
+  open,
+  transaction,
   onClose,
-  onConfirmDelete,
+  onDeleted,
 }: TransactionsDeleteConfirmModalProps) {
-  if (!isOpen) {
+  const modalRef = useRef<HTMLDivElement | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const deleteTransactionMutation = useDeleteTransaction()
+
+  useEffect(() => {
+    if (!open || !transaction) {
+      setDeleteError(null)
+      return
+    }
+    const id = window.setTimeout(() => {
+      modalRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [open, transaction])
+
+  const handleClose = () => {
+    if (isDeleting) return
+    onClose()
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!transaction || isDeleting) return
+    setIsDeleting(true)
+    try {
+      await deleteTransactionMutation.mutateAsync(transaction.id)
+      onClose()
+      onDeleted()
+    } catch (error: unknown) {
+      setDeleteError(
+        getApiErrorMessage(error, {
+          defaultMessage: 'Erro ao excluir transação. Tente novamente.',
+        }),
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  if (!open || !transaction) {
     return null
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={handleClose} />
       <div
         className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
-        ref={deleteModalRef}
+        ref={modalRef}
         tabIndex={-1}
       >
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Confirmar exclusao</h3>
+          <h3 className="text-lg font-semibold">Confirmar exclusão</h3>
           <p className="text-sm text-muted-foreground">
             Tem certeza que deseja excluir esta transação? Essa ação não pode
             ser desfeita.
@@ -51,7 +90,7 @@ export function TransactionsDeleteConfirmModal({
             <Button
               variant="outline"
               className="w-full sm:w-auto"
-              onClick={onClose}
+              onClick={handleClose}
             >
               Cancelar
             </Button>
@@ -60,7 +99,7 @@ export function TransactionsDeleteConfirmModal({
             variant="destructive"
             className="w-full sm:w-auto"
             onClick={() => {
-              void onConfirmDelete()
+              void handleConfirmDelete()
             }}
             disabled={isDeleting}
           >

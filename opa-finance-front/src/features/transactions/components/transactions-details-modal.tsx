@@ -1,16 +1,14 @@
-import type { RefObject } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ShortcutLabel, ShortcutTooltip } from '@/components/ui/shortcut-hint'
-import type { Transaction } from '@/features/transactions/transactions.api'
+import { formatCurrencyValue } from '@/lib/utils'
 
-type DetailCopiedField = 'description' | 'amount' | null
+import { formatDateDisplay } from '../model/transactions.helpers'
+import type { Transaction } from '../transactions.api'
 
 type TransactionsDetailsModalProps = {
   selectedTransaction: Transaction | null
-  detailModalRef: RefObject<HTMLDivElement | null>
-  detailCopiedField: DetailCopiedField
-  dateFormatter: Intl.DateTimeFormat
   categoryMap: Map<string, string>
   accountMap: Map<string, string>
   repeatTransferError: string | null
@@ -18,27 +16,17 @@ type TransactionsDetailsModalProps = {
   isRepeatTransferLoading: boolean
   isEditTransferLoading: boolean
   onClose: () => void
-  onCopyDetail: (
-    value: string,
-    field: Exclude<DetailCopiedField, null>,
-  ) => void | Promise<void>
   onOpenRepeatTransfer: (transaction: Transaction) => void
   onOpenDuplicate: (transaction: Transaction) => void
   onOpenEdit: (transaction: Transaction) => void
   onOpenEditTransfer: (transaction: Transaction) => void
   onOpenDelete: (transaction: Transaction) => void
-  formatDateDisplay: (
-    value: string | Date | null | undefined,
-    formatter: Intl.DateTimeFormat,
-  ) => string
-  formatCurrencyValue: (value: number) => string
 }
+
+const dateFormatter = new Intl.DateTimeFormat('pt-BR')
 
 export function TransactionsDetailsModal({
   selectedTransaction,
-  detailModalRef,
-  detailCopiedField,
-  dateFormatter,
   categoryMap,
   accountMap,
   repeatTransferError,
@@ -46,15 +34,55 @@ export function TransactionsDetailsModal({
   isRepeatTransferLoading,
   isEditTransferLoading,
   onClose,
-  onCopyDetail,
   onOpenRepeatTransfer,
   onOpenDuplicate,
   onOpenEdit,
   onOpenEditTransfer,
   onOpenDelete,
-  formatDateDisplay,
-  formatCurrencyValue,
 }: TransactionsDetailsModalProps) {
+  const modalRef = useRef<HTMLDivElement | null>(null)
+  const detailCopyTimeoutRef = useRef<number | null>(null)
+  const [detailCopiedField, setDetailCopiedField] = useState<
+    'description' | 'amount' | null
+  >(null)
+
+  useEffect(() => {
+    if (!selectedTransaction) return
+    const id = window.setTimeout(() => {
+      modalRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [selectedTransaction])
+
+  useEffect(() => {
+    return () => {
+      if (detailCopyTimeoutRef.current) {
+        window.clearTimeout(detailCopyTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleCopyDetail = async (
+    value: string,
+    field: 'description' | 'amount',
+  ) => {
+    if (!navigator?.clipboard?.writeText) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(value)
+      setDetailCopiedField(field)
+      if (detailCopyTimeoutRef.current) {
+        window.clearTimeout(detailCopyTimeoutRef.current)
+      }
+      detailCopyTimeoutRef.current = window.setTimeout(() => {
+        setDetailCopiedField(null)
+      }, 1500)
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
   if (!selectedTransaction) {
     return null
   }
@@ -64,7 +92,7 @@ export function TransactionsDetailsModal({
       <div className="fixed inset-0" onClick={onClose} />
       <div
         className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6"
-        ref={detailModalRef}
+        ref={modalRef}
         tabIndex={-1}
       >
         <div className="space-y-1">
@@ -88,7 +116,7 @@ export function TransactionsDetailsModal({
                 type="button"
                 className="cursor-pointer font-medium hover:underline"
                 onClick={() =>
-                  onCopyDetail(
+                  void handleCopyDetail(
                     selectedTransaction.description ||
                       categoryMap.get(selectedTransaction.categoryId) ||
                       'Sem descrição',
@@ -145,7 +173,7 @@ export function TransactionsDetailsModal({
                 type="button"
                 className="sensitive cursor-pointer font-semibold hover:underline"
                 onClick={() =>
-                  onCopyDetail(
+                  void handleCopyDetail(
                     formatCurrencyValue(selectedTransaction.amount),
                     'amount',
                   )
