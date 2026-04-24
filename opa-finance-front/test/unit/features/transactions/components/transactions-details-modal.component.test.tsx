@@ -1,9 +1,13 @@
-import type { RefObject } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TransactionsDetailsModal } from '@/features/transactions/components/transactions-details-modal'
 import type { Transaction } from '@/features/transactions/transactions.api'
-import { fireEvent, renderWithProviders, screen } from '../../../../setup/render'
+import {
+  fireEvent,
+  renderWithProviders,
+  screen,
+  waitFor,
+} from '../../../../setup/render'
 
 const tx: Transaction = {
   id: 'tx-1',
@@ -24,6 +28,10 @@ const tx: Transaction = {
 }
 
 describe('TransactionsDetailsModal', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('deve abrir e acionar ações principais', () => {
     const onOpenDuplicate = vi.fn()
     const onOpenEdit = vi.fn()
@@ -32,9 +40,6 @@ describe('TransactionsDetailsModal', () => {
     renderWithProviders(
       <TransactionsDetailsModal
         selectedTransaction={tx}
-        detailModalRef={{ current: null } as RefObject<HTMLDivElement | null>}
-        detailCopiedField={null}
-        dateFormatter={new Intl.DateTimeFormat('pt-BR')}
         categoryMap={new Map()}
         accountMap={new Map()}
         repeatTransferError={null}
@@ -42,14 +47,11 @@ describe('TransactionsDetailsModal', () => {
         isRepeatTransferLoading={false}
         isEditTransferLoading={false}
         onClose={() => {}}
-        onCopyDetail={async () => {}}
         onOpenRepeatTransfer={() => {}}
         onOpenDuplicate={onOpenDuplicate}
         onOpenEdit={onOpenEdit}
         onOpenEditTransfer={() => {}}
         onOpenDelete={onOpenDelete}
-        formatDateDisplay={() => '01/03/2026'}
-        formatCurrencyValue={() => '$ 265,00'}
       />,
     )
 
@@ -60,5 +62,72 @@ describe('TransactionsDetailsModal', () => {
     expect(onOpenDuplicate).toHaveBeenCalledWith(tx)
     expect(onOpenEdit).toHaveBeenCalledWith(tx)
     expect(onOpenDelete).toHaveBeenCalledWith(tx)
+  })
+
+  it('deve copiar descrição/valor e exibir feedback visual', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        writeText: writeTextMock,
+      },
+    })
+
+    renderWithProviders(
+      <TransactionsDetailsModal
+        selectedTransaction={tx}
+        categoryMap={new Map()}
+        accountMap={new Map()}
+        repeatTransferError={null}
+        transferEditError={null}
+        isRepeatTransferLoading={false}
+        isEditTransferLoading={false}
+        onClose={() => {}}
+        onOpenRepeatTransfer={() => {}}
+        onOpenDuplicate={() => {}}
+        onOpenEdit={() => {}}
+        onOpenEditTransfer={() => {}}
+        onOpenDelete={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aluguel' }))
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith('Aluguel')
+    })
+    expect(screen.getByText('Copiado!')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /265/ }))
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('deve fechar ao clicar no backdrop', () => {
+    const onClose = vi.fn()
+
+    const { container } = renderWithProviders(
+      <TransactionsDetailsModal
+        selectedTransaction={tx}
+        categoryMap={new Map()}
+        accountMap={new Map()}
+        repeatTransferError={null}
+        transferEditError={null}
+        isRepeatTransferLoading={false}
+        isEditTransferLoading={false}
+        onClose={onClose}
+        onOpenRepeatTransfer={() => {}}
+        onOpenDuplicate={() => {}}
+        onOpenEdit={() => {}}
+        onOpenEditTransfer={() => {}}
+        onOpenDelete={() => {}}
+      />,
+    )
+
+    const backdrop = container.querySelector('.fixed.inset-0.z-50 > .fixed.inset-0')
+    if (!backdrop) {
+      throw new Error('Backdrop não encontrado.')
+    }
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

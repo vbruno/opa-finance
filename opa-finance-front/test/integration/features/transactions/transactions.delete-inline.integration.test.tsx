@@ -174,9 +174,9 @@ describe('transactions delete and inline category flows', () => {
     await screen.findByRole('heading', { name: 'Detalhes da transação' })
     fireEvent.click(screen.getByRole('button', { name: 'Excluir' }))
 
-    await screen.findByRole('heading', { name: 'Confirmar exclusao' })
+    await screen.findByRole('heading', { name: 'Confirmar exclusão' })
     const singleDeleteModal = screen
-      .getByRole('heading', { name: 'Confirmar exclusao' })
+      .getByRole('heading', { name: 'Confirmar exclusão' })
       .closest('[tabindex="-1"]')
     if (!singleDeleteModal) {
       throw new Error('Modal de exclusão individual não encontrado.')
@@ -184,7 +184,7 @@ describe('transactions delete and inline category flows', () => {
     fireEvent.click(within(singleDeleteModal).getByRole('button', { name: /^Excluir$/ }))
 
     await waitForElementToBeRemoved(() =>
-      screen.queryByRole('heading', { name: 'Confirmar exclusao' }),
+      screen.queryByRole('heading', { name: 'Confirmar exclusão' }),
     )
 
     await waitFor(() => {

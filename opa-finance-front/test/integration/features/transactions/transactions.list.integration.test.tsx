@@ -5,7 +5,12 @@ import { logout, setAuth, type User } from '@/features/auth'
 import type { Account } from '@/features/accounts'
 import type { Category } from '@/features/categories'
 import type { Transaction, TransactionsListResponse } from '@/features/transactions'
-import { renderRouteWithProviders, screen } from '../../../setup/render'
+import {
+  fireEvent,
+  renderRouteWithProviders,
+  screen,
+  waitFor,
+} from '../../../setup/render'
 import { ok, server } from '../../../setup/msw'
 
 const testUser: User = {
@@ -128,5 +133,34 @@ describe('transactions list component', () => {
     expect(eatingOutItems.length).toBeGreaterThan(0)
     expect(screen.getAllByText('CommBank ACC').length).toBeGreaterThan(0)
     expect(screen.getByText('Página 1 de 1')).toBeInTheDocument()
+  })
+
+  it('deve fechar modal de detalhes ao pressionar Escape', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-12T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/transactions', () => ok(transactionsResponse)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/transactions'] })
+
+    await screen.findByRole('heading', { name: 'Transações' })
+    const aluguelItems = await screen.findAllByText('Aluguel')
+    fireEvent.click(aluguelItems[0]!)
+    await screen.findByRole('heading', { name: 'Detalhes da transação' })
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', { name: 'Detalhes da transação' }),
+      ).not.toBeInTheDocument()
+    })
   })
 })
