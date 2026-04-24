@@ -28,15 +28,9 @@ export function useTransactionsUiState() {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [copiedValue, setCopiedValue] = useState<'average' | 'total' | null>(
     null,
   )
-  const [detailCopiedField, setDetailCopiedField] = useState<
-    'description' | 'amount' | null
-  >(null)
   const [isDescriptionSuggestionsOpen, setIsDescriptionSuggestionsOpen] =
     useState(false)
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
@@ -76,12 +70,8 @@ export function useTransactionsUiState() {
   const subcategoryNameRef = useRef<HTMLInputElement | null>(null)
   const categoryNameRef = useRef<HTMLInputElement | null>(null)
   const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
-  const detailModalRef = useRef<HTMLDivElement | null>(null)
-  const deleteModalRef = useRef<HTMLDivElement | null>(null)
-  const bulkDeleteModalRef = useRef<HTMLDivElement | null>(null)
   const selectAllRef = useRef<HTMLInputElement | null>(null)
   const copyTimeoutRef = useRef<number | null>(null)
-  const detailCopyTimeoutRef = useRef<number | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const lastEditCategoryId = useRef<string | null>(null)
   const isCreateFromDuplicate = useRef(false)
@@ -131,16 +121,8 @@ export function useTransactionsUiState() {
     setIsBulkDeleteOpen,
     selectedTransaction,
     setSelectedTransaction,
-    deleteError,
-    setDeleteError,
-    bulkDeleteError,
-    setBulkDeleteError,
-    isBulkDeleting,
-    setIsBulkDeleting,
     copiedValue,
     setCopiedValue,
-    detailCopiedField,
-    setDetailCopiedField,
     isDescriptionSuggestionsOpen,
     setIsDescriptionSuggestionsOpen,
     isDescriptionFocused,
@@ -187,12 +169,8 @@ export function useTransactionsUiState() {
     subcategoryNameRef,
     categoryNameRef,
     categoryTypeRef,
-    detailModalRef,
-    deleteModalRef,
-    bulkDeleteModalRef,
     selectAllRef,
     copyTimeoutRef,
-    detailCopyTimeoutRef,
     lastCreateCategoryId,
     lastEditCategoryId,
     isCreateFromDuplicate,

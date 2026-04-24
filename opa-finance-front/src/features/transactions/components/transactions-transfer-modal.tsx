@@ -1,15 +1,15 @@
 import { ArrowLeftRight } from 'lucide-react'
-import type {
-  ClipboardEventHandler,
-  Dispatch,
-  FocusEventHandler,
-  FormEventHandler,
-  KeyboardEventHandler,
-  MouseEventHandler,
-  RefObject,
-  SetStateAction,
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FocusEvent,
+  type KeyboardEvent,
+  type MouseEvent,
 } from 'react'
-import { Controller, type UseFormReturn } from 'react-hook-form'
+import { Controller } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,109 +23,243 @@ import {
 } from '@/components/ui/select'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Account } from '@/features/accounts'
-import type {
-  SetTransactionAmountValue,
-  TransferEditContext,
-} from '@/features/transactions/model/transactions.types'
-import type { TransferCreateFormData } from '@/schemas/transfer.schema'
+import { useCreateRecurrence } from '@/features/recurrences'
+import {
+  type Transaction,
+  useDeleteTransaction,
+  useTransferForm,
+  useUpdateTransaction,
+} from '@/features/transactions'
+import { useCreateTransfer } from '@/features/transfers'
+import { formatCurrencyInput, sanitizeExpressionInput } from '@/lib/utils'
+
+export type TransactionsTransferModalRequest =
+  | { mode: 'create' }
+  | { mode: 'repeat'; transaction: Transaction }
+  | { mode: 'edit'; transaction: Transaction }
 
 type TransactionsTransferModalProps = {
   isOpen: boolean
-  transferEditContext: TransferEditContext | null
-  transferForm: UseFormReturn<TransferCreateFormData>
-  accounts: Account[]
-  isTransferFromAccountSelectOpen: boolean
-  setIsTransferFromAccountSelectOpen: Dispatch<SetStateAction<boolean>>
-  isTransferToAccountSelectOpen: boolean
-  setIsTransferToAccountSelectOpen: Dispatch<SetStateAction<boolean>>
-  isMobile: boolean
-  transferAmountRef: RefObject<HTMLInputElement | null>
-  isTransferRecurrenceEnabled: boolean
-  setIsTransferRecurrenceEnabled: Dispatch<SetStateAction<boolean>>
-  transferRecurrenceStartDate: string
-  setTransferRecurrenceStartDate: Dispatch<SetStateAction<string>>
-  setIsTransferRecurrenceStartDateTouched: Dispatch<SetStateAction<boolean>>
-  transferRecurrenceFrequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
-  setTransferRecurrenceFrequency: Dispatch<
-    SetStateAction<'weekly' | 'biweekly' | 'monthly' | 'yearly'>
-  >
-  transferRecurrenceEndType: 'never' | 'by_occurrences' | 'until_date'
-  setTransferRecurrenceEndType: Dispatch<
-    SetStateAction<'never' | 'by_occurrences' | 'until_date'>
-  >
-  transferRecurrenceEndOccurrences: string
-  setTransferRecurrenceEndOccurrences: Dispatch<SetStateAction<string>>
-  transferRecurrenceEndDate: string
-  setTransferRecurrenceEndDate: Dispatch<SetStateAction<string>>
-  transferRecurrenceDayOfWeek: string
-  setTransferRecurrenceDayOfWeek: Dispatch<SetStateAction<string>>
-  transferRecurrenceDayOfMonth: string
-  setTransferRecurrenceDayOfMonth: Dispatch<SetStateAction<string>>
-  transferRecurrenceMonthOfYear: string
-  setTransferRecurrenceMonthOfYear: Dispatch<SetStateAction<string>>
-  transferDate: string
-  resetTransferRecurrenceDraft: (baseDate?: string) => void
   onClose: () => void
-  onSwapAccounts: () => void
-  onSubmit: FormEventHandler<HTMLFormElement>
-  onDateFocus: FocusEventHandler<HTMLInputElement>
-  onDateClick: MouseEventHandler<HTMLInputElement>
-  onDateKeyDown: KeyboardEventHandler<HTMLInputElement>
-  onDatePaste: ClipboardEventHandler<HTMLInputElement>
-  onTransferAmountChange: (
-    rawValue: string,
-    onChange: SetTransactionAmountValue,
-  ) => void
+  onRequestHandled: () => void
+  accounts: Account[]
+  primaryAccountId: string
+  defaultTransferToAccountId: string
+  transactions: Transaction[]
+  request: TransactionsTransferModalRequest | null
 }
 
 export function TransactionsTransferModal({
   isOpen,
-  transferEditContext,
-  transferForm,
-  accounts,
-  isTransferFromAccountSelectOpen,
-  setIsTransferFromAccountSelectOpen,
-  isTransferToAccountSelectOpen,
-  setIsTransferToAccountSelectOpen,
-  isMobile,
-  transferAmountRef,
-  isTransferRecurrenceEnabled,
-  setIsTransferRecurrenceEnabled,
-  transferRecurrenceStartDate,
-  setTransferRecurrenceStartDate,
-  setIsTransferRecurrenceStartDateTouched,
-  transferRecurrenceFrequency,
-  setTransferRecurrenceFrequency,
-  transferRecurrenceEndType,
-  setTransferRecurrenceEndType,
-  transferRecurrenceEndOccurrences,
-  setTransferRecurrenceEndOccurrences,
-  transferRecurrenceEndDate,
-  setTransferRecurrenceEndDate,
-  transferRecurrenceDayOfWeek,
-  setTransferRecurrenceDayOfWeek,
-  transferRecurrenceDayOfMonth,
-  setTransferRecurrenceDayOfMonth,
-  transferRecurrenceMonthOfYear,
-  setTransferRecurrenceMonthOfYear,
-  transferDate,
-  resetTransferRecurrenceDraft,
   onClose,
-  onSwapAccounts,
-  onSubmit,
-  onDateFocus,
-  onDateClick,
-  onDateKeyDown,
-  onDatePaste,
-  onTransferAmountChange,
+  onRequestHandled,
+  accounts,
+  primaryAccountId,
+  defaultTransferToAccountId,
+  transactions,
+  request,
 }: TransactionsTransferModalProps) {
+  const [isMobile, setIsMobile] = useState(false)
+  const [isTransferFromAccountSelectOpen, setIsTransferFromAccountSelectOpen] =
+    useState(false)
+  const [isTransferToAccountSelectOpen, setIsTransferToAccountSelectOpen] =
+    useState(false)
+  const transferAmountRef = useRef<HTMLInputElement | null>(null)
+  const handledRequestRef = useRef<TransactionsTransferModalRequest | null>(null)
+
+  const createTransferMutation = useCreateTransfer()
+  const createRecurrenceMutation = useCreateRecurrence()
+  const deleteTransactionMutation = useDeleteTransaction()
+  const updateTransactionMutation = useUpdateTransaction()
+
+  const {
+    transferForm,
+    transferEditContext,
+    transferEditError,
+    repeatTransferError,
+    isTransferRecurrenceEnabled,
+    setIsTransferRecurrenceEnabled,
+    transferRecurrenceStartDate,
+    setTransferRecurrenceStartDate,
+    setIsTransferRecurrenceStartDateTouched,
+    transferRecurrenceFrequency,
+    setTransferRecurrenceFrequency,
+    transferRecurrenceEndType,
+    setTransferRecurrenceEndType,
+    transferRecurrenceEndOccurrences,
+    setTransferRecurrenceEndOccurrences,
+    transferRecurrenceEndDate,
+    setTransferRecurrenceEndDate,
+    transferRecurrenceDayOfWeek,
+    setTransferRecurrenceDayOfWeek,
+    transferRecurrenceDayOfMonth,
+    setTransferRecurrenceDayOfMonth,
+    transferRecurrenceMonthOfYear,
+    setTransferRecurrenceMonthOfYear,
+    resetTransferRecurrenceDraft,
+    handleCloseTransferModal,
+    submitTransferForm,
+    handleSwapTransferAccounts,
+    handleOpenRepeatTransfer,
+    handleOpenEditTransfer,
+  } = useTransferForm({
+    isTransferOpen: isOpen,
+    primaryAccountId,
+    defaultTransferToAccountId,
+    transactions,
+    createTransfer: createTransferMutation.mutateAsync,
+    createRecurrence: createRecurrenceMutation.mutateAsync,
+    deleteTransaction: deleteTransactionMutation.mutateAsync,
+    updateTransaction: updateTransactionMutation.mutateAsync,
+    onTransferModalOpen: () => {},
+    onTransferModalClose: () => {
+      setIsTransferFromAccountSelectOpen(false)
+      setIsTransferToAccountSelectOpen(false)
+      onClose()
+    },
+    onTransactionDetailsClose: () => {},
+  })
+
+  const transferDate = transferForm.watch('date') ?? ''
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)')
+    const update = () => setIsMobile(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) {
+      handledRequestRef.current = null
+      return
+    }
+
+    transferAmountRef.current?.focus()
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !request || handledRequestRef.current === request) {
+      return
+    }
+
+    handledRequestRef.current = request
+    onRequestHandled()
+
+    if (request.mode === 'repeat') {
+      void handleOpenRepeatTransfer(request.transaction)
+      return
+    }
+
+    if (request.mode === 'edit') {
+      void handleOpenEditTransfer(request.transaction)
+    }
+  }, [
+    handleOpenEditTransfer,
+    handleOpenRepeatTransfer,
+    isOpen,
+    onRequestHandled,
+    request,
+  ])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const handleShortcut = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isTransferToAccountSelectOpen) {
+          setIsTransferToAccountSelectOpen(false)
+          return
+        }
+        if (isTransferFromAccountSelectOpen) {
+          setIsTransferFromAccountSelectOpen(false)
+          return
+        }
+        handleCloseTransferModal()
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault()
+        void submitTransferForm()
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut, true)
+    return () => window.removeEventListener('keydown', handleShortcut, true)
+  }, [
+    handleCloseTransferModal,
+    isOpen,
+    isTransferFromAccountSelectOpen,
+    isTransferToAccountSelectOpen,
+    submitTransferForm,
+  ])
+
+  const handleDateFocus = useCallback(
+    (event: FocusEvent<HTMLInputElement>) => {
+      if (!isMobile) {
+        return
+      }
+      const input = event.currentTarget
+      if (typeof input.showPicker === 'function') {
+        input.showPicker()
+      }
+    },
+    [isMobile],
+  )
+
+  const handleDateClick = useCallback(
+    (event: MouseEvent<HTMLInputElement>) => {
+      const target = event.currentTarget
+      if (typeof target.showPicker !== 'function') {
+        return
+      }
+      if (isMobile || event.detail > 0) {
+        target.showPicker()
+      }
+    },
+    [isMobile],
+  )
+
+  const handleDateKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (isMobile) {
+        event.preventDefault()
+      }
+    },
+    [isMobile],
+  )
+
+  const handleDatePaste = useCallback(
+    (event: ClipboardEvent<HTMLInputElement>) => {
+      if (isMobile) {
+        event.preventDefault()
+      }
+    },
+    [isMobile],
+  )
+
+  const handleTransferAmountChange = useCallback(
+    (rawValue: string, onChange: (value: string) => void) => {
+      if (rawValue.trimStart().startsWith('=')) {
+        onChange(sanitizeExpressionInput(rawValue))
+        return
+      }
+      onChange(formatCurrencyInput(rawValue))
+    },
+    [],
+  )
+
   if (!isOpen) {
     return null
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={handleCloseTransferModal} />
       <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:overflow-visible sm:p-6">
         <div>
           <h3 className="text-lg font-semibold">
@@ -138,7 +272,7 @@ export function TransactionsTransferModal({
           </p>
         </div>
 
-        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+        <form className="mt-6 space-y-4" onSubmit={submitTransferForm}>
           <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
             <div className="space-y-2">
               <Label htmlFor="transfer-from-account">Conta de origem</Label>
@@ -195,7 +329,7 @@ export function TransactionsTransferModal({
                 className="h-9 w-9 p-0"
                 title="Inverter contas"
                 aria-label="Inverter contas"
-                onClick={onSwapAccounts}
+                onClick={handleSwapTransferAccounts}
               >
                 <ArrowLeftRight className="h-4 w-4" />
               </Button>
@@ -257,12 +391,12 @@ export function TransactionsTransferModal({
                 type="date"
                 className="h-10"
                 aria-invalid={!!transferForm.formState.errors.date}
-                onFocus={onDateFocus}
+                onFocus={handleDateFocus}
                 inputMode={isMobile ? 'none' : undefined}
                 {...transferForm.register('date')}
-                onClick={onDateClick}
-                onKeyDown={onDateKeyDown}
-                onPaste={onDatePaste}
+                onClick={handleDateClick}
+                onKeyDown={handleDateKeyDown}
+                onPaste={handleDatePaste}
               />
               {transferForm.formState.errors.date && (
                 <p className="text-sm text-destructive">
@@ -286,7 +420,7 @@ export function TransactionsTransferModal({
                     ref={transferAmountRef}
                     value={field.value}
                     onChange={(event) => {
-                      onTransferAmountChange(event.target.value, field.onChange)
+                      handleTransferAmountChange(event.target.value, field.onChange)
                     }}
                     onKeyDown={(event) => {
                       if (event.key === '=') {
@@ -349,18 +483,14 @@ export function TransactionsTransferModal({
               {isTransferRecurrenceEnabled ? (
                 <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold">
-                      Configuração da recorrência
-                    </h4>
+                    <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
                     <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
                       Prévia ativa
                     </span>
                   </div>
 
                   <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">
-                      Agenda
-                    </p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Data de início</Label>
@@ -455,9 +585,7 @@ export function TransactionsTransferModal({
                   </div>
 
                   <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">
-                      Término
-                    </p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Término</p>
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="space-y-2">
                         <Label>Término</Label>
@@ -474,12 +602,8 @@ export function TransactionsTransferModal({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="never">Sem fim</SelectItem>
-                            <SelectItem value="by_occurrences">
-                              Por ocorrências
-                            </SelectItem>
-                            <SelectItem value="until_date">
-                              Por data final
-                            </SelectItem>
+                            <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
+                            <SelectItem value="until_date">Por data final</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -491,9 +615,7 @@ export function TransactionsTransferModal({
                             min={1}
                             value={transferRecurrenceEndOccurrences}
                             onChange={(event) =>
-                              setTransferRecurrenceEndOccurrences(
-                                event.target.value,
-                              )
+                              setTransferRecurrenceEndOccurrences(event.target.value)
                             }
                           />
                         </div>
@@ -517,9 +639,11 @@ export function TransactionsTransferModal({
             </>
           )}
 
-          {transferForm.formState.errors.root && (
+          {(repeatTransferError || transferEditError || transferForm.formState.errors.root) && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {transferForm.formState.errors.root.message}
+              {repeatTransferError ??
+                transferEditError ??
+                transferForm.formState.errors.root?.message}
             </div>
           )}
 
@@ -529,7 +653,7 @@ export function TransactionsTransferModal({
                 type="button"
                 variant="outline"
                 className="w-full sm:w-auto"
-                onClick={onClose}
+                onClick={handleCloseTransferModal}
               >
                 Cancelar
               </Button>
