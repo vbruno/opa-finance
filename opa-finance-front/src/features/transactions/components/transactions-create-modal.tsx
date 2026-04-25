@@ -1,5 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useMemo, useRef, useState, type KeyboardEventHandler } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEventHandler,
+  type PropsWithChildren,
+} from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
@@ -52,34 +59,79 @@ type CategoryTreeOption = {
   level: 'category' | 'subcategory'
 }
 
-type TransactionsCreateModalProps = {
+type TransactionsCreateModalAutonomousProps = {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  accounts: Account[]
-  categories: Category[]
-  availableCategories: Category[]
-  primaryAccountId: string
+  accounts?: Account[]
+  categories?: Category[]
+  availableCategories?: Category[]
+  primaryAccountId?: string
   defaultTransferToAccountId?: string
   draftTransaction?: Transaction | null
   onDraftHandled?: () => void
 }
 
+type TransactionsCreateModalLegacyProps = PropsWithChildren<{
+  isOpen: boolean
+  onClose: () => void
+}>
+
+type TransactionsCreateModalProps =
+  | TransactionsCreateModalAutonomousProps
+  | TransactionsCreateModalLegacyProps
+
 const CREATE_CATEGORY_TREE_NONE = '__none__'
 const CREATE_CATEGORY_TREE_CREATE_CATEGORY = '__create_category__'
 const CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY = '__create_subcategory__'
 
-export function TransactionsCreateModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  accounts,
-  categories,
-  availableCategories,
-  primaryAccountId,
-  draftTransaction = null,
-  onDraftHandled,
-}: TransactionsCreateModalProps) {
+export function TransactionsCreateModal(props: TransactionsCreateModalProps) {
+  if ('children' in props) {
+    return <TransactionsCreateModalLegacy {...props} />
+  }
+
+  return (
+    <TransactionsCreateModalAutonomous
+      {...(props as TransactionsCreateModalAutonomousProps)}
+    />
+  )
+}
+
+function TransactionsCreateModalLegacy(props: TransactionsCreateModalLegacyProps) {
+  if (!props.isOpen) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="fixed inset-0" onClick={props.onClose} />
+      <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+        <div>
+          <h3 className="text-lg font-semibold">Nova transação</h3>
+          <p className="text-sm text-muted-foreground">
+            Preencha os dados para registrar uma nova transação.
+          </p>
+        </div>
+        {props.children}
+      </div>
+    </div>
+  )
+}
+
+function TransactionsCreateModalAutonomous(
+  props: TransactionsCreateModalAutonomousProps,
+) {
+  const {
+    isOpen,
+    onClose,
+    onSuccess,
+    accounts = [],
+    categories = [],
+    availableCategories = [],
+    primaryAccountId = '',
+    draftTransaction = null,
+    onDraftHandled,
+  } = props
   const isMobile = useMediaQuery('(max-width: 639px)')
   const [isCreateCategoryOpen, setIsCreateCategoryOpen] = useState(false)
   const [isCreateSubcategoryOpen, setIsCreateSubcategoryOpen] = useState(false)
@@ -100,6 +152,7 @@ export function TransactionsCreateModal({
   } | null>(null)
   const lastCreateCategoryId = useRef<string | null>(null)
   const isCreateFromDuplicate = useRef(false)
+  const initializedOpenRef = useRef(false)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
   const descriptionInputRef = useRef<HTMLInputElement | null>(null)
   const dateInputRef = useRef<HTMLInputElement | null>(null)
@@ -187,9 +240,9 @@ export function TransactionsCreateModal({
     recurrenceDraft,
   } = useTransactionRecurrenceDraft({ createDate })
 
-  const createCategory = categories.find((item) => item.id === createCategoryId)
+  const createCategory = categories.find((item: Category) => item.id === createCategoryId)
   const createCategoryIdsKey = useMemo(
-    () => availableCategories.map((category) => category.id).join('|'),
+    () => availableCategories.map((category: Category) => category.id).join('|'),
     [availableCategories],
   )
   const debouncedCreateDescription = useDebouncedValue(createDescription, 1000)
@@ -303,6 +356,14 @@ export function TransactionsCreateModal({
   }, [descriptionSuggestions.length, isDescriptionSuggestionsOpen])
 
   useEffect(() => {
+    if (!isOpen || draftTransaction || !primaryAccountId || createAccountId) {
+      return
+    }
+
+    setValue('accountId', primaryAccountId)
+  }, [createAccountId, draftTransaction, isOpen, primaryAccountId, setValue])
+
+  useEffect(() => {
     if (!createCategoryId) {
       setValue('type', '')
       setValue('subcategoryId', '')
@@ -351,9 +412,15 @@ export function TransactionsCreateModal({
 
   useEffect(() => {
     if (!isOpen) {
+      initializedOpenRef.current = false
       return
     }
 
+    if (initializedOpenRef.current) {
+      return
+    }
+
+    initializedOpenRef.current = true
     clearErrors('root')
 
     if (draftTransaction && !draftTransaction.transferId) {
@@ -407,7 +474,7 @@ export function TransactionsCreateModal({
 
     subcategoryCreateForm.reset({
       categoryId:
-        createCategoryId || availableCategories.find((category) => !category.system)?.id || '',
+        createCategoryId || availableCategories.find((category: Category) => !category.system)?.id || '',
       name: '',
     })
     const focusId = window.setTimeout(() => {
@@ -758,7 +825,7 @@ export function TransactionsCreateModal({
                         <SelectItem value="__none__" className="hidden">
                           Selecione
                         </SelectItem>
-                        {accounts.map((account) => (
+                        {accounts.map((account: Account) => (
                           <SelectItem key={account.id} value={account.id}>
                             {account.name}
                           </SelectItem>
