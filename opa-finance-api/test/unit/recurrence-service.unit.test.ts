@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { ValidationProblem } from "@/core/errors/problems";
+import { buildCreatePayloadFromRecurrence } from "@/modules/recurrences/recurrence.helpers";
 import { RecurrenceService } from "@/modules/recurrences/recurrence.service";
+import { RecurrenceValidators } from "@/modules/recurrences/recurrence.validators";
 
 function buildService() {
   const app = {
@@ -16,12 +18,16 @@ function buildService() {
   return new RecurrenceService(app);
 }
 
+function buildValidators() {
+  return new RecurrenceValidators({} as any);
+}
+
 describe("recurrence service (unit)", () => {
   it("bloqueia recorrência de transação com campos de transferência inválidos", async () => {
-    const service = buildService() as any;
+    const validators = buildValidators();
 
     await expect(
-      service.validateRecurrenceLinkedOwnership(
+      validators.validateRecurrenceLinkedOwnership(
         "user-1",
         {
           originType: "transaction",
@@ -37,10 +43,10 @@ describe("recurrence service (unit)", () => {
   });
 
   it("bloqueia recorrência de transferência sem contas de origem/destino", async () => {
-    const service = buildService() as any;
+    const validators = buildValidators();
 
     await expect(
-      service.validateRecurrenceLinkedOwnership(
+      validators.validateRecurrenceLinkedOwnership(
         "user-1",
         {
           originType: "transfer",
@@ -56,9 +62,7 @@ describe("recurrence service (unit)", () => {
   });
 
   it("monta payload de criação para this_and_next preservando contrato da recorrência", () => {
-    const service = buildService() as any;
-
-    const payload = service.buildCreatePayloadFromRecurrence(
+    const payload = buildCreatePayloadFromRecurrence(
       {
         originType: "transaction",
         frequency: "monthly",

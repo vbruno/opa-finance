@@ -1,0 +1,490 @@
+import { randomUUID } from "crypto";
+import { and, asc, eq, sql } from "drizzle-orm";
+import type { FastifyInstance } from "fastify";
+import { ValidationProblem } from "../../core/errors/problems";
+import type { DB } from "../../core/plugins/drizzle";
+import {
+  compareIsoDate,
+  getFirstOccurrenceOnOrAfter,
+  getNextOccurrenceAfter,
+  type RecurrenceSchedule,
+} from "../../core/utils/recurrence-schedule.utils";
+import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
+import { RecurrenceAudit } from "./recurrence.audit";
+import type { MaterializeRecurrencesInput } from "./recurrence.schemas";
+import { RecurrenceValidators } from "./recurrence.validators";
+
+export class RecurrenceMaterializeService {
+  private readonly defaultMaterializationBatchSize = 200;
+  private readonly maxMaterializationIterations = 500;
+
+  constructor(
+    private app: FastifyInstance,
+    private recurrenceAudit: RecurrenceAudit,
+    private validators: RecurrenceValidators,
+  ) {}
+
+  private async materializeTransactionOccurrence(
+    tx: DB,
+    recurrence: typeof recurrences.$inferSelect,
+    occurrenceDate: string,
+  ) {
+    if (!recurrence.accountId || !recurrence.categoryId) {
+      throw new ValidationProblem(
+        "Recorrência de transação inválida: conta e categoria são obrigatórias.",
+        "/recurrences/materialize",
+      );
+    }
+
+    const [category] = await tx
+      .select({ type: categories.type })
+      .from(categories)
+      .where(eq(categories.id, recurrence.categoryId))
+      .limit(1);
+
+    if (!category) {
+      throw new ValidationProblem(
+        "Categoria da recorrência não encontrada para materialização.",
+        "/recurrences/materialize",
+      );
+    }
+
+    const [createdTx] = await tx
+      .insert(transactions)
+      .values({
+        userId: recurrence.userId,
+        accountId: recurrence.accountId,
+        categoryId: recurrence.categoryId,
+        subcategoryId: recurrence.subcategoryId,
+        type: category.type,
+        amount: recurrence.amount,
+        date: occurrenceDate,
+        description: recurrence.description,
+        notes: recurrence.notes,
+      })
+      .returning({ id: transactions.id });
+
+    return { transactionId: createdTx.id, transferId: null as string | null };
+  }
+
+  private async materializeTransferOccurrence(
+    tx: DB,
+    recurrence: typeof recurrences.$inferSelect,
+    occurrenceDate: string,
+    transferCategoryId: string,
+  ) {
+    if (!recurrence.fromAccountId || !recurrence.toAccountId) {
+      throw new ValidationProblem(
+        "Recorrência de transferência inválida: contas de origem e destino são obrigatórias.",
+        "/recurrences/materialize",
+      );
+    }
+
+    if (recurrence.fromAccountId === recurrence.toAccountId) {
+      throw new ValidationProblem(
+        "Recorrência de transferência inválida: origem e destino não podem ser iguais.",
+        "/recurrences/materialize",
+      );
+    }
+
+    const transferId = randomUUID();
+
+    const insertedTransactions = await tx
+      .insert(transactions)
+      .values([
+        {
+          userId: recurrence.userId,
+          accountId: recurrence.fromAccountId,
+          categoryId: transferCategoryId,
+          type: "expense",
+          amount: recurrence.amount,
+          date: occurrenceDate,
+          description: recurrence.description,
+          notes: recurrence.notes,
+          transferId,
+        },
+        {
+          userId: recurrence.userId,
+          accountId: recurrence.toAccountId,
+          categoryId: transferCategoryId,
+          type: "income",
+          amount: recurrence.amount,
+          date: occurrenceDate,
+          description: recurrence.description,
+          notes: recurrence.notes,
+          transferId,
+        },
+      ])
+      .returning({ id: transactions.id });
+
+    if (insertedTransactions.length !== 2) {
+      throw new ValidationProblem(
+        "Falha ao materializar transferência recorrente de forma atômica.",
+        "/recurrences/materialize",
+      );
+    }
+
+    return { transactionId: null as string | null, transferId };
+  }
+
+  async materialize(userId: string, input: MaterializeRecurrencesInput) {
+    const todayByTimezone = new Map<string, string>();
+    let transferCategoryId: string | null = null;
+    const batchSize = input.maxRecurrences ?? this.defaultMaterializationBatchSize;
+
+    const [activeCountResult] = await this.app.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(recurrences)
+      .where(
+        and(
+          eq(recurrences.userId, userId),
+          eq(recurrences.status, "active"),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      );
+    const totalActive = activeCountResult?.total ?? 0;
+
+    const activeRecurrences = await this.app.db
+      .select()
+      .from(recurrences)
+      .where(
+        and(
+          eq(recurrences.userId, userId),
+          eq(recurrences.status, "active"),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      )
+      .orderBy(asc(recurrences.createdAt))
+      .limit(batchSize);
+
+    let createdOccurrences = 0;
+    let skippedOccurrences = 0;
+    let createdTransactions = 0;
+    let createdTransfers = 0;
+    let finalizedRecurrences = 0;
+    let failedRecurrences = 0;
+
+    for (const recurrence of activeRecurrences) {
+      try {
+        await this.validators.validateRecurrenceLinkedOwnership(
+          userId,
+          recurrence,
+          "/recurrences/materialize",
+        );
+      } catch (error) {
+        this.app.log.warn(
+          {
+            recurrenceId: recurrence.id,
+            userId: recurrence.userId,
+            originType: recurrence.originType,
+            error,
+          },
+          "Skipping recurrence materialization due to ownership/consistency validation failure",
+        );
+        failedRecurrences += 1;
+        continue;
+      }
+
+      const schedule: RecurrenceSchedule = {
+        startDate: recurrence.startDate,
+        frequency: recurrence.frequency,
+        dayOfWeek: recurrence.dayOfWeek,
+        dayOfMonth: recurrence.dayOfMonth,
+        monthOfYear: recurrence.monthOfYear,
+      };
+      let untilDate = input.untilDate;
+      if (!untilDate) {
+        const cachedToday = todayByTimezone.get(recurrence.timezone);
+        if (cachedToday) {
+          untilDate = cachedToday;
+        } else {
+          untilDate = await this.validators.getNowIsoDateInTimezone(recurrence.timezone);
+          todayByTimezone.set(recurrence.timezone, untilDate);
+        }
+      }
+      let cursorDate = recurrence.nextOccurrenceDate ?? recurrence.startDate;
+
+      let localCreated = 0;
+      let localSkipped = 0;
+      let localTransactions = 0;
+      let localTransfers = 0;
+      let localFirstProcessedDate: string | null = null;
+      let localLastMaterializedDate: string | null = null;
+      let shouldFinalize = false;
+      let iterations = 0;
+      let updatedRecurrenceSnapshot: typeof recurrences.$inferSelect | null = null;
+
+      try {
+        if (compareIsoDate(cursorDate, recurrence.startDate) < 0) {
+          cursorDate = recurrence.startDate;
+        }
+        cursorDate = getFirstOccurrenceOnOrAfter(schedule, cursorDate);
+
+        let materializedCount = 0;
+        if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
+          const [countResult] = await this.app.db
+            .select({ total: sql<number>`count(*)::int` })
+            .from(recurrenceOccurrences)
+            .where(
+              and(
+                eq(recurrenceOccurrences.recurrenceId, recurrence.id),
+                eq(recurrenceOccurrences.status, "materialized"),
+              ),
+            );
+          materializedCount = countResult?.total ?? 0;
+        }
+
+        while (compareIsoDate(cursorDate, untilDate) <= 0) {
+          iterations += 1;
+          if (!localFirstProcessedDate) {
+            localFirstProcessedDate = cursorDate;
+          }
+          if (iterations > this.maxMaterializationIterations) {
+            throw new ValidationProblem(
+              "Limite de materialização por recorrência excedido nesta execução.",
+              "/recurrences/materialize",
+            );
+          }
+
+          if (recurrence.endType === "until_date" && recurrence.endDate) {
+            if (compareIsoDate(cursorDate, recurrence.endDate) > 0) {
+              shouldFinalize = true;
+              break;
+            }
+          }
+
+          if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
+            if (materializedCount >= recurrence.endOccurrences) {
+              shouldFinalize = true;
+              break;
+            }
+          }
+
+          const occurrenceOutcome = await this.app.db.transaction(async (tx: DB) => {
+            const [occurrence] = await tx
+              .insert(recurrenceOccurrences)
+              .values({
+                recurrenceId: recurrence.id,
+                originType: recurrence.originType,
+                occurrenceDate: cursorDate,
+                status: "materialized",
+              })
+              .onConflictDoNothing({
+                target: [
+                  recurrenceOccurrences.recurrenceId,
+                  recurrenceOccurrences.occurrenceDate,
+                  recurrenceOccurrences.originType,
+                ],
+              })
+              .returning({ id: recurrenceOccurrences.id });
+
+            if (!occurrence) {
+              return {
+                inserted: false,
+                transactionId: null as string | null,
+                transferId: null as string | null,
+              };
+            }
+
+            if (recurrence.originType === "transaction") {
+              const transactionResult = await this.materializeTransactionOccurrence(
+                tx,
+                recurrence,
+                cursorDate,
+              );
+
+              await tx
+                .update(recurrenceOccurrences)
+                .set({
+                  transactionId: transactionResult.transactionId,
+                  metadata: { source: "recurrence-materialization" },
+                })
+                .where(eq(recurrenceOccurrences.id, occurrence.id));
+
+              return { inserted: true, ...transactionResult };
+            }
+
+            if (!transferCategoryId) {
+              transferCategoryId = await this.validators.getTransferCategoryId();
+            }
+            const ensuredTransferCategoryId = transferCategoryId as string;
+
+            const transferResult = await this.materializeTransferOccurrence(
+              tx,
+              recurrence,
+              cursorDate,
+              ensuredTransferCategoryId,
+            );
+
+            await tx
+              .update(recurrenceOccurrences)
+              .set({
+                transferId: transferResult.transferId,
+                metadata: { source: "recurrence-materialization" },
+              })
+              .where(eq(recurrenceOccurrences.id, occurrence.id));
+
+            return { inserted: true, ...transferResult };
+          });
+
+          if (occurrenceOutcome.inserted) {
+            localCreated += 1;
+            localLastMaterializedDate = cursorDate;
+            if (occurrenceOutcome.transactionId) localTransactions += 1;
+            if (occurrenceOutcome.transferId) localTransfers += 1;
+            if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
+              materializedCount += 1;
+            }
+          } else {
+            localSkipped += 1;
+            localLastMaterializedDate = cursorDate;
+          }
+
+          cursorDate = getNextOccurrenceAfter(schedule, cursorDate);
+        }
+      } catch (error) {
+        this.app.log.error(
+          {
+            recurrenceId: recurrence.id,
+            userId: recurrence.userId,
+            originType: recurrence.originType,
+            cursorDate,
+            error,
+          },
+          "Recurrence materialization failed",
+        );
+
+        failedRecurrences += 1;
+        continue;
+      }
+
+      let currentVersion = recurrence.version;
+      let updateApplied = false;
+      let retries = 0;
+
+      while (retries < 3) {
+        const [current] = await this.app.db
+          .select({
+            id: recurrences.id,
+            status: recurrences.status,
+            version: recurrences.version,
+            nextOccurrenceDate: recurrences.nextOccurrenceDate,
+            lastMaterializedDate: recurrences.lastMaterializedDate,
+          })
+          .from(recurrences)
+          .where(
+            and(
+              eq(recurrences.id, recurrence.id),
+              eq(recurrences.userId, userId),
+              sql`${recurrences.deletedAt} IS NULL`,
+            ),
+          )
+          .limit(1);
+
+        if (!current || current.status !== "active") {
+          break;
+        }
+
+        currentVersion = current.version;
+
+        const mergedLastMaterializedDate =
+          localLastMaterializedDate &&
+          (!current.lastMaterializedDate ||
+            compareIsoDate(localLastMaterializedDate, current.lastMaterializedDate) > 0)
+            ? localLastMaterializedDate
+            : current.lastMaterializedDate;
+
+        const mergedNextOccurrenceDate = shouldFinalize
+          ? null
+          : current.nextOccurrenceDate && compareIsoDate(current.nextOccurrenceDate, cursorDate) > 0
+            ? current.nextOccurrenceDate
+            : cursorDate;
+
+        const updatePayload: Partial<typeof recurrences.$inferInsert> = {
+          nextOccurrenceDate: mergedNextOccurrenceDate,
+          updatedAt: new Date(),
+          version: currentVersion + 1,
+        };
+
+        if (mergedLastMaterializedDate) {
+          updatePayload.lastMaterializedDate = mergedLastMaterializedDate;
+          updatePayload.lastMaterializedAt = new Date();
+        }
+
+        if (shouldFinalize) {
+          updatePayload.status = "finalized";
+          updatePayload.finalizedAt = new Date();
+        }
+
+        const [updatedRecurrence] = await this.app.db
+          .update(recurrences)
+          .set(updatePayload)
+          .where(and(eq(recurrences.id, recurrence.id), eq(recurrences.version, currentVersion)))
+          .returning();
+
+        if (updatedRecurrence) {
+          updatedRecurrenceSnapshot = updatedRecurrence;
+          updateApplied = true;
+          if (shouldFinalize) finalizedRecurrences += 1;
+          break;
+        }
+
+        retries += 1;
+      }
+
+      if (!updateApplied) {
+        this.app.log.warn(
+          { recurrenceId: recurrence.id, userId: recurrence.userId },
+          "Skipping recurrence state update due to concurrent version change",
+        );
+      } else if (
+        updatedRecurrenceSnapshot &&
+        (localCreated > 0 || localSkipped > 0 || shouldFinalize)
+      ) {
+        await this.recurrenceAudit.logBestEffort(
+          {
+            userId: recurrence.userId,
+            entityType: "recurrence",
+            entityId: recurrence.id,
+            action: "update",
+            beforeData: this.recurrenceAudit.toAuditData(recurrence),
+            afterData: this.recurrenceAudit.toAuditData(updatedRecurrenceSnapshot),
+            metadata: {
+              operation: "recurrence-materialize",
+              fromDate: localFirstProcessedDate,
+              toDate: localLastMaterializedDate ?? cursorDate,
+              createdOccurrences: localCreated,
+              skippedOccurrences: localSkipped,
+              createdTransactions: localTransactions,
+              createdTransfers: localTransfers,
+              finalized: shouldFinalize,
+            },
+          },
+          {
+            recurrenceId: recurrence.id,
+            userId: recurrence.userId,
+            operation: "recurrence-materialize",
+          },
+        );
+      }
+
+      createdOccurrences += localCreated;
+      skippedOccurrences += localSkipped;
+      createdTransactions += localTransactions;
+      createdTransfers += localTransfers;
+    }
+
+    return {
+      totalActiveRecurrences: totalActive,
+      processedRecurrences: activeRecurrences.length,
+      truncatedByBatch: totalActive > activeRecurrences.length,
+      remainingRecurrences: Math.max(0, totalActive - activeRecurrences.length),
+      createdOccurrences,
+      skippedOccurrences,
+      createdTransactions,
+      createdTransfers,
+      finalizedRecurrences,
+      failedRecurrences,
+    };
+  }
+}
