@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "accounts_user_primary_unique" ON "accounts" USING btree ("user_id") WHERE "accounts"."is_primary";
