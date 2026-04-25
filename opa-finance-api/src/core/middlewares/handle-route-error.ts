@@ -69,10 +69,21 @@ function getRequiredFieldMessage(error: FastifyRouteError) {
 
 export function registerErrorHandler(app: FastifyInstance) {
   app.setErrorHandler((error: unknown, req, reply) => {
-    console.error("❌ ERROR:", error);
-
     const err = error instanceof Error ? error : new Error("Unknown error");
     const msg = err.message ?? "";
+
+    const statusHint =
+      err instanceof HttpProblem
+        ? err.status
+        : err instanceof ZodError
+          ? 400
+          : ((err as FastifyRouteError).statusCode ?? 500);
+
+    if (statusHint >= 500) {
+      app.log.error({ err, url: req.url }, msg);
+    } else {
+      app.log.warn({ err, url: req.url }, msg);
+    }
 
     /* -------------------------------------------------------------
      * JWT ERRORS → Unauthorized (FST_JWT_*)

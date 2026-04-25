@@ -50,12 +50,9 @@ function buildCorsOrigin(nodeEnv: string, configuredOrigins: string[]) {
 
 async function start() {
   const app = Fastify({
-    logger:
-      env.NODE_ENV === "production"
-        ? {
-            level: env.LOG_LEVEL ?? "info",
-          }
-        : false,
+    logger: {
+      level: env.NODE_ENV === "production" ? (env.LOG_LEVEL ?? "info") : "warn",
+    },
     ajv: {
       plugins: [
         (ajv: Ajv) => {
