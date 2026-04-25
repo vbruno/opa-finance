@@ -1,4 +1,5 @@
 import {
+  type QueryClient,
   keepPreviousData,
   useMutation,
   useQuery,
@@ -135,6 +136,13 @@ const transactionsSummaryKey = ['transactions-summary']
 const transactionsTopCategoriesKey = ['transactions-top-categories']
 const transactionsDescriptionsKey = ['transactions-descriptions']
 
+export function invalidateTransactionDependents(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: transactionsKey })
+  queryClient.invalidateQueries({ queryKey: ['accounts'] })
+  queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
+  queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
+}
+
 export function useTransactions(
   params: TransactionsQueryParams,
   options?: { enabled?: boolean },
@@ -229,10 +237,7 @@ export function useCreateTransaction() {
       return response.data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionsKey })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
-      queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
+      invalidateTransactionDependents(queryClient)
     },
   })
 }
@@ -255,11 +260,8 @@ export function useUpdateTransaction() {
       return response.data
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: transactionsKey })
+      invalidateTransactionDependents(queryClient)
       queryClient.invalidateQueries({ queryKey: transactionKey(variables.id) })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
-      queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
     },
   })
 }
@@ -272,11 +274,8 @@ export function useDeleteTransaction() {
       await api.delete(`/transactions/${id}`)
     },
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: transactionsKey })
+      invalidateTransactionDependents(queryClient)
       queryClient.invalidateQueries({ queryKey: transactionKey(id) })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
-      queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
     },
   })
 }

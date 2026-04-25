@@ -10,8 +10,8 @@ import {
 } from "../../core/utils/recurrence-schedule.utils";
 import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
-import { RecurrenceAudit } from "./recurrence.audit";
 import { RecurrenceCrudService } from "./recurrence-crud.service";
+import { RecurrenceAudit } from "./recurrence.audit";
 import {
   buildCreatePayloadFromRecurrence,
   getFirstOccurrenceForRecurrence,

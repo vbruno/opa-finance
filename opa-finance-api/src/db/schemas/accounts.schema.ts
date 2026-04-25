@@ -1,4 +1,14 @@
-import { boolean, numeric, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
 
@@ -10,22 +20,30 @@ export const accountTypeEnum = pgEnum("account_type", [
   "investment",
 ]);
 
-export const accounts = pgTable("accounts", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
 
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
 
-  name: text("name").notNull(),
-  type: accountTypeEnum("type").notNull(),
-  initialBalance: numeric("initial_balance").notNull().default("0"),
+    name: text("name").notNull(),
+    type: accountTypeEnum("type").notNull(),
+    initialBalance: numeric("initial_balance").notNull().default("0"),
 
-  color: text("color"),
-  icon: text("icon"),
-  isPrimary: boolean("is_primary").notNull().default(false),
-  isHiddenOnDashboard: boolean("is_hidden_on_dashboard").notNull().default(false),
+    color: text("color"),
+    icon: text("icon"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    isHiddenOnDashboard: boolean("is_hidden_on_dashboard").notNull().default(false),
 
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("accounts_user_primary_unique")
+      .on(table.userId)
+      .where(sql`${table.isPrimary}`),
+  ],
+);
