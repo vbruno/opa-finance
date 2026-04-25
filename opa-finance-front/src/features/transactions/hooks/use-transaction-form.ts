@@ -2,11 +2,11 @@ import { useCallback } from 'react'
 
 import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { sanitizeExpressionInput } from '@/lib/expression'
 import {
   formatCurrencyInput,
   formatCurrencyValue,
   parseCurrencyInput,
-  sanitizeExpressionInput,
 } from '@/lib/utils'
 import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 

@@ -31,7 +31,8 @@ import {
   useUpdateTransaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
-import { formatCurrencyInput, sanitizeExpressionInput } from '@/lib/utils'
+import { sanitizeExpressionInput } from '@/lib/expression'
+import { formatCurrencyInput } from '@/lib/utils'
 
 export type TransactionsTransferModalRequest =
   | { mode: 'create' }

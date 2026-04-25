@@ -1,3 +1,5 @@
+import { evaluateArithmeticExpression, parseExpressionNumber } from '@/lib/expression'
+
 export type AmountFilterResult = {
   amount?: number
   amountMin?: number
@@ -24,8 +26,8 @@ export function parseAmountFilter(value: string): AmountFilterResult | null {
     if (parts.length !== 2) {
       return null
     }
-    const minValue = parseNumberInput(parts[0])
-    const maxValue = parseNumberInput(parts[1])
+    const minValue = parseExpressionNumber(parts[0])
+    const maxValue = parseExpressionNumber(parts[1])
     if (minValue === null || maxValue === null) {
       return null
     }
@@ -36,7 +38,7 @@ export function parseAmountFilter(value: string): AmountFilterResult | null {
 
   const comparatorMatch = trimmed.match(/^(>=|<=|>|<)\s*(.+)$/)
   if (comparatorMatch) {
-    const amountValue = parseNumberInput(comparatorMatch[2])
+    const amountValue = parseExpressionNumber(comparatorMatch[2])
     if (amountValue === null) {
       return null
     }
@@ -49,7 +51,7 @@ export function parseAmountFilter(value: string): AmountFilterResult | null {
     return { amountOp: opMap[comparatorMatch[1]], amount: amountValue }
   }
 
-  const exactValue = parseNumberInput(trimmed)
+  const exactValue = parseExpressionNumber(trimmed)
   if (exactValue === null) {
     return null
   }
@@ -125,138 +127,4 @@ export function normalizeText(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-}
-
-function evaluateArithmeticExpression(value: string): number | null {
-  const tokens = tokenizeExpression(value)
-  if (!tokens || tokens.length === 0) {
-    return null
-  }
-  return evaluateTokens(tokens)
-}
-
-function tokenizeExpression(
-  value: string,
-): Array<number | '+' | '-' | '*' | '/'> | null {
-  const input = value.trim()
-  if (!input) {
-    return null
-  }
-
-  const tokens: Array<number | '+' | '-' | '*' | '/'> = []
-  let index = 0
-  let expectingNumber = true
-
-  while (index < input.length) {
-    const char = input[index]
-    if (char === ' ' || char === '\t') {
-      index += 1
-      continue
-    }
-
-    if (expectingNumber) {
-      const match = input.slice(index).match(/^[+-]?[0-9.,]+/)
-      if (!match) {
-        return null
-      }
-      const parsedNumber = parseNumberInput(match[0])
-      if (parsedNumber === null) {
-        return null
-      }
-      tokens.push(parsedNumber)
-      index += match[0].length
-      expectingNumber = false
-      continue
-    }
-
-    if (char === '+' || char === '-' || char === '*' || char === '/') {
-      tokens.push(char)
-      index += 1
-      expectingNumber = true
-      continue
-    }
-
-    return null
-  }
-
-  if (expectingNumber) {
-    return null
-  }
-
-  return tokens
-}
-
-function evaluateTokens(tokens: Array<number | '+' | '-' | '*' | '/'>): number | null {
-  if (tokens.length % 2 === 0) {
-    return null
-  }
-  if (typeof tokens[0] !== 'number') {
-    return null
-  }
-
-  const values: number[] = [tokens[0]]
-  const operations: Array<'+' | '-'> = []
-
-  for (let i = 1; i < tokens.length; i += 2) {
-    const op = tokens[i]
-    const next = tokens[i + 1]
-    if (typeof op !== 'string' || typeof next !== 'number') {
-      return null
-    }
-    if (op === '*' || op === '/') {
-      const current = values[values.length - 1]
-      if (op === '/' && next === 0) {
-        return null
-      }
-      values[values.length - 1] = op === '*' ? current * next : current / next
-    } else {
-      operations.push(op)
-      values.push(next)
-    }
-  }
-
-  let result = values[0]
-  for (let i = 0; i < operations.length; i += 1) {
-    const next = values[i + 1]
-    result = operations[i] === '+' ? result + next : result - next
-  }
-
-  if (!Number.isFinite(result)) {
-    return null
-  }
-  return result
-}
-
-function parseNumberInput(value: string): number | null {
-  const cleaned = value.replace(/\s+/g, '')
-  if (!cleaned) {
-    return null
-  }
-  if (!/^[+-]?[0-9.,]+$/.test(cleaned)) {
-    return null
-  }
-  const sign = cleaned.startsWith('-') ? -1 : 1
-  const unsigned = cleaned.replace(/^[-+]/, '')
-  if (!/[0-9]/.test(unsigned)) {
-    return null
-  }
-  const lastDot = unsigned.lastIndexOf('.')
-  const lastComma = unsigned.lastIndexOf(',')
-  const decimalIndex = Math.max(lastDot, lastComma)
-  let integerPart = unsigned
-  let fractionalPart = ''
-  if (decimalIndex >= 0) {
-    integerPart = unsigned.slice(0, decimalIndex)
-    fractionalPart = unsigned.slice(decimalIndex + 1)
-  }
-  const integerDigits = integerPart.replace(/[.,]/g, '') || '0'
-  const fractionalDigits = fractionalPart.replace(/[.,]/g, '')
-  const normalized = fractionalDigits
-    ? `${integerDigits}.${fractionalDigits}`
-    : integerDigits
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed)) {
-    return null
-  }
-  return sign * parsed
 }
