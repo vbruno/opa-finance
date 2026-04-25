@@ -529,7 +529,7 @@ export class TransactionService {
         amount: data.amount?.toString() ?? tx.amount,
         date: data.date ?? tx.date,
         description: data.description ?? tx.description,
-        notes: data.notes ?? tx.notes,
+        notes: "notes" in data ? data.notes : tx.notes,
         updatedAt: new Date(),
       };
 
@@ -634,7 +634,7 @@ export class TransactionService {
           amount: data.amount?.toString() ?? tx.amount,
           date: data.date ?? tx.date,
           description: data.description ?? tx.description,
-          notes: data.notes ?? tx.notes,
+          notes: "notes" in data ? data.notes : tx.notes,
           updatedAt: new Date(),
         })
         .where(eq(transactions.id, id))
