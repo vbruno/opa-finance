@@ -69,24 +69,6 @@ export class TransactionService {
     this.audit = new AuditService(app);
   }
 
-  private unaccentAvailable?: boolean;
-
-  private async hasUnaccent() {
-    if (this.unaccentAvailable !== undefined) return this.unaccentAvailable;
-
-    try {
-      const result = await this.app.db.execute(
-        sql`select 1 from pg_extension where extname = 'unaccent'`,
-      );
-      const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
-      this.unaccentAvailable = rows.length > 0;
-    } catch {
-      this.unaccentAvailable = false;
-    }
-
-    return this.unaccentAvailable;
-  }
-
   private hiddenDashboardAccountsFilter(userId: string) {
     return sql`${transactions.accountId} in (
       select ${accounts.id}
@@ -235,7 +217,7 @@ export class TransactionService {
   }
 
   private async applyTextFilters(filters: SQL[], query: ListTransactionsQuery) {
-    const useUnaccent = query.description || query.notes ? await this.hasUnaccent() : false;
+    const useUnaccent = (query.description || query.notes) && this.app.unaccentEnabled;
 
     if (query.description && query.notes) {
       if (useUnaccent) {
@@ -919,8 +901,8 @@ export class TransactionService {
   async descriptions(userId: string, query: TransactionDescriptionsQuery) {
     await this.validateAccount(userId, query.accountId);
 
-    const unaccentAvailable = await this.hasUnaccent();
-    const useUnaccent = unaccentAvailable && query.q ? true : false;
+    const unaccentAvailable = this.app.unaccentEnabled;
+    const useUnaccent = unaccentAvailable && !!query.q;
     const term = query.q ?? "";
     const keyExpr = unaccentAvailable
       ? sql`lower(unaccent(${transactions.description}))`

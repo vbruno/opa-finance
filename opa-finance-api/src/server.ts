@@ -9,6 +9,7 @@ import { env } from "./core/config/env";
 import { registerErrorHandler } from "./core/middlewares/handle-route-error";
 import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
+import { unaccentPlugin } from "./core/plugins/unaccent";
 
 import { accountRoutes } from "./modules/accounts/account.routes";
 import { auditRoutes } from "./modules/audit/audit.routes";
@@ -116,6 +117,9 @@ async function start() {
 
   // Banco real (Drizzle)
   app.decorate("db", db);
+
+  // Verifica extensão unaccent uma vez no boot e decora o app
+  app.register(unaccentPlugin);
 
   // JWT Plugin
   app.register(jwtPlugin);

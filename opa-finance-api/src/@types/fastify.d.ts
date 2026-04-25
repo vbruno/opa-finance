@@ -20,6 +20,9 @@ declare module "fastify" {
     // Banco em runtime varia entre ambientes/plugins; manter compatibilidade atual.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     db: DB | BetterSQLite3Database<typeof schema> | any;
+
+    // Disponibilidade da extensão unaccent no Postgres — verificada uma vez no boot.
+    unaccentEnabled: boolean;
   }
 
   interface FastifyReply {

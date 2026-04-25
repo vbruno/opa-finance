@@ -8,6 +8,7 @@ import { registerErrorHandler } from "@/core/middlewares/handle-route-error";
 import { DB } from "@/core/plugins/drizzle";
 import { createTestDB } from "@/core/plugins/drizzle-test";
 import jwtPlugin from "@/core/plugins/jwt";
+import { unaccentPlugin } from "@/core/plugins/unaccent";
 import { accountRoutes } from "@/modules/accounts/account.routes";
 import { auditRoutes } from "@/modules/audit/audit.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
@@ -38,6 +39,9 @@ export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> 
 
   // 🔥 Injeta o banco de teste na instância, igual no server real
   app.decorate("db", db);
+
+  // Verifica extensão unaccent — mesmo comportamento do server real
+  app.register(unaccentPlugin);
 
   // 🔥 Cookie PRECISA vir antes do JWT plugin
   app.register(cookie, {
