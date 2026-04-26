@@ -43,6 +43,7 @@ function ForgotPasswordPage() {
   const forgotPasswordMutation = useForgotPassword()
   const responseMessage = forgotPasswordMutation.data?.message
   const resetToken = forgotPasswordMutation.data?.resetToken
+  const showDevToken = import.meta.env.VITE_SHOW_RESET_TOKEN === 'true'
   const isPending = isAuthFormPending(
     isSubmitting,
     forgotPasswordMutation.isPending,
@@ -96,7 +97,7 @@ function ForgotPasswordPage() {
           )}
         </div>
 
-        {resetToken && (
+        {showDevToken && resetToken && (
           <div className="rounded-md border border-border bg-muted/40 p-3 text-xs">
             <p className="mb-2 font-medium">Token de teste (ambiente não produção)</p>
             <p className="break-all font-mono">{resetToken}</p>

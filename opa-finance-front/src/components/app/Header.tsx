@@ -2,14 +2,14 @@ import { Link } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { getUser } from '@/features/auth'
+import { useAuth } from '@/features/auth'
 
 type HeaderProps = {
   onMenuClick?: () => void
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const user = getUser()
+  const { user } = useAuth()
 
   return (
     <header className="flex items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4">

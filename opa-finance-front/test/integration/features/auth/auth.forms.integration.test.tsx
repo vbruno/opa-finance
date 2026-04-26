@@ -1,6 +1,6 @@
 import { fireEvent } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { logout } from '@/features/auth'
 import { renderRouteWithProviders, screen } from '../../../setup/render'
@@ -15,6 +15,7 @@ describe('auth forms', () => {
   afterEach(() => {
     logout()
     localStorage.clear()
+    vi.unstubAllEnvs()
   })
 
   it('exibe erro amigável no login quando credenciais são inválidas', async () => {
@@ -37,7 +38,35 @@ describe('auth forms', () => {
     await screen.findByText('Email ou senha inválidos')
   })
 
-  it('envia recuperação de senha e exibe token de teste', async () => {
+  it('envia recuperação de senha e não exibe token por padrão', async () => {
+    server.use(
+      http.post('*/auth/forgot-password', () =>
+        ok({
+          message: 'Instruções enviadas para o email informado.',
+          resetToken: 'token-teste-123',
+        }),
+      ),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/forgot-password'] })
+
+    await screen.findByRole('heading', { name: 'Recuperar senha' })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'demo@opafinance.fake' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar recuperação' }))
+
+    await screen.findByText('Instruções enviadas para o email informado.')
+    expect(screen.queryByText('token-teste-123')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Abrir redefinição com token' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('exibe token de teste quando VITE_SHOW_RESET_TOKEN está habilitado', async () => {
+    vi.stubEnv('VITE_SHOW_RESET_TOKEN', 'true')
+
     server.use(
       http.post('*/auth/forgot-password', () =>
         ok({

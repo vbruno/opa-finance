@@ -14,6 +14,23 @@ const STORAGE_KEY_USER = 'opa-finance:user'
 let currentUser: User | null = loadUser()
 let accessToken: string | null = loadToken()
 
+const listeners = new Set<() => void>()
+
+function notify() {
+  listeners.forEach((l) => l())
+}
+
+export function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+export function getSnapshot() {
+  return currentUser
+}
+
 function isValidToken(value: string | null): value is string {
   if (!value) return false
   const normalized = value.trim()
@@ -97,6 +114,7 @@ export function setAuth(token: string, user: User) {
   currentUser = user
   saveToken(token)
   saveUser(user)
+  notify()
 }
 
 export function setAccessToken(token: string) {
@@ -113,6 +131,7 @@ export function setAccessToken(token: string) {
 export function updateUser(user: User | null) {
   currentUser = user
   saveUser(user)
+  notify()
 }
 
 export function logout() {
@@ -121,6 +140,7 @@ export function logout() {
   saveToken(null)
   saveUser(null)
   queryClient.clear()
+  notify()
 }
 
 export function isAuthenticated() {
