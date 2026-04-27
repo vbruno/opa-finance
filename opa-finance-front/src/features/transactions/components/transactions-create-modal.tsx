@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type KeyboardEventHandler,
-  type PropsWithChildren,
 } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
@@ -59,7 +58,7 @@ type CategoryTreeOption = {
   level: 'category' | 'subcategory'
 }
 
-type TransactionsCreateModalAutonomousProps = {
+type TransactionsCreateModalProps = {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
@@ -72,54 +71,12 @@ type TransactionsCreateModalAutonomousProps = {
   onDraftHandled?: () => void
 }
 
-type TransactionsCreateModalLegacyProps = PropsWithChildren<{
-  isOpen: boolean
-  onClose: () => void
-}>
-
-type TransactionsCreateModalProps =
-  | TransactionsCreateModalAutonomousProps
-  | TransactionsCreateModalLegacyProps
-
 const CREATE_CATEGORY_TREE_NONE = '__none__'
 const CREATE_CATEGORY_TREE_CREATE_CATEGORY = '__create_category__'
 const CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY = '__create_subcategory__'
 
-export function TransactionsCreateModal(props: TransactionsCreateModalProps) {
-  if ('children' in props) {
-    return <TransactionsCreateModalLegacy {...props} />
-  }
-
-  return (
-    <TransactionsCreateModalAutonomous
-      {...(props as TransactionsCreateModalAutonomousProps)}
-    />
-  )
-}
-
-function TransactionsCreateModalLegacy(props: TransactionsCreateModalLegacyProps) {
-  if (!props.isOpen) {
-    return null
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={props.onClose} />
-      <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-lg border bg-background p-4 shadow-lg sm:p-6">
-        <div>
-          <h3 className="text-lg font-semibold">Nova transação</h3>
-          <p className="text-sm text-muted-foreground">
-            Preencha os dados para registrar uma nova transação.
-          </p>
-        </div>
-        {props.children}
-      </div>
-    </div>
-  )
-}
-
-function TransactionsCreateModalAutonomous(
-  props: TransactionsCreateModalAutonomousProps,
+export function TransactionsCreateModal(
+  props: TransactionsCreateModalProps,
 ) {
   const {
     isOpen,

@@ -3,36 +3,42 @@ import { describe, expect, it, vi } from 'vitest'
 import { TransactionsCreateModal } from '@/features/transactions/components/transactions-create-modal'
 import { fireEvent, renderWithProviders, screen } from '../../../../setup/render'
 
+const defaultProps = {
+  isOpen: true,
+  onClose: vi.fn(),
+  onSuccess: vi.fn(),
+  accounts: [],
+  categories: [],
+  availableCategories: [],
+}
+
 describe('TransactionsCreateModal', () => {
-  it('deve renderizar conteúdo quando aberto', () => {
+  it('não renderiza quando isOpen=false', () => {
     renderWithProviders(
-      <TransactionsCreateModal isOpen={true} onClose={() => {}}>
-        <div>Conteúdo teste</div>
-      </TransactionsCreateModal>,
+      <TransactionsCreateModal {...defaultProps} isOpen={false} />,
     )
-
-    expect(screen.getByText('Nova transação')).toBeInTheDocument()
-    expect(screen.getByText('Conteúdo teste')).toBeInTheDocument()
-  })
-
-  it('não deve renderizar quando fechado', () => {
-    renderWithProviders(
-      <TransactionsCreateModal isOpen={false} onClose={() => {}}>
-        <div>Conteúdo teste</div>
-      </TransactionsCreateModal>,
-    )
-
     expect(screen.queryByText('Nova transação')).not.toBeInTheDocument()
   })
 
-  it('deve chamar onClose ao clicar no backdrop', () => {
+  it('renderiza título quando isOpen=true', () => {
+    renderWithProviders(<TransactionsCreateModal {...defaultProps} />)
+    expect(screen.getByRole('heading', { name: 'Nova transação' })).toBeInTheDocument()
+  })
+
+  it('renderiza campos principais do formulário', () => {
+    renderWithProviders(<TransactionsCreateModal {...defaultProps} />)
+    expect(screen.getByText('Conta')).toBeInTheDocument()
+    expect(screen.getByText('Data')).toBeInTheDocument()
+    expect(screen.getByText('Categoria/Subcategoria')).toBeInTheDocument()
+    expect(screen.getByText('Valor')).toBeInTheDocument()
+    expect(screen.getByText('Descrição')).toBeInTheDocument()
+  })
+
+  it('chama onClose ao clicar no backdrop', () => {
     const onClose = vi.fn()
     const { container } = renderWithProviders(
-      <TransactionsCreateModal isOpen={true} onClose={onClose}>
-        <div>Conteúdo teste</div>
-      </TransactionsCreateModal>,
+      <TransactionsCreateModal {...defaultProps} onClose={onClose} />,
     )
-
     const backdrops = container.querySelectorAll('div.fixed.inset-0')
     expect(backdrops.length).toBeGreaterThanOrEqual(2)
     fireEvent.click(backdrops[1] as HTMLElement)
