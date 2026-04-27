@@ -1,9 +1,7 @@
-import { useForm } from 'react-hook-form'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TransactionsEditModal } from '@/features/transactions/components/transactions-edit-modal'
 import type { Transaction } from '@/features/transactions/transactions.api'
-import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 import { fireEvent, renderWithProviders, screen } from '../../../../setup/render'
 
 const tx: Transaction = {
@@ -24,90 +22,52 @@ const tx: Transaction = {
   createdAt: '2026-03-01T00:00:00.000Z',
 }
 
-function EditHarness({
-  onClose,
-  transaction = tx,
-}: {
-  onClose: () => void
-  transaction?: Transaction
-}) {
-  const form = useForm<TransactionCreateFormData>({
-    defaultValues: {
-      accountId: 'acc-1',
-      categoryId: 'cat-1',
-      subcategoryId: '',
-      type: 'expense',
-      amount: '265',
-      date: '2026-03-01',
-      description: 'Aluguel',
-      notes: '',
-    },
-  })
-
-  return (
-    <TransactionsEditModal
-      isOpen={true}
-      selectedTransaction={transaction}
-      editControl={form.control}
-      editRegister={form.register}
-      editErrors={form.formState.errors}
-      clearEditErrors={() => {}}
-      editType="expense"
-      isMobile={false}
-      accounts={[]}
-      isEditSubmitting={false}
-      isEditAccountSelectOpen={false}
-      setIsEditAccountSelectOpen={() => {}}
-      isEditCategoryTreeOpen={false}
-      editCategoryTreeSearch=""
-      setEditCategoryTreeSearch={() => {}}
-      editCategoryTreeOptions={[]}
-      editCategoryTreeContentRef={{ current: null }}
-      editCategoryTreeSearchInputRef={{ current: null }}
-      editAmountRef={{ current: null }}
-      getEditCategoryTreeValue={() => '__none__'}
-      handleEditCategoryTreeValueChange={() => {}}
-      handleEditCategoryTreeOpenChange={() => {}}
-      handleEditCategoryTreeSearchKeyDown={() => {}}
-      handleEditCategoryTreeItemKeyDown={() => {}}
-      handleTransactionAmountChange={() => {}}
-      onSubmit={(event) => event.preventDefault()}
-      onClose={onClose}
-      onDateFocus={() => {}}
-      onDateClick={() => {}}
-      onDateKeyDown={() => {}}
-      onDatePaste={() => {}}
-      createCategoryTreeNoneValue="__none__"
-      createCategoryTreeCreateCategoryValue="__create_category__"
-      createCategoryTreeCreateSubcategoryValue="__create_subcategory__"
-    />
-  )
+const defaultProps = {
+  isOpen: true,
+  onClose: vi.fn(),
+  onSuccess: vi.fn(),
+  transaction: tx,
+  accounts: [],
+  categories: [],
+  availableCategories: [],
 }
 
 describe('TransactionsEditModal', () => {
-  it('deve renderizar e fechar pelo botão cancelar', () => {
-    const onClose = vi.fn()
-    renderWithProviders(<EditHarness onClose={onClose} />)
+  it('não renderiza quando isOpen=false', () => {
+    renderWithProviders(<TransactionsEditModal {...defaultProps} isOpen={false} />)
+    expect(screen.queryByText('Editar transação')).not.toBeInTheDocument()
+  })
 
-    expect(screen.getByText('Editar transação')).toBeInTheDocument()
+  it('renderiza título quando isOpen=true com transação', () => {
+    renderWithProviders(<TransactionsEditModal {...defaultProps} />)
+    expect(screen.getByRole('heading', { name: 'Editar transação' })).toBeInTheDocument()
+  })
+
+  it('chama onClose ao clicar no botão Cancelar', () => {
+    const onClose = vi.fn()
+    renderWithProviders(<TransactionsEditModal {...defaultProps} onClose={onClose} />)
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('deve manter categoria/subcategoria bloqueadas para transferência', () => {
-    const transferTransaction: Transaction = {
-      ...tx,
-      transferId: 'transfer-1',
-    }
-
-    renderWithProviders(
-      <EditHarness onClose={() => {}} transaction={transferTransaction} />,
+  it('chama onClose ao clicar no backdrop', () => {
+    const onClose = vi.fn()
+    const { container } = renderWithProviders(
+      <TransactionsEditModal {...defaultProps} onClose={onClose} />,
     )
+    const backdrops = container.querySelectorAll('div.fixed.inset-0')
+    expect(backdrops.length).toBeGreaterThanOrEqual(2)
+    fireEvent.click(backdrops[1] as HTMLElement)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 
+  it('bloqueia campo de categoria para transação de transferência', () => {
+    const transferTransaction: Transaction = { ...tx, transferId: 'transfer-1' }
+    renderWithProviders(
+      <TransactionsEditModal {...defaultProps} transaction={transferTransaction} />,
+    )
     expect(
-      screen.getByText(
-        'Categoria e subcategoria de transferências não podem ser alteradas.',
-      ),
+      screen.getByText('Categoria e subcategoria de transferências não podem ser alteradas.'),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('combobox', { name: /Categoria\/Subcategoria/i }),

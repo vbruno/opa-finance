@@ -4,10 +4,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ClipboardEvent,
-  type FocusEvent,
-  type KeyboardEvent,
-  type MouseEvent,
 } from 'react'
 import { Controller } from 'react-hook-form'
 
@@ -33,6 +29,9 @@ import {
 import { useCreateTransfer } from '@/features/transfers'
 import { sanitizeExpressionInput } from '@/lib/expression'
 import { formatCurrencyInput } from '@/lib/utils'
+
+import { TransactionAmountField } from './transaction-amount-field'
+import { TransactionDateField } from './transaction-date-field'
 
 export type TransactionsTransferModalRequest =
   | { mode: 'create' }
@@ -199,50 +198,6 @@ export function TransactionsTransferModal({
     submitTransferForm,
   ])
 
-  const handleDateFocus = useCallback(
-    (event: FocusEvent<HTMLInputElement>) => {
-      if (!isMobile) {
-        return
-      }
-      const input = event.currentTarget
-      if (typeof input.showPicker === 'function') {
-        input.showPicker()
-      }
-    },
-    [isMobile],
-  )
-
-  const handleDateClick = useCallback(
-    (event: MouseEvent<HTMLInputElement>) => {
-      const target = event.currentTarget
-      if (typeof target.showPicker !== 'function') {
-        return
-      }
-      if (isMobile || event.detail > 0) {
-        target.showPicker()
-      }
-    },
-    [isMobile],
-  )
-
-  const handleDateKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (isMobile) {
-        event.preventDefault()
-      }
-    },
-    [isMobile],
-  )
-
-  const handleDatePaste = useCallback(
-    (event: ClipboardEvent<HTMLInputElement>) => {
-      if (isMobile) {
-        event.preventDefault()
-      }
-    },
-    [isMobile],
-  )
-
   const handleTransferAmountChange = useCallback(
     (rawValue: string, onChange: (value: string) => void) => {
       if (rawValue.trimStart().startsWith('=')) {
@@ -385,61 +340,22 @@ export function TransactionsTransferModal({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="transfer-date">Data</Label>
-              <Input
-                id="transfer-date"
-                type="date"
-                className="h-10"
-                aria-invalid={!!transferForm.formState.errors.date}
-                onFocus={handleDateFocus}
-                inputMode={isMobile ? 'none' : undefined}
-                {...transferForm.register('date')}
-                onClick={handleDateClick}
-                onKeyDown={handleDateKeyDown}
-                onPaste={handleDatePaste}
-              />
-              {transferForm.formState.errors.date && (
-                <p className="text-sm text-destructive">
-                  {transferForm.formState.errors.date.message}
-                </p>
-              )}
-            </div>
+            <TransactionDateField
+              id="transfer-date"
+              register={transferForm.register}
+              errors={transferForm.formState.errors}
+              isMobile={isMobile}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="transfer-amount">Valor</Label>
-              <Controller
-                control={transferForm.control}
-                name="amount"
-                render={({ field }) => (
-                  <Input
-                    id="transfer-amount"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="$ 0,00"
-                    className="h-10"
-                    ref={transferAmountRef}
-                    value={field.value}
-                    onChange={(event) => {
-                      handleTransferAmountChange(event.target.value, field.onChange)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === '=') {
-                        event.preventDefault()
-                        field.onChange('=')
-                        transferForm.clearErrors('amount')
-                      }
-                    }}
-                    aria-invalid={!!transferForm.formState.errors.amount}
-                  />
-                )}
-              />
-              {transferForm.formState.errors.amount && (
-                <p className="text-sm text-destructive">
-                  {transferForm.formState.errors.amount.message}
-                </p>
-              )}
-            </div>
+            <TransactionAmountField
+              id="transfer-amount"
+              control={transferForm.control}
+              errors={transferForm.formState.errors}
+              amountRef={transferAmountRef}
+              onAmountChange={handleTransferAmountChange}
+              clearAmountError={() => transferForm.clearErrors('amount')}
+              inputMode="numeric"
+            />
           </div>
 
           <div className="space-y-2">

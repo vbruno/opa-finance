@@ -49,6 +49,10 @@ import {
   type TransactionCreateFormData,
 } from '@/schemas/transaction.schema'
 
+import { TransactionAmountField } from './transaction-amount-field'
+import { TransactionDateField } from './transaction-date-field'
+import { TransactionNotesField } from './transaction-notes-field'
+import { TransactionTypeField } from './transaction-type-field'
 import { TransactionsDescriptionAutocomplete } from './transactions-description-autocomplete'
 import { TransactionsInlineCategoryFlow } from './transactions-inline-category-flow'
 
@@ -796,58 +800,14 @@ export function TransactionsCreateModal(
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="transaction-date">Data</Label>
-                {(() => {
-                  const dateRegister = register('date')
-                  return (
-                    <Input
-                      id="transaction-date"
-                      type="date"
-                      className="h-10"
-                      aria-invalid={!!errors.date}
-                      onFocus={(event) => {
-                        if (!isMobile) {
-                          return
-                        }
-                        const input = event.currentTarget
-                        if (typeof input.showPicker === 'function') {
-                          input.showPicker()
-                        }
-                      }}
-                      inputMode={isMobile ? 'none' : undefined}
-                      tabIndex={6}
-                      {...dateRegister}
-                      ref={(element) => {
-                        dateRegister.ref(element)
-                        dateInputRef.current = element
-                      }}
-                      onClick={(event) => {
-                        const target = event.currentTarget
-                        if (typeof target.showPicker !== 'function') {
-                          return
-                        }
-                        if (isMobile || event.detail > 0) {
-                          target.showPicker()
-                        }
-                      }}
-                      onKeyDown={(event) => {
-                        if (isMobile) {
-                          event.preventDefault()
-                        }
-                      }}
-                      onPaste={(event) => {
-                        if (isMobile) {
-                          event.preventDefault()
-                        }
-                      }}
-                    />
-                  )
-                })()}
-                {errors.date && (
-                  <p className="text-sm text-destructive">{errors.date.message}</p>
-                )}
-              </div>
+              <TransactionDateField
+                id="transaction-date"
+                register={register}
+                errors={errors}
+                isMobile={isMobile}
+                tabIndex={6}
+                dateRef={dateInputRef}
+              />
             </div>
 
             <div className="grid gap-4">
@@ -940,67 +900,23 @@ export function TransactionsCreateModal(
             </div>
 
             <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              <div className="space-y-2">
-                <Label htmlFor="transaction-type">Tipo</Label>
-                <input type="hidden" {...register('type')} />
-                <Input
-                  id="transaction-type"
-                  className="h-10 cursor-not-allowed bg-muted/30"
-                  readOnly
-                  tabIndex={-1}
-                  placeholder="Receita/Despesa"
-                  aria-invalid={!!errors.type}
-                  value={
-                    createType === 'income'
-                      ? 'Receita'
-                      : createType === 'expense'
-                        ? 'Despesa'
-                        : ''
-                  }
-                />
-                {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
-              </div>
+              <TransactionTypeField
+                id="transaction-type"
+                register={register}
+                errors={errors}
+                type={createType}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="transaction-amount">Valor</Label>
-                <Controller
-                  control={control}
-                  name="amount"
-                  render={({ field }) => (
-                    <Input
-                      id="transaction-amount"
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="$ 0,00"
-                      className="h-10"
-                      ref={createAmountRef}
-                      value={field.value}
-                      onChange={(event) => {
-                        transactionForm.handleTransactionAmountChange(
-                          event.target.value,
-                          field.onChange,
-                        )
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === '=') {
-                          event.preventDefault()
-                          field.onChange('=')
-                          clearErrors('amount')
-                        }
-                      }}
-                      onBlur={() => {
-                        transactionForm.handleCreateAmountBlur(field.value, field.onChange)
-                        field.onBlur()
-                      }}
-                      aria-invalid={!!errors.amount}
-                      tabIndex={3}
-                    />
-                  )}
-                />
-                {errors.amount && (
-                  <p className="text-sm text-destructive">{errors.amount.message}</p>
-                )}
-              </div>
+              <TransactionAmountField
+                id="transaction-amount"
+                control={control}
+                errors={errors}
+                amountRef={createAmountRef}
+                onAmountChange={transactionForm.handleTransactionAmountChange}
+                clearAmountError={() => clearErrors('amount')}
+                onAmountBlur={transactionForm.handleCreateAmountBlur}
+                tabIndex={3}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1031,18 +947,12 @@ export function TransactionsCreateModal(
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="transaction-notes">Notas</Label>
-              <Input
-                id="transaction-notes"
-                placeholder="Opcional"
-                className="h-10"
-                aria-invalid={!!errors.notes}
-                tabIndex={2}
-                {...register('notes')}
-              />
-              {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
-            </div>
+            <TransactionNotesField
+              id="transaction-notes"
+              register={register}
+              errors={errors}
+              tabIndex={2}
+            />
 
             <div className="rounded-md border border-border/70 bg-muted/20 p-3">
               <label className="flex items-center gap-2 text-sm font-medium">
