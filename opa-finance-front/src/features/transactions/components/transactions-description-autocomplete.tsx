@@ -2,8 +2,6 @@ import type { Dispatch, RefObject, SetStateAction } from 'react'
 import type { UseFormRegisterReturn } from 'react-hook-form'
 
 import { Input } from '@/components/ui/input'
-import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
-
 type TransactionsDescriptionAutocompleteProps = {
   id?: string
   descriptionRegister: UseFormRegisterReturn<'description'>
@@ -19,8 +17,9 @@ type TransactionsDescriptionAutocompleteProps = {
   setIsDescriptionFocused: Dispatch<SetStateAction<boolean>>
   activeSuggestionIndex: number
   setActiveSuggestionIndex: Dispatch<SetStateAction<number>>
+  enableSuggestions?: boolean
   setValue: (
-    name: keyof TransactionCreateFormData,
+    name: 'description',
     value: string,
     options?: { shouldDirty?: boolean; shouldTouch?: boolean },
   ) => void
@@ -41,6 +40,7 @@ export function TransactionsDescriptionAutocomplete({
   setIsDescriptionFocused,
   activeSuggestionIndex,
   setActiveSuggestionIndex,
+  enableSuggestions = true,
   setValue,
 }: TransactionsDescriptionAutocompleteProps) {
   return (
@@ -59,7 +59,9 @@ export function TransactionsDescriptionAutocomplete({
         }}
         onFocus={() => {
           setIsDescriptionFocused(true)
-          setIsDescriptionSuggestionsOpen(true)
+          if (enableSuggestions) {
+            setIsDescriptionSuggestionsOpen(true)
+          }
         }}
         onBlur={(event) => {
           descriptionRegister.onBlur(event)
@@ -68,11 +70,18 @@ export function TransactionsDescriptionAutocomplete({
         }}
         onChange={(event) => {
           descriptionRegister.onChange(event)
-          if (isDescriptionFocused && event.target.value.includes(' ')) {
+          if (
+            enableSuggestions &&
+            isDescriptionFocused &&
+            event.target.value.includes(' ')
+          ) {
             setIsDescriptionSuggestionsOpen(true)
           }
         }}
         onKeyDown={(event) => {
+          if (!enableSuggestions) {
+            return
+          }
           if (!isDescriptionSuggestionsOpen) {
             return
           }
@@ -108,7 +117,7 @@ export function TransactionsDescriptionAutocomplete({
           }
         }}
       />
-      {isDescriptionSuggestionsOpen && (
+      {enableSuggestions && isDescriptionSuggestionsOpen && (
         <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg">
           {areDescriptionSuggestionsLoading ? (
             <div className="px-3 py-2 text-sm text-muted-foreground">

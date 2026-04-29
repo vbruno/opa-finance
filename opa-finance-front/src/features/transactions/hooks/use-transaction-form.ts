@@ -2,12 +2,6 @@ import { useCallback } from 'react'
 
 import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { sanitizeExpressionInput } from '@/lib/expression'
-import {
-  formatCurrencyInput,
-  formatCurrencyValue,
-  parseCurrencyInput,
-} from '@/lib/utils'
 import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 
 import {
@@ -15,10 +9,7 @@ import {
   buildTransactionCreatePayloadFromForm,
   buildTransactionUpdatePayloadFromForm,
 } from '../mappers/transaction-payload.mapper'
-import type {
-  SetTransactionAmountValue,
-  TransactionRecurrenceDraft,
-} from '../model/transactions.types'
+import type { TransactionRecurrenceDraft } from '../model/transactions.types'
 import type {
   Transaction,
   TransactionCreatePayload,
@@ -45,8 +36,6 @@ type UseTransactionFormCreateInput = UseTransactionFormInput & {
   deleteTransaction: (id: string) => Promise<unknown>
   onCreateSuccess: () => void
   setCreateRootError: (message: string) => void
-  setCreateAmountError: (message: string) => void
-  clearCreateAmountError: () => void
 }
 
 type UseTransactionFormEditInput = UseTransactionFormInput & {
@@ -64,39 +53,6 @@ export function useTransactionForm(input: UseTransactionFormInputUnion) {
     onEditSuccess,
     setEditRootError,
   } = input
-
-  const handleTransactionAmountChange = useCallback(
-    (rawValue: string, onChange: SetTransactionAmountValue) => {
-      if (rawValue.trimStart().startsWith('=')) {
-        onChange(sanitizeExpressionInput(rawValue))
-        return
-      }
-      onChange(formatCurrencyInput(rawValue))
-    },
-    [],
-  )
-
-  const handleCreateAmountBlur = useCallback(
-    (value: string, onChange: SetTransactionAmountValue) => {
-      if (input.mode !== 'create') {
-        return
-      }
-      const trimmed = value.trim()
-      if (!trimmed.startsWith('=')) {
-        return
-      }
-
-      const parsed = parseCurrencyInput(trimmed)
-      if (parsed === null || Number.isNaN(parsed) || parsed <= 0) {
-        input.setCreateAmountError('Informe uma expressão válida.')
-        return
-      }
-
-      onChange(`$ ${formatCurrencyValue(parsed)}`)
-      input.clearCreateAmountError()
-    },
-    [input],
-  )
 
   const onSubmit = useCallback(
     async (formData: TransactionCreateFormData) => {
@@ -190,8 +146,6 @@ export function useTransactionForm(input: UseTransactionFormInputUnion) {
   )
 
   return {
-    handleTransactionAmountChange,
-    handleCreateAmountBlur,
     onSubmit,
   }
 }

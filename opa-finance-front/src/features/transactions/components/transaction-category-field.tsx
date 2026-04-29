@@ -38,6 +38,7 @@ type TransactionCategoryFieldProps = {
   tabIndex?: number
   disabled?: boolean
   disabledMessage?: string
+  allowInlineCreate?: boolean
   getCategoryTreeValue: () => string
   onValueChange: (value: string, onChange: (value: string) => void) => void
   onOpenChange: (open: boolean) => void
@@ -59,6 +60,7 @@ export function TransactionCategoryField({
   tabIndex,
   disabled,
   disabledMessage,
+  allowInlineCreate = true,
   getCategoryTreeValue,
   onValueChange,
   onOpenChange,
@@ -123,20 +125,24 @@ export function TransactionCategoryField({
               <SelectItem value={CATEGORY_TREE_NONE} className="hidden" textValue="none">
                 Selecione
               </SelectItem>
-              <SelectItem
-                value={CATEGORY_TREE_CREATE}
-                onKeyDown={onItemKeyDown}
-                textValue="create-category"
-              >
-                + Nova categoria
-              </SelectItem>
-              <SelectItem
-                value={CATEGORY_TREE_CREATE_SUB}
-                onKeyDown={onItemKeyDown}
-                textValue="create-subcategory"
-              >
-                + Nova subcategoria
-              </SelectItem>
+              {allowInlineCreate ? (
+                <>
+                  <SelectItem
+                    value={CATEGORY_TREE_CREATE}
+                    onKeyDown={onItemKeyDown}
+                    textValue="create-category"
+                  >
+                    + Nova categoria
+                  </SelectItem>
+                  <SelectItem
+                    value={CATEGORY_TREE_CREATE_SUB}
+                    onKeyDown={onItemKeyDown}
+                    textValue="create-subcategory"
+                  >
+                    + Nova subcategoria
+                  </SelectItem>
+                </>
+              ) : null}
               {options.map((option, optionIndex) => (
                 <SelectItem
                   key={option.value}

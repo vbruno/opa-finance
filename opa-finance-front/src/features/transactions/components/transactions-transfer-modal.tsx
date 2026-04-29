@@ -1,6 +1,5 @@
 import { ArrowLeftRight } from 'lucide-react'
 import {
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -26,8 +25,6 @@ import {
   useUpdateTransaction,
 } from '@/features/transactions'
 import { useCreateTransfer } from '@/features/transfers'
-import { sanitizeExpressionInput } from '@/lib/expression'
-import { formatCurrencyInput } from '@/lib/utils'
 
 import { TransactionAccountField } from './transaction-account-field'
 import { TransactionAmountField } from './transaction-amount-field'
@@ -198,17 +195,6 @@ export function TransactionsTransferModal({
     submitTransferForm,
   ])
 
-  const handleTransferAmountChange = useCallback(
-    (rawValue: string, onChange: (value: string) => void) => {
-      if (rawValue.trimStart().startsWith('=')) {
-        onChange(sanitizeExpressionInput(rawValue))
-        return
-      }
-      onChange(formatCurrencyInput(rawValue))
-    },
-    [],
-  )
-
   if (!isOpen) {
     return null
   }
@@ -280,8 +266,10 @@ export function TransactionsTransferModal({
               control={transferForm.control}
               errors={transferForm.formState.errors}
               amountRef={transferAmountRef}
-              onAmountChange={handleTransferAmountChange}
               clearAmountError={() => transferForm.clearErrors('amount')}
+              setAmountError={(message) => {
+                transferForm.setError('amount', { type: 'manual', message })
+              }}
               inputMode="numeric"
             />
           </div>

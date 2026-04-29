@@ -10,7 +10,7 @@ import {
   RECURRENCE_STATUS_LABELS,
 } from '@/features/recurrences/model/recurrences.constants'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { parseCurrencyInput } from '@/lib/utils'
+import { formatCurrencyValue, parseCurrencyInput } from '@/lib/utils'
 import type { RecurrenceFormData } from '@/schemas/recurrence.schema'
 
 export function getDefaultRecurrenceFormValues(
@@ -57,7 +57,7 @@ export function getRecurrenceFormValuesFromEntity(
     subcategoryId: recurrence.subcategoryId ?? '',
     fromAccountId: recurrence.fromAccountId ?? '',
     toAccountId: recurrence.toAccountId ?? '',
-    amount: recurrence.amount.toString().replace('.', ','),
+    amount: `$ ${formatCurrencyValue(recurrence.amount)}`,
     description: recurrence.description ?? '',
     notes: recurrence.notes ?? '',
     editScope: 'all',

@@ -6,30 +6,39 @@ import { Label } from '@/components/ui/label'
 
 type TransactionDateFieldProps = {
   id: string
+  label?: string
+  fieldName?: string
   register: UseFormRegister<any>
   errors: FieldErrors<any>
   isMobile: boolean
   tabIndex?: number
   dateRef?: RefObject<HTMLInputElement | null>
+  disabled?: boolean
 }
 
 export function TransactionDateField({
   id,
+  label = 'Data',
+  fieldName = 'date',
   register,
   errors,
   isMobile,
   tabIndex,
   dateRef,
+  disabled,
 }: TransactionDateFieldProps) {
-  const dateRegister = register('date')
+  const dateRegister = register(fieldName)
+  const error = errors[fieldName]
+
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>Data</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
         type="date"
         className="h-10"
-        aria-invalid={!!errors.date}
+        aria-invalid={!!error}
+        disabled={disabled}
         onFocus={(event) => {
           if (!isMobile) return
           const input = event.currentTarget
@@ -54,8 +63,8 @@ export function TransactionDateField({
           if (isMobile) event.preventDefault()
         }}
       />
-      {errors.date && (
-        <p className="text-sm text-destructive">{String(errors.date.message)}</p>
+      {error && (
+        <p className="text-sm text-destructive">{String(error.message)}</p>
       )}
     </div>
   )

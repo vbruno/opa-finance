@@ -463,8 +463,10 @@ export function TransactionsEditModal(
                 control={control}
                 errors={errors}
                 amountRef={editAmountRef}
-                onAmountChange={transactionForm.handleTransactionAmountChange}
                 clearAmountError={() => clearErrors('amount')}
+                setAmountError={(message) => {
+                  setError('amount', { type: 'manual', message })
+                }}
                 tabIndex={3}
                 inputMode="numeric"
               />

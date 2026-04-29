@@ -2,7 +2,6 @@ import type { Dispatch, RefObject, SetStateAction } from 'react'
 import type { FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form'
 
 import { Label } from '@/components/ui/label'
-import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 
 import { TransactionsDescriptionAutocomplete } from './transactions-description-autocomplete'
 
@@ -11,7 +10,7 @@ type TransactionDescriptionFieldProps = {
   register: UseFormRegister<any>
   errors: FieldErrors<any>
   descriptionInputRef: RefObject<HTMLInputElement | null>
-  setValue: UseFormSetValue<TransactionCreateFormData>
+  setValue: UseFormSetValue<any>
   descriptionSuggestions: string[]
   areDescriptionSuggestionsLoading: boolean
   hasDescriptionSuggestionsError: boolean
@@ -22,6 +21,7 @@ type TransactionDescriptionFieldProps = {
   setIsDescriptionFocused: Dispatch<SetStateAction<boolean>>
   activeSuggestionIndex: number
   setActiveSuggestionIndex: Dispatch<SetStateAction<number>>
+  enableSuggestions?: boolean
 }
 
 export function TransactionDescriptionField({
@@ -40,6 +40,7 @@ export function TransactionDescriptionField({
   setIsDescriptionFocused,
   activeSuggestionIndex,
   setActiveSuggestionIndex,
+  enableSuggestions,
 }: TransactionDescriptionFieldProps) {
   const descriptionRegister = register('description')
   return (
@@ -60,6 +61,7 @@ export function TransactionDescriptionField({
         setIsDescriptionFocused={setIsDescriptionFocused}
         activeSuggestionIndex={activeSuggestionIndex}
         setActiveSuggestionIndex={setActiveSuggestionIndex}
+        enableSuggestions={enableSuggestions}
         setValue={setValue}
       />
       {errors.description && (

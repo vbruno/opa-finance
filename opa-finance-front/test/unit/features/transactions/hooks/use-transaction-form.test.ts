@@ -24,8 +24,6 @@ function makeHook() {
   const onEditSuccess = vi.fn()
   const setCreateRootError = vi.fn()
   const setEditRootError = vi.fn()
-  const setCreateAmountError = vi.fn()
-  const clearCreateAmountError = vi.fn()
 
   const hook = renderHook(() =>
     useTransactionForm({
@@ -50,8 +48,6 @@ function makeHook() {
       onEditSuccess,
       setCreateRootError,
       setEditRootError,
-      setCreateAmountError,
-      clearCreateAmountError,
     }),
   )
 
@@ -65,23 +61,10 @@ function makeHook() {
     onEditSuccess,
     setCreateRootError,
     setEditRootError,
-    setCreateAmountError,
-    clearCreateAmountError,
   }
 }
 
 describe('useTransactionForm', () => {
-  it('deve validar expressão inválida no blur do valor', () => {
-    const { hook, setCreateAmountError } = makeHook()
-    const onChange = vi.fn()
-
-    act(() => {
-      hook.result.current.handleCreateAmountBlur('=2+(', onChange)
-    })
-
-    expect(setCreateAmountError).toHaveBeenCalled()
-  })
-
   it('deve executar create e chamar onCreateSuccess', async () => {
     const { hook, createTransaction, onCreateSuccess } = makeHook()
 
@@ -143,8 +126,6 @@ describe('useTransactionForm', () => {
           onEditSuccess: vi.fn(),
           setCreateRootError: vi.fn(),
           setEditRootError: vi.fn(),
-          setCreateAmountError: vi.fn(),
-          clearCreateAmountError: vi.fn(),
         }),
       )
 

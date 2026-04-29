@@ -245,12 +245,6 @@ export function TransactionsCreateModal(
       setError('root', { message })
     },
     setEditRootError: () => {},
-    setCreateAmountError: (message) => {
-      setError('amount', { type: 'manual', message })
-    },
-    clearCreateAmountError: () => {
-      clearErrors('amount')
-    },
   })
 
   const { submitCreateCategory, submitCreateSubcategory } =
@@ -623,9 +617,10 @@ export function TransactionsCreateModal(
                 control={control}
                 errors={errors}
                 amountRef={createAmountRef}
-                onAmountChange={transactionForm.handleTransactionAmountChange}
                 clearAmountError={() => clearErrors('amount')}
-                onAmountBlur={transactionForm.handleCreateAmountBlur}
+                setAmountError={(message) => {
+                  setError('amount', { type: 'manual', message })
+                }}
                 tabIndex={3}
               />
             </div>

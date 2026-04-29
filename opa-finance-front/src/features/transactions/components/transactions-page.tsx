@@ -644,12 +644,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setEditRootError: (message) => {
       setEditError('root', { message })
     },
-    setCreateAmountError: (message) => {
-      setError('amount', { type: 'manual', message })
-    },
-    clearCreateAmountError: () => {
-      clearErrors('amount')
-    },
   })
   const editTransactionForm = useTransactionForm({
     mode: 'edit',
