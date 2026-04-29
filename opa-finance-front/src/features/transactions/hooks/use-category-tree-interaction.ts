@@ -13,7 +13,7 @@ type UseCategoryTreeInteractionParams = {
   setIsOpen: (open: boolean) => void
   setIsCreateCategoryOpen: (open: boolean) => void
   setIsCreateSubcategoryOpen: (open: boolean) => void
-  setValue: (name: string, value: string, options?: { shouldDirty?: boolean; shouldTouch?: boolean }) => void
+  setValue: (name: 'subcategoryId', value: string, options?: { shouldDirty?: boolean; shouldTouch?: boolean }) => void
   lastCategoryId: MutableRefObject<string | null>
 }
 
