@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Controller } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +29,7 @@ import { useCreateTransfer } from '@/features/transfers'
 import { sanitizeExpressionInput } from '@/lib/expression'
 import { formatCurrencyInput } from '@/lib/utils'
 
+import { TransactionAccountField } from './transaction-account-field'
 import { TransactionAmountField } from './transaction-amount-field'
 import { TransactionDateField } from './transaction-date-field'
 
@@ -230,52 +230,16 @@ export function TransactionsTransferModal({
 
         <form className="mt-6 space-y-4" onSubmit={submitTransferForm}>
           <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-            <div className="space-y-2">
-              <Label htmlFor="transfer-from-account">Conta de origem</Label>
-              <Controller
-                control={transferForm.control}
-                name="fromAccountId"
-                render={({ field }) => (
-                  <Select
-                    open={isTransferFromAccountSelectOpen}
-                    value={field.value ? field.value : '__none__'}
-                    onValueChange={(value) =>
-                      field.onChange(value === '__none__' ? '' : value)
-                    }
-                    onOpenChange={setIsTransferFromAccountSelectOpen}
-                  >
-                    <SelectTrigger
-                      id="transfer-from-account"
-                      className="h-10"
-                      aria-invalid={!!transferForm.formState.errors.fromAccountId}
-                    >
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent
-                      onEscapeKeyDown={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setIsTransferFromAccountSelectOpen(false)
-                      }}
-                    >
-                      <SelectItem value="__none__" className="hidden">
-                        Selecione
-                      </SelectItem>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {transferForm.formState.errors.fromAccountId && (
-                <p className="text-sm text-destructive">
-                  {transferForm.formState.errors.fromAccountId.message}
-                </p>
-              )}
-            </div>
+            <TransactionAccountField
+              id="transfer-from-account"
+              label="Conta de origem"
+              fieldName="fromAccountId"
+              control={transferForm.control}
+              errors={transferForm.formState.errors}
+              accounts={accounts}
+              isOpen={isTransferFromAccountSelectOpen}
+              onOpenChange={setIsTransferFromAccountSelectOpen}
+            />
 
             <div className="flex items-center justify-center sm:pb-1">
               <Button
@@ -291,52 +255,16 @@ export function TransactionsTransferModal({
               </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="transfer-to-account">Conta de destino</Label>
-              <Controller
-                control={transferForm.control}
-                name="toAccountId"
-                render={({ field }) => (
-                  <Select
-                    open={isTransferToAccountSelectOpen}
-                    value={field.value ? field.value : '__none__'}
-                    onValueChange={(value) =>
-                      field.onChange(value === '__none__' ? '' : value)
-                    }
-                    onOpenChange={setIsTransferToAccountSelectOpen}
-                  >
-                    <SelectTrigger
-                      id="transfer-to-account"
-                      className="h-10"
-                      aria-invalid={!!transferForm.formState.errors.toAccountId}
-                    >
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent
-                      onEscapeKeyDown={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setIsTransferToAccountSelectOpen(false)
-                      }}
-                    >
-                      <SelectItem value="__none__" className="hidden">
-                        Selecione
-                      </SelectItem>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {transferForm.formState.errors.toAccountId && (
-                <p className="text-sm text-destructive">
-                  {transferForm.formState.errors.toAccountId.message}
-                </p>
-              )}
-            </div>
+            <TransactionAccountField
+              id="transfer-to-account"
+              label="Conta de destino"
+              fieldName="toAccountId"
+              control={transferForm.control}
+              errors={transferForm.formState.errors}
+              accounts={accounts}
+              isOpen={isTransferToAccountSelectOpen}
+              onOpenChange={setIsTransferToAccountSelectOpen}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

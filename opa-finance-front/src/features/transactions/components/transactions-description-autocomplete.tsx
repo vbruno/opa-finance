@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 
 type TransactionsDescriptionAutocompleteProps = {
+  id?: string
   descriptionRegister: UseFormRegisterReturn<'description'>
   descriptionInputRef: RefObject<HTMLInputElement | null>
   isInvalid: boolean
@@ -26,6 +27,7 @@ type TransactionsDescriptionAutocompleteProps = {
 }
 
 export function TransactionsDescriptionAutocomplete({
+  id = 'transaction-description',
   descriptionRegister,
   descriptionInputRef,
   isInvalid,
@@ -44,7 +46,7 @@ export function TransactionsDescriptionAutocomplete({
   return (
     <div className="relative">
       <Input
-        id="transaction-description"
+        id={id}
         placeholder="Ex: Supermercado"
         className="h-10"
         autoComplete="off"

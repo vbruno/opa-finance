@@ -4,9 +4,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEventHandler,
 } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,18 +48,17 @@ import {
   type TransactionCreateFormData,
 } from '@/schemas/transaction.schema'
 
+import { useCategoryTreeInteraction } from '../hooks/use-category-tree-interaction'
+
+import { TransactionAccountField } from './transaction-account-field'
 import { TransactionAmountField } from './transaction-amount-field'
+import { TransactionCategoryField } from './transaction-category-field'
 import { TransactionDateField } from './transaction-date-field'
+import { TransactionDescriptionField } from './transaction-description-field'
 import { TransactionNotesField } from './transaction-notes-field'
 import { TransactionTypeField } from './transaction-type-field'
-import { TransactionsDescriptionAutocomplete } from './transactions-description-autocomplete'
 import { TransactionsInlineCategoryFlow } from './transactions-inline-category-flow'
 
-type CategoryTreeOption = {
-  value: string
-  label: string
-  level: 'category' | 'subcategory'
-}
 
 type TransactionsCreateModalProps = {
   isOpen: boolean
@@ -75,9 +73,6 @@ type TransactionsCreateModalProps = {
   onDraftHandled?: () => void
 }
 
-const CREATE_CATEGORY_TREE_NONE = '__none__'
-const CREATE_CATEGORY_TREE_CREATE_CATEGORY = '__create_category__'
-const CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY = '__create_subcategory__'
 
 export function TransactionsCreateModal(
   props: TransactionsCreateModalProps,
@@ -533,205 +528,24 @@ export function TransactionsCreateModal(
     transactionForm.onSubmit,
   ])
 
-  const findVisibleSiblingOption = (
-    element: HTMLElement,
-    direction: 'prev' | 'next',
-  ) => {
-    let sibling: Element | null =
-      direction === 'prev'
-        ? element.previousElementSibling
-        : element.nextElementSibling
-
-    while (sibling) {
-      if (
-        sibling instanceof HTMLElement &&
-        sibling.getAttribute('role') === 'option' &&
-        sibling.offsetParent !== null &&
-        sibling.getAttribute('aria-disabled') !== 'true' &&
-        !sibling.hasAttribute('data-disabled')
-      ) {
-        return sibling
-      }
-      sibling =
-        direction === 'prev'
-          ? sibling.previousElementSibling
-          : sibling.nextElementSibling
-    }
-
-    return null
-  }
-
-  const focusCreateCategoryOption = (direction: 'up' | 'down') => {
-    const content = createCategoryTreeContentRef.current
-    if (!content) {
-      return
-    }
-
-    const options = Array.from(
-      content.querySelectorAll<HTMLElement>('[role="option"]'),
-    ).filter(
-      (option) =>
-        option.offsetParent !== null &&
-        option.getAttribute('aria-disabled') !== 'true' &&
-        !option.hasAttribute('data-disabled'),
-    )
-
-    if (options.length === 0) {
-      return
-    }
-
-    const selectedIndex = options.findIndex(
-      (option) =>
-        option.getAttribute('aria-selected') === 'true' ||
-        option.getAttribute('data-state') === 'checked',
-    )
-
-    const nextIndex =
-      selectedIndex === -1
-        ? direction === 'down'
-          ? 0
-          : options.length - 1
-        : direction === 'down'
-          ? Math.min(selectedIndex + 1, options.length - 1)
-          : Math.max(selectedIndex - 1, 0)
-
-    options[nextIndex]?.focus({ preventScroll: true })
-  }
-
-  const getCreateCategoryTreeValue = () => {
-    if (!createCategoryId) {
-      return CREATE_CATEGORY_TREE_NONE
-    }
-    if (createSubcategoryId) {
-      return `subcategory:${createCategoryId}:${createSubcategoryId}`
-    }
-    return `category:${createCategoryId}`
-  }
-
-  const handleCreateCategoryTreeOpenChange = (open: boolean) => {
-    setIsCreateCategoryTreeOpen(open)
-    if (!open) {
-      setCreateCategoryTreeSearch('')
-      return
-    }
-    window.requestAnimationFrame(() => {
-      createCategoryTreeSearchInputRef.current?.focus()
-    })
-  }
-
-  const handleCreateCategoryTreeSelectValueChange = (
-    value: string,
-    onCategoryChange: (value: string) => void,
-  ) => {
-    if (value === CREATE_CATEGORY_TREE_CREATE_CATEGORY) {
-      setCreateCategoryTreeSearch('')
-      setIsCreateCategoryOpen(true)
-      return
-    }
-    if (value === CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY) {
-      setCreateCategoryTreeSearch('')
-      setIsCreateSubcategoryOpen(true)
-      return
-    }
-    if (value === CREATE_CATEGORY_TREE_NONE) {
-      setCreateCategoryTreeSearch('')
-      onCategoryChange('')
-      setValue('subcategoryId', '', {
-        shouldDirty: true,
-        shouldTouch: true,
-      })
-      return
-    }
-
-    setCreateCategoryTreeSearch('')
-    if (value.startsWith('subcategory:')) {
-      const [, categoryId, subcategoryId] = value.split(':')
-      lastCreateCategoryId.current = categoryId ?? null
-      onCategoryChange(categoryId ?? '')
-      setValue('subcategoryId', subcategoryId ?? '', {
-        shouldDirty: true,
-        shouldTouch: true,
-      })
-      return
-    }
-
-    const [, categoryId] = value.split(':')
-    onCategoryChange(categoryId ?? '')
-    setValue('subcategoryId', '', {
-      shouldDirty: true,
-      shouldTouch: true,
-    })
-  }
-
-  const handleCreateCategoryTreeSearchKeyDown: KeyboardEventHandler<HTMLInputElement> =
-    (event) => {
-      if (event.key === 'Tab') {
-        event.preventDefault()
-        event.stopPropagation()
-        focusCreateCategoryOption(event.shiftKey ? 'up' : 'down')
-        return
-      }
-      if (event.key === 'ArrowDown') {
-        event.preventDefault()
-        event.stopPropagation()
-        focusCreateCategoryOption('down')
-        return
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault()
-        event.stopPropagation()
-        focusCreateCategoryOption('up')
-        return
-      }
-      if (event.key === 'Escape') {
-        return
-      }
-      const isTypingKey =
-        (event.key.length === 1 || event.key === 'Dead') &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      if (isTypingKey || event.key === 'Backspace' || event.key === 'Delete') {
-        event.stopPropagation()
-        event.nativeEvent.stopImmediatePropagation?.()
-        return
-      }
-      event.stopPropagation()
-    }
-
-  const handleCreateCategoryTreeItemKeyDown = (
-    event: Parameters<KeyboardEventHandler<HTMLDivElement>>[0],
-  ) => {
-    if (event.key === 'Backspace') {
-      event.preventDefault()
-      event.stopPropagation()
-      window.requestAnimationFrame(() => {
-        createCategoryTreeSearchInputRef.current?.focus()
-      })
-      return
-    }
-    const current = event.currentTarget as HTMLElement
-    if (event.key === 'ArrowDown') {
-      const nextOption = findVisibleSiblingOption(current, 'next')
-      if (nextOption) {
-        return
-      }
-      event.preventDefault()
-      event.stopPropagation()
-      createCategoryTreeSearchInputRef.current?.focus()
-      return
-    }
-    if (event.key !== 'ArrowUp') {
-      return
-    }
-    const previousOption = findVisibleSiblingOption(current, 'prev')
-    if (previousOption) {
-      return
-    }
-    event.preventDefault()
-    event.stopPropagation()
-    createCategoryTreeSearchInputRef.current?.focus()
-  }
+  const {
+    getCategoryTreeValue: getCreateCategoryTreeValue,
+    handleCategoryTreeOpenChange: handleCreateCategoryTreeOpenChange,
+    handleCategoryTreeSelectValueChange: handleCreateCategoryTreeSelectValueChange,
+    handleCategoryTreeSearchKeyDown: handleCreateCategoryTreeSearchKeyDown,
+    handleCategoryTreeItemKeyDown: handleCreateCategoryTreeItemKeyDown,
+  } = useCategoryTreeInteraction({
+    categoryId: createCategoryId,
+    subcategoryId: createSubcategoryId ?? '',
+    contentRef: createCategoryTreeContentRef,
+    searchInputRef: createCategoryTreeSearchInputRef,
+    setSearch: setCreateCategoryTreeSearch,
+    setIsOpen: setIsCreateCategoryTreeOpen,
+    setIsCreateCategoryOpen,
+    setIsCreateSubcategoryOpen,
+    setValue,
+    lastCategoryId: lastCreateCategoryId,
+  })
 
   if (!isOpen) {
     return null
@@ -754,51 +568,16 @@ export function TransactionsCreateModal(
             onSubmit={handleSubmit(transactionForm.onSubmit)}
           >
             <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              <div className="space-y-2">
-                <Label htmlFor="transaction-account">Conta</Label>
-                <Controller
-                  control={control}
-                  name="accountId"
-                  render={({ field }) => (
-                    <Select
-                      open={isCreateAccountSelectOpen}
-                      value={field.value ? field.value : '__none__'}
-                      onValueChange={(value) =>
-                        field.onChange(value === '__none__' ? '' : value)
-                      }
-                      onOpenChange={setIsCreateAccountSelectOpen}
-                    >
-                      <SelectTrigger
-                        id="transaction-account"
-                        className="h-10"
-                        aria-invalid={!!errors.accountId}
-                        tabIndex={7}
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent
-                        onEscapeKeyDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          setIsCreateAccountSelectOpen(false)
-                        }}
-                      >
-                        <SelectItem value="__none__" className="hidden">
-                          Selecione
-                        </SelectItem>
-                        {accounts.map((account: Account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.accountId && (
-                  <p className="text-sm text-destructive">{errors.accountId.message}</p>
-                )}
-              </div>
+              <TransactionAccountField
+                id="transaction-account"
+                label="Conta"
+                control={control}
+                errors={errors}
+                accounts={accounts}
+                isOpen={isCreateAccountSelectOpen}
+                onOpenChange={setIsCreateAccountSelectOpen}
+                tabIndex={7}
+              />
 
               <TransactionDateField
                 id="transaction-date"
@@ -811,92 +590,24 @@ export function TransactionsCreateModal(
             </div>
 
             <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="transaction-category">Categoria/Subcategoria</Label>
-                <Controller
-                  control={control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <Select
-                      open={isCreateCategoryTreeOpen}
-                      value={getCreateCategoryTreeValue()}
-                      onValueChange={(value) =>
-                        handleCreateCategoryTreeSelectValueChange(value, field.onChange)
-                      }
-                      onOpenChange={handleCreateCategoryTreeOpenChange}
-                    >
-                      <SelectTrigger
-                        id="transaction-category"
-                        className="h-10 [&>span]:truncate"
-                        aria-invalid={!!errors.categoryId}
-                        tabIndex={4}
-                        ref={createCategorySelectRef}
-                      >
-                        <SelectValue placeholder="Selecione categoria/subcategoria" />
-                      </SelectTrigger>
-                      <SelectContent
-                        ref={createCategoryTreeContentRef}
-                        onEscapeKeyDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          handleCreateCategoryTreeOpenChange(false)
-                        }}
-                      >
-                        <div className="px-2 pb-2">
-                          <Input
-                            placeholder="Buscar categoria ou subcategoria..."
-                            className="h-9"
-                            value={createCategoryTreeSearch}
-                            onChange={(event) => setCreateCategoryTreeSearch(event.target.value)}
-                            onKeyDown={handleCreateCategoryTreeSearchKeyDown}
-                            ref={createCategoryTreeSearchInputRef}
-                          />
-                        </div>
-                        <SelectItem value={CREATE_CATEGORY_TREE_NONE} className="hidden" textValue="none">
-                          Selecione
-                        </SelectItem>
-                        <SelectItem
-                          value={CREATE_CATEGORY_TREE_CREATE_CATEGORY}
-                          onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                          textValue="create-category"
-                        >
-                          + Nova categoria
-                        </SelectItem>
-                        <SelectItem
-                          value={CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY}
-                          onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                          textValue="create-subcategory"
-                        >
-                          + Nova subcategoria
-                        </SelectItem>
-                        {createCategoryTreeOptions.map((option: CategoryTreeOption, optionIndex) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            onKeyDown={handleCreateCategoryTreeItemKeyDown}
-                            textValue={`option-${optionIndex}`}
-                            className={
-                              option.level === 'subcategory'
-                                ? 'pl-10 text-muted-foreground'
-                                : 'font-medium'
-                            }
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                        {createCategoryTreeOptions.length === 0 && (
-                          <div className="px-2 py-2 text-sm text-muted-foreground">
-                            Nenhuma categoria/subcategoria encontrada.
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.categoryId && (
-                  <p className="text-sm text-destructive">{errors.categoryId.message}</p>
-                )}
-              </div>
+              <TransactionCategoryField
+                id="transaction-category"
+                control={control}
+                errors={errors}
+                isOpen={isCreateCategoryTreeOpen}
+                options={createCategoryTreeOptions}
+                search={createCategoryTreeSearch}
+                onSearchChange={setCreateCategoryTreeSearch}
+                contentRef={createCategoryTreeContentRef}
+                searchInputRef={createCategoryTreeSearchInputRef}
+                triggerRef={createCategorySelectRef}
+                tabIndex={4}
+                getCategoryTreeValue={getCreateCategoryTreeValue}
+                onValueChange={handleCreateCategoryTreeSelectValueChange}
+                onOpenChange={handleCreateCategoryTreeOpenChange}
+                onSearchKeyDown={handleCreateCategoryTreeSearchKeyDown}
+                onItemKeyDown={handleCreateCategoryTreeItemKeyDown}
+              />
             </div>
 
             <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
@@ -919,33 +630,23 @@ export function TransactionsCreateModal(
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="transaction-description">Descrição</Label>
-              {(() => {
-                const descriptionRegister = register('description')
-                return (
-                  <TransactionsDescriptionAutocomplete
-                    descriptionRegister={descriptionRegister}
-                    descriptionInputRef={descriptionInputRef}
-                    isInvalid={!!errors.description}
-                    descriptionSuggestions={descriptionSuggestions}
-                    areDescriptionSuggestionsLoading={areDescriptionSuggestionsLoading}
-                    hasDescriptionSuggestionsError={hasDescriptionSuggestionsError}
-                    shouldFilterSuggestions={shouldFilterSuggestions}
-                    isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
-                    setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
-                    isDescriptionFocused={isDescriptionFocused}
-                    setIsDescriptionFocused={setIsDescriptionFocused}
-                    activeSuggestionIndex={activeSuggestionIndex}
-                    setActiveSuggestionIndex={setActiveSuggestionIndex}
-                    setValue={setValue}
-                  />
-                )
-              })()}
-              {errors.description && (
-                <p className="text-sm text-destructive">{errors.description.message}</p>
-              )}
-            </div>
+            <TransactionDescriptionField
+              id="transaction-description"
+              register={register}
+              errors={errors}
+              descriptionInputRef={descriptionInputRef}
+              setValue={setValue}
+              descriptionSuggestions={descriptionSuggestions}
+              areDescriptionSuggestionsLoading={areDescriptionSuggestionsLoading}
+              hasDescriptionSuggestionsError={hasDescriptionSuggestionsError}
+              shouldFilterSuggestions={shouldFilterSuggestions}
+              isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
+              setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
+              isDescriptionFocused={isDescriptionFocused}
+              setIsDescriptionFocused={setIsDescriptionFocused}
+              activeSuggestionIndex={activeSuggestionIndex}
+              setActiveSuggestionIndex={setActiveSuggestionIndex}
+            />
 
             <TransactionNotesField
               id="transaction-notes"

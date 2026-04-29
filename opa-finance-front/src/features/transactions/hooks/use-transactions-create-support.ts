@@ -136,7 +136,7 @@ export function useTransactionsCreateSupport({
       limit: 20,
     },
     {
-      enabled: Boolean(isCreateOpen && createAccountId),
+      enabled: Boolean((isCreateOpen || isEditOpen) && createAccountId),
     },
   )
 
@@ -147,7 +147,7 @@ export function useTransactionsCreateSupport({
       limit: 20,
     },
     {
-      enabled: Boolean(isCreateOpen && createAccountId && shouldFilterSuggestions),
+      enabled: Boolean((isCreateOpen || isEditOpen) && createAccountId && shouldFilterSuggestions),
     },
   )
 

@@ -3,26 +3,17 @@ import {
   useEffect,
   useRef,
   useState,
-  type KeyboardEventHandler,
 } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Account } from '@/features/accounts'
 import type { Category, Subcategory } from '@/features/categories'
 import { useCreateCategory, useCreateSubcategory } from '@/features/categories'
 import {
   type Transaction,
+  useDebouncedValue,
   useTransactionForm,
   useTransactionsCreateSupport,
   useTransactionsInlineCategoryActions,
@@ -43,17 +34,17 @@ import {
   type TransactionCreateFormData,
 } from '@/schemas/transaction.schema'
 
+import { useCategoryTreeInteraction } from '../hooks/use-category-tree-interaction'
+
+import { TransactionAccountField } from './transaction-account-field'
 import { TransactionAmountField } from './transaction-amount-field'
+import { TransactionCategoryField } from './transaction-category-field'
 import { TransactionDateField } from './transaction-date-field'
+import { TransactionDescriptionField } from './transaction-description-field'
 import { TransactionNotesField } from './transaction-notes-field'
 import { TransactionTypeField } from './transaction-type-field'
 import { TransactionsInlineCategoryFlow } from './transactions-inline-category-flow'
 
-type CategoryTreeOption = {
-  value: string
-  label: string
-  level: 'category' | 'subcategory'
-}
 
 type TransactionsEditModalProps = {
   isOpen: boolean
@@ -65,9 +56,6 @@ type TransactionsEditModalProps = {
   availableCategories?: Category[]
 }
 
-const CREATE_CATEGORY_TREE_NONE = '__none__'
-const CREATE_CATEGORY_TREE_CREATE_CATEGORY = '__create_category__'
-const CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY = '__create_subcategory__'
 
 export function TransactionsEditModal(
   props: TransactionsEditModalProps,
@@ -89,8 +77,12 @@ export function TransactionsEditModal(
   const [editCategoryTreeSearch, setEditCategoryTreeSearch] = useState('')
   const [lastCreatedSubcategory, setLastCreatedSubcategory] =
     useState<Subcategory | null>(null)
+  const [isDescriptionSuggestionsOpen, setIsDescriptionSuggestionsOpen] = useState(false)
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
 
   const editAmountRef = useRef<HTMLInputElement | null>(null)
+  const editDescriptionInputRef = useRef<HTMLInputElement | null>(null)
   const editCategoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
   const editCategoryTreeContentRef = useRef<HTMLDivElement | null>(null)
   const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
@@ -142,8 +134,16 @@ export function TransactionsEditModal(
   const editType: 'income' | 'expense' | '' =
     editTypeRaw === 'income' || editTypeRaw === 'expense' ? editTypeRaw : ''
   const editCategory = categories.find((item) => item.id === editCategoryId)
+  const editDescription = watch('description') ?? ''
+  const debouncedEditDescription = useDebouncedValue(editDescription, 1000)
 
-  const { editCategoryTreeOptions } = useTransactionsCreateSupport({
+  const {
+    editCategoryTreeOptions,
+    descriptionSuggestions,
+    areDescriptionSuggestionsLoading,
+    hasDescriptionSuggestionsError,
+    shouldFilterSuggestions,
+  } = useTransactionsCreateSupport({
     availableCategories,
     createCategoryIdsKey: availableCategories.map((category) => category.id).join('|'),
     createCategoryId: editCategoryId,
@@ -151,7 +151,7 @@ export function TransactionsEditModal(
     createAccountId: watch('accountId'),
     createCategoryTreeSearch: '',
     editCategoryTreeSearch,
-    debouncedCreateDescription: '',
+    debouncedCreateDescription: debouncedEditDescription,
     isCreateOpen: false,
     isEditOpen: isOpen,
     lastCreatedSubcategory,
@@ -279,6 +279,10 @@ export function TransactionsEditModal(
   }, [availableCategories, editCategoryId, isCreateSubcategoryOpen, subcategoryCreateForm])
 
   useEffect(() => {
+    setActiveSuggestionIndex(0)
+  }, [descriptionSuggestions.length, isDescriptionSuggestionsOpen])
+
+  useEffect(() => {
     if (!isOpen) {
       return
     }
@@ -291,6 +295,10 @@ export function TransactionsEditModal(
         }
         if (isCreateCategoryOpen) {
           setIsCreateCategoryOpen(false)
+          return
+        }
+        if (isDescriptionSuggestionsOpen) {
+          setIsDescriptionSuggestionsOpen(false)
           return
         }
         if (isEditCategoryTreeOpen) {
@@ -344,6 +352,7 @@ export function TransactionsEditModal(
     handleSubmit,
     isCreateCategoryOpen,
     isCreateSubcategoryOpen,
+    isDescriptionSuggestionsOpen,
     isEditAccountSelectOpen,
     isEditCategoryTreeOpen,
     isOpen,
@@ -351,206 +360,24 @@ export function TransactionsEditModal(
     transactionForm.onSubmit,
   ])
 
-  const findVisibleSiblingOption = (
-    element: HTMLElement,
-    direction: 'prev' | 'next',
-  ) => {
-    let sibling: Element | null =
-      direction === 'prev'
-        ? element.previousElementSibling
-        : element.nextElementSibling
-
-    while (sibling) {
-      if (
-        sibling instanceof HTMLElement &&
-        sibling.getAttribute('role') === 'option' &&
-        sibling.offsetParent !== null &&
-        sibling.getAttribute('aria-disabled') !== 'true' &&
-        !sibling.hasAttribute('data-disabled')
-      ) {
-        return sibling
-      }
-      sibling =
-        direction === 'prev'
-          ? sibling.previousElementSibling
-          : sibling.nextElementSibling
-    }
-
-    return null
-  }
-
-  const focusEditCategoryOption = (direction: 'up' | 'down') => {
-    const content = editCategoryTreeContentRef.current
-    if (!content) {
-      return
-    }
-
-    const options = Array.from(
-      content.querySelectorAll<HTMLElement>('[role="option"]'),
-    ).filter(
-      (option) =>
-        option.offsetParent !== null &&
-        option.getAttribute('aria-disabled') !== 'true' &&
-        !option.hasAttribute('data-disabled'),
-    )
-
-    if (options.length === 0) {
-      return
-    }
-
-    const selectedIndex = options.findIndex(
-      (option) =>
-        option.getAttribute('aria-selected') === 'true' ||
-        option.getAttribute('data-state') === 'checked',
-    )
-
-    const nextIndex =
-      selectedIndex === -1
-        ? direction === 'down'
-          ? 0
-          : options.length - 1
-        : direction === 'down'
-          ? Math.min(selectedIndex + 1, options.length - 1)
-          : Math.max(selectedIndex - 1, 0)
-
-    options[nextIndex]?.focus({ preventScroll: true })
-  }
-
-  const getEditCategoryTreeValue = () => {
-    if (!editCategoryId) {
-      return CREATE_CATEGORY_TREE_NONE
-    }
-    if (editSubcategoryId) {
-      return `subcategory:${editCategoryId}:${editSubcategoryId}`
-    }
-    return `category:${editCategoryId}`
-  }
-
-  const handleEditCategoryTreeOpenChange = (open: boolean) => {
-    setIsEditCategoryTreeOpen(open)
-    if (!open) {
-      setEditCategoryTreeSearch('')
-      return
-    }
-    window.requestAnimationFrame(() => {
-      editCategoryTreeSearchInputRef.current?.focus()
-    })
-  }
-
-  const handleEditCategoryTreeValueChange = (
-    value: string,
-    onCategoryChange: (value: string) => void,
-  ) => {
-    if (value === CREATE_CATEGORY_TREE_CREATE_CATEGORY) {
-      setEditCategoryTreeSearch('')
-      setIsCreateCategoryOpen(true)
-      return
-    }
-    if (value === CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY) {
-      setEditCategoryTreeSearch('')
-      setIsCreateSubcategoryOpen(true)
-      return
-    }
-    if (value === CREATE_CATEGORY_TREE_NONE) {
-      setEditCategoryTreeSearch('')
-      onCategoryChange('')
-      setValue('subcategoryId', '', {
-        shouldDirty: true,
-        shouldTouch: true,
-      })
-      return
-    }
-
-    setEditCategoryTreeSearch('')
-    if (value.startsWith('subcategory:')) {
-      const [, categoryId, subcategoryId] = value.split(':')
-      lastEditCategoryId.current = categoryId ?? null
-      onCategoryChange(categoryId ?? '')
-      setValue('subcategoryId', subcategoryId ?? '', {
-        shouldDirty: true,
-        shouldTouch: true,
-      })
-      return
-    }
-
-    const [, categoryId] = value.split(':')
-    onCategoryChange(categoryId ?? '')
-    setValue('subcategoryId', '', {
-      shouldDirty: true,
-      shouldTouch: true,
-    })
-  }
-
-  const handleEditCategoryTreeSearchKeyDown: KeyboardEventHandler<HTMLInputElement> =
-    (event) => {
-      if (event.key === 'Tab') {
-        event.preventDefault()
-        event.stopPropagation()
-        focusEditCategoryOption(event.shiftKey ? 'up' : 'down')
-        return
-      }
-      if (event.key === 'ArrowDown') {
-        event.preventDefault()
-        event.stopPropagation()
-        focusEditCategoryOption('down')
-        return
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault()
-        event.stopPropagation()
-        focusEditCategoryOption('up')
-        return
-      }
-      if (event.key === 'Escape') {
-        return
-      }
-      const isTypingKey =
-        (event.key.length === 1 || event.key === 'Dead') &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      if (isTypingKey || event.key === 'Backspace' || event.key === 'Delete') {
-        event.stopPropagation()
-        event.nativeEvent.stopImmediatePropagation?.()
-        return
-      }
-      event.stopPropagation()
-    }
-
-  const handleEditCategoryTreeItemKeyDown = (
-    event: Parameters<KeyboardEventHandler<HTMLDivElement>>[0],
-  ) => {
-    if (event.key === 'Backspace') {
-      event.preventDefault()
-      event.stopPropagation()
-      window.requestAnimationFrame(() => {
-        editCategoryTreeSearchInputRef.current?.focus()
-      })
-      return
-    }
-
-    const current = event.currentTarget as HTMLElement
-    if (event.key === 'ArrowDown') {
-      const nextOption = findVisibleSiblingOption(current, 'next')
-      if (nextOption) {
-        return
-      }
-      event.preventDefault()
-      event.stopPropagation()
-      editCategoryTreeSearchInputRef.current?.focus()
-      return
-    }
-    if (event.key !== 'ArrowUp') {
-      return
-    }
-    const previousOption = findVisibleSiblingOption(current, 'prev')
-    if (previousOption) {
-      return
-    }
-    event.preventDefault()
-    event.stopPropagation()
-    editCategoryTreeSearchInputRef.current?.focus()
-  }
+  const {
+    getCategoryTreeValue: getEditCategoryTreeValue,
+    handleCategoryTreeOpenChange: handleEditCategoryTreeOpenChange,
+    handleCategoryTreeSelectValueChange: handleEditCategoryTreeValueChange,
+    handleCategoryTreeSearchKeyDown: handleEditCategoryTreeSearchKeyDown,
+    handleCategoryTreeItemKeyDown: handleEditCategoryTreeItemKeyDown,
+  } = useCategoryTreeInteraction({
+    categoryId: editCategoryId,
+    subcategoryId: editSubcategoryId ?? '',
+    contentRef: editCategoryTreeContentRef,
+    searchInputRef: editCategoryTreeSearchInputRef,
+    setSearch: setEditCategoryTreeSearch,
+    setIsOpen: setIsEditCategoryTreeOpen,
+    setIsCreateCategoryOpen,
+    setIsCreateSubcategoryOpen,
+    setValue,
+    lastCategoryId: lastEditCategoryId,
+  })
 
   if (!isOpen || !transaction) {
     return null
@@ -572,47 +399,16 @@ export function TransactionsEditModal(
 
           <form className="mt-6 space-y-4" onSubmit={handleSubmit(transactionForm.onSubmit)}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="transaction-edit-account">Conta</Label>
-                <Controller
-                  control={control}
-                  name="accountId"
-                  render={({ field }) => (
-                    <Select
-                      open={isEditAccountSelectOpen}
-                      value={field.value ? field.value : '__none__'}
-                      onValueChange={(value) =>
-                        field.onChange(value === '__none__' ? '' : value)
-                      }
-                      onOpenChange={setIsEditAccountSelectOpen}
-                    >
-                      <SelectTrigger
-                        id="transaction-edit-account"
-                        className="h-10"
-                        aria-invalid={!!errors.accountId}
-                        tabIndex={7}
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent
-                        onEscapeKeyDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          setIsEditAccountSelectOpen(false)
-                        }}
-                      >
-                        <SelectItem value="__none__" className="hidden">Selecione</SelectItem>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.accountId && <p className="text-sm text-destructive">{errors.accountId.message}</p>}
-              </div>
+              <TransactionAccountField
+                id="transaction-edit-account"
+                label="Conta"
+                control={control}
+                errors={errors}
+                accounts={accounts}
+                isOpen={isEditAccountSelectOpen}
+                onOpenChange={setIsEditAccountSelectOpen}
+                tabIndex={7}
+              />
 
               <TransactionDateField
                 id="transaction-edit-date"
@@ -624,113 +420,34 @@ export function TransactionsEditModal(
             </div>
 
             <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="transaction-edit-category">Categoria/Subcategoria</Label>
-                <Controller
-                  control={control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <Select
-                      open={isEditCategoryTreeOpen}
-                      disabled={isTransferTransaction}
-                      value={getEditCategoryTreeValue()}
-                      onValueChange={(value) => handleEditCategoryTreeValueChange(value, field.onChange)}
-                      onOpenChange={handleEditCategoryTreeOpenChange}
-                    >
-                      <SelectTrigger
-                        id="transaction-edit-category"
-                        className="h-10 [&>span]:truncate"
-                        aria-invalid={!!errors.categoryId}
-                        tabIndex={4}
-                      >
-                        <SelectValue placeholder="Selecione categoria/subcategoria" />
-                      </SelectTrigger>
-                      <SelectContent
-                        ref={editCategoryTreeContentRef}
-                        onEscapeKeyDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          handleEditCategoryTreeOpenChange(false)
-                        }}
-                      >
-                        <div className="px-2 pb-2">
-                          <Input
-                            placeholder="Buscar categoria ou subcategoria..."
-                            className="h-9"
-                            value={editCategoryTreeSearch}
-                            onChange={(event) => {
-                              setEditCategoryTreeSearch(event.target.value)
-                              window.requestAnimationFrame(() => {
-                                editCategoryTreeSearchInputRef.current?.focus()
-                              })
-                            }}
-                            onKeyDown={handleEditCategoryTreeSearchKeyDown}
-                            onKeyUp={(event) => {
-                              const isTypingKey =
-                                (event.key.length === 1 ||
-                                  event.key === 'Dead' ||
-                                  event.key === 'Backspace' ||
-                                  event.key === 'Delete') &&
-                                !event.ctrlKey &&
-                                !event.metaKey &&
-                                !event.altKey
-                              if (isTypingKey) {
-                                event.stopPropagation()
-                                event.nativeEvent.stopImmediatePropagation?.()
-                              }
-                            }}
-                            ref={editCategoryTreeSearchInputRef}
-                          />
-                        </div>
-                        <SelectItem value={CREATE_CATEGORY_TREE_NONE} className="hidden" textValue="none">
-                          Selecione
-                        </SelectItem>
-                        <SelectItem
-                          value={CREATE_CATEGORY_TREE_CREATE_CATEGORY}
-                          onKeyDown={handleEditCategoryTreeItemKeyDown}
-                          textValue="create-category"
-                        >
-                          + Nova categoria
-                        </SelectItem>
-                        <SelectItem
-                          value={CREATE_CATEGORY_TREE_CREATE_SUBCATEGORY}
-                          onKeyDown={handleEditCategoryTreeItemKeyDown}
-                          textValue="create-subcategory"
-                        >
-                          + Nova subcategoria
-                        </SelectItem>
-                        {editCategoryTreeOptions.map((option: CategoryTreeOption, optionIndex) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            onKeyDown={handleEditCategoryTreeItemKeyDown}
-                            textValue={`option-${optionIndex}`}
-                            className={
-                              option.level === 'subcategory'
-                                ? 'pl-10 text-muted-foreground'
-                                : 'font-medium'
-                            }
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                        {editCategoryTreeOptions.length === 0 && (
-                          <div className="px-2 py-2 text-sm text-muted-foreground">
-                            Nenhuma categoria/subcategoria encontrada.
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.categoryId && <p className="text-sm text-destructive">{errors.categoryId.message}</p>}
-                {errors.subcategoryId && <p className="text-sm text-destructive">{errors.subcategoryId.message}</p>}
-                {isTransferTransaction && (
-                  <p className="text-xs text-muted-foreground">
-                    Categoria e subcategoria de transferências não podem ser alteradas.
-                  </p>
-                )}
-              </div>
+              <TransactionCategoryField
+                id="transaction-edit-category"
+                control={control}
+                errors={errors}
+                isOpen={isEditCategoryTreeOpen}
+                options={editCategoryTreeOptions}
+                search={editCategoryTreeSearch}
+                onSearchChange={(value) => {
+                  setEditCategoryTreeSearch(value)
+                  window.requestAnimationFrame(() => {
+                    editCategoryTreeSearchInputRef.current?.focus()
+                  })
+                }}
+                contentRef={editCategoryTreeContentRef}
+                searchInputRef={editCategoryTreeSearchInputRef}
+                tabIndex={4}
+                disabled={isTransferTransaction}
+                disabledMessage={
+                  isTransferTransaction
+                    ? 'Categoria e subcategoria de transferências não podem ser alteradas.'
+                    : undefined
+                }
+                getCategoryTreeValue={getEditCategoryTreeValue}
+                onValueChange={handleEditCategoryTreeValueChange}
+                onOpenChange={handleEditCategoryTreeOpenChange}
+                onSearchKeyDown={handleEditCategoryTreeSearchKeyDown}
+                onItemKeyDown={handleEditCategoryTreeItemKeyDown}
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -753,18 +470,23 @@ export function TransactionsEditModal(
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="transaction-edit-description">Descrição</Label>
-              <Input
-                id="transaction-edit-description"
-                placeholder="Ex: Supermercado"
-                className="h-10"
-                aria-invalid={!!errors.description}
-                tabIndex={1}
-                {...register('description')}
-              />
-              {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
-            </div>
+            <TransactionDescriptionField
+              id="transaction-edit-description"
+              register={register}
+              errors={errors}
+              descriptionInputRef={editDescriptionInputRef}
+              setValue={setValue}
+              descriptionSuggestions={descriptionSuggestions}
+              areDescriptionSuggestionsLoading={areDescriptionSuggestionsLoading}
+              hasDescriptionSuggestionsError={hasDescriptionSuggestionsError}
+              shouldFilterSuggestions={shouldFilterSuggestions}
+              isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
+              setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
+              isDescriptionFocused={isDescriptionFocused}
+              setIsDescriptionFocused={setIsDescriptionFocused}
+              activeSuggestionIndex={activeSuggestionIndex}
+              setActiveSuggestionIndex={setActiveSuggestionIndex}
+            />
 
             <TransactionNotesField
               id="transaction-edit-notes"
