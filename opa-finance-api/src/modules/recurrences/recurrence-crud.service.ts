@@ -4,11 +4,12 @@ import {
   ConflictProblem,
   ForbiddenProblem,
   NotFoundProblem,
+  UnprocessableProblem,
   ValidationProblem,
 } from "../../core/errors/problems";
 import { ValidationProblem as VP } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
-import { recurrences } from "../../db/schema";
+import { recurrenceOccurrences, recurrences } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import { getFirstOccurrenceForRecurrence, serializeRecurrence } from "./recurrence.helpers";
@@ -22,6 +23,36 @@ export class RecurrenceCrudService {
     private recurrenceAudit: RecurrenceAudit,
     private validators: RecurrenceValidators,
   ) {}
+
+  private async getOpenPendingReviewOccurrences(userId: string, recurrenceId: string) {
+    return this.app.db
+      .select({
+        id: recurrenceOccurrences.id,
+        occurrenceDate: recurrenceOccurrences.occurrenceDate,
+      })
+      .from(recurrenceOccurrences)
+      .innerJoin(recurrences, eq(recurrenceOccurrences.recurrenceId, recurrences.id))
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          eq(recurrenceOccurrences.status, "pending_review"),
+          eq(recurrences.userId, userId),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      );
+  }
+
+  private throwPendingReviewBlocker(
+    action: "finalizar" | "excluir",
+    pendingOccurrences: Array<{ id: string; occurrenceDate: string }>,
+    recurrenceId: string,
+  ): never {
+    const pendingIds = pendingOccurrences.map((occurrence) => occurrence.id).join(", ");
+    throw new UnprocessableProblem(
+      `Esta recorrência possui pendências em aberto (${pendingIds}). Resolva-as antes de ${action}.`,
+      `/recurrences/${recurrenceId}`,
+    );
+  }
 
   async create(userId: string, data: CreateRecurrenceInput) {
     await this.validators.validatePayloadOwnership(userId, data);
@@ -178,6 +209,11 @@ export class RecurrenceCrudService {
       return existing;
     }
 
+    const pendingOccurrences = await this.getOpenPendingReviewOccurrences(userId, recurrenceId);
+    if (pendingOccurrences.length > 0) {
+      this.throwPendingReviewBlocker("finalizar", pendingOccurrences, recurrenceId);
+    }
+
     const [updated] = await this.app.db.transaction(async (tx: DB) => {
       const [updatedRow] = await tx
         .update(recurrences)
@@ -228,6 +264,11 @@ export class RecurrenceCrudService {
 
   async remove(userId: string, recurrenceId: string) {
     const existing = await this.getOne(userId, recurrenceId);
+
+    const pendingOccurrences = await this.getOpenPendingReviewOccurrences(userId, recurrenceId);
+    if (pendingOccurrences.length > 0) {
+      this.throwPendingReviewBlocker("excluir", pendingOccurrences, recurrenceId);
+    }
 
     if (existing.status === "active") {
       throw new VP(
