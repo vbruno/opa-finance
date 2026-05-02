@@ -266,6 +266,58 @@ describe("Recurrences - critical rules", () => {
     expect(updatedRecurrence?.lastMaterializedDate).toBeNull();
   });
 
+  it("gera pendência de transferencia sem criar transacao quando postingMode exige revisão", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    const transferRecurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        postingMode: "review_required",
+        frequency: "monthly",
+        startDate: "2025-01-15",
+        dayOfMonth: 15,
+        endType: "never",
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 400,
+        description: "Transferência recorrente",
+      },
+    });
+
+    expect(transferRecurrenceRes.statusCode).toBe(201);
+    const recurrence = transferRecurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-15" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdOccurrences).toBe(1);
+    expect(materializeRes.json().createdTransactions).toBe(0);
+
+    const [occurrence] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    expect(occurrence?.status).toBe("pending_review");
+    expect(occurrence?.reviewPayload).toMatchObject({
+      occurrenceDate: "2025-01-15",
+      originalScheduledDate: "2025-01-15",
+      originType: "transfer",
+      amount: 400,
+      fromAccountId: account.id,
+      toAccountId: account2.id,
+    });
+    expect(occurrence?.transactionId).toBeNull();
+    expect(occurrence?.transferId).toBeNull();
+  });
+
   it("conta pendências no limite by_occurrences em modo de revisão", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({

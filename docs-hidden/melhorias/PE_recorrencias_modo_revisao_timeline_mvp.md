@@ -846,7 +846,7 @@ Labels de UI:
 
 - [x] `RCREV-S4-01` Testar cálculo e contagem de ocorrências.
 - [x] `RCREV-S4-02` Testar materialização automática sem regressão.
-- [ ] `RCREV-S4-03` Testar geração de pendência.
+- [x] `RCREV-S4-03` Testar geração de pendência.
 - [ ] `RCREV-S4-04` Testar confirmação de transação.
 - [ ] `RCREV-S4-05` Testar confirmação de transferência atômica (rollback se uma perna falhar).
 - [ ] `RCREV-S4-06` Testar skip consumindo `by_occurrences`.
