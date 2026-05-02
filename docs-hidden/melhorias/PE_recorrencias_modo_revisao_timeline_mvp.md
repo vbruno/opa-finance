@@ -862,7 +862,7 @@ Labels de UI:
 - [x] `RCREV-S4-16` Testar cap de geração: criar recorrência `by_occurrences=3` em `review_required`, rodar job 5x; total de pendências geradas deve ser exatamente 3 (`RCREV-CNF-10`).
 - [x] `RCREV-S4-17` Testar deduplicação no forecast: criar recorrência mensal `review_required`, gerar 3 pendências; forecast deve retornar 3 itens, não 6 (`RCREV-CNF-11`).
 - [x] `RCREV-S4-18` Testar primeira ocorrência em criação aninhada: status sempre `materialized` independente de `postingMode` (`RCREV-DEF-26`).
-- [ ] `RCREV-S4-19` Testar limite de range em `occurrenceDate` no confirm — datas fora do range retornam 422 (`RCREV-DEF-25`).
+- [x] `RCREV-S4-19` Testar limite de range em `occurrenceDate` no confirm — datas fora do range retornam 422 (`RCREV-DEF-25`).
 - [ ] `RCREV-S4-20` Testar `sequence` em série com gaps: `skipped` ocupa posição (`RCREV-DEF-24`).
 - [ ] `RCREV-S4-21` Testar sequência das 3 migrations (A → B → C) executando do zero e em snapshot de produção (`RCREV-DEF-29`).
 - [ ] `RCREV-S4-22` Testar índice composto `(recurrence_id, status)` — `EXPLAIN ANALYZE` mostra index scan na query do badge (`RCREV-S2-02D`).

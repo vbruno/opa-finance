@@ -82,6 +82,7 @@ describe("Recurrences - critical rules", () => {
     postingMode = "automatic",
     endType = "never",
     endOccurrences,
+    endDate,
   }: {
     token: string;
     accountId: string;
@@ -92,6 +93,7 @@ describe("Recurrences - critical rules", () => {
     postingMode?: "automatic" | "review_required";
     endType?: "never" | "by_occurrences";
     endOccurrences?: number;
+    endDate?: string;
   }) {
     const res = await app.inject({
       method: "POST",
@@ -105,6 +107,7 @@ describe("Recurrences - critical rules", () => {
         dayOfWeek,
         endType,
         endOccurrences,
+        endDate,
         accountId,
         categoryId,
         amount,
@@ -639,6 +642,60 @@ describe("Recurrences - critical rules", () => {
     expect(createdTransaction?.description).toBe("Despesa recorrente");
     expect(createdTransaction?.accountId).toBe(account.id);
     expect(Number(createdTransaction?.amount)).toBe(120);
+  });
+
+  it("rejeita confirm com occurrenceDate fora do range permitido", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "until_date",
+      endDate: "2025-01-20",
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pending.version,
+        occurrenceDate: "2025-01-21",
+      },
+    });
+
+    expect(confirmRes.statusCode).toBe(422);
+    expect(confirmRes.json().detail).toContain("2025-01-06");
+    expect(confirmRes.json().detail).toContain("2025-01-20");
+
+    const [afterFailedConfirm] = await app.db
+      .select({
+        status: recurrenceOccurrences.status,
+        transactionId: recurrenceOccurrences.transactionId,
+        version: recurrenceOccurrences.version,
+      })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.id, pending.id));
+
+    expect(afterFailedConfirm?.status).toBe("pending_review");
+    expect(afterFailedConfirm?.transactionId).toBeNull();
+    expect(afterFailedConfirm?.version).toBe(pending.version);
   });
 
   it("rejeita confirmação duplicada com 409", async () => {
