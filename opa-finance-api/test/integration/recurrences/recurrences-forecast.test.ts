@@ -249,6 +249,7 @@ describe("GET /recurrences/forecast", () => {
         frequency: "monthly",
         startDate: "2099-01-10",
         dayOfMonth: 10,
+        postingMode: "review_required",
         endType: "by_occurrences",
         endOccurrences: 2,
         accountId: account1.id,
@@ -266,6 +267,7 @@ describe("GET /recurrences/forecast", () => {
     });
     expect(materialize.statusCode).toBe(200);
     expect(materialize.json().createdOccurrences).toBe(2);
+    expect(materialize.json().createdTransactions).toBe(0);
 
     const res = await app.inject({
       method: "GET",

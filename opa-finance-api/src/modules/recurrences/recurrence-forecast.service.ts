@@ -116,8 +116,9 @@ export class RecurrenceForecastService {
         .orderBy(asc(recurrences.createdAt));
 
       const recurrenceIds: string[] = activeRecurrences.map((recurrence) => recurrence.id);
-      const materializedCountByRecurrence = new Map<string, number>();
-      const materializedDateSet = new Set<string>();
+      const consumedCountByRecurrence = new Map<string, number>();
+      const consumedDateSet = new Set<string>();
+      const consumedStatuses = ["materialized", "pending_review", "skipped"] as const;
 
       if (recurrenceIds.length > 0) {
         const counts = await this.app.db
@@ -129,16 +130,16 @@ export class RecurrenceForecastService {
           .where(
             and(
               inArray(recurrenceOccurrences.recurrenceId, recurrenceIds),
-              eq(recurrenceOccurrences.status, "materialized"),
+              inArray(recurrenceOccurrences.status, consumedStatuses),
             ),
           )
           .groupBy(recurrenceOccurrences.recurrenceId);
 
         for (const item of counts) {
-          materializedCountByRecurrence.set(item.recurrenceId, item.total ?? 0);
+          consumedCountByRecurrence.set(item.recurrenceId, item.total ?? 0);
         }
 
-        const materializedRows = await this.app.db
+        const consumedRows = await this.app.db
           .select({
             recurrenceId: recurrenceOccurrences.recurrenceId,
             occurrenceDate: recurrenceOccurrences.occurrenceDate,
@@ -147,14 +148,14 @@ export class RecurrenceForecastService {
           .where(
             and(
               inArray(recurrenceOccurrences.recurrenceId, recurrenceIds),
-              eq(recurrenceOccurrences.status, "materialized"),
+              inArray(recurrenceOccurrences.status, consumedStatuses),
               gte(recurrenceOccurrences.occurrenceDate, projectionStartDate),
               lte(recurrenceOccurrences.occurrenceDate, yearEndDate),
             ),
           );
 
-        for (const row of materializedRows) {
-          materializedDateSet.add(`${row.recurrenceId}:${row.occurrenceDate}`);
+        for (const row of consumedRows) {
+          consumedDateSet.add(`${row.recurrenceId}:${row.occurrenceDate}`);
         }
       }
 
@@ -211,8 +212,8 @@ export class RecurrenceForecastService {
 
         let remainingOccurrences = Number.POSITIVE_INFINITY;
         if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
-          const materializedCount = materializedCountByRecurrence.get(recurrence.id) ?? 0;
-          remainingOccurrences = recurrence.endOccurrences - materializedCount;
+          const consumedCount = consumedCountByRecurrence.get(recurrence.id) ?? 0;
+          remainingOccurrences = recurrence.endOccurrences - consumedCount;
           if (remainingOccurrences <= 0) continue;
         }
 
@@ -228,7 +229,7 @@ export class RecurrenceForecastService {
           if (remainingOccurrences <= 0) break;
 
           const occurrenceKey = `${recurrence.id}:${cursorDate}`;
-          if (!materializedDateSet.has(occurrenceKey)) {
+          if (!consumedDateSet.has(occurrenceKey)) {
             const monthIndex = Math.max(0, Math.min(11, Number(cursorDate.slice(5, 7)) - 1));
             const amount = Number(recurrence.amount);
             let counted = false;
