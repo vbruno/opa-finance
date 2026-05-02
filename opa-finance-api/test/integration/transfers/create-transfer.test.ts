@@ -6,7 +6,15 @@ import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import { registerAndLogin } from "../helpers/auth";
 import { buildTestApp } from "../setup";
 import type { DB } from "@/core/plugins/drizzle";
-import { users, accounts, categories, transactions, auditLogs } from "@/db/schema";
+import {
+  users,
+  accounts,
+  categories,
+  recurrenceOccurrences,
+  recurrences,
+  transactions,
+  auditLogs,
+} from "@/db/schema";
 
 let app: FastifyInstance;
 let db: DB;
@@ -405,5 +413,67 @@ describe("POST /transfers", () => {
     // Verifica que ambas as transações usam a categoria de sistema
     expect(createdTransactions[0].categoryId).toBe(transferCategory.id);
     expect(createdTransactions[1].categoryId).toBe(transferCategory.id);
+  });
+
+  it("deve materializar ocorrência inicial em transferência recorrente com revisão", async () => {
+    const { token, user } = await registerAndLogin(app, db);
+
+    const [fromAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Origem",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "1000",
+      })
+      .returning();
+
+    const [toAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Destino",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "500",
+      })
+      .returning();
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/transfers",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: 150,
+        date: "2025-01-15",
+        description: "Reserva",
+        recurrence: {
+          postingMode: "review_required",
+          frequency: "monthly",
+          dayOfMonth: 15,
+          endType: "never",
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.recurrenceId).toBeTruthy();
+
+    const [recurrence] = await db
+      .select({ postingMode: recurrences.postingMode })
+      .from(recurrences)
+      .where(eq(recurrences.id, body.recurrenceId));
+    expect(recurrence?.postingMode).toBe("review_required");
+
+    const [occurrence] = await db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, body.recurrenceId));
+
+    expect(occurrence?.status).toBe("materialized");
+    expect(occurrence?.transferId).toBe(body.id);
+    expect(occurrence?.reviewPayload).toBeNull();
   });
 });

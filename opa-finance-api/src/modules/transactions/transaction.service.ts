@@ -385,6 +385,7 @@ export class TransactionService {
             .returning({ id: recurrences.id });
 
           if (materializedOnSubmit) {
+            // Submit already created the transaction, so the first occurrence is always launched.
             await db.insert(recurrenceOccurrences).values({
               recurrenceId: createdRecurrence.id,
               originType: "transaction",

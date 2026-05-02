@@ -211,6 +211,7 @@ export class TransferService {
           .returning({ id: recurrences.id });
 
         if (materializedOnSubmit) {
+          // Submit already created both transfer legs, so the first occurrence is always launched.
           await tx.insert(recurrenceOccurrences).values({
             recurrenceId: createdRecurrence.id,
             originType: "transfer",
