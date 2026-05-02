@@ -43,6 +43,7 @@ import {
   type RecurrenceFormData,
 } from '@/schemas/recurrence.schema'
 
+import { RecurrenceDetailsModal } from './recurrence-details-modal'
 import { RecurrenceFormModal } from './recurrence-form-modal'
 import { RecurrencesFilters } from './recurrences-filters'
 import { RecurrencesList } from './recurrences-list'
@@ -60,6 +61,9 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingRecurrence, setEditingRecurrence] = useState<Recurrence | null>(
+    null,
+  )
+  const [detailsRecurrence, setDetailsRecurrence] = useState<Recurrence | null>(
     null,
   )
   const [formError, setFormError] = useState<string | null>(null)
@@ -189,6 +193,10 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setIsFormOpen(true)
   }
 
+  function openDetailsModal(recurrence: Recurrence) {
+    setDetailsRecurrence(recurrence)
+  }
+
   const closeModal = useCallback(() => {
     if (isAnyMutationPending) return
     setIsFormOpen(false)
@@ -197,6 +205,10 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setConflictRecurrenceId(null)
     form.reset(getDefaultRecurrenceFormValues(userTimezone))
   }, [form, isAnyMutationPending, userTimezone])
+
+  const closeDetailsModal = useCallback(() => {
+    setDetailsRecurrence(null)
+  }, [])
 
   useEffect(() => {
     if (!isFormOpen) return
@@ -436,11 +448,19 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         categoriesById={categoriesById}
         onRetry={() => void recurrencesQuery.refetch()}
         onOpenCreateModal={openCreateModal}
+        onOpenDetails={openDetailsModal}
         onOpenEditModal={openEditModal}
         onFinalize={(recurrence) => void handleFinalize(recurrence)}
         onDelete={(recurrence) => void handleDelete(recurrence)}
         onPrevPage={() => setSearch({ page: Math.max(1, page - 1) })}
         onNextPage={() => setSearch({ page: Math.min(totalPages, page + 1) })}
+      />
+
+      <RecurrenceDetailsModal
+        recurrence={detailsRecurrence}
+        accountsById={accountsById}
+        categoriesById={categoriesById}
+        onClose={closeDetailsModal}
       />
 
       <RecurrenceFormModal

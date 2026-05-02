@@ -1,5 +1,6 @@
 import type {
   Recurrence,
+  RecurrenceTimelineItem,
 } from '@/features/recurrences'
 
 export const RECURRENCE_ORIGIN_TYPES = ['transaction', 'transfer'] as const
@@ -69,6 +70,33 @@ export const RECURRENCE_STATUS_LABELS: Record<
 > = {
   active: 'Em execução',
   finalized: 'Finalizada',
+}
+
+export const RECURRENCE_TIMELINE_STATUSES = [
+  'materialized',
+  'pending_review',
+  'skipped',
+  'failed',
+  'projected',
+] as const
+
+export const RECURRENCE_TIMELINE_STATUS_LABELS: Record<
+  (typeof RECURRENCE_TIMELINE_STATUSES)[number],
+  string
+> = {
+  materialized: 'Lançada',
+  pending_review: 'Pendente de revisão',
+  skipped: 'Ignorada',
+  failed: 'Falhou',
+  projected: 'Projetada',
+}
+
+export const RECURRENCE_TIMELINE_SOURCE_LABELS: Record<
+  RecurrenceTimelineItem['source'],
+  string
+> = {
+  persisted: 'Persistida',
+  projected: 'Projetada',
 }
 
 export type RecurrenceFilters = {

@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { Category } from '@/features/categories'
@@ -25,6 +25,7 @@ type RecurrencesListProps = {
   categoriesById: Map<string, Category>
   onRetry: () => void
   onOpenCreateModal: () => void
+  onOpenDetails: (recurrence: Recurrence) => void
   onOpenEditModal: (recurrence: Recurrence) => void
   onFinalize: (recurrence: Recurrence) => void
   onDelete: (recurrence: Recurrence) => void
@@ -46,6 +47,7 @@ export function RecurrencesList({
   categoriesById,
   onRetry,
   onOpenCreateModal,
+  onOpenDetails,
   onOpenEditModal,
   onFinalize,
   onDelete,
@@ -111,6 +113,15 @@ export function RecurrencesList({
             <div>{formatIsoDateToPtBr(recurrence.nextOccurrenceDate)}</div>
             <div>{formatRecurrenceStatus(recurrence.status)}</div>
             <div className="flex justify-end gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onOpenDetails(recurrence)}
+                aria-label={`Ver detalhes da recorrência ${recurrence.description ?? recurrence.id}`}
+              >
+                <Eye className="size-4" />
+                <span>Ver detalhes</span>
+              </Button>
               <Button
                 size="sm"
                 variant="outline"

@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Account } from '@/features/accounts'
 import { logout, setAuth, type User } from '@/features/auth'
 import type { Category } from '@/features/categories'
-import type { RecurrenceListResponse } from '@/features/recurrences'
+import type {
+  RecurrenceListResponse,
+  RecurrenceTimelineResponse,
+} from '@/features/recurrences'
 import {
   fireEvent,
   renderRouteWithProviders,
@@ -83,6 +86,65 @@ const recurrencesMock: RecurrenceListResponse = {
       version: 1,
       createdAt: '2026-04-01T00:00:00.000Z',
       updatedAt: '2026-04-01T00:00:00.000Z',
+    },
+  ],
+}
+
+const recurrenceTimelineMock: RecurrenceTimelineResponse = {
+  recurrence: recurrencesMock.data[0],
+  summary: {
+    totalOccurrences: 12,
+    consumedOccurrences: 2,
+    materializedOccurrences: 1,
+    pendingReviewOccurrences: 1,
+    skippedOccurrences: 0,
+    failedOccurrences: 0,
+    projectedOccurrences: 2,
+    totalAmount: null,
+    materializedAmount: 120,
+    pendingReviewAmount: 120,
+    projectedAmount: 240,
+    appliedLimit: 12,
+    isPartial: true,
+    hasMoreProjected: true,
+    projectionWindowLabel: 'Próximas 12 ocorrências',
+  },
+  items: [
+    {
+      id: 'occ-1',
+      occurrenceDate: '2026-04-01',
+      status: 'materialized',
+      transactionId: 'tx-1',
+      transferId: null,
+      sequence: 1,
+      source: 'persisted',
+      amount: 120,
+      canConfirm: false,
+      canSkip: false,
+    },
+    {
+      id: 'occ-2',
+      occurrenceDate: '2026-05-01',
+      status: 'pending_review',
+      transactionId: null,
+      transferId: null,
+      sequence: 2,
+      source: 'persisted',
+      amount: 120,
+      canConfirm: true,
+      canSkip: true,
+    },
+    {
+      id: null,
+      sequence: 3,
+      occurrenceDate: '2026-06-01',
+      status: 'projected',
+      source: 'projected',
+      amount: 120,
+      transactionId: null,
+      transferId: null,
+      canConfirm: false,
+      canSkip: false,
     },
   ],
 }
@@ -206,6 +268,39 @@ describe('recurrences feature', () => {
     expect(
       screen.queryByText('Configure a regra para geração automática de lançamentos.'),
     ).toBeNull()
+  })
+
+  it('deve abrir detalhes e timeline da recorrência', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Linha do tempo')).toBeInTheDocument()
+    expect(await screen.findByText(/Pendente de revisão/)).toBeInTheDocument()
+    expect(await screen.findByText(/Projetada\s+·\s+Projetada/)).toBeInTheDocument()
+    expect(await screen.findByText('Próximas 12 ocorrências')).toBeInTheDocument()
   })
 
   it('deve bloquear exclusão quando recorrência está ativa', async () => {
