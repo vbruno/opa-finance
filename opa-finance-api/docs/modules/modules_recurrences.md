@@ -17,6 +17,7 @@
 - Regra `active` não pode ser excluída; deve ser finalizada antes
 - Edição concorrente usa controle otimista e pode retornar `409`
 - Materialização usa chave idempotente para evitar duplicidade
+- `failed` é estado terminal no MVP; não há retry automático nem reabertura por fluxo padrão
 - Transferência recorrente é materializada de forma atômica (duas transações com rollback integral em falha)
 - Cálculo de calendário considera timezone do usuário/regra
 

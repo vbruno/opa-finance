@@ -464,6 +464,7 @@ export class RecurrenceMaterializeService {
           "Recurrence materialization failed",
         );
 
+        // MVP: failed is terminal. Não reprocessar automaticamente nem tentar reabrir aqui.
         failedRecurrences += 1;
         continue;
       }
