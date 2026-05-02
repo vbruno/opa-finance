@@ -14,10 +14,16 @@
   - accounts
   - categories
   - subcategories
+  - recurrence
+  - recurrence_occurrence
 - Acoes suportadas:
   - create
   - update
   - delete
+  - materialize_pending
+  - confirm
+  - skip
+  - fail
 - Cada log deve conter:
   - user_id
   - entity_type
@@ -53,9 +59,9 @@ Os campos abaixo sao automaticamente mascarados como `[REDACTED]` quando enviado
 
 - id (uuid)
 - user_id (uuid)
-- entity_type (enum: transaction, account, category, subcategory)
+- entity_type (enum: transaction, account, category, subcategory, recurrence, recurrence_occurrence)
 - entity_id (uuid)
-- action (enum: create, update, delete)
+- action (enum: create, update, delete, materialize_pending, confirm, skip, fail)
 - before_data (jsonb, opcional)
 - after_data (jsonb, opcional)
 - metadata (jsonb, opcional)
@@ -78,8 +84,8 @@ GET /audit-logs
 
 - page, limit
 - view (`raw`, `grouped`)
-- entityType (`transaction`, `account`, `category`, `subcategory`)
-- action (`create`, `update`, `delete`)
+- entityType (`transaction`, `account`, `category`, `subcategory`, `recurrence`, `recurrence_occurrence`)
+- action (`create`, `update`, `delete`, `materialize_pending`, `confirm`, `skip`, `fail`)
 - startDate, endDate
 
 ### Resposta

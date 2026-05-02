@@ -1087,6 +1087,7 @@ Cria uma nova transação.
   "description": "Compra no supermercado", // opcional
   "notes": "Notas adicionais", // opcional
   "recurrence": {
+    "postingMode": "review_required",
     "frequency": "monthly",
     "startDate": "2025-01-15", // opcional (default = date da transação)
     "dayOfMonth": 15,
@@ -1465,6 +1466,7 @@ Cria uma transferência entre contas.
   "date": "2025-01-15",
   "description": "Transferência para poupança", // opcional
   "recurrence": {
+    "postingMode": "automatic",
     "frequency": "monthly",
     "startDate": "2025-01-15", // opcional (default = date da transferência)
     "dayOfMonth": 15,
@@ -1537,11 +1539,17 @@ Cria uma recorrência de transação ou transferência.
 
 **Headers:** `Authorization: Bearer {token}`
 
+**Campos relevantes:**
+
+- `postingMode` é opcional e defaulta para `automatic`
+- `review_required` gera pendências no job ao invés de lançamento automático
+
 **Request Body (exemplo - transação):**
 
 ```json
 {
   "originType": "transaction",
+  "postingMode": "review_required",
   "frequency": "monthly",
   "startDate": "2026-04-10",
   "dayOfMonth": 10,
@@ -1560,6 +1568,7 @@ Cria uma recorrência de transação ou transferência.
 ```json
 {
   "originType": "transfer",
+  "postingMode": "automatic",
   "frequency": "weekly",
   "startDate": "2026-04-10",
   "dayOfWeek": 5,
@@ -1572,7 +1581,7 @@ Cria uma recorrência de transação ou transferência.
 }
 ```
 
-**Response 201:** objeto da recorrência criada.
+**Response 201:** objeto da recorrência criada, incluindo `postingMode`, `version`, `nextOccurrenceDate`, `lastMaterializedDate`, `finalizedAt`, `deletedAt`.
 
 ---
 
@@ -1589,6 +1598,7 @@ Lista recorrências do usuário com paginação e filtros.
 - `originType` (`transaction | transfer`)
 - `status` (`active | finalized`)
 - `frequency` (`weekly | biweekly | monthly | yearly`)
+- `postingMode` (`automatic | review_required`)
 - `accountId` (UUID)
 - `q` (busca por descrição/notas)
 
@@ -1611,7 +1621,7 @@ Retorna uma recorrência específica do usuário.
 
 **Headers:** `Authorization: Bearer {token}`
 
-**Response 200:** objeto da recorrência.
+**Response 200:** objeto da recorrência, incluindo `postingMode`, `version` e campos de controle de próxima execução.
 
 ---
 
@@ -1621,12 +1631,16 @@ Atualiza uma recorrência ativa.
 
 **Headers:** `Authorization: Bearer {token}`
 
-**Observação:** suporta controle de concorrência otimista via `expectedVersion`.
+**Observações:**
+
+- suporta controle de concorrência otimista via `expectedVersion`
+- aceita atualização de `postingMode`
 
 **Request Body (parcial):**
 
 ```json
 {
+  "postingMode": "review_required",
   "amount": 420,
   "notes": "Atualizado",
   "expectedVersion": 1
@@ -1657,6 +1671,7 @@ Aplica edição por escopo em recorrência ativa:
   "scope": "this_and_next",
   "occurrenceDate": "2026-06-10",
   "changes": {
+    "postingMode": "automatic",
     "amount": 480,
     "notes": "Ajuste de ciclo",
     "expectedVersion": 3
@@ -1669,7 +1684,8 @@ Aplica edição por escopo em recorrência ativa:
 - `occurrenceDate` é obrigatório para `single` e `this_and_next`
 - `single` exige ocorrência já materializada na data selecionada
 - `single` não permite editar ocorrência materializada passada
-- `single` não permite alterar agenda (frequência/início/fim)
+- `single` não permite alterar agenda (`frequency`, `startDate`, `endType`, etc.)
+- `postingMode` pode ser alterado em `all` e `this_and_next`; em `single` o backend ignora a troca para não afetar a regra-mãe
 
 **Erros:**
 
@@ -1709,6 +1725,62 @@ Exclusão lógica da recorrência (somente quando `finalized`).
 
 ---
 
+### POST `/recurrences/occurrences/:id/confirm`
+
+Confirma uma ocorrência `pending_review` e cria a transação ou transferência correspondente.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request Body:**
+
+```json
+{
+  "expectedVersion": 1,
+  "occurrenceDate": "2026-04-10",
+  "amount": 350,
+  "description": "Plano de celular",
+  "notes": "Ajuste manual",
+  "accountId": "uuid",
+  "categoryId": "uuid",
+  "subcategoryId": "uuid"
+}
+```
+
+**Regras importantes:**
+
+- `expectedVersion` é obrigatório
+- `occurrenceDate`, `amount`, `description`, `notes` e vínculos podem ser ajustados
+- a ação é transacional; cria a movimentação ou falha inteira
+
+**Response 200:** ocorrência atualizada com `status = materialized`, `version` incrementada e `transactionId`/`transferId` preenchidos quando aplicável.
+
+---
+
+### POST `/recurrences/occurrences/:id/skip`
+
+Marca uma ocorrência `pending_review` como ignorada.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request Body:**
+
+```json
+{
+  "expectedVersion": 1,
+  "reason": "Pagamento já realizado manualmente"
+}
+```
+
+**Regras importantes:**
+
+- `expectedVersion` é obrigatório
+- `reason` é opcional
+- `skip` consome a posição da série em `by_occurrences`
+
+**Response 200:** ocorrência atualizada com `status = skipped` e `metadata.skipReason` quando informado.
+
+---
+
 ### POST `/recurrences/materialize`
 
 Materializa ocorrências pendentes das recorrências ativas do usuário.
@@ -1726,6 +1798,12 @@ Materializa ocorrências pendentes das recorrências ativas do usuário.
 
 Quando `untilDate` não é enviado, o backend usa a data atual no timezone da recorrência.
 Quando `maxRecurrences` não é enviado, usa lote padrão de `200` (máximo `500`).
+
+**Regras importantes:**
+
+- `automatic` materializa diretamente
+- `review_required` cria `pending_review`
+- `pending_review`, `materialized` e `skipped` contam como consumidas em `by_occurrences`
 
 **Response 200:**
 
@@ -1751,6 +1829,103 @@ Quando `maxRecurrences` não é enviado, usa lote padrão de `200` (máximo `500
 
 ---
 
+### GET `/recurrences/:id/timeline`
+
+Retorna a timeline de uma recorrência misturando ocorrências persistidas e projeções futuras.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Params:**
+
+- `limit` (default: `24`, máximo `120`)
+- `untilDate` (YYYY-MM-DD, opcional)
+- `includeProjected` (`true | false`, default: `true`)
+
+**Regras importantes:**
+
+- `sequence` conta a posição cronológica da série
+- `canConfirm` e `canSkip` só vêm `true` para `pending_review` em recorrência ativa
+- `projectionWindowLabel` indica janela parcial quando houver mais itens além do limite
+
+**Response 200 (exemplo):**
+
+```json
+{
+  "recurrence": {
+    "id": "uuid",
+    "originType": "transaction",
+    "postingMode": "review_required",
+    "status": "active",
+    "frequency": "monthly",
+    "startDate": "2026-04-10",
+    "nextOccurrenceDate": "2026-05-10",
+    "version": 3
+  },
+  "summary": {
+    "totalOccurrences": 12,
+    "consumedOccurrences": 2,
+    "materializedOccurrences": 1,
+    "pendingReviewOccurrences": 1,
+    "skippedOccurrences": 0,
+    "failedOccurrences": 0,
+    "projectedOccurrences": 2,
+    "totalAmount": null,
+    "materializedAmount": 350,
+    "pendingReviewAmount": 350,
+    "projectedAmount": 700,
+    "appliedLimit": 24,
+    "isPartial": true,
+    "hasMoreProjected": true,
+    "projectionWindowLabel": "Próximas 24 ocorrências"
+  },
+  "items": [
+    {
+      "id": "occ-1",
+      "sequence": 1,
+      "occurrenceDate": "2026-04-10",
+      "status": "materialized",
+      "source": "persisted",
+      "amount": 350,
+      "transactionId": "tx-1",
+      "transferId": null,
+      "canConfirm": false,
+      "canSkip": false
+    },
+    {
+      "id": "occ-2",
+      "sequence": 2,
+      "occurrenceDate": "2026-05-10",
+      "status": "pending_review",
+      "source": "persisted",
+      "amount": 350,
+      "transactionId": null,
+      "transferId": null,
+      "canConfirm": true,
+      "canSkip": true
+    },
+    {
+      "id": null,
+      "sequence": 3,
+      "occurrenceDate": "2026-06-10",
+      "status": "projected",
+      "source": "projected",
+      "amount": 350,
+      "transactionId": null,
+      "transferId": null,
+      "canConfirm": false,
+      "canSkip": false
+    }
+  ]
+}
+```
+
+**Erros:**
+
+- `403` - recorrência não pertence ao usuário
+- `404` - recorrência não encontrada
+
+---
+
 ### GET `/recurrences/forecast`
 
 Retorna projeção de recorrências até o fim do ano, com separação explícita entre:
@@ -1765,6 +1940,12 @@ Retorna projeção de recorrências até o fim do ano, com separação explícit
 
 - `year` (opcional, default: ano atual no timezone do usuário)
 - `accountIds` (opcional, UUIDs separados por vírgula)
+
+**Regras importantes:**
+
+- projeção nunca materializa transação no banco
+- `pending_review` e `skipped` entram como consumidas para evitar duplicidade de projeção
+- recorrência de transferência projeta duas pernas (`expense` origem + `income` destino), respeitando `accountIds`
 
 **Response 200 (exemplo):**
 
@@ -1811,12 +1992,6 @@ Retorna projeção de recorrências até o fim do ano, com separação explícit
   }
 }
 ```
-
-**Regras importantes:**
-
-- projeção nunca materializa transação no banco;
-- em recorrência com `endType = by_occurrences`, somente ocorrências já materializadas consomem o limite;
-- recorrência de transferência projeta duas pernas (`expense` origem + `income` destino), respeitando `accountIds`.
 
 **Erros:**
 
@@ -2022,8 +2197,8 @@ Lista logs de auditoria do usuário autenticado com filtros, paginação e modo 
 - `view` (`raw | grouped`, default: `raw`)
   - `raw`: retorna cada log individual
   - `grouped`: agrupa pares de transferência (`transfer-create`) em um único evento para listagem
-- `entityType` (`transaction | account | category | subcategory | recurrence`)
-- `action` (`create | update | delete`)
+- `entityType` (`transaction | account | category | subcategory | recurrence | recurrence_occurrence`)
+- `action` (`create | update | delete | materialize_pending | confirm | skip | fail`)
 - `startDate` (`YYYY-MM-DD`)
 - `endDate` (`YYYY-MM-DD`)
 
