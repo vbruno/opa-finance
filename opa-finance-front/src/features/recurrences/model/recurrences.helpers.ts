@@ -18,6 +18,7 @@ export function getDefaultRecurrenceFormValues(
 ): RecurrenceFormData {
   return {
     originType: 'transaction',
+    postingMode: 'automatic',
     frequency: 'monthly',
     startDate: getTodayIsoDateInTimezone(userTimezone),
     dayOfWeek: '',
@@ -44,6 +45,7 @@ export function getRecurrenceFormValuesFromEntity(
 ): RecurrenceFormData {
   return {
     originType: recurrence.originType,
+    postingMode: recurrence.postingMode,
     frequency: recurrence.frequency,
     startDate: recurrence.startDate,
     dayOfWeek: recurrence.dayOfWeek?.toString() ?? '',
@@ -74,6 +76,7 @@ export function toRecurrenceCreatePayload(
   }
 
   const common = {
+    postingMode: values.postingMode,
     frequency: values.frequency,
     startDate: values.startDate,
     dayOfWeek: values.dayOfWeek ? Number(values.dayOfWeek) : undefined,
@@ -193,6 +196,7 @@ export function buildScopedRecurrenceUpdatePayload(
   addChange('amount', businessCandidate.amount, recurrence.amount)
   addChange('description', businessCandidate.description, recurrence.description)
   addChange('notes', businessCandidate.notes, recurrence.notes)
+  addChange('postingMode', values.postingMode, recurrence.postingMode)
 
   if (values.originType === 'transaction') {
     addChange('accountId', businessCandidate.accountId ?? undefined, recurrence.accountId)
@@ -216,6 +220,7 @@ export function buildScopedRecurrenceUpdatePayload(
   }
 
   if (values.editScope === 'single') {
+    delete diff.postingMode
     delete diff.frequency
     delete diff.startDate
     delete diff.dayOfWeek

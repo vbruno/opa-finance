@@ -55,6 +55,7 @@ function makeRecurrence(partial: Partial<Recurrence> = {}): Recurrence {
 function makeForm(partial: Partial<RecurrenceFormData> = {}): RecurrenceFormData {
   return {
     originType: 'transaction',
+    postingMode: 'automatic',
     frequency: 'monthly',
     startDate: '2026-04-01',
     dayOfWeek: '',
@@ -94,6 +95,7 @@ describe('recurrences.helpers', () => {
   it('deve gerar payload de criação para transação', () => {
     const payload = toRecurrenceCreatePayload(makeForm())
     expect(payload.originType).toBe('transaction')
+    expect(payload.postingMode).toBe('automatic')
     expect(payload.amount).toBe(120)
   })
 
@@ -101,6 +103,7 @@ describe('recurrences.helpers', () => {
     const diff = buildScopedRecurrenceUpdatePayload(
       makeForm({
         editScope: 'single',
+        postingMode: 'review_required',
         amount: '150,00',
         frequency: 'weekly',
         dayOfWeek: '1',
@@ -110,7 +113,20 @@ describe('recurrences.helpers', () => {
     )
 
     expect(diff.amount).toBe(150)
+    expect(diff.postingMode).toBeUndefined()
     expect(diff.frequency).toBeUndefined()
     expect(diff.dayOfWeek).toBeUndefined()
+  })
+
+  it('deve incluir modo de lançamento no update global', () => {
+    const diff = buildScopedRecurrenceUpdatePayload(
+      makeForm({
+        editScope: 'all',
+        postingMode: 'review_required',
+      }),
+      makeRecurrence(),
+    )
+
+    expect(diff.postingMode).toBe('review_required')
   })
 })

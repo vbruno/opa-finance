@@ -17,6 +17,8 @@ import { type Recurrence } from '@/features/recurrences'
 import {
   RECURRENCE_DAY_OF_WEEK_OPTIONS,
   RECURRENCE_MONTH_OPTIONS,
+  RECURRENCE_POSTING_MODE_LABELS,
+  RECURRENCE_POSTING_MODES,
 } from '@/features/recurrences/model/recurrences.constants'
 import { getTodayIsoDateInTimezone } from '@/features/recurrences/model/recurrences.helpers'
 import { useCategoryTreeInteraction } from '@/features/transactions/hooks/use-category-tree-interaction'
@@ -83,6 +85,7 @@ export function RecurrenceFormModal({
   onSubcategoriesRefetch,
 }: RecurrenceFormModalProps) {
   const selectedCategoryId = form.watch('categoryId')
+  const postingMode = form.watch('postingMode')
   const [isAccountSelectOpen, setIsAccountSelectOpen] = useState(false)
   const [isCategoryTreeOpen, setIsCategoryTreeOpen] = useState(false)
   const [categoryTreeSearch, setCategoryTreeSearch] = useState('')
@@ -156,7 +159,7 @@ export function RecurrenceFormModal({
         </div>
 
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <div>
               <Label>Origem</Label>
               <Select
@@ -204,6 +207,31 @@ export function RecurrenceFormModal({
                   <SelectItem value="biweekly">Quinzenal</SelectItem>
                   <SelectItem value="monthly">Mensal</SelectItem>
                   <SelectItem value="yearly">Anual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Modo de lançamento</Label>
+              <Select
+                value={postingMode}
+                onValueChange={(value) =>
+                  form.setValue(
+                    'postingMode',
+                    value as RecurrenceFormData['postingMode'],
+                  )
+                }
+                disabled={isSingleScopeEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Modo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RECURRENCE_POSTING_MODES.map((mode) => (
+                    <SelectItem key={mode} value={mode}>
+                      {RECURRENCE_POSTING_MODE_LABELS[mode]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
