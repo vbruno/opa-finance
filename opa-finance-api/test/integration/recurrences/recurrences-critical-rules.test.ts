@@ -425,6 +425,54 @@ describe("Recurrences - critical rules", () => {
     });
   });
 
+  it("confirma pendência de transação e cria lançamento materializado", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+
+    expect(confirmRes.statusCode).toBe(200);
+    const confirmed = confirmRes.json();
+    expect(confirmed.status).toBe("materialized");
+    expect(confirmed.transactionId).toBeTruthy();
+    expect(confirmed.version).toBe(pending.version + 1);
+
+    const [createdTransaction] = await app.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, confirmed.transactionId));
+
+    expect(createdTransaction).toBeTruthy();
+    expect(createdTransaction?.description).toBe("Despesa recorrente");
+    expect(createdTransaction?.accountId).toBe(account.id);
+    expect(Number(createdTransaction?.amount)).toBe(120);
+  });
+
   it("rejeita confirmação duplicada com 409", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
