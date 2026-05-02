@@ -79,6 +79,9 @@ describe("Recurrences - critical rules", () => {
     amount = 120,
     startDate = "2025-01-06",
     dayOfWeek = 1,
+    postingMode = "automatic",
+    endType = "never",
+    endOccurrences,
   }: {
     token: string;
     accountId: string;
@@ -86,6 +89,9 @@ describe("Recurrences - critical rules", () => {
     amount?: number;
     startDate?: string;
     dayOfWeek?: number;
+    postingMode?: "automatic" | "review_required";
+    endType?: "never" | "by_occurrences";
+    endOccurrences?: number;
   }) {
     const res = await app.inject({
       method: "POST",
@@ -93,10 +99,12 @@ describe("Recurrences - critical rules", () => {
       headers: { Authorization: `Bearer ${token}` },
       payload: {
         originType: "transaction",
+        postingMode,
         frequency: "weekly",
         startDate,
         dayOfWeek,
-        endType: "never",
+        endType,
+        endOccurrences,
         accountId,
         categoryId,
         amount,
@@ -141,6 +149,102 @@ describe("Recurrences - critical rules", () => {
     expect(secondRun.json().createdOccurrences).toBe(0);
     expect(secondRun.json().skippedOccurrences).toBe(0);
     expect(secondRun.json().createdTransactions).toBe(0);
+  });
+
+  it("gera pendência sem criar transação quando postingMode exige revisão", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdOccurrences).toBe(1);
+    expect(materializeRes.json().createdTransactions).toBe(0);
+
+    const [occurrence] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    expect(occurrence?.status).toBe("pending_review");
+    expect(occurrence?.transactionId).toBeNull();
+    expect(occurrence?.reviewPayload).toMatchObject({
+      occurrenceDate: "2025-01-06",
+      originalScheduledDate: "2025-01-06",
+      originType: "transaction",
+      amount: 120,
+      accountId: account.id,
+      categoryId: category.id,
+    });
+
+    const persistedTransactions = await app.db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.description, "Despesa recorrente"));
+    expect(persistedTransactions.length).toBe(0);
+
+    const [updatedRecurrence] = await app.db
+      .select({
+        nextOccurrenceDate: recurrences.nextOccurrenceDate,
+        lastMaterializedDate: recurrences.lastMaterializedDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(updatedRecurrence?.nextOccurrenceDate).toBe("2025-01-13");
+    expect(updatedRecurrence?.lastMaterializedDate).toBeNull();
+  });
+
+  it("conta pendências no limite by_occurrences em modo de revisão", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 3,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-02-10" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdOccurrences).toBe(3);
+    expect(materializeRes.json().createdTransactions).toBe(0);
+    expect(materializeRes.json().finalizedRecurrences).toBe(1);
+
+    const occurrences = await app.db
+      .select({ status: recurrenceOccurrences.status })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+    expect(occurrences).toHaveLength(3);
+    expect(occurrences.every((occurrence) => occurrence.status === "pending_review")).toBe(true);
+
+    const [updatedRecurrence] = await app.db
+      .select({ status: recurrences.status, nextOccurrenceDate: recurrences.nextOccurrenceDate })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+    expect(updatedRecurrence?.status).toBe("finalized");
+    expect(updatedRecurrence?.nextOccurrenceDate).toBeNull();
   });
 
   it("bloqueia escopo single quando payload tenta alterar agenda", async () => {

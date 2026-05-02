@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { ValidationProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
@@ -23,6 +23,22 @@ export class RecurrenceMaterializeService {
     private recurrenceAudit: RecurrenceAudit,
     private validators: RecurrenceValidators,
   ) {}
+
+  private buildReviewPayload(recurrence: typeof recurrences.$inferSelect, occurrenceDate: string) {
+    return {
+      occurrenceDate,
+      originalScheduledDate: occurrenceDate,
+      originType: recurrence.originType,
+      amount: Number(recurrence.amount),
+      description: recurrence.description,
+      notes: recurrence.notes,
+      accountId: recurrence.accountId,
+      categoryId: recurrence.categoryId,
+      subcategoryId: recurrence.subcategoryId,
+      fromAccountId: recurrence.fromAccountId,
+      toAccountId: recurrence.toAccountId,
+    };
+  }
 
   private async materializeTransactionOccurrence(
     tx: DB,
@@ -220,7 +236,7 @@ export class RecurrenceMaterializeService {
         }
         cursorDate = getFirstOccurrenceOnOrAfter(schedule, cursorDate);
 
-        let materializedCount = 0;
+        let consumedCount = 0;
         if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
           const [countResult] = await this.app.db
             .select({ total: sql<number>`count(*)::int` })
@@ -228,10 +244,14 @@ export class RecurrenceMaterializeService {
             .where(
               and(
                 eq(recurrenceOccurrences.recurrenceId, recurrence.id),
-                eq(recurrenceOccurrences.status, "materialized"),
+                inArray(recurrenceOccurrences.status, [
+                  "materialized",
+                  "pending_review",
+                  "skipped",
+                ]),
               ),
             );
-          materializedCount = countResult?.total ?? 0;
+          consumedCount = countResult?.total ?? 0;
         }
 
         while (compareIsoDate(cursorDate, untilDate) <= 0) {
@@ -254,7 +274,7 @@ export class RecurrenceMaterializeService {
           }
 
           if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
-            if (materializedCount >= recurrence.endOccurrences) {
+            if (consumedCount >= recurrence.endOccurrences) {
               shouldFinalize = true;
               break;
             }
@@ -267,7 +287,16 @@ export class RecurrenceMaterializeService {
                 recurrenceId: recurrence.id,
                 originType: recurrence.originType,
                 occurrenceDate: cursorDate,
-                status: "materialized",
+                status:
+                  recurrence.postingMode === "review_required" ? "pending_review" : "materialized",
+                metadata: {
+                  source: "recurrence-materialization",
+                  generatedAt: new Date().toISOString(),
+                },
+                reviewPayload:
+                  recurrence.postingMode === "review_required"
+                    ? this.buildReviewPayload(recurrence, cursorDate)
+                    : null,
               })
               .onConflictDoNothing({
                 target: [
@@ -283,6 +312,16 @@ export class RecurrenceMaterializeService {
                 inserted: false,
                 transactionId: null as string | null,
                 transferId: null as string | null,
+                status: null as "materialized" | "pending_review" | null,
+              };
+            }
+
+            if (recurrence.postingMode === "review_required") {
+              return {
+                inserted: true,
+                transactionId: null as string | null,
+                transferId: null as string | null,
+                status: "pending_review" as const,
               };
             }
 
@@ -297,11 +336,10 @@ export class RecurrenceMaterializeService {
                 .update(recurrenceOccurrences)
                 .set({
                   transactionId: transactionResult.transactionId,
-                  metadata: { source: "recurrence-materialization" },
                 })
                 .where(eq(recurrenceOccurrences.id, occurrence.id));
 
-              return { inserted: true, ...transactionResult };
+              return { inserted: true, status: "materialized" as const, ...transactionResult };
             }
 
             if (!transferCategoryId) {
@@ -320,24 +358,24 @@ export class RecurrenceMaterializeService {
               .update(recurrenceOccurrences)
               .set({
                 transferId: transferResult.transferId,
-                metadata: { source: "recurrence-materialization" },
               })
               .where(eq(recurrenceOccurrences.id, occurrence.id));
 
-            return { inserted: true, ...transferResult };
+            return { inserted: true, status: "materialized" as const, ...transferResult };
           });
 
           if (occurrenceOutcome.inserted) {
             localCreated += 1;
-            localLastMaterializedDate = cursorDate;
+            if (occurrenceOutcome.status === "materialized") {
+              localLastMaterializedDate = cursorDate;
+            }
             if (occurrenceOutcome.transactionId) localTransactions += 1;
             if (occurrenceOutcome.transferId) localTransfers += 1;
             if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
-              materializedCount += 1;
+              consumedCount += 1;
             }
           } else {
             localSkipped += 1;
-            localLastMaterializedDate = cursorDate;
           }
 
           cursorDate = getNextOccurrenceAfter(schedule, cursorDate);
