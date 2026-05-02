@@ -17,8 +17,6 @@ const baseFormData: TransactionCreateFormData = {
 
 function makeHook() {
   const createTransaction = vi.fn().mockResolvedValue({ id: 'tx-1' })
-  const createRecurrence = vi.fn().mockResolvedValue({})
-  const deleteTransaction = vi.fn().mockResolvedValue({})
   const updateTransaction = vi.fn().mockResolvedValue({})
   const onCreateSuccess = vi.fn()
   const onEditSuccess = vi.fn()
@@ -41,8 +39,6 @@ function makeHook() {
       },
       selectedTransactionId: 'tx-1',
       createTransaction,
-      createRecurrence,
-      deleteTransaction,
       updateTransaction,
       onCreateSuccess,
       onEditSuccess,
@@ -54,8 +50,6 @@ function makeHook() {
   return {
     hook,
     createTransaction,
-    createRecurrence,
-    deleteTransaction,
     updateTransaction,
     onCreateSuccess,
     onEditSuccess,
@@ -99,8 +93,6 @@ describe('useTransactionForm', () => {
 
   it('deve montar payload de recorrência para weekly, monthly e yearly', async () => {
     const createTransaction = vi.fn().mockResolvedValue({ id: 'tx-1' })
-    const createRecurrence = vi.fn().mockResolvedValue({})
-    const deleteTransaction = vi.fn().mockResolvedValue({})
 
     const buildHook = (frequency: 'weekly' | 'monthly' | 'yearly') =>
       renderHook(() =>
@@ -119,8 +111,6 @@ describe('useTransactionForm', () => {
           },
           selectedTransactionId: null,
           createTransaction,
-          createRecurrence,
-          deleteTransaction,
           updateTransaction: vi.fn(),
           onCreateSuccess: vi.fn(),
           onEditSuccess: vi.fn(),
@@ -144,10 +134,13 @@ describe('useTransactionForm', () => {
       await yearlyHook.result.current.onSubmit(baseFormData)
     })
 
-    const frequencies = createRecurrence.mock.calls.map(
-      ([payload]) => payload.frequency,
-    )
-    expect(frequencies).toEqual(['weekly', 'monthly', 'yearly'])
+    const payloads = createTransaction.mock.calls.map(([payload]) => payload)
+    expect(payloads).toHaveLength(3)
+    expect(payloads.map((payload) => payload.recurrence?.frequency)).toEqual([
+      'weekly',
+      'monthly',
+      'yearly',
+    ])
   })
 
   it('deve executar update no edit e chamar onEditSuccess', async () => {

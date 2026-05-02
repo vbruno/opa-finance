@@ -21,13 +21,11 @@ import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Account } from '@/features/accounts'
 import type { Category, Subcategory } from '@/features/categories'
 import { useCreateCategory, useCreateSubcategory } from '@/features/categories'
-import { useCreateRecurrence } from '@/features/recurrences'
 import {
   formatDateInput,
   type Transaction,
   useCreateTransaction,
   useDebouncedValue,
-  useDeleteTransaction,
   useTransactionForm,
   useTransactionRecurrenceDraft,
   useTransactionsCreateSupport,
@@ -120,8 +118,6 @@ export function TransactionsCreateModal(
   const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
 
   const createTransactionMutation = useCreateTransaction()
-  const createRecurrenceMutation = useCreateRecurrence()
-  const deleteTransactionMutation = useDeleteTransaction()
   const createCategoryMutation = useCreateCategory()
   const createSubcategoryMutation = useCreateSubcategory()
 
@@ -231,8 +227,6 @@ export function TransactionsCreateModal(
     isCreateRecurrenceEnabled,
     recurrenceDraft,
     createTransaction: createTransactionMutation.mutateAsync,
-    createRecurrence: createRecurrenceMutation.mutateAsync,
-    deleteTransaction: deleteTransactionMutation.mutateAsync,
     selectedTransactionId: null,
     updateTransaction: async () => undefined,
     onCreateSuccess: () => {

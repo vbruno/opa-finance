@@ -2,7 +2,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import type { TransferCreatePayload } from '@/features/transfers'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -32,8 +31,6 @@ type UseTransferFormInput = {
   defaultTransferToAccountId: string
   transactions: Transaction[]
   createTransfer: (payload: TransferCreatePayload) => Promise<unknown>
-  createRecurrence: (payload: RecurrenceCreatePayload) => Promise<unknown>
-  deleteTransaction: (id: string) => Promise<unknown>
   updateTransaction: (input: {
     id: string
     payload: TransactionUpdatePayload
@@ -43,36 +40,12 @@ type UseTransferFormInput = {
   onTransactionDetailsClose: () => void
 }
 
-function getCreatedTransferTransactionIds(result: unknown): string[] {
-  if (!result || typeof result !== 'object') {
-    return []
-  }
-
-  const maybeResult = result as {
-    fromAccount?: { id?: unknown }
-    toAccount?: { id?: unknown }
-  }
-
-  const fromId =
-    maybeResult.fromAccount && typeof maybeResult.fromAccount.id === 'string'
-      ? maybeResult.fromAccount.id
-      : null
-  const toId =
-    maybeResult.toAccount && typeof maybeResult.toAccount.id === 'string'
-      ? maybeResult.toAccount.id
-      : null
-
-  return [fromId, toId].filter((value): value is string => Boolean(value))
-}
-
 export function useTransferForm({
   isTransferOpen,
   primaryAccountId,
   defaultTransferToAccountId,
   transactions,
   createTransfer,
-  createRecurrence,
-  deleteTransaction,
   updateTransaction,
   onTransferModalOpen,
   onTransferModalClose,
@@ -208,29 +181,33 @@ export function useTransferForm({
   const onTransferSubmit = useCallback(
     async (formData: TransferCreateFormData) => {
       const transferPayload = buildTransferCreatePayloadFromForm(formData)
-      const transferRecurrencePayloadResult =
-        isTransferRecurrenceEnabled && !transferEditContext
-          ? buildTransferRecurrencePayloadFromDraft({
-              fromAccountId: formData.fromAccountId,
-              toAccountId: formData.toAccountId,
-              amount: transferPayload.amount,
-              description: formData.description ?? undefined,
-              startDate: transferRecurrenceStartDate,
-              frequency: transferRecurrenceFrequency,
-              endType: transferRecurrenceEndType,
-              endOccurrences: transferRecurrenceEndOccurrences,
-              endDate: transferRecurrenceEndDate,
-              dayOfWeek: transferRecurrenceDayOfWeek,
-              dayOfMonth: transferRecurrenceDayOfMonth,
-              monthOfYear: transferRecurrenceMonthOfYear,
-            })
-          : { payload: null, error: null }
 
-      if (transferRecurrencePayloadResult.error) {
-        transferForm.setError('root', {
-          message: transferRecurrencePayloadResult.error,
-        })
-        return
+      if (isTransferRecurrenceEnabled && !transferEditContext) {
+        const transferRecurrencePayloadResult =
+          buildTransferRecurrencePayloadFromDraft({
+            fromAccountId: formData.fromAccountId,
+            toAccountId: formData.toAccountId,
+            amount: transferPayload.amount,
+            description: formData.description ?? undefined,
+            startDate: transferRecurrenceStartDate,
+            frequency: transferRecurrenceFrequency,
+            endType: transferRecurrenceEndType,
+            endOccurrences: transferRecurrenceEndOccurrences,
+            endDate: transferRecurrenceEndDate,
+            dayOfWeek: transferRecurrenceDayOfWeek,
+            dayOfMonth: transferRecurrenceDayOfMonth,
+            monthOfYear: transferRecurrenceMonthOfYear,
+          })
+
+        if (transferRecurrencePayloadResult.error) {
+          transferForm.setError('root', {
+            message: transferRecurrencePayloadResult.error,
+          })
+          return
+        }
+
+        transferPayload.recurrence =
+          transferRecurrencePayloadResult.payload ?? undefined
       }
 
       try {
@@ -244,37 +221,7 @@ export function useTransferForm({
             updateTransaction(payloads.income),
           ])
         } else {
-          const createdTransfer = await createTransfer(transferPayload)
-
-          if (transferRecurrencePayloadResult.payload) {
-            try {
-              await createRecurrence(transferRecurrencePayloadResult.payload)
-            } catch (recurrenceError) {
-              const rollbackIds = getCreatedTransferTransactionIds(createdTransfer)
-              let rollbackSucceeded = false
-
-              if (rollbackIds.length > 0) {
-                const rollbackResults = await Promise.allSettled(
-                  rollbackIds.map((id) => deleteTransaction(id)),
-                )
-                rollbackSucceeded = rollbackResults.every(
-                  (result) => result.status === 'fulfilled',
-                )
-              }
-
-              const rollbackMessage = rollbackSucceeded
-                ? 'A transferência foi revertida.'
-                : 'Não foi possível reverter a transferência automaticamente. Verifique a lista de transações.'
-
-              transferForm.setError('root', {
-                message: `Falha ao criar recorrência da transferência. ${rollbackMessage} ${getApiErrorMessage(
-                  recurrenceError,
-                  { defaultMessage: '' },
-                )}`.trim(),
-              })
-              return
-            }
-          }
+          await createTransfer(transferPayload)
         }
 
         handleCloseTransferModal()
@@ -296,8 +243,6 @@ export function useTransferForm({
       transferEditContext,
       transferForm,
       updateTransaction,
-      createRecurrence,
-      deleteTransaction,
       isTransferRecurrenceEnabled,
       transferRecurrenceDayOfMonth,
       transferRecurrenceDayOfWeek,

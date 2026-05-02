@@ -836,7 +836,7 @@ Labels de UI:
 - [x] `RCREV-S3-06` Criar ações de confirmar e ignorar pendência (enviar `expectedVersion` e tratar 409 com refetch).
   - sub-task: criar `ConfirmRecurrenceOccurrenceModal` com campos do `reviewPayload` editáveis, reusando `TransactionAccountField`, `TransactionAmountField`, `TransactionCategoryField`, etc. (`RCREV-DEF-31`).
   - sub-task: skip envia request direto (sem modal de edição); opcional capturar `reason` em prompt simples.
-- [ ] `RCREV-S3-07` Revisar fluxo de nova transação/transferência recorrente para usar criação aninhada — converger lógica de `useTransactionRecurrenceDraft` e remover dupla mutação.
+- [x] `RCREV-S3-07` Revisar fluxo de nova transação/transferência recorrente para usar criação aninhada — converger lógica de `useTransactionRecurrenceDraft` e remover dupla mutação.
 - [ ] `RCREV-S3-08` Tratar estados de loading, vazio e erro.
 - [ ] `RCREV-S3-09` Tratar UI de finalização/exclusão com pendências abertas (alerta + opção de skip em massa).
 - [ ] `RCREV-S3-10` Adicionar badge/contador de pendências por linha na listagem de recorrências (`RCREV-DEF-27`).

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import { api } from '@/lib/api'
 
 export type TransferCreatePayload = {
@@ -8,6 +9,7 @@ export type TransferCreatePayload = {
   amount: number
   date: string
   description?: string | null
+  recurrence?: RecurrenceCreatePayload
 }
 
 export type TransferResponse = {

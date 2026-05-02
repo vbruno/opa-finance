@@ -1,6 +1,5 @@
 import { useCallback } from 'react'
 
-import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import { getApiErrorMessage } from '@/lib/apiError'
 import type { TransactionCreateFormData } from '@/schemas/transaction.schema'
 
@@ -32,8 +31,6 @@ type UseTransactionFormCreateInput = UseTransactionFormInput & {
   isCreateRecurrenceEnabled: boolean
   recurrenceDraft: TransactionRecurrenceDraft
   createTransaction: (payload: TransactionCreatePayload) => Promise<Transaction>
-  createRecurrence: (payload: RecurrenceCreatePayload) => Promise<unknown>
-  deleteTransaction: (id: string) => Promise<unknown>
   onCreateSuccess: () => void
   setCreateRootError: (message: string) => void
 }
@@ -59,59 +56,34 @@ export function useTransactionForm(input: UseTransactionFormInputUnion) {
       if (input.mode === 'create') {
         const transactionPayload = buildTransactionCreatePayloadFromForm(formData)
 
-        const recurrencePayloadResult = input.isCreateRecurrenceEnabled
-          ? buildRecurrencePayloadFromDraft({
-              accountId: formData.accountId,
-              categoryId: formData.categoryId,
-              subcategoryId: formData.subcategoryId || undefined,
-              amount: transactionPayload.amount,
-              description: formData.description ?? undefined,
-              notes: formData.notes ?? undefined,
-              startDate: input.recurrenceDraft.startDate,
-              frequency: input.recurrenceDraft.frequency,
-              endType: input.recurrenceDraft.endType,
-              endOccurrences: input.recurrenceDraft.endOccurrences,
-              endDate: input.recurrenceDraft.endDate,
-              dayOfWeek: input.recurrenceDraft.dayOfWeek,
-              dayOfMonth: input.recurrenceDraft.dayOfMonth,
-              monthOfYear: input.recurrenceDraft.monthOfYear,
-            })
-          : { payload: null, error: null }
+        if (input.isCreateRecurrenceEnabled) {
+          const recurrencePayloadResult = buildRecurrencePayloadFromDraft({
+            accountId: formData.accountId,
+            categoryId: formData.categoryId,
+            subcategoryId: formData.subcategoryId || undefined,
+            amount: transactionPayload.amount,
+            description: formData.description ?? undefined,
+            notes: formData.notes ?? undefined,
+            startDate: input.recurrenceDraft.startDate,
+            frequency: input.recurrenceDraft.frequency,
+            endType: input.recurrenceDraft.endType,
+            endOccurrences: input.recurrenceDraft.endOccurrences,
+            endDate: input.recurrenceDraft.endDate,
+            dayOfWeek: input.recurrenceDraft.dayOfWeek,
+            dayOfMonth: input.recurrenceDraft.dayOfMonth,
+            monthOfYear: input.recurrenceDraft.monthOfYear,
+          })
 
-        if (recurrencePayloadResult.error) {
-          input.setCreateRootError(recurrencePayloadResult.error)
-          return
+          if (recurrencePayloadResult.error) {
+            input.setCreateRootError(recurrencePayloadResult.error)
+            return
+          }
+
+          transactionPayload.recurrence = recurrencePayloadResult.payload ?? undefined
         }
 
         try {
-          const createdTransaction = await input.createTransaction(transactionPayload)
-
-          if (recurrencePayloadResult.payload) {
-            try {
-              await input.createRecurrence(recurrencePayloadResult.payload)
-            } catch (recurrenceError) {
-              let rollbackSucceeded = false
-              try {
-                await input.deleteTransaction(createdTransaction.id)
-                rollbackSucceeded = true
-              } catch {
-                // best-effort rollback
-              }
-
-              const rollbackMessage = rollbackSucceeded
-                ? 'A transação foi revertida.'
-                : 'Não foi possível reverter a transação automaticamente. Verifique a lista de transações.'
-
-              input.setCreateRootError(
-                `Falha ao criar recorrência. ${rollbackMessage} ${getApiErrorMessage(
-                  recurrenceError,
-                  { defaultMessage: '' },
-                )}`.trim(),
-              )
-              return
-            }
-          }
-
+          await input.createTransaction(transactionPayload)
           input.onCreateSuccess()
           return
         } catch (error: unknown) {

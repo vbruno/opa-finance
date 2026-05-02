@@ -29,7 +29,6 @@ import {
   useCreateCategory,
   useCreateSubcategory,
 } from '@/features/categories'
-import { useCreateRecurrence } from '@/features/recurrences'
 import {
   buildPaginationItems,
   CATEGORY_TYPE_RANK,
@@ -51,7 +50,6 @@ import {
   useTransactionForm,
   useTransferForm,
   useCreateTransaction,
-  useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
   TransactionsCreateModal,
@@ -234,10 +232,8 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     },
   )
   const createTransactionMutation = useCreateTransaction()
-  const createRecurrenceMutation = useCreateRecurrence()
   const createTransferMutation = useCreateTransfer()
   const updateTransactionMutation = useUpdateTransaction()
-  const deleteTransactionMutation = useDeleteTransaction()
   const createCategoryMutation = useCreateCategory()
   const createSubcategoryMutation = useCreateSubcategory()
 
@@ -439,8 +435,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     defaultTransferToAccountId,
     transactions,
     createTransfer: createTransferMutation.mutateAsync,
-    createRecurrence: createRecurrenceMutation.mutateAsync,
-    deleteTransaction: deleteTransactionMutation.mutateAsync,
     updateTransaction: updateTransactionMutation.mutateAsync,
     onTransferModalOpen: () => {
       setIsTransferOpen(true)
@@ -562,8 +556,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     isCreateRecurrenceEnabled,
     recurrenceDraft,
     createTransaction: createTransactionMutation.mutateAsync,
-    createRecurrence: createRecurrenceMutation.mutateAsync,
-    deleteTransaction: deleteTransactionMutation.mutateAsync,
     selectedTransactionId: selectedTransaction?.id ?? null,
     updateTransaction: updateTransactionMutation.mutateAsync,
     onCreateSuccess: () => {

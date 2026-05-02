@@ -40,8 +40,6 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer: vi.fn(),
-        createRecurrence: vi.fn(),
-        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen,
         onTransferModalClose: vi.fn(),
@@ -64,8 +62,6 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer: vi.fn(),
-        createRecurrence: vi.fn(),
-        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen: vi.fn(),
         onTransferModalClose: vi.fn(),
@@ -94,8 +90,6 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [transferExpense, transferIncome],
         createTransfer: vi.fn(),
-        createRecurrence: vi.fn(),
-        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen,
         onTransferModalClose: vi.fn(),
@@ -124,8 +118,6 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer,
-        createRecurrence: vi.fn(),
-        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen: vi.fn(),
         onTransferModalClose: vi.fn(),
@@ -154,7 +146,6 @@ describe('useTransferForm', () => {
 
   it('deve criar transferência recorrente quando habilitada', async () => {
     const createTransfer = vi.fn().mockResolvedValue({})
-    const createRecurrence = vi.fn().mockResolvedValue({})
 
     const hook = renderHook(() =>
       useTransferForm({
@@ -163,8 +154,6 @@ describe('useTransferForm', () => {
         defaultTransferToAccountId: 'acc-2',
         transactions: [],
         createTransfer,
-        createRecurrence,
-        deleteTransaction: vi.fn(),
         updateTransaction: vi.fn(),
         onTransferModalOpen: vi.fn(),
         onTransferModalClose: vi.fn(),
@@ -191,12 +180,14 @@ describe('useTransferForm', () => {
     })
 
     expect(createTransfer).toHaveBeenCalledTimes(1)
-    expect(createRecurrence).toHaveBeenCalledWith(
+    expect(createTransfer).toHaveBeenCalledWith(
       expect.objectContaining({
-        originType: 'transfer',
-        fromAccountId: 'acc-1',
-        toAccountId: 'acc-2',
-        frequency: 'weekly',
+        recurrence: expect.objectContaining({
+          originType: 'transfer',
+          fromAccountId: 'acc-1',
+          toAccountId: 'acc-2',
+          frequency: 'weekly',
+        }),
       }),
     )
   })

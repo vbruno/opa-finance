@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 
+import type { RecurrenceCreatePayload } from '@/features/recurrences'
 import { api } from '@/lib/api'
 
 export type TransactionType = 'income' | 'expense'
@@ -117,6 +118,7 @@ export type TransactionCreatePayload = {
   date: string
   description?: string | null
   notes?: string | null
+  recurrence?: RecurrenceCreatePayload
 }
 
 export type TransactionUpdatePayload = {

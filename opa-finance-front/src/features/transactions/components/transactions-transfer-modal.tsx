@@ -17,10 +17,8 @@ import {
 } from '@/components/ui/select'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Account } from '@/features/accounts'
-import { useCreateRecurrence } from '@/features/recurrences'
 import {
   type Transaction,
-  useDeleteTransaction,
   useTransferForm,
   useUpdateTransaction,
 } from '@/features/transactions'
@@ -65,8 +63,6 @@ export function TransactionsTransferModal({
   const handledRequestRef = useRef<TransactionsTransferModalRequest | null>(null)
 
   const createTransferMutation = useCreateTransfer()
-  const createRecurrenceMutation = useCreateRecurrence()
-  const deleteTransactionMutation = useDeleteTransaction()
   const updateTransactionMutation = useUpdateTransaction()
 
   const {
@@ -105,8 +101,6 @@ export function TransactionsTransferModal({
     defaultTransferToAccountId,
     transactions,
     createTransfer: createTransferMutation.mutateAsync,
-    createRecurrence: createRecurrenceMutation.mutateAsync,
-    deleteTransaction: deleteTransactionMutation.mutateAsync,
     updateTransaction: updateTransactionMutation.mutateAsync,
     onTransferModalOpen: () => {},
     onTransferModalClose: () => {

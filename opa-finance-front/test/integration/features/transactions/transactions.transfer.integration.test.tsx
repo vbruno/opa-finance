@@ -208,13 +208,14 @@ describe('transactions transfer flow', () => {
       toAccountId: 'acc-2',
       amount: 123.45,
       description: 'Transfer teste',
+      recurrence: {
+        originType: 'transfer',
+        fromAccountId: 'acc-1',
+        toAccountId: 'acc-2',
+        frequency: 'monthly',
+      },
     })
-    expect(recurrenceCreatePayload).toMatchObject({
-      originType: 'transfer',
-      fromAccountId: 'acc-1',
-      toAccountId: 'acc-2',
-      frequency: 'monthly',
-    })
+    expect(recurrenceCreatePayload).toBeNull()
 
     fireEvent.click(screen.getAllByText('Transfer base')[0]!)
     await screen.findByRole('heading', { name: 'Detalhes da transação' })
