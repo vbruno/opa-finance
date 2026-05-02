@@ -856,7 +856,7 @@ Labels de UI:
 - [x] `RCREV-S4-10` Testar idempotência do job: rodar 2x na mesma janela não duplica `pending_review`.
 - [x] `RCREV-S4-11` Testar avanço de `nextOccurrenceDate` em `review_required` (sem alterar `lastMaterializedDate`).
 - [x] `RCREV-S4-12` Testar que `GET /transactions` não retorna pendências.
-- [ ] `RCREV-S4-13` Testar alteração de `postingMode` em recorrência ativa (ambos sentidos).
+- [x] `RCREV-S4-13` Testar alteração de `postingMode` em recorrência ativa (ambos sentidos).
 - [ ] `RCREV-S4-14` Testar finalização/exclusão com pendências abertas conforme `RCREV-DEF-16`.
 - [ ] `RCREV-S4-15` Testar `POST /recurrences/materialize` em recorrência `review_required`.
 - [ ] `RCREV-S4-16` Testar cap de geração: criar recorrência `by_occurrences=3` em `review_required`, rodar job 5x; total de pendências geradas deve ser exatamente 3 (`RCREV-CNF-10`).

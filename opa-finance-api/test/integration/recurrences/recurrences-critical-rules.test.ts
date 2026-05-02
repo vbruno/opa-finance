@@ -1867,6 +1867,59 @@ describe("Recurrences - critical rules", () => {
     expect(updateRes.json().detail).toContain("modo de lançamento");
   });
 
+  it("altera postingMode em recorrencia ativa nos dois sentidos sem pendencias abertas", async () => {
+    const { token, account, category } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        postingMode: "automatic",
+        frequency: "weekly",
+        startDate: "2025-01-06",
+        dayOfWeek: 1,
+        accountId: account.id,
+        categoryId: category.id,
+        amount: 75,
+        description: "Troca de modo",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const toReviewRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        postingMode: "review_required",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(toReviewRes.statusCode).toBe(200);
+    const reviewed = toReviewRes.json();
+    expect(reviewed.postingMode).toBe("review_required");
+    expect(reviewed.version).toBe(recurrence.version + 1);
+
+    const backToAutomaticRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${reviewed.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        postingMode: "automatic",
+        expectedVersion: reviewed.version,
+      },
+    });
+
+    expect(backToAutomaticRes.statusCode).toBe(200);
+    const reverted = backToAutomaticRes.json();
+    expect(reverted.postingMode).toBe("automatic");
+    expect(reverted.version).toBe(reviewed.version + 1);
+  });
+
   it("bloqueia campos de transferência em create de recorrência de transação", async () => {
     const { token, account, account2, category } = await createBaseContext();
 
