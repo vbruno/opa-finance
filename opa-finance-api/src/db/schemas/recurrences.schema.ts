@@ -34,9 +34,15 @@ export const recurrenceEndTypeEnum = pgEnum("recurrence_end_type", [
   "until_date",
 ]);
 export const recurrenceStatusEnum = pgEnum("recurrence_status", ["active", "finalized"]);
+export const recurrencePostingModeEnum = pgEnum("recurrence_posting_mode", [
+  "automatic",
+  "review_required",
+]);
 export const recurrenceOccurrenceStatusEnum = pgEnum("recurrence_occurrence_status", [
   "materialized",
   "failed",
+  "pending_review",
+  "skipped",
 ]);
 
 export const recurrences = pgTable(
@@ -50,6 +56,7 @@ export const recurrences = pgTable(
 
     originType: recurrenceOriginTypeEnum("origin_type").notNull(),
     status: recurrenceStatusEnum("status").notNull().default("active"),
+    postingMode: recurrencePostingModeEnum("posting_mode").notNull().default("automatic"),
     timezone: text("timezone").notNull(),
 
     frequency: recurrenceFrequencyEnum("frequency").notNull(),
@@ -114,6 +121,8 @@ export const recurrenceOccurrences = pgTable(
     transferId: uuid("transfer_id"),
 
     metadata: jsonb("metadata"),
+    reviewPayload: jsonb("review_payload"),
+    version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

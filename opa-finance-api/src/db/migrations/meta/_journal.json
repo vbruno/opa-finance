@@ -141,6 +141,20 @@
       "when": 1777690182000,
       "tag": "0019_recurrence_occurrence_review_statuses",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777692398767,
+      "tag": "0020_recurrence_review_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777692434000,
+      "tag": "0021_recurrence_posting_mode_backfill",
+      "breakpoints": true
     }
   ]
 }

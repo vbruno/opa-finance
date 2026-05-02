@@ -38,6 +38,7 @@ export class RecurrenceAudit {
       id: serialized.id,
       originType: serialized.originType,
       status: serialized.status,
+      postingMode: serialized.postingMode,
       timezone: serialized.timezone,
       frequency: serialized.frequency,
       startDate: serialized.startDate,
