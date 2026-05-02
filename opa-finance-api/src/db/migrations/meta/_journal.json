@@ -155,6 +155,13 @@
       "when": 1777692434000,
       "tag": "0021_recurrence_posting_mode_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1777693079454,
+      "tag": "0022_recurrence_occurrences_recurrence_status_idx",
+      "breakpoints": true
     }
   ]
 }

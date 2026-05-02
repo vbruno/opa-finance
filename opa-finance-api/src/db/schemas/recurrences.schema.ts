@@ -135,6 +135,7 @@ export const recurrenceOccurrences = pgTable(
       table.recurrenceId,
       table.occurrenceDate,
     ),
+    index("recurrence_occurrences_recurrence_status_idx").on(table.recurrenceId, table.status),
     index("recurrence_occurrences_status_idx").on(table.status),
   ],
 );
