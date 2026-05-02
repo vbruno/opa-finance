@@ -1802,6 +1802,19 @@ describe("Recurrences - critical rules", () => {
     expect(deleteBlocked.statusCode).toBe(422);
     expect(deleteBlocked.json().detail).toContain(pendingOccurrence.id);
     expect(deleteBlocked.json().detail).toContain("excluir");
+
+    const [afterBlockedActions] = await app.db
+      .select({
+        status: recurrences.status,
+        finalizedAt: recurrences.finalizedAt,
+        deletedAt: recurrences.deletedAt,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(afterBlockedActions?.status).toBe("active");
+    expect(afterBlockedActions?.finalizedAt).toBeNull();
+    expect(afterBlockedActions?.deletedAt).toBeNull();
   });
 
   it("bloqueia review_required para automatic quando ha pendencia aberta", async () => {
