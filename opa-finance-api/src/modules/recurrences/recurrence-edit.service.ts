@@ -1,6 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { ConflictProblem, NotFoundProblem, ValidationProblem } from "../../core/errors/problems";
+import {
+  ConflictProblem,
+  NotFoundProblem,
+  UnprocessableProblem,
+  ValidationProblem,
+} from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
 import {
   addIsoDaysToDate,
@@ -105,6 +110,24 @@ export class RecurrenceEditService {
         "/recurrences",
       );
     }
+  }
+
+  private async getOpenPendingReviewOccurrences(userId: string, recurrenceId: string) {
+    return this.app.db
+      .select({
+        id: recurrenceOccurrences.id,
+        occurrenceDate: recurrenceOccurrences.occurrenceDate,
+      })
+      .from(recurrenceOccurrences)
+      .innerJoin(recurrences, eq(recurrenceOccurrences.recurrenceId, recurrences.id))
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          eq(recurrenceOccurrences.status, "pending_review"),
+          eq(recurrences.userId, userId),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      );
   }
 
   private async applySingleScopeEdit(
@@ -347,6 +370,19 @@ export class RecurrenceEditService {
         "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
         `/recurrences/${recurrenceId}`,
       );
+    }
+
+    if (data.postingMode === "automatic" && existing.postingMode === "review_required") {
+      const pendingOccurrences = await this.getOpenPendingReviewOccurrences(userId, recurrenceId);
+      if (pendingOccurrences.length > 0) {
+        const pendingIds = pendingOccurrences
+          .map((occurrence: { id: string }) => occurrence.id)
+          .join(", ");
+        throw new UnprocessableProblem(
+          `Esta recorrência possui pendências em aberto (${pendingIds}). Resolva-as antes de alterar o modo de lançamento.`,
+          `/recurrences/${recurrenceId}`,
+        );
+      }
     }
 
     await this.validators.validatePayloadOwnership(userId, data, existing.categoryId);

@@ -927,6 +927,69 @@ describe("Recurrences - critical rules", () => {
     expect(deleteBlocked.json().detail).toContain("excluir");
   });
 
+  it("bloqueia review_required para automatic quando ha pendencia aberta", async () => {
+    const { token, account, category } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        postingMode: "review_required",
+        frequency: "weekly",
+        startDate: "2025-01-06",
+        dayOfWeek: 1,
+        accountId: account.id,
+        categoryId: category.id,
+        amount: 75,
+        description: "Modo de revisão",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pendingOccurrence] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrence.id),
+          eq(recurrenceOccurrences.status, "pending_review"),
+        ),
+      )
+      .limit(1);
+    expect(pendingOccurrence).toBeDefined();
+
+    const [currentRecurrence] = await app.db
+      .select({ version: recurrences.version })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id))
+      .limit(1);
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        postingMode: "automatic",
+        expectedVersion: currentRecurrence.version,
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(422);
+    expect(updateRes.json().detail).toContain(pendingOccurrence.id);
+    expect(updateRes.json().detail).toContain("modo de lançamento");
+  });
+
   it("bloqueia campos de transferência em create de recorrência de transação", async () => {
     const { token, account, account2, category } = await createBaseContext();
 
