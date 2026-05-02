@@ -262,53 +262,68 @@ export function RecurrenceDetailsModal({
                 </p>
               ) : null}
 
-              <div className="space-y-2">
-                {timelineQuery.data?.items.map((item) => (
-                  <div
-                    key={`${item.source}-${item.id ?? item.occurrenceDate}`}
-                    className="rounded-lg border p-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <p className="font-medium">
+              <div className="overflow-x-auto rounded-lg border">
+                <table
+                  aria-label="Tabela de ocorrências da recorrência"
+                  className="min-w-[920px] w-full text-sm"
+                >
+                  <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3">Parcela</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Origem</th>
+                      <th className="px-4 py-3 text-right">Valor</th>
+                      <th className="px-4 py-3">Vínculo</th>
+                      <th className="px-4 py-3">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {timelineQuery.data?.items.map((item) => (
+                      <tr key={`${item.source}-${item.id ?? item.occurrenceDate}`} className="border-t align-top">
+                        <td className="px-4 py-3 font-medium">
                           {formatIsoDateToPtBr(item.occurrenceDate)}
-                          {item.sequence ? ` · Parcela ${item.sequence}` : ''}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatRecurrenceTimelineSource(item.source)} ·{' '}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.sequence ? `Parcela ${item.sequence}` : '-'}
+                        </td>
+                        <td className="px-4 py-3">
                           {formatRecurrenceTimelineStatus(item.status)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-semibold">
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatRecurrenceTimelineSource(item.source)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium">
                           {formatCurrencyValue(item.amount)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.source === 'persisted' && item.id ? item.id : 'Projetada'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-full border px-2 py-1">
-                        {item.canConfirm ? 'Pode confirmar' : 'Sem ação de confirmação'}
-                      </span>
-                      <span className="rounded-full border px-2 py-1">
-                        {item.canSkip ? 'Pode ignorar' : 'Sem ação de ignorar'}
-                      </span>
-                      {item.transactionId ? (
-                        <span className="rounded-full border px-2 py-1">
-                          Transação vinculada
-                        </span>
-                      ) : null}
-                      {item.transferId ? (
-                        <span className="rounded-full border px-2 py-1">
-                          Transferência vinculada
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <p>
+                              {item.transactionId
+                                ? `Transação ${item.transactionId}`
+                                : item.transferId
+                                  ? `Transferência ${item.transferId}`
+                                  : 'Projetada'}
+                            </p>
+                            {item.source === 'persisted' && item.id ? (
+                              <p className="text-xs text-muted-foreground">ID {item.id}</p>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            <span className="rounded-full border px-2 py-1">
+                              {item.canConfirm ? 'Pode confirmar' : 'Sem ação de confirmação'}
+                            </span>
+                            <span className="rounded-full border px-2 py-1">
+                              {item.canSkip ? 'Pode ignorar' : 'Sem ação de ignorar'}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               {timelineQuery.data?.items.length === 0 ? (

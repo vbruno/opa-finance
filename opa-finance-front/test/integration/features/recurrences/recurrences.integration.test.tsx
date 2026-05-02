@@ -303,8 +303,13 @@ describe('recurrences feature', () => {
       await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
     ).toBeInTheDocument()
     expect(await screen.findByText('Linha do tempo')).toBeInTheDocument()
-    expect(await screen.findByText(/Pendente de revisão/)).toBeInTheDocument()
-    expect(await screen.findByText(/Projetada\s+·\s+Projetada/)).toBeInTheDocument()
+    const timelineTable = await screen.findByRole('table', {
+      name: 'Tabela de ocorrências da recorrência',
+    })
+    expect(within(timelineTable).getAllByRole('row')).toHaveLength(4)
+    expect(within(timelineTable).getByText('Parcela 2')).toBeInTheDocument()
+    expect(within(timelineTable).getByText('Pendente de revisão')).toBeInTheDocument()
+    expect(within(timelineTable).getByText('01/06/2026')).toBeInTheDocument()
     expect(capturedTimelineSearch).toContain('limit=24')
   })
 
