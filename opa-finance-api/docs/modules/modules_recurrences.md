@@ -27,6 +27,7 @@
 - Transferência recorrente é materializada de forma atômica (duas transações com rollback integral em falha)
 - Cálculo de calendário considera timezone do usuário/regra
 - Timeline expõe `version` e `reviewPayload` para itens persistidos, permitindo confirm/skip com lock otimista e pré-preenchimento do modal no frontend
+- A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
 
 ## Endpoints
 

@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import {
   ConflictProblem,
@@ -163,22 +163,39 @@ export class RecurrenceCrudService {
 
     const whereClause = and(...filters);
     const offset = (query.page - 1) * query.limit;
+    const pendingCounts = this.app.db
+      .select({
+        recurrenceId: recurrenceOccurrences.recurrenceId,
+        pendingReviewCount: sql<number>`count(*)::int`.as("pending_review_count"),
+      })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.status, "pending_review"))
+      .groupBy(recurrenceOccurrences.recurrenceId)
+      .as("pending_counts");
 
     const [totalResult] = await this.app.db
       .select({ total: sql<number>`count(*)::int` })
       .from(recurrences)
       .where(whereClause);
 
-    const rows: Array<typeof recurrences.$inferSelect> = await this.app.db
-      .select()
-      .from(recurrences)
-      .where(whereClause)
-      .orderBy(desc(recurrences.createdAt))
-      .limit(query.limit)
-      .offset(offset);
+    const rows: Array<typeof recurrences.$inferSelect & { pendingReviewCount: number }> =
+      await this.app.db
+        .select({
+          ...getTableColumns(recurrences),
+          pendingReviewCount: sql<number>`coalesce(${pendingCounts.pendingReviewCount}, 0)::int`,
+        })
+        .from(recurrences)
+        .leftJoin(pendingCounts, eq(pendingCounts.recurrenceId, recurrences.id))
+        .where(whereClause)
+        .orderBy(desc(recurrences.createdAt))
+        .limit(query.limit)
+        .offset(offset);
 
     return {
-      data: rows.map((row) => serializeRecurrence(row)),
+      data: rows.map((row) => ({
+        ...serializeRecurrence(row),
+        pendingReviewCount: row.pendingReviewCount,
+      })),
       page: query.page,
       limit: query.limit,
       total: totalResult?.total ?? 0,

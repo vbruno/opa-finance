@@ -61,6 +61,7 @@ type TimelineOccurrenceRow = {
   status: "materialized" | "failed" | "pending_review" | "skipped";
   transactionId: string | null;
   transferId: string | null;
+  version: number;
   reviewPayload: unknown;
 };
 
@@ -156,6 +157,7 @@ export class RecurrenceTimelineService {
         status: recurrenceOccurrences.status,
         transactionId: recurrenceOccurrences.transactionId,
         transferId: recurrenceOccurrences.transferId,
+        version: recurrenceOccurrences.version,
         reviewPayload: recurrenceOccurrences.reviewPayload,
       })
       .from(recurrenceOccurrences)

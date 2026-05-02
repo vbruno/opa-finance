@@ -78,6 +78,7 @@ const recurrencesMock: RecurrenceListResponse = {
       amount: 120,
       description: 'Academia',
       notes: null,
+      pendingReviewCount: 1,
       nextOccurrenceDate: '2026-05-01',
       lastMaterializedDate: null,
       lastMaterializedAt: null,
@@ -212,6 +213,7 @@ describe('recurrences feature', () => {
 
     await screen.findByRole('heading', { name: 'Recorrências' })
     expect(await screen.findByText('Academia')).toBeInTheDocument()
+    expect(screen.getByText('1 pendência')).toBeInTheDocument()
     expect(await screen.findByText('Mensal')).toBeInTheDocument()
   })
 

@@ -107,6 +107,12 @@ export function RecurrencesList({
               >
                 <div className="truncate">
                   {recurrence.description || recurrence.notes || 'Sem descrição'}
+                  {recurrence.pendingReviewCount && recurrence.pendingReviewCount > 0 ? (
+                    <span className="ml-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-100">
+                      {recurrence.pendingReviewCount} pendência
+                      {recurrence.pendingReviewCount > 1 ? 's' : ''}
+                    </span>
+                  ) : null}
                 </div>
                 <div>{formatRecurrenceOriginType(recurrence.originType)}</div>
                 <div>{formatRecurrenceFrequency(recurrence.frequency)}</div>

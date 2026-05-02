@@ -1606,12 +1606,19 @@ Lista recorrências do usuário com paginação e filtros.
 
 ```json
 {
-  "data": [],
+  "data": [
+    {
+      "id": "uuid",
+      "pendingReviewCount": 2
+    }
+  ],
   "page": 1,
   "limit": 20,
   "total": 0
 }
 ```
+
+Cada item de `data` também inclui os campos completos da recorrência e `pendingReviewCount` para exibição do badge de pendências.
 
 ---
 
