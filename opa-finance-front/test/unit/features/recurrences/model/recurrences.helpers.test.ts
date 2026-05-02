@@ -22,6 +22,7 @@ function makeRecurrence(partial: Partial<Recurrence> = {}): Recurrence {
     userId: 'user-1',
     originType: 'transaction',
     status: 'active',
+    postingMode: 'automatic',
     timezone: 'Australia/Adelaide',
     frequency: 'monthly',
     startDate: '2026-04-01',

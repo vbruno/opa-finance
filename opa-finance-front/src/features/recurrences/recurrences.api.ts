@@ -5,14 +5,50 @@ import { api } from '@/lib/api'
 export type RecurrenceOriginType = 'transaction' | 'transfer'
 export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly' | 'yearly'
 export type RecurrenceEndType = 'never' | 'by_occurrences' | 'until_date'
+export type RecurrencePostingMode = 'automatic' | 'review_required'
 export type RecurrenceStatus = 'active' | 'finalized'
+export type RecurrenceOccurrenceStatus =
+  | 'materialized'
+  | 'failed'
+  | 'pending_review'
+  | 'skipped'
 export type RecurrenceEditScope = 'single' | 'this_and_next' | 'all'
+export type RecurrenceTimelineStatus = RecurrenceOccurrenceStatus | 'projected'
+
+export type RecurrenceOccurrenceReviewPayload = {
+  occurrenceDate: string
+  originalScheduledDate: string
+  originType: RecurrenceOriginType
+  amount: number
+  description: string | null
+  notes: string | null
+  accountId?: string | null
+  categoryId?: string | null
+  subcategoryId?: string | null
+  fromAccountId?: string | null
+  toAccountId?: string | null
+}
+
+export type RecurrenceOccurrence = {
+  id: string
+  recurrenceId: string
+  originType: RecurrenceOriginType
+  occurrenceDate: string
+  status: RecurrenceOccurrenceStatus
+  transactionId: string | null
+  transferId: string | null
+  metadata: Record<string, unknown> | null
+  reviewPayload: RecurrenceOccurrenceReviewPayload | null
+  version: number
+  createdAt: string
+}
 
 export type Recurrence = {
   id: string
   userId: string
   originType: RecurrenceOriginType
   status: RecurrenceStatus
+  postingMode: RecurrencePostingMode
   timezone: string
   frequency: RecurrenceFrequency
   startDate: string
@@ -40,6 +76,43 @@ export type Recurrence = {
   updatedAt: string
 }
 
+export type RecurrenceTimelineItem = {
+  id: string | null
+  sequence: number | null
+  occurrenceDate: string
+  status: RecurrenceTimelineStatus
+  source: 'persisted' | 'projected'
+  amount: number
+  transactionId: string | null
+  transferId: string | null
+  canConfirm: boolean
+  canSkip: boolean
+}
+
+export type RecurrenceTimelineSummary = {
+  totalOccurrences: number | null
+  consumedOccurrences: number
+  materializedOccurrences: number
+  pendingReviewOccurrences: number
+  skippedOccurrences: number
+  failedOccurrences: number
+  projectedOccurrences: number
+  totalAmount: number | null
+  materializedAmount: number
+  pendingReviewAmount: number
+  projectedAmount: number
+  appliedLimit: number
+  isPartial: boolean
+  hasMoreProjected: boolean
+  projectionWindowLabel: string | null
+}
+
+export type RecurrenceTimelineResponse = {
+  recurrence: Recurrence
+  summary: RecurrenceTimelineSummary
+  items: RecurrenceTimelineItem[]
+}
+
 export type RecurrenceListResponse = {
   data: Recurrence[]
   page: number
@@ -53,11 +126,13 @@ export type RecurrenceListQueryParams = {
   originType?: RecurrenceOriginType
   status?: RecurrenceStatus
   frequency?: RecurrenceFrequency
+  postingMode?: RecurrencePostingMode
   accountId?: string
   q?: string
 }
 
 export type RecurrenceBasePayload = {
+  postingMode?: RecurrencePostingMode
   frequency: RecurrenceFrequency
   startDate: string
   dayOfWeek?: number
@@ -85,6 +160,7 @@ export type RecurrenceCreatePayload =
     })
 
 export type RecurrenceUpdatePayload = {
+  postingMode?: RecurrencePostingMode
   frequency?: RecurrenceFrequency
   startDate?: string
   dayOfWeek?: number
@@ -110,11 +186,18 @@ export type EditRecurrenceByScopePayload = {
   changes: RecurrenceUpdatePayload
 }
 
+export type RecurrenceTimelineQueryParams = {
+  limit?: number
+  untilDate?: string
+  includeProjected?: boolean
+}
+
 const recurrencesKey = ['recurrences']
 const recurrenceKey = (id: string) => ['recurrence', id]
 
 function invalidateRecurrenceDependentQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: recurrencesKey })
+  queryClient.invalidateQueries({ queryKey: ['recurrence-timeline'] })
   queryClient.invalidateQueries({ queryKey: ['transactions'] })
   queryClient.invalidateQueries({ queryKey: ['accounts'] })
   queryClient.invalidateQueries({ queryKey: ['weekly-cashflow'] })
@@ -234,5 +317,24 @@ export function useDeleteRecurrence() {
     onSuccess: () => {
       invalidateRecurrenceDependentQueries(queryClient)
     },
+  })
+}
+
+export function useRecurrenceTimeline(
+  id?: string,
+  params?: RecurrenceTimelineQueryParams,
+) {
+  return useQuery({
+    queryKey: id ? ['recurrence-timeline', id, params] : ['recurrence-timeline', 'missing'],
+    queryFn: async () => {
+      if (!id) {
+        throw new Error('Recurrence id is required.')
+      }
+      const response = await api.get<RecurrenceTimelineResponse>(`/recurrences/${id}/timeline`, {
+        params,
+      })
+      return response.data
+    },
+    enabled: Boolean(id),
   })
 }

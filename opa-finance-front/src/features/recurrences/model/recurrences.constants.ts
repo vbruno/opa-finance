@@ -3,6 +3,7 @@ import type {
 } from '@/features/recurrences'
 
 export const RECURRENCE_ORIGIN_TYPES = ['transaction', 'transfer'] as const
+export const RECURRENCE_POSTING_MODES = ['automatic', 'review_required'] as const
 export const RECURRENCE_STATUSES = ['active', 'finalized'] as const
 export const RECURRENCE_FREQUENCIES = [
   'weekly',
@@ -54,6 +55,14 @@ export const RECURRENCE_FREQUENCY_LABELS: Record<
   yearly: 'Anual',
 }
 
+export const RECURRENCE_POSTING_MODE_LABELS: Record<
+  (typeof RECURRENCE_POSTING_MODES)[number],
+  string
+> = {
+  automatic: 'Automático',
+  review_required: 'Com revisão',
+}
+
 export const RECURRENCE_STATUS_LABELS: Record<
   (typeof RECURRENCE_STATUSES)[number],
   string
@@ -66,6 +75,7 @@ export type RecurrenceFilters = {
   originType: Recurrence['originType']
   status: Recurrence['status']
   frequency: Recurrence['frequency']
+  postingMode?: Recurrence['postingMode']
 }
 
 export type RecurrenceAction = 'create' | 'edit' | 'finalize' | 'delete'
