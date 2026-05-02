@@ -848,7 +848,7 @@ Labels de UI:
 - [x] `RCREV-S4-02` Testar materialização automática sem regressão.
 - [x] `RCREV-S4-03` Testar geração de pendência.
 - [ ] `RCREV-S4-04` Testar confirmação de transação.
-- [ ] `RCREV-S4-05` Testar confirmação de transferência atômica (rollback se uma perna falhar).
+- [x] `RCREV-S4-05` Testar confirmação de transferência atômica (rollback se uma perna falhar).
 - [ ] `RCREV-S4-06` Testar skip consumindo `by_occurrences`.
 - [ ] `RCREV-S4-07` Testar timeline com persistidas e projetadas.
 - [ ] `RCREV-S4-08` Testar modal de detalhe no frontend.

@@ -900,6 +900,123 @@ describe("Recurrences - critical rules", () => {
     expect(transferTransactions.every((tx) => Number(tx.amount) === 450)).toBe(true);
   });
 
+  it("reverte confirm de transferencia quando a segunda perna falha", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    await app.db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const rollbackMarker = `Transfer confirm rollback ${crypto.randomUUID()}`;
+    const suffix = crypto.randomUUID().replace(/-/g, "");
+    const fnName = `fail_income_transfer_confirm_${suffix}`;
+    const triggerName = `trg_fail_income_transfer_confirm_${suffix}`;
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        postingMode: "review_required",
+        frequency: "monthly",
+        startDate: "2025-01-15",
+        dayOfMonth: 15,
+        endType: "never",
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 400,
+        description: rollbackMarker,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-15" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+    expect(pending?.status).toBe("pending_review");
+
+    try {
+      await app.db.execute(
+        sql.raw(`
+          create function ${fnName}()
+          returns trigger
+          language plpgsql
+          as $$
+          begin
+            if NEW.description = '${rollbackMarker}' and NEW.type = 'income' then
+              raise exception 'forced rollback on confirm income leg';
+            end if;
+            return NEW;
+          end;
+          $$;
+        `),
+      );
+      await app.db.execute(
+        sql.raw(`
+          create trigger ${triggerName}
+          before insert on transactions
+          for each row
+          execute function ${fnName}();
+        `),
+      );
+
+      const confirmRes = await app.inject({
+        method: "POST",
+        url: `/recurrences/occurrences/${pending.id}/confirm`,
+        headers: { Authorization: `Bearer ${token}` },
+        payload: { expectedVersion: pending.version, amount: 450 },
+      });
+
+      expect(confirmRes.statusCode).toBe(500);
+      expect(confirmRes.json().message ?? confirmRes.json().detail ?? "").not.toContain(
+        "Falha ao confirmar transferência recorrente de forma atômica.",
+      );
+
+      const [currentOccurrence] = await app.db
+        .select({
+          status: recurrenceOccurrences.status,
+          version: recurrenceOccurrences.version,
+          transactionId: recurrenceOccurrences.transactionId,
+          transferId: recurrenceOccurrences.transferId,
+        })
+        .from(recurrenceOccurrences)
+        .where(eq(recurrenceOccurrences.id, pending.id));
+
+      expect(currentOccurrence).toMatchObject({
+        status: "pending_review",
+        version: pending.version,
+        transactionId: null,
+        transferId: null,
+      });
+
+      const persistedTransferTxs = await app.db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(eq(transactions.description, rollbackMarker));
+      expect(persistedTransferTxs).toHaveLength(0);
+    } finally {
+      await app.db.execute(
+        sql.raw(`
+          drop trigger if exists ${triggerName} on transactions;
+          drop function if exists ${fnName}();
+        `),
+      );
+    }
+  });
+
   it("bloqueia escopo single quando payload tenta alterar agenda", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
