@@ -258,6 +258,58 @@ describe("Recurrences - critical rules", () => {
     expect(updatedRecurrence?.lastMaterializedDate).toBeNull();
   });
 
+  it("nao retorna pendencias review_required em GET /transactions", async () => {
+    const { token, account, category } = await createBaseContext();
+    await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+
+    const manualTransactionRes = await app.inject({
+      method: "POST",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account.id,
+        categoryId: category.id,
+        type: "expense",
+        amount: 75,
+        date: "2025-01-07",
+        description: "Compra manual",
+      },
+    });
+    expect(manualTransactionRes.statusCode).toBe(201);
+
+    const transactionsRes = await app.inject({
+      method: "GET",
+      url: "/transactions",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(transactionsRes.statusCode).toBe(200);
+    const transactionsList = transactionsRes.json();
+    expect(transactionsList.data).toHaveLength(1);
+    expect(transactionsList.data[0].description).toBe("Compra manual");
+    expect(
+      transactionsList.data.every((transaction: { description: string }) => {
+        return transaction.description !== "Despesa recorrente";
+      }),
+    ).toBe(true);
+  });
+
   it("materializa recorrência automatic sem regressão", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
