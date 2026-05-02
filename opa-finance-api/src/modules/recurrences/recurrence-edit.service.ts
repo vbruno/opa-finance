@@ -23,8 +23,12 @@ import {
   mergeLastMaterializedDate,
   serializeRecurrence,
 } from "./recurrence.helpers";
-import type { EditRecurrenceByScopeInput, UpdateRecurrenceInput } from "./recurrence.schemas";
-import { createRecurrenceSchema } from "./recurrence.schemas";
+import {
+  createRecurrenceSchema,
+  recurrenceOccurrenceReviewPayloadSchema,
+  type EditRecurrenceByScopeInput,
+  type UpdateRecurrenceInput,
+} from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
 type SerializedRecurrence = ReturnType<typeof serializeRecurrence>;
@@ -71,7 +75,7 @@ export class RecurrenceEditService {
       data.dayOfWeek !== undefined ||
       data.dayOfMonth !== undefined ||
       data.monthOfYear !== undefined ||
-      data.endType !== undefined ||
+      (data.endType !== undefined && data.endType !== "never") ||
       data.endOccurrences !== undefined ||
       data.endDate !== undefined
     );
@@ -130,6 +134,119 @@ export class RecurrenceEditService {
       );
   }
 
+  private buildSingleScopeReviewPayloadChanges(
+    recurrence: SerializedRecurrence,
+    changes: UpdateRecurrenceInput,
+  ) {
+    const reviewPayloadChanges: Record<string, unknown> = {};
+
+    if (changes.amount !== undefined) reviewPayloadChanges.amount = changes.amount;
+    if (changes.description !== undefined) reviewPayloadChanges.description = changes.description;
+    if (changes.notes !== undefined) reviewPayloadChanges.notes = changes.notes;
+
+    if (recurrence.originType === "transaction") {
+      if (changes.accountId !== undefined) reviewPayloadChanges.accountId = changes.accountId;
+      if (changes.categoryId !== undefined) reviewPayloadChanges.categoryId = changes.categoryId;
+      if (changes.subcategoryId !== undefined) {
+        reviewPayloadChanges.subcategoryId = changes.subcategoryId;
+      } else if (changes.categoryId !== undefined) {
+        reviewPayloadChanges.subcategoryId = null;
+      }
+      return reviewPayloadChanges;
+    }
+
+    if (changes.fromAccountId !== undefined) {
+      reviewPayloadChanges.fromAccountId = changes.fromAccountId;
+    }
+    if (changes.toAccountId !== undefined) {
+      reviewPayloadChanges.toAccountId = changes.toAccountId;
+    }
+    return reviewPayloadChanges;
+  }
+
+  private async applySingleScopePendingReviewEdit(
+    userId: string,
+    recurrenceId: string,
+    recurrence: SerializedRecurrence,
+    occurrenceDate: string,
+    occurrence: typeof recurrenceOccurrences.$inferSelect,
+    changes: UpdateRecurrenceInput,
+  ) {
+    const currentReviewPayload = recurrenceOccurrenceReviewPayloadSchema.parse(
+      occurrence.reviewPayload,
+    );
+    const reviewPayload = recurrenceOccurrenceReviewPayloadSchema.parse({
+      ...currentReviewPayload,
+      ...this.buildSingleScopeReviewPayloadChanges(recurrence, changes),
+    });
+
+    if (recurrence.originType === "transfer") {
+      if (reviewPayload.fromAccountId === reviewPayload.toAccountId) {
+        throw new ValidationProblem(
+          "Conta de origem e destino devem ser diferentes.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+    }
+
+    const updatedOccurrence = await this.app.db.transaction(async (tx: DB) => {
+      const [savedOccurrence] = await tx
+        .update(recurrenceOccurrences)
+        .set({
+          reviewPayload,
+          version: occurrence.version + 1,
+        })
+        .where(
+          and(
+            eq(recurrenceOccurrences.id, occurrence.id),
+            eq(recurrenceOccurrences.status, "pending_review"),
+            eq(recurrenceOccurrences.version, occurrence.version),
+          ),
+        )
+        .returning();
+
+      if (!savedOccurrence) {
+        throw new ConflictProblem(
+          "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
+          `/recurrences/${recurrenceId}`,
+        );
+      }
+
+      return savedOccurrence;
+    });
+
+    await this.recurrenceAudit.logBestEffort(
+      {
+        userId,
+        entityType: "recurrence_occurrence",
+        entityId: updatedOccurrence.id,
+        action: "update",
+        beforeData: this.recurrenceAudit.toOccurrenceAuditData(
+          occurrence,
+          currentReviewPayload as Record<string, unknown> | null,
+        ),
+        afterData: this.recurrenceAudit.toOccurrenceAuditData(
+          updatedOccurrence,
+          updatedOccurrence.reviewPayload as Record<string, unknown> | null,
+        ),
+        metadata: {
+          operation: "recurrence-edit-scope-single-pending-review",
+          scope: "single",
+          occurrenceDate,
+          changes,
+        },
+      },
+      {
+        recurrenceId,
+        userId,
+        occurrenceId: updatedOccurrence.id,
+        operation: "recurrence-edit-scope-single-pending-review",
+      },
+    );
+
+    return { scope: "single" as const, occurrenceDate, recurrence };
+  }
+
   private async applySingleScopeEdit(
     userId: string,
     recurrenceId: string,
@@ -150,6 +267,29 @@ export class RecurrenceEditService {
 
     await this.validators.validatePayloadOwnership(userId, changes, recurrence.categoryId);
 
+    const [pendingOccurrence] = await this.app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          eq(recurrenceOccurrences.occurrenceDate, occurrenceDate),
+          eq(recurrenceOccurrences.status, "pending_review"),
+        ),
+      )
+      .limit(1);
+
+    if (pendingOccurrence) {
+      return this.applySingleScopePendingReviewEdit(
+        userId,
+        recurrenceId,
+        recurrence,
+        occurrenceDate,
+        pendingOccurrence,
+        changes,
+      );
+    }
+
     const [occurrence] = await this.app.db
       .select({
         id: recurrenceOccurrences.id,
@@ -167,10 +307,8 @@ export class RecurrenceEditService {
       .limit(1);
 
     if (!occurrence) {
-      throw new ValidationProblem(
-        "Escopo 'single' exige ocorrência já materializada na data selecionada.",
-        `/recurrences/${recurrenceId}`,
-      );
+      const updated = await this.update(userId, recurrenceId, changes);
+      return { scope: "single" as const, occurrenceDate, recurrence: updated };
     }
 
     if (recurrence.originType === "transaction") {

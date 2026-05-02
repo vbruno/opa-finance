@@ -689,12 +689,132 @@ describe("Recurrences - critical rules", () => {
       payload: {
         scope: "single",
         occurrenceDate: "2099-01-06",
-        changes: { amount: 300 },
+        changes: { startDate: "2099-01-07" },
       },
     });
 
     expect(res.statusCode).toBe(400);
     expect(res.json().detail).toContain("Escopo 'single' não permite alterar agenda");
+  });
+
+  it("atualiza reviewPayload da pendência em single sem tocar na regra-mae", async () => {
+    const { token, account, category, category2 } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      amount: 120,
+      startDate: "2026-05-04",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2026-05-04" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pendingBefore] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const [recurrenceBefore] = await app.db
+      .select({
+        amount: recurrences.amount,
+        description: recurrences.description,
+        version: recurrences.version,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "single",
+        occurrenceDate: "2026-05-04",
+        changes: {
+          amount: 150,
+          description: "Despesa ajustada",
+          categoryId: category2.id,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().scope).toBe("single");
+
+    const [pendingAfter] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.id, pendingBefore.id));
+    expect(pendingAfter.version).toBe(pendingBefore.version + 1);
+    expect(pendingAfter.status).toBe("pending_review");
+    expect(pendingAfter.reviewPayload).toMatchObject({
+      amount: 150,
+      description: "Despesa ajustada",
+      categoryId: category2.id,
+      subcategoryId: null,
+    });
+
+    const [recurrenceAfter] = await app.db
+      .select({
+        amount: recurrences.amount,
+        description: recurrences.description,
+        version: recurrences.version,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(recurrenceAfter).toMatchObject(recurrenceBefore);
+  });
+
+  it("atualiza a regra-mae em single futuro sem pendencia", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2026-05-04",
+      dayOfWeek: 1,
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "single",
+        occurrenceDate: "2026-05-11",
+        changes: {
+          amount: 175,
+          notes: "Ajuste futuro",
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.scope).toBe("single");
+
+    const [updatedRecurrence] = await app.db
+      .select({
+        amount: recurrences.amount,
+        notes: recurrences.notes,
+        version: recurrences.version,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(Number(updatedRecurrence.amount)).toBe(175);
+    expect(updatedRecurrence.notes).toBe("Ajuste futuro");
+    expect(updatedRecurrence.version).toBe(recurrence.version + 1);
   });
 
   it("aplica this_and_next criando nova regra e encerrando a anterior na vespera", async () => {
