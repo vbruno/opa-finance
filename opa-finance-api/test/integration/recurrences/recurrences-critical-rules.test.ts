@@ -355,6 +355,97 @@ describe("Recurrences - critical rules", () => {
     expect(staleConfirm.json().detail).toContain("já foi processada");
   });
 
+  it("ignora pendência sem criar transação e grava motivo", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const skipRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version, reason: "Não aconteceu" },
+    });
+
+    expect(skipRes.statusCode).toBe(200);
+    const skipped = skipRes.json();
+    expect(skipped.status).toBe("skipped");
+    expect(skipped.version).toBe(pending.version + 1);
+    expect(skipped.transactionId).toBeNull();
+    expect(skipped.transferId).toBeNull();
+    expect(skipped.metadata).toMatchObject({
+      skipReason: "Não aconteceu",
+    });
+    expect(skipped.metadata.skippedAt).toBeTruthy();
+
+    const createdTransactions = await app.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.description, "Despesa recorrente"));
+    expect(createdTransactions).toHaveLength(0);
+  });
+
+  it("rejeita skip duplicado com 409", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const firstSkip = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+    expect(firstSkip.statusCode).toBe(200);
+
+    const staleSkip = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+    expect(staleSkip.statusCode).toBe(409);
+    expect(staleSkip.json().detail).toContain("já foi processada");
+  });
+
   it("confirma pendência de transferência de forma atômica", async () => {
     const { token, account, account2 } = await createBaseContext();
     await app.db.insert(categories).values({

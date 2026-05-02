@@ -13,6 +13,7 @@ import type {
   ListRecurrencesQuery,
   MaterializeRecurrencesInput,
   RecurrencesForecastQuery,
+  SkipRecurrenceOccurrenceInput,
   UpdateRecurrenceInput,
 } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
@@ -90,5 +91,9 @@ export class RecurrenceService {
     input: ConfirmRecurrenceOccurrenceInput,
   ) {
     return this.occurrenceService.confirm(userId, occurrenceId, input);
+  }
+
+  async skipOccurrence(userId: string, occurrenceId: string, input: SkipRecurrenceOccurrenceInput) {
+    return this.occurrenceService.skip(userId, occurrenceId, input);
   }
 }

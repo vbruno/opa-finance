@@ -236,6 +236,11 @@ export const confirmRecurrenceOccurrenceSchema = z.object({
   toAccountId: z.uuid().optional(),
 });
 
+export const skipRecurrenceOccurrenceSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  reason: z.string().trim().max(500).optional(),
+});
+
 export const recurrenceEditScopeSchema = z.enum(["single", "this_and_next", "all"]);
 
 const recurrenceForecastAccountIdsSchema = z
@@ -307,6 +312,7 @@ export type RecurrenceOccurrenceReviewPayload = z.infer<
   typeof recurrenceOccurrenceReviewPayloadSchema
 >;
 export type ConfirmRecurrenceOccurrenceInput = z.infer<typeof confirmRecurrenceOccurrenceSchema>;
+export type SkipRecurrenceOccurrenceInput = z.infer<typeof skipRecurrenceOccurrenceSchema>;
 export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
 export type MaterializeRecurrencesInput = z.infer<typeof materializeRecurrencesSchema>;
 export type EditRecurrenceByScopeInput = z.infer<typeof editRecurrenceByScopeSchema>;

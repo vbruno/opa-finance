@@ -8,6 +8,7 @@ import {
   recurrencesForecastQuerySchema,
   recurrenceOccurrenceParamsSchema,
   recurrenceParamsSchema,
+  skipRecurrenceOccurrenceSchema,
   updateRecurrenceSchema,
 } from "./recurrence.schemas";
 import { RecurrenceService } from "./recurrence.service";
@@ -173,6 +174,25 @@ export async function recurrenceRoutes(app: FastifyInstance) {
       const { id } = recurrenceOccurrenceParamsSchema.parse(req.params);
       const body = confirmRecurrenceOccurrenceSchema.parse(req.body);
       return service.confirmOccurrence(req.user.sub, id, body);
+    },
+  );
+
+  app.post(
+    "/recurrences/occurrences/:id/skip",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Ignorar pendência de recorrência",
+        description:
+          "Marca uma ocorrência pendente de revisão como ignorada, consumindo a posição da recorrência.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const { id } = recurrenceOccurrenceParamsSchema.parse(req.params);
+      const body = skipRecurrenceOccurrenceSchema.parse(req.body);
+      return service.skipOccurrence(req.user.sub, id, body);
     },
   );
 

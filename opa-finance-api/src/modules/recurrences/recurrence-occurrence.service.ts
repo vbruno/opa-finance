@@ -8,6 +8,7 @@ import { categories, recurrenceOccurrences, recurrences, transactions } from "..
 import type {
   ConfirmRecurrenceOccurrenceInput,
   RecurrenceOccurrenceReviewPayload,
+  SkipRecurrenceOccurrenceInput,
 } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
@@ -16,6 +17,8 @@ type RecurrenceOccurrenceMetadata = {
   source?: string;
   generatedAt?: string;
   confirmedAt?: string;
+  skippedAt?: string;
+  skipReason?: string;
   adjustments?: {
     fields: string[];
     adjustedAt: string;
@@ -243,7 +246,12 @@ export class RecurrenceOccurrenceService {
     return { transactionId: null as string | null, transferId };
   }
 
-  async confirm(userId: string, occurrenceId: string, input: ConfirmRecurrenceOccurrenceInput) {
+  private async getPendingOccurrenceForReviewAction(
+    userId: string,
+    occurrenceId: string,
+    expectedVersion: number,
+    actionPath: string,
+  ) {
     const [loaded] = await this.app.db
       .select({
         occurrence: recurrenceOccurrences,
@@ -261,32 +269,38 @@ export class RecurrenceOccurrenceService {
       .limit(1);
 
     if (!loaded) {
-      throw new NotFoundProblem(
-        "Pendência não encontrada.",
-        `/recurrences/occurrences/${occurrenceId}/confirm`,
-      );
+      throw new NotFoundProblem("Pendência não encontrada.", actionPath);
     }
 
     if (loaded.occurrence.status !== "pending_review") {
-      if (loaded.occurrence.version !== input.expectedVersion) {
+      if (loaded.occurrence.version !== expectedVersion) {
         throw new ConflictProblem(
           "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
-          `/recurrences/occurrences/${occurrenceId}/confirm`,
+          actionPath,
         );
       }
 
-      throw new UnprocessableProblem(
-        "Esta ocorrência não está pendente de revisão.",
-        `/recurrences/occurrences/${occurrenceId}/confirm`,
+      throw new UnprocessableProblem("Esta ocorrência não está pendente de revisão.", actionPath);
+    }
+
+    if (loaded.occurrence.version !== expectedVersion) {
+      throw new ConflictProblem(
+        "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
+        actionPath,
       );
     }
 
-    if (loaded.occurrence.version !== input.expectedVersion) {
-      throw new ConflictProblem(
-        "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
-        `/recurrences/occurrences/${occurrenceId}/confirm`,
-      );
-    }
+    return loaded;
+  }
+
+  async confirm(userId: string, occurrenceId: string, input: ConfirmRecurrenceOccurrenceInput) {
+    const actionPath = `/recurrences/occurrences/${occurrenceId}/confirm`;
+    const loaded = await this.getPendingOccurrenceForReviewAction(
+      userId,
+      occurrenceId,
+      input.expectedVersion,
+      actionPath,
+    );
 
     const reviewPayload = recurrenceOccurrenceReviewPayloadSchema.parse(
       loaded.occurrence.reviewPayload,
@@ -331,7 +345,7 @@ export class RecurrenceOccurrenceService {
       if (!lockedOccurrence) {
         throw new ConflictProblem(
           "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
-          `/recurrences/occurrences/${occurrenceId}/confirm`,
+          actionPath,
         );
       }
 
@@ -353,6 +367,54 @@ export class RecurrenceOccurrenceService {
         ...confirmedOccurrence,
         reviewPayload: confirmPayload,
       };
+    });
+  }
+
+  async skip(userId: string, occurrenceId: string, input: SkipRecurrenceOccurrenceInput) {
+    const actionPath = `/recurrences/occurrences/${occurrenceId}/skip`;
+    const loaded = await this.getPendingOccurrenceForReviewAction(
+      userId,
+      occurrenceId,
+      input.expectedVersion,
+      actionPath,
+    );
+
+    return this.app.db.transaction(async (tx: DB) => {
+      const skippedAt = new Date().toISOString();
+      const previousMetadata = (loaded.occurrence.metadata ?? {}) as RecurrenceOccurrenceMetadata;
+      const metadata: RecurrenceOccurrenceMetadata = {
+        ...previousMetadata,
+        skippedAt,
+      };
+
+      if (input.reason) {
+        metadata.skipReason = input.reason;
+      }
+
+      const [skippedOccurrence] = await tx
+        .update(recurrenceOccurrences)
+        .set({
+          status: "skipped",
+          version: loaded.occurrence.version + 1,
+          metadata,
+        })
+        .where(
+          and(
+            eq(recurrenceOccurrences.id, occurrenceId),
+            eq(recurrenceOccurrences.status, "pending_review"),
+            eq(recurrenceOccurrences.version, input.expectedVersion),
+          ),
+        )
+        .returning();
+
+      if (!skippedOccurrence) {
+        throw new ConflictProblem(
+          "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
+          actionPath,
+        );
+      }
+
+      return skippedOccurrence;
     });
   }
 }
