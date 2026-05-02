@@ -873,7 +873,7 @@ Labels de UI:
 
 - [x] `RCREV-S5-01` Atualizar documentação técnica da API.
 - [x] `RCREV-S5-02` Atualizar documentação operacional do job.
-- [ ] `RCREV-S5-03` Atualizar `docs-hidden/changes.md`.
+- [x] `RCREV-S5-03` Atualizar `docs-hidden/changes.md`.
 - [ ] `RCREV-S5-04` Revisar plano e mover para `done/` quando concluído.
 
 ## Matriz de execução por etapa (obrigatória)
