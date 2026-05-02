@@ -513,6 +513,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         onClose={closeDetailsModal}
         onOpenConfirmOccurrence={openConfirmOccurrenceModal}
         onSkipOccurrence={(occurrence) => void handleSkipOccurrence(occurrence)}
+        onActionError={setActionError}
       />
 
       <ConfirmRecurrenceOccurrenceModal

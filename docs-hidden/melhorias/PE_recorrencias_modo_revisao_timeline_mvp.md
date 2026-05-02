@@ -838,7 +838,7 @@ Labels de UI:
   - sub-task: skip envia request direto (sem modal de edição); opcional capturar `reason` em prompt simples.
 - [x] `RCREV-S3-07` Revisar fluxo de nova transação/transferência recorrente para usar criação aninhada — converger lógica de `useTransactionRecurrenceDraft` e remover dupla mutação.
 - [x] `RCREV-S3-08` Tratar estados de loading, vazio e erro.
-- [ ] `RCREV-S3-09` Tratar UI de finalização/exclusão com pendências abertas (alerta + opção de skip em massa).
+- [x] `RCREV-S3-09` Tratar UI de finalização/exclusão com pendências abertas (alerta + opção de skip em massa).
 - [ ] `RCREV-S3-10` Adicionar badge/contador de pendências por linha na listagem de recorrências (`RCREV-DEF-27`).
 - [ ] `RCREV-S3-11` Tratar resposta 422 do confirm quando `occurrenceDate` ajustado estiver fora do range (`RCREV-DEF-25`) com mensagem clara em PT-BR.
 

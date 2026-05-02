@@ -387,7 +387,63 @@ describe('recurrences feature', () => {
     expect(within(timelineTable).getByText('01/06/2026')).toBeInTheDocument()
     expect(within(timelineTable).getByRole('button', { name: 'Confirmar' })).toBeInTheDocument()
     expect(within(timelineTable).getByRole('button', { name: 'Ignorar' })).toBeInTheDocument()
+    expect(
+      await screen.findByText('Esta recorrência tem pendências em aberto.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Ignorar pendências em massa' }),
+    ).toBeInTheDocument()
     expect(capturedTimelineSearch).toContain('limit=24')
+  })
+
+  it('deve ignorar pendências em massa na timeline', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Ajuste manual')
+    const skipBodies: Record<string, unknown>[] = []
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.post('*/recurrences/occurrences/:id/skip', async ({ request }) => {
+        skipBodies.push((await request.json()) as Record<string, unknown>)
+        return ok({
+          ...recurrenceTimelineMock.items[1],
+          status: 'skipped',
+          canConfirm: false,
+          canSkip: false,
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(
+      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+    )
+
+    const bulkSkipButton = await screen.findByRole('button', {
+      name: 'Ignorar pendências em massa',
+    })
+    fireEvent.click(bulkSkipButton)
+
+    await waitFor(() => expect(skipBodies).toHaveLength(1))
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(promptSpy).toHaveBeenCalled()
+    expect(skipBodies[0]).toMatchObject({
+      expectedVersion: 7,
+      reason: 'Ajuste manual',
+    })
   })
 
   it('deve confirmar pendência com modal e expectedVersion', async () => {

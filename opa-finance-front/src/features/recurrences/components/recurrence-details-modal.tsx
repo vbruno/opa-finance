@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
-import { useRecurrenceTimeline, type RecurrenceTimelineItem } from '@/features/recurrences'
+import {
+  useRecurrenceTimeline,
+  useSkipRecurrenceOccurrence,
+  type RecurrenceTimelineItem,
+} from '@/features/recurrences'
 import {
   formatIsoDateToPtBr,
   formatRecurrenceFrequency,
@@ -23,6 +27,7 @@ type RecurrenceDetailsModalProps = {
   onClose: () => void
   onOpenConfirmOccurrence: (item: RecurrenceTimelineItem) => void
   onSkipOccurrence: (item: RecurrenceTimelineItem) => void
+  onActionError: (message: string) => void
 }
 
 function formatMaybeIsoDate(value: string | null) {
@@ -40,8 +45,11 @@ export function RecurrenceDetailsModal({
   onClose,
   onOpenConfirmOccurrence,
   onSkipOccurrence,
+  onActionError,
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
+  const [isBulkSkipping, setIsBulkSkipping] = useState(false)
+  const skipMutation = useSkipRecurrenceOccurrence()
   const timelineQuery = useRecurrenceTimeline(recurrence?.id, {
     limit: 24,
     includeProjected: true,
@@ -82,6 +90,42 @@ export function RecurrenceDetailsModal({
       ['Projetadas', summary.projectedOccurrences.toString()],
     ] as const
   }, [timelineQuery.data?.summary])
+
+  const pendingReviewItems = useMemo(
+    () =>
+      timelineQuery.data?.items.filter(
+        (item) => item.status === 'pending_review' && item.canSkip && item.id && item.version !== null,
+      ) ?? [],
+    [timelineQuery.data?.items],
+  )
+
+  async function handleSkipPendingReviewItems() {
+    if (!recurrence || pendingReviewItems.length === 0) return
+
+    const shouldSkip = window.confirm(
+      `Ignorar ${pendingReviewItems.length} pendência(s) em aberto? Elas continuarão consumindo a posição da recorrência.`,
+    )
+    if (!shouldSkip) return
+
+    const reason = window.prompt('Motivo opcional para ignorar em massa:') ?? undefined
+
+    setIsBulkSkipping(true)
+    try {
+      for (const item of pendingReviewItems) {
+        await skipMutation.mutateAsync({
+          occurrenceId: item.id as string,
+          payload: {
+            expectedVersion: item.version as number,
+            reason: reason?.trim() ? reason.trim() : undefined,
+          },
+        })
+      }
+    } catch (error) {
+      onActionError(getApiErrorMessage(error))
+    } finally {
+      setIsBulkSkipping(false)
+    }
+  }
 
   if (!recurrence) {
     return null
@@ -214,11 +258,18 @@ export function RecurrenceDetailsModal({
                 Últimas ocorrências persistidas e projeções calculadas.
               </p>
             </div>
-            {timelineQuery.data?.summary.projectionWindowLabel ? (
-              <span className="rounded-md border bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
-                {timelineQuery.data.summary.projectionWindowLabel}
-              </span>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {pendingReviewItems.length > 0 ? (
+                <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
+                  {pendingReviewItems.length} pendência(s) em aberto
+                </span>
+              ) : null}
+              {timelineQuery.data?.summary.projectionWindowLabel ? (
+                <span className="rounded-md border bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
+                  {timelineQuery.data.summary.projectionWindowLabel}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           {timelineQuery.isLoading ? (
@@ -239,6 +290,28 @@ export function RecurrenceDetailsModal({
             </div>
           ) : (
             <>
+              {pendingReviewItems.length > 0 ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      Esta recorrência tem pendências em aberto.
+                    </p>
+                    <p>
+                      Finalizar ou excluir continua bloqueado até você ignorar ou confirmar as pendências.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleSkipPendingReviewItems()}
+                    disabled={isBulkSkipping}
+                  >
+                    {isBulkSkipping ? 'Ignorando...' : 'Ignorar pendências em massa'}
+                  </Button>
+                </div>
+              ) : null}
+
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {summaryCards.map(([label, value]) => (
                   <div key={label} className="rounded-lg border bg-muted/20 p-3">
