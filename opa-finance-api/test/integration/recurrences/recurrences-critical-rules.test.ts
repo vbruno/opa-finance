@@ -783,6 +783,77 @@ describe("Recurrences - critical rules", () => {
     expect(thirdPending.id).toBeTruthy();
   });
 
+  it("retorna timeline com persistidas e projetadas em recorrência automatic", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "automatic",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 4,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-13" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json()).toMatchObject({
+      createdOccurrences: 2,
+      createdTransactions: 2,
+      skippedOccurrences: 0,
+    });
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const timeline = timelineRes.json();
+
+    expect(timeline.summary).toMatchObject({
+      totalOccurrences: 4,
+      consumedOccurrences: 2,
+      materializedOccurrences: 2,
+      pendingReviewOccurrences: 0,
+      skippedOccurrences: 0,
+      failedOccurrences: 0,
+      projectedOccurrences: 2,
+      totalAmount: 480,
+      materializedAmount: 240,
+      pendingReviewAmount: 0,
+      projectedAmount: 240,
+      appliedLimit: 24,
+      isPartial: false,
+      hasMoreProjected: false,
+      projectionWindowLabel: null,
+    });
+
+    expect(timeline.items).toHaveLength(4);
+    expect(timeline.items.map((item: { status: string }) => item.status)).toEqual([
+      "materialized",
+      "materialized",
+      "projected",
+      "projected",
+    ]);
+    expect(timeline.items.map((item: { sequence: number | null }) => item.sequence)).toEqual([
+      1, 2, 3, 4,
+    ]);
+    expect(
+      timeline.items.slice(0, 2).every((item: { source: string }) => item.source === "persisted"),
+    ).toBe(true);
+    expect(
+      timeline.items.slice(2).every((item: { source: string }) => item.source === "projected"),
+    ).toBe(true);
+  });
+
   it("conta corretamente pendências e projeções na timeline de recorrência review_required", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({

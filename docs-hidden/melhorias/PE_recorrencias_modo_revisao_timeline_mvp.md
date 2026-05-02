@@ -850,7 +850,7 @@ Labels de UI:
 - [ ] `RCREV-S4-04` Testar confirmação de transação.
 - [x] `RCREV-S4-05` Testar confirmação de transferência atômica (rollback se uma perna falhar).
 - [x] `RCREV-S4-06` Testar skip consumindo `by_occurrences`.
-- [ ] `RCREV-S4-07` Testar timeline com persistidas e projetadas.
+- [x] `RCREV-S4-07` Testar timeline com persistidas e projetadas.
 - [ ] `RCREV-S4-08` Testar modal de detalhe no frontend.
 - [ ] `RCREV-S4-09` Testar concorrência: dois confirms simultâneos — segundo deve receber 409.
 - [ ] `RCREV-S4-10` Testar idempotência do job: rodar 2x na mesma janela não duplica `pending_review`.
