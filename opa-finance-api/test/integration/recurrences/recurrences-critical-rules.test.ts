@@ -606,6 +606,81 @@ describe("Recurrences - critical rules", () => {
     expect(staleSkip.json().detail).toContain("já foi processada");
   });
 
+  it("faz skip consumir o limite by_occurrences", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    const firstMaterialize = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(firstMaterialize.statusCode).toBe(200);
+    expect(firstMaterialize.json().createdOccurrences).toBe(1);
+    expect(firstMaterialize.json().createdTransactions).toBe(0);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const skipRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version, reason: "Não ocorreu" },
+    });
+    expect(skipRes.statusCode).toBe(200);
+
+    const secondMaterialize = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-02-10" },
+    });
+
+    expect(secondMaterialize.statusCode).toBe(200);
+    expect(secondMaterialize.json().createdOccurrences).toBe(1);
+    expect(secondMaterialize.json().createdTransactions).toBe(0);
+    expect(secondMaterialize.json().skippedOccurrences).toBe(0);
+
+    const occurrences = await app.db
+      .select({
+        status: recurrenceOccurrences.status,
+        occurrenceDate: recurrenceOccurrences.occurrenceDate,
+      })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id))
+      .orderBy(asc(recurrenceOccurrences.occurrenceDate));
+
+    expect(occurrences).toHaveLength(2);
+    expect(occurrences.map((occurrence) => occurrence.status)).toEqual([
+      "skipped",
+      "pending_review",
+    ]);
+
+    const [updatedRecurrence] = await app.db
+      .select({
+        status: recurrences.status,
+        nextOccurrenceDate: recurrences.nextOccurrenceDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(updatedRecurrence?.status).toBe("active");
+    expect(updatedRecurrence?.nextOccurrenceDate).toBe("2025-01-20");
+  });
+
   it("retorna timeline com persistidas, projetadas, sequência e ações", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
