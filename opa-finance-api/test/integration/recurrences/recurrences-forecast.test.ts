@@ -251,7 +251,7 @@ describe("GET /recurrences/forecast", () => {
         dayOfMonth: 10,
         postingMode: "review_required",
         endType: "by_occurrences",
-        endOccurrences: 2,
+        endOccurrences: 3,
         accountId: account1.id,
         categoryId: category.id,
         amount: 100,
@@ -263,10 +263,10 @@ describe("GET /recurrences/forecast", () => {
       method: "POST",
       url: "/recurrences/materialize",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { untilDate: "2099-02-28" },
+      payload: { untilDate: "2099-03-31" },
     });
     expect(materialize.statusCode).toBe(200);
-    expect(materialize.json().createdOccurrences).toBe(2);
+    expect(materialize.json().createdOccurrences).toBe(3);
     expect(materialize.json().createdTransactions).toBe(0);
 
     const res = await app.inject({
@@ -278,11 +278,12 @@ describe("GET /recurrences/forecast", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
 
-    expect(body.metadata.projectedOccurrences).toBe(2);
+    expect(body.metadata.projectedOccurrences).toBe(3);
     expect(body.totals.projected.income.yearTotal).toBe(0);
-    expect(body.totals.projected.expense.yearTotal).toBe(200);
+    expect(body.totals.projected.expense.yearTotal).toBe(300);
     expect(body.totals.projected.expense.months[0]).toBe(100);
     expect(body.totals.projected.expense.months[1]).toBe(100);
+    expect(body.totals.projected.expense.months[2]).toBe(100);
   });
 
   it("retorna 403 ao filtrar com conta que não pertence ao usuário", async () => {
