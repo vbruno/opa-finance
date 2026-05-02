@@ -218,6 +218,46 @@ describe("Recurrences - critical rules", () => {
     expect(updatedRecurrence?.lastMaterializedDate).toBeNull();
   });
 
+  it("avanca nextOccurrenceDate em review_required sem alterar lastMaterializedDate", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 3,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json()).toMatchObject({
+      createdOccurrences: 1,
+      createdTransactions: 0,
+      skippedOccurrences: 0,
+      finalizedRecurrences: 0,
+    });
+
+    const [updatedRecurrence] = await app.db
+      .select({
+        nextOccurrenceDate: recurrences.nextOccurrenceDate,
+        lastMaterializedDate: recurrences.lastMaterializedDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(updatedRecurrence?.nextOccurrenceDate).toBe("2025-01-13");
+    expect(updatedRecurrence?.lastMaterializedDate).toBeNull();
+  });
+
   it("materializa recorrência automatic sem regressão", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
