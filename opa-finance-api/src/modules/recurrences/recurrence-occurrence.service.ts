@@ -5,6 +5,7 @@ import { ConflictProblem, NotFoundProblem, UnprocessableProblem } from "../../co
 import type { DB } from "../../core/plugins/drizzle";
 import { compareIsoDate } from "../../core/utils/recurrence-schedule.utils";
 import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
+import { RecurrenceAudit } from "./recurrence.audit";
 import type {
   ConfirmRecurrenceOccurrenceInput,
   RecurrenceOccurrenceReviewPayload,
@@ -32,6 +33,7 @@ export class RecurrenceOccurrenceService {
   constructor(
     private app: FastifyInstance,
     private validators: RecurrenceValidators,
+    private recurrenceAudit: RecurrenceAudit,
   ) {}
 
   private addOneYear(dateString: string) {
@@ -309,7 +311,7 @@ export class RecurrenceOccurrenceService {
     await this.validateConfirmDate(loaded.recurrence, confirmPayload.occurrenceDate);
     await this.validateConfirmPayloadOwnership(userId, loaded.recurrence, confirmPayload);
 
-    return this.app.db.transaction(async (tx: DB) => {
+    const confirmedOccurrence = await this.app.db.transaction(async (tx: DB) => {
       const adjustedFields = this.getAdjustedFields(reviewPayload, confirmPayload);
       const previousMetadata = (loaded.occurrence.metadata ?? {}) as RecurrenceOccurrenceMetadata;
       const confirmedAt = new Date().toISOString();
@@ -354,7 +356,7 @@ export class RecurrenceOccurrenceService {
           ? await this.createTransactionFromPending(tx, loaded.recurrence, confirmPayload)
           : await this.createTransferFromPending(tx, loaded.recurrence, confirmPayload);
 
-      const [confirmedOccurrence] = await tx
+      const [savedOccurrence] = await tx
         .update(recurrenceOccurrences)
         .set({
           transactionId: result.transactionId,
@@ -364,10 +366,38 @@ export class RecurrenceOccurrenceService {
         .returning();
 
       return {
-        ...confirmedOccurrence,
+        ...savedOccurrence,
         reviewPayload: confirmPayload,
       };
     });
+
+    await this.recurrenceAudit.logBestEffort(
+      {
+        userId,
+        entityType: "recurrence_occurrence",
+        entityId: confirmedOccurrence.id,
+        action: "confirm",
+        beforeData: this.recurrenceAudit.toOccurrenceAuditData(
+          loaded.occurrence,
+          loaded.occurrence.reviewPayload as Record<string, unknown> | null,
+        ),
+        afterData: this.recurrenceAudit.toOccurrenceAuditData(
+          confirmedOccurrence,
+          confirmedOccurrence.reviewPayload as Record<string, unknown> | null,
+        ),
+        metadata: {
+          operation: "recurrence-occurrence-confirm",
+        },
+      },
+      {
+        recurrenceId: loaded.recurrence.id,
+        userId,
+        occurrenceId: confirmedOccurrence.id,
+        operation: "recurrence-occurrence-confirm",
+      },
+    );
+
+    return confirmedOccurrence;
   }
 
   async skip(userId: string, occurrenceId: string, input: SkipRecurrenceOccurrenceInput) {
@@ -379,7 +409,7 @@ export class RecurrenceOccurrenceService {
       actionPath,
     );
 
-    return this.app.db.transaction(async (tx: DB) => {
+    const skippedOccurrence = await this.app.db.transaction(async (tx: DB) => {
       const skippedAt = new Date().toISOString();
       const previousMetadata = (loaded.occurrence.metadata ?? {}) as RecurrenceOccurrenceMetadata;
       const metadata: RecurrenceOccurrenceMetadata = {
@@ -391,7 +421,7 @@ export class RecurrenceOccurrenceService {
         metadata.skipReason = input.reason;
       }
 
-      const [skippedOccurrence] = await tx
+      const [savedOccurrence] = await tx
         .update(recurrenceOccurrences)
         .set({
           status: "skipped",
@@ -407,14 +437,42 @@ export class RecurrenceOccurrenceService {
         )
         .returning();
 
-      if (!skippedOccurrence) {
+      if (!savedOccurrence) {
         throw new ConflictProblem(
           "Esta pendência já foi processada por outra requisição. Atualize a página e tente novamente.",
           actionPath,
         );
       }
 
-      return skippedOccurrence;
+      return savedOccurrence;
     });
+
+    await this.recurrenceAudit.logBestEffort(
+      {
+        userId,
+        entityType: "recurrence_occurrence",
+        entityId: skippedOccurrence.id,
+        action: "skip",
+        beforeData: this.recurrenceAudit.toOccurrenceAuditData(
+          loaded.occurrence,
+          loaded.occurrence.reviewPayload as Record<string, unknown> | null,
+        ),
+        afterData: this.recurrenceAudit.toOccurrenceAuditData(
+          skippedOccurrence,
+          skippedOccurrence.reviewPayload as Record<string, unknown> | null,
+        ),
+        metadata: {
+          operation: "recurrence-occurrence-skip",
+        },
+      },
+      {
+        recurrenceId: loaded.recurrence.id,
+        userId,
+        occurrenceId: skippedOccurrence.id,
+        operation: "recurrence-occurrence-skip",
+      },
+    );
+
+    return skippedOccurrence;
   }
 }

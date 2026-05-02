@@ -49,7 +49,11 @@ export class RecurrenceService {
       this.validators,
     );
     this.forecastService = new RecurrenceForecastService(app, this.validators);
-    this.occurrenceService = new RecurrenceOccurrenceService(app, this.validators);
+    this.occurrenceService = new RecurrenceOccurrenceService(
+      app,
+      this.validators,
+      this.recurrenceAudit,
+    );
     this.timelineService = new RecurrenceTimelineService(app);
   }
 

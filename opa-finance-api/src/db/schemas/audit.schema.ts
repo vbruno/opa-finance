@@ -2,7 +2,15 @@ import { index, jsonb, pgEnum, pgTable, timestamp, uuid } from "drizzle-orm/pg-c
 
 import { users } from "./users.schema";
 
-export const auditActionEnum = pgEnum("audit_action", ["create", "update", "delete"]);
+export const auditActionEnum = pgEnum("audit_action", [
+  "create",
+  "update",
+  "delete",
+  "materialize_pending",
+  "confirm",
+  "skip",
+  "fail",
+]);
 
 export const auditEntityTypeEnum = pgEnum("audit_entity_type", [
   "transaction",
@@ -10,6 +18,7 @@ export const auditEntityTypeEnum = pgEnum("audit_entity_type", [
   "category",
   "subcategory",
   "recurrence",
+  "recurrence_occurrence",
 ]);
 
 export const auditLogs = pgTable(

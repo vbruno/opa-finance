@@ -6,8 +6,17 @@ const auditEntityTypes = [
   "category",
   "subcategory",
   "recurrence",
+  "recurrence_occurrence",
 ] as const;
-const auditActions = ["create", "update", "delete"] as const;
+const auditActions = [
+  "create",
+  "update",
+  "delete",
+  "materialize_pending",
+  "confirm",
+  "skip",
+  "fail",
+] as const;
 
 export const listAuditLogsQuerySchema = z
   .object({

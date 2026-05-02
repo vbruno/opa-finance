@@ -14,6 +14,8 @@ import { RecurrenceAudit } from "./recurrence.audit";
 import type { MaterializeRecurrencesInput } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
+type RecurrenceOccurrenceRow = typeof recurrenceOccurrences.$inferSelect;
+
 export class RecurrenceMaterializeService {
   private readonly defaultMaterializationBatchSize = 200;
   private readonly maxMaterializationIterations = 500;
@@ -305,11 +307,12 @@ export class RecurrenceMaterializeService {
                   recurrenceOccurrences.originType,
                 ],
               })
-              .returning({ id: recurrenceOccurrences.id });
+              .returning();
 
             if (!occurrence) {
               return {
                 inserted: false,
+                occurrence: null as RecurrenceOccurrenceRow | null,
                 transactionId: null as string | null,
                 transferId: null as string | null,
                 status: null as "materialized" | "pending_review" | null,
@@ -319,6 +322,7 @@ export class RecurrenceMaterializeService {
             if (recurrence.postingMode === "review_required") {
               return {
                 inserted: true,
+                occurrence,
                 transactionId: null as string | null,
                 transferId: null as string | null,
                 status: "pending_review" as const,
@@ -332,14 +336,20 @@ export class RecurrenceMaterializeService {
                 cursorDate,
               );
 
-              await tx
+              const [updatedOccurrence] = await tx
                 .update(recurrenceOccurrences)
                 .set({
                   transactionId: transactionResult.transactionId,
                 })
-                .where(eq(recurrenceOccurrences.id, occurrence.id));
+                .where(eq(recurrenceOccurrences.id, occurrence.id))
+                .returning();
 
-              return { inserted: true, status: "materialized" as const, ...transactionResult };
+              return {
+                inserted: true,
+                occurrence: updatedOccurrence ?? occurrence,
+                status: "materialized" as const,
+                ...transactionResult,
+              };
             }
 
             if (!transferCategoryId) {
@@ -354,14 +364,20 @@ export class RecurrenceMaterializeService {
               ensuredTransferCategoryId,
             );
 
-            await tx
+            const [updatedOccurrence] = await tx
               .update(recurrenceOccurrences)
               .set({
                 transferId: transferResult.transferId,
               })
-              .where(eq(recurrenceOccurrences.id, occurrence.id));
+              .where(eq(recurrenceOccurrences.id, occurrence.id))
+              .returning();
 
-            return { inserted: true, status: "materialized" as const, ...transferResult };
+            return {
+              inserted: true,
+              occurrence: updatedOccurrence ?? occurrence,
+              status: "materialized" as const,
+              ...transferResult,
+            };
           });
 
           if (occurrenceOutcome.inserted) {
@@ -376,6 +392,38 @@ export class RecurrenceMaterializeService {
             }
           } else {
             localSkipped += 1;
+          }
+
+          if (
+            occurrenceOutcome.inserted &&
+            occurrenceOutcome.status === "pending_review" &&
+            occurrenceOutcome.occurrence
+          ) {
+            await this.recurrenceAudit.logBestEffort(
+              {
+                userId: recurrence.userId,
+                entityType: "recurrence_occurrence",
+                entityId: occurrenceOutcome.occurrence.id,
+                action: "materialize_pending",
+                beforeData: null,
+                afterData: this.recurrenceAudit.toOccurrenceAuditData(
+                  occurrenceOutcome.occurrence,
+                  occurrenceOutcome.occurrence.reviewPayload as Record<string, unknown> | null,
+                ),
+                metadata: {
+                  operation: "recurrence-occurrence-materialize-pending",
+                  recurrenceId: recurrence.id,
+                  occurrenceDate: cursorDate,
+                },
+              },
+              {
+                recurrenceId: recurrence.id,
+                userId: recurrence.userId,
+                occurrenceId: occurrenceOutcome.occurrence.id,
+                occurrenceDate: cursorDate,
+                operation: "recurrence-occurrence-materialize-pending",
+              },
+            );
           }
 
           cursorDate = getNextOccurrenceAfter(schedule, cursorDate);

@@ -3,8 +3,21 @@ import { FastifyInstance } from "fastify";
 
 import { auditLogs } from "../../db/schema";
 
-export type AuditEntityType = "transaction" | "account" | "category" | "subcategory" | "recurrence";
-export type AuditAction = "create" | "update" | "delete";
+export type AuditEntityType =
+  | "transaction"
+  | "account"
+  | "category"
+  | "subcategory"
+  | "recurrence"
+  | "recurrence_occurrence";
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "materialize_pending"
+  | "confirm"
+  | "skip"
+  | "fail";
 
 type AuditPayload = {
   userId: string;
@@ -151,15 +164,23 @@ export class AuditService {
     }
 
     const actionLabel =
-      operation === "recurrence-finalize"
-        ? "Finalização"
-        : operation === "recurrence-materialize"
-          ? "Materialização"
-          : row.action === "create"
-            ? "Criação"
-            : row.action === "update"
-              ? "Edição"
-              : "Exclusão";
+      row.entityType === "recurrence_occurrence"
+        ? row.action === "materialize_pending"
+          ? "Geração de pendência"
+          : row.action === "confirm"
+            ? "Confirmação"
+            : row.action === "skip"
+              ? "Ignorar"
+              : "Falha"
+        : operation === "recurrence-finalize"
+          ? "Finalização"
+          : operation === "recurrence-materialize"
+            ? "Materialização"
+            : row.action === "create"
+              ? "Criação"
+              : row.action === "update"
+                ? "Edição"
+                : "Exclusão";
 
     return {
       screen:
@@ -171,7 +192,9 @@ export class AuditService {
               ? "Categorias"
               : row.entityType === "subcategory"
                 ? "Subcategorias"
-                : "Recorrências",
+                : row.entityType === "recurrence_occurrence"
+                  ? "Ocorrências de recorrência"
+                  : "Recorrências",
       action: actionLabel,
       description,
       accountName: accountName ?? accountId ?? null,
@@ -188,6 +211,7 @@ export class AuditService {
     const hiddenKeys = new Set(["userId", "createdAt", "updatedAt"]);
     const labels: Record<string, string> = {
       id: "ID",
+      recurrenceId: "Recorrência",
       date: "Data",
       type: "Tipo",
       notes: "Notas",
@@ -199,6 +223,7 @@ export class AuditService {
       subcategoryId: "Subcategoria",
       subcategoryName: "Subcategoria",
       transferId: "Transferência",
+      finalized: "Finalizada",
       description: "Descrição",
       operation: "Operação",
       side: "Lado",
@@ -216,7 +241,14 @@ export class AuditService {
       skippedOccurrences: "Ocorrências ignoradas",
       createdTransactions: "Transações criadas",
       createdTransfers: "Transferências criadas",
-      finalized: "Finalizada",
+      transactionId: "Transação",
+      version: "Versão",
+      confirmedAt: "Confirmado em",
+      skippedAt: "Ignorado em",
+      skipReason: "Motivo da ignoração",
+      source: "Origem",
+      generatedAt: "Gerado em",
+      adjustments: "Ajustes",
     };
 
     const preferredOrder = [

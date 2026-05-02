@@ -162,6 +162,20 @@
       "when": 1777693079454,
       "tag": "0022_recurrence_occurrences_recurrence_status_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1777694000000,
+      "tag": "0023_audit_recurrence_occurrence_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1777694100000,
+      "tag": "0024_audit_recurrence_occurrence_entity",
+      "breakpoints": true
     }
   ]
 }
