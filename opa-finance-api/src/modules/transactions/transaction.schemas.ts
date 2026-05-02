@@ -4,9 +4,11 @@ import { transactionTypes } from "./transaction.enums";
 
 const recurrenceFrequencySchema = z.enum(["weekly", "biweekly", "monthly", "yearly"]);
 const recurrenceEndTypeSchema = z.enum(["never", "by_occurrences", "until_date"]);
+const recurrencePostingModeSchema = z.enum(["automatic", "review_required"]);
 
 const createTransactionRecurrenceSchema = z
   .object({
+    postingMode: recurrencePostingModeSchema.default("automatic"),
     frequency: recurrenceFrequencySchema,
     startDate: z
       .string()

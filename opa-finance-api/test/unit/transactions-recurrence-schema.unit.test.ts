@@ -22,6 +22,21 @@ describe("transactions recurrence schema", () => {
     });
 
     expect(parsed.recurrence?.frequency).toBe("monthly");
+    expect(parsed.recurrence?.postingMode).toBe("automatic");
+  });
+
+  it("aceita criação de transação com recorrência em modo de revisão", () => {
+    const parsed = createTransactionSchema.parse({
+      ...baseTransactionPayload,
+      recurrence: {
+        postingMode: "review_required",
+        frequency: "monthly",
+        dayOfMonth: 10,
+        endType: "never",
+      },
+    });
+
+    expect(parsed.recurrence?.postingMode).toBe("review_required");
   });
 
   it("exige dayOfWeek para recorrência semanal", () => {

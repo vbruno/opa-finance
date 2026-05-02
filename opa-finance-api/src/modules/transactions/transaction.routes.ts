@@ -43,6 +43,11 @@ export async function transactionRoutes(app: FastifyInstance) {
               type: "object",
               properties: {
                 frequency: { type: "string", enum: ["weekly", "biweekly", "monthly", "yearly"] },
+                postingMode: {
+                  type: "string",
+                  enum: ["automatic", "review_required"],
+                  default: "automatic",
+                },
                 startDate: { type: "string", example: "2026-04-10" },
                 dayOfWeek: { type: "number", example: 1 },
                 dayOfMonth: { type: "number", example: 10 },

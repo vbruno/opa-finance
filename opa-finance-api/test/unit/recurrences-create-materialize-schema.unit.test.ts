@@ -21,6 +21,25 @@ describe("recurrences create and update schema", () => {
     const parsed = createRecurrenceSchema.parse(baseTransactionRecurrence);
     expect(parsed.originType).toBe("transaction");
     expect(parsed.frequency).toBe("monthly");
+    expect(parsed.postingMode).toBe("automatic");
+  });
+
+  it("aceita create de recorrência com revisão antes de lançar", () => {
+    const parsed = createRecurrenceSchema.parse({
+      ...baseTransactionRecurrence,
+      postingMode: "review_required",
+    });
+
+    expect(parsed.postingMode).toBe("review_required");
+  });
+
+  it("bloqueia postingMode inválido", () => {
+    const result = createRecurrenceSchema.safeParse({
+      ...baseTransactionRecurrence,
+      postingMode: "manual_review",
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("bloqueia create de transferência com mesma conta origem/destino", () => {

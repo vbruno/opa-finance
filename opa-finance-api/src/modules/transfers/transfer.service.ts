@@ -188,6 +188,7 @@ export class TransferService {
             userId,
             originType: "transfer",
             status: shouldFinalizeImmediately ? "finalized" : "active",
+            postingMode: data.recurrence.postingMode,
             timezone: userTimezone,
             frequency: data.recurrence.frequency,
             startDate: recurrenceStartDate,

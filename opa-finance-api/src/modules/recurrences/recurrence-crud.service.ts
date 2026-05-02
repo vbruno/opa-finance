@@ -50,6 +50,7 @@ export class RecurrenceCrudService {
           userId,
           originType: data.originType,
           status: "active",
+          postingMode: data.postingMode,
           timezone,
           frequency: data.frequency,
           startDate: data.startDate,
@@ -107,6 +108,9 @@ export class RecurrenceCrudService {
     }
     if (query.frequency) {
       filters.push(eq(recurrences.frequency, query.frequency));
+    }
+    if (query.postingMode) {
+      filters.push(eq(recurrences.postingMode, query.postingMode));
     }
     if (query.accountId) {
       filters.push(

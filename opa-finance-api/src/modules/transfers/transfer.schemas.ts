@@ -4,9 +4,11 @@ import { ISO_DATE_REGEX, isValidIsoDate } from "../../core/utils/recurrence-sche
 
 const recurrenceFrequencySchema = z.enum(["weekly", "biweekly", "monthly", "yearly"]);
 const recurrenceEndTypeSchema = z.enum(["never", "by_occurrences", "until_date"]);
+const recurrencePostingModeSchema = z.enum(["automatic", "review_required"]);
 
 const createTransferRecurrenceSchema = z
   .object({
+    postingMode: recurrencePostingModeSchema.default("automatic"),
     frequency: recurrenceFrequencySchema,
     startDate: z
       .string()

@@ -65,6 +65,7 @@ describe("recurrence service (unit)", () => {
     const payload = buildCreatePayloadFromRecurrence(
       {
         originType: "transaction",
+        postingMode: "review_required",
         frequency: "monthly",
         startDate: "2099-01-10",
         dayOfWeek: null,
@@ -90,6 +91,7 @@ describe("recurrence service (unit)", () => {
     );
 
     expect(payload.startDate).toBe("2099-02-10");
+    expect(payload.postingMode).toBe("review_required");
     expect(payload.amount).toBe(200);
     expect(payload.categoryId).toBe("cat-2");
     expect(payload.subcategoryId).toBeUndefined();

@@ -375,6 +375,7 @@ export class RecurrenceEditService {
     if (data.endType !== undefined) payload.endType = data.endType;
     if (data.endOccurrences !== undefined) payload.endOccurrences = data.endOccurrences;
     if (data.endDate !== undefined) payload.endDate = data.endDate;
+    if (data.postingMode !== undefined) payload.postingMode = data.postingMode;
     if (data.accountId !== undefined) payload.accountId = data.accountId;
     if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
     if (data.subcategoryId !== undefined) payload.subcategoryId = data.subcategoryId;

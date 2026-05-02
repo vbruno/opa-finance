@@ -49,6 +49,7 @@ export function buildCreatePayloadFromRecurrence(
 
   return {
     originType: recurrence.originType,
+    postingMode: changes.postingMode ?? recurrence.postingMode,
     frequency: changes.frequency ?? recurrence.frequency,
     startDate,
     dayOfWeek: changes.dayOfWeek ?? recurrence.dayOfWeek ?? undefined,

@@ -5,10 +5,12 @@ export const recurrenceOriginTypeSchema = z.enum(["transaction", "transfer"]);
 export const recurrenceFrequencySchema = z.enum(["weekly", "biweekly", "monthly", "yearly"]);
 export const recurrenceEndTypeSchema = z.enum(["never", "by_occurrences", "until_date"]);
 export const recurrenceStatusSchema = z.enum(["active", "finalized"]);
+export const recurrencePostingModeSchema = z.enum(["automatic", "review_required"]);
 
 export const createRecurrenceSchema = z
   .object({
     originType: recurrenceOriginTypeSchema,
+    postingMode: recurrencePostingModeSchema.default("automatic"),
     frequency: recurrenceFrequencySchema,
     startDate: z
       .string()
@@ -179,6 +181,7 @@ export const listRecurrencesQuerySchema = z.object({
   originType: recurrenceOriginTypeSchema.optional(),
   status: recurrenceStatusSchema.optional(),
   frequency: recurrenceFrequencySchema.optional(),
+  postingMode: recurrencePostingModeSchema.optional(),
   accountId: z.uuid().optional(),
   q: z.string().max(100).optional(),
 });

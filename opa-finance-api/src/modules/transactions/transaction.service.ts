@@ -361,6 +361,7 @@ export class TransactionService {
               userId,
               originType: "transaction",
               status: shouldFinalizeImmediately ? "finalized" : "active",
+              postingMode: data.recurrence.postingMode,
               timezone: userTimezone,
               frequency: data.recurrence.frequency,
               startDate: recurrenceStartDate,

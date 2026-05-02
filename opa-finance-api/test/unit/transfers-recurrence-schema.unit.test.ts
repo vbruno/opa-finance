@@ -21,6 +21,21 @@ describe("transfers recurrence schema", () => {
     });
 
     expect(parsed.recurrence?.frequency).toBe("biweekly");
+    expect(parsed.recurrence?.postingMode).toBe("automatic");
+  });
+
+  it("aceita criação de transferência com recorrência em modo de revisão", () => {
+    const parsed = createTransferSchema.parse({
+      ...baseTransferPayload,
+      recurrence: {
+        postingMode: "review_required",
+        frequency: "biweekly",
+        dayOfWeek: 2,
+        endType: "never",
+      },
+    });
+
+    expect(parsed.recurrence?.postingMode).toBe("review_required");
   });
 
   it("exige dayOfWeek para recorrência quinzenal", () => {
