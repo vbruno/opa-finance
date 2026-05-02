@@ -56,6 +56,21 @@ ask_yes_no () {
 }
 
 # ==============================
+# LIMPEZA DE PROCESSO SSH
+# ==============================
+SSH_PID=""
+cleanup_ssh_tunnel () {
+  if [ -n "${SSH_PID:-}" ] && kill -0 "$SSH_PID" >/dev/null 2>&1; then
+    info "Encerrando túnel SSH (PID $SSH_PID)..."
+    kill "$SSH_PID" >/dev/null 2>&1 || true
+    wait "$SSH_PID" 2>/dev/null || true
+    success "Túnel SSH encerrado"
+  fi
+}
+
+trap cleanup_ssh_tunnel EXIT INT TERM
+
+# ==============================
 # VALIDACOES
 # ==============================
 command -v ssh  >/dev/null || error "ssh não encontrado"
@@ -71,9 +86,9 @@ command -v nc   >/dev/null || error "nc não encontrado"
 # STATUS
 # ==============================
 show_status () {
-  PID=$(lsof -ti tcp:$LOCAL_DB_PORT || true)
-  [ -n "$PID" ] \
-    && success "Túnel ATIVO em localhost:$LOCAL_DB_PORT (PID $PID)" \
+  PIDS=$(lsof -ti tcp:$LOCAL_DB_PORT || true)
+  [ -n "$PIDS" ] \
+    && success "Túnel ATIVO em localhost:$LOCAL_DB_PORT (PID(s) $PIDS)" \
     || info "Nenhum túnel ativo"
 }
 
@@ -82,24 +97,24 @@ $FLAG_STATUS && show_status && exit 0
 # ==============================
 # LIMPAR TÚNEL ZOMBIE
 # ==============================
-PID=$(lsof -ti tcp:$LOCAL_DB_PORT || true)
-if [ -n "$PID" ] && ! nc -z localhost "$LOCAL_DB_PORT" >/dev/null 2>&1; then
-  info "Túnel zombie detectado (PID $PID)"
-  kill "$PID" || true
+PIDS=$(lsof -ti tcp:$LOCAL_DB_PORT || true)
+if [ -n "$PIDS" ] && ! nc -z localhost "$LOCAL_DB_PORT" >/dev/null 2>&1; then
+  info "Túnel zombie detectado (PID(s) $PIDS)"
+  echo "$PIDS" | xargs -r kill || true
   success "Túnel zombie removido"
 fi
 
 # ==============================
 # TÚNEL JÁ ATIVO
 # ==============================
-PID=$(lsof -ti tcp:$LOCAL_DB_PORT || true)
-if [ -n "$PID" ]; then
-  info "Já existe túnel ativo (PID $PID)"
+PIDS=$(lsof -ti tcp:$LOCAL_DB_PORT || true)
+if [ -n "$PIDS" ]; then
+  info "Já existe túnel ativo (PID(s) $PIDS)"
 
-  $FLAG_FORCE && kill "$PID" && success "Encerrado (--force)" && exit 0
+  $FLAG_FORCE && echo "$PIDS" | xargs -r kill && success "Encerrado (--force)" && exit 0
 
   ask_yes_no "Encerrar túnel atual?" \
-    && kill "$PID" && success "Encerrado" && exit 0 \
+    && echo "$PIDS" | xargs -r kill && success "Encerrado" && exit 0 \
     || info "Mantido ativo" && exit 0
 fi
 
