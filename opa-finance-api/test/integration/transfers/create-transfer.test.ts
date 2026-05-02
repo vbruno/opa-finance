@@ -476,4 +476,66 @@ describe("POST /transfers", () => {
     expect(occurrence?.transferId).toBe(body.id);
     expect(occurrence?.reviewPayload).toBeNull();
   });
+
+  it("deve materializar ocorrência inicial em transferência recorrente automática", async () => {
+    const { token, user } = await registerAndLogin(app, db);
+
+    const [fromAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Origem Automática",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "1000",
+      })
+      .returning();
+
+    const [toAccount] = await db
+      .insert(accounts)
+      .values({
+        name: "Conta Destino Automática",
+        type: "cash",
+        userId: user.id,
+        initialBalance: "500",
+      })
+      .returning();
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/transfers",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: 220,
+        date: "2025-01-20",
+        description: "Reserva automática",
+        recurrence: {
+          postingMode: "automatic",
+          frequency: "monthly",
+          dayOfMonth: 20,
+          endType: "never",
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.recurrenceId).toBeTruthy();
+
+    const [recurrence] = await db
+      .select({ postingMode: recurrences.postingMode })
+      .from(recurrences)
+      .where(eq(recurrences.id, body.recurrenceId));
+    expect(recurrence?.postingMode).toBe("automatic");
+
+    const [occurrence] = await db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, body.recurrenceId));
+
+    expect(occurrence?.status).toBe("materialized");
+    expect(occurrence?.transferId).toBe(body.id);
+    expect(occurrence?.reviewPayload).toBeNull();
+  });
 });
