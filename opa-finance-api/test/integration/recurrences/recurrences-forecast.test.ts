@@ -237,7 +237,7 @@ describe("GET /recurrences/forecast", () => {
     expect(body.totals.projected.balance.yearTotal).toBe(0);
   });
 
-  it("respeita limite by_occurrences já consumido e não projeta novas ocorrências", async () => {
+  it("conta pendências persistidas em projected sem duplicar e respeita by_occurrences consumido", async () => {
     const { token, account1, category } = await createBaseContext();
 
     const recurrenceRes = await app.inject({
@@ -278,9 +278,11 @@ describe("GET /recurrences/forecast", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
 
-    expect(body.metadata.projectedOccurrences).toBe(0);
+    expect(body.metadata.projectedOccurrences).toBe(2);
     expect(body.totals.projected.income.yearTotal).toBe(0);
-    expect(body.totals.projected.expense.yearTotal).toBe(0);
+    expect(body.totals.projected.expense.yearTotal).toBe(200);
+    expect(body.totals.projected.expense.months[0]).toBe(100);
+    expect(body.totals.projected.expense.months[1]).toBe(100);
   });
 
   it("retorna 403 ao filtrar com conta que não pertence ao usuário", async () => {

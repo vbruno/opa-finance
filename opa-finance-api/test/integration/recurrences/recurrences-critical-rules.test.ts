@@ -230,7 +230,9 @@ describe("Recurrences - critical rules", () => {
     expect(materializeRes.statusCode).toBe(200);
     expect(materializeRes.json().createdOccurrences).toBe(3);
     expect(materializeRes.json().createdTransactions).toBe(0);
-    expect(materializeRes.json().finalizedRecurrences).toBe(1);
+    // Recorrência permanece ativa enquanto houver pendências em aberto (RCREV-DEF-16):
+    // a finalização automática só ocorre depois que todas forem confirmadas/ignoradas.
+    expect(materializeRes.json().finalizedRecurrences).toBe(0);
 
     const occurrences = await app.db
       .select({ status: recurrenceOccurrences.status })
@@ -243,8 +245,7 @@ describe("Recurrences - critical rules", () => {
       .select({ status: recurrences.status, nextOccurrenceDate: recurrences.nextOccurrenceDate })
       .from(recurrences)
       .where(eq(recurrences.id, recurrence.id));
-    expect(updatedRecurrence?.status).toBe("finalized");
-    expect(updatedRecurrence?.nextOccurrenceDate).toBeNull();
+    expect(updatedRecurrence?.status).toBe("active");
   });
 
   it("confirma pendência de transação com lock otimista e ajustes", async () => {

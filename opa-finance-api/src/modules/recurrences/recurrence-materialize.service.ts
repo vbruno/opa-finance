@@ -239,9 +239,19 @@ export class RecurrenceMaterializeService {
         cursorDate = getFirstOccurrenceOnOrAfter(schedule, cursorDate);
 
         let consumedCount = 0;
-        if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
-          const [countResult] = await this.app.db
-            .select({ total: sql<number>`count(*)::int` })
+        let openPendingReviewCount = 0;
+        const needsConsumedCount =
+          recurrence.endType === "by_occurrences" && !!recurrence.endOccurrences;
+        const needsPendingReviewCount =
+          needsConsumedCount ||
+          (recurrence.postingMode === "review_required" &&
+            (recurrence.endType === "until_date" || recurrence.endType === "by_occurrences"));
+        if (needsConsumedCount || needsPendingReviewCount) {
+          const countRows = await this.app.db
+            .select({
+              status: recurrenceOccurrences.status,
+              total: sql<number>`count(*)::int`,
+            })
             .from(recurrenceOccurrences)
             .where(
               and(
@@ -252,8 +262,15 @@ export class RecurrenceMaterializeService {
                   "skipped",
                 ]),
               ),
-            );
-          consumedCount = countResult?.total ?? 0;
+            )
+            .groupBy(recurrenceOccurrences.status);
+          for (const row of countRows) {
+            const total = row.total ?? 0;
+            if (needsConsumedCount) consumedCount += total;
+            if (row.status === "pending_review") {
+              openPendingReviewCount = total;
+            }
+          }
         }
 
         while (compareIsoDate(cursorDate, untilDate) <= 0) {
@@ -270,14 +287,18 @@ export class RecurrenceMaterializeService {
 
           if (recurrence.endType === "until_date" && recurrence.endDate) {
             if (compareIsoDate(cursorDate, recurrence.endDate) > 0) {
-              shouldFinalize = true;
+              if (openPendingReviewCount === 0) {
+                shouldFinalize = true;
+              }
               break;
             }
           }
 
           if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
             if (consumedCount >= recurrence.endOccurrences) {
-              shouldFinalize = true;
+              if (openPendingReviewCount === 0) {
+                shouldFinalize = true;
+              }
               break;
             }
           }
@@ -389,6 +410,9 @@ export class RecurrenceMaterializeService {
             if (occurrenceOutcome.transferId) localTransfers += 1;
             if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
               consumedCount += 1;
+              if (occurrenceOutcome.status === "pending_review") {
+                openPendingReviewCount += 1;
+              }
             }
           } else {
             localSkipped += 1;

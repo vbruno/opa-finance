@@ -257,14 +257,6 @@ export class RecurrenceEditService {
     this.ensureSingleScopeAllowedFields(changes);
     this.ensureOriginSpecificSingleScopePayload(recurrence, changes);
 
-    const today = await this.validators.getNowIsoDateInTimezone(recurrence.timezone);
-    if (compareIsoDate(occurrenceDate, today) < 0) {
-      throw new ValidationProblem(
-        "Não é permitido editar ocorrência materializada passada via fluxo de recorrência.",
-        `/recurrences/${recurrenceId}`,
-      );
-    }
-
     await this.validators.validatePayloadOwnership(userId, changes, recurrence.categoryId);
 
     const [pendingOccurrence] = await this.app.db
@@ -287,6 +279,14 @@ export class RecurrenceEditService {
         occurrenceDate,
         pendingOccurrence,
         changes,
+      );
+    }
+
+    const today = await this.validators.getNowIsoDateInTimezone(recurrence.timezone);
+    if (compareIsoDate(occurrenceDate, today) < 0) {
+      throw new ValidationProblem(
+        "Não é permitido editar ocorrência materializada passada via fluxo de recorrência.",
+        `/recurrences/${recurrenceId}`,
       );
     }
 

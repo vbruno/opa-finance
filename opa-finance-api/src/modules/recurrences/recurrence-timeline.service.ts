@@ -275,10 +275,10 @@ export class RecurrenceTimelineService {
       if (recurrence.status !== "active") return false;
       if (recurrence.endType === "never") return true;
       if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
-        return consumedOccurrences < recurrence.endOccurrences;
+        return consumedOccurrences + projectedOccurrences < recurrence.endOccurrences;
       }
       if (recurrence.endType === "until_date" && recurrence.endDate) {
-        const referenceDate = untilDate ?? lastProcessedDate ?? recurrence.startDate;
+        const referenceDate = lastProcessedDate ?? untilDate ?? recurrence.startDate;
         return compareIsoDate(referenceDate, recurrence.endDate) < 0;
       }
       return false;

@@ -17,6 +17,7 @@ import {
 } from "../../db/schema";
 import { emptyMonths, sumYear } from "./recurrence.helpers";
 import type { RecurrencesForecastQuery } from "./recurrence.schemas";
+import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
 export class RecurrenceForecastService {
@@ -119,6 +120,11 @@ export class RecurrenceForecastService {
       const consumedCountByRecurrence = new Map<string, number>();
       const consumedDateSet = new Set<string>();
       const consumedStatuses = ["materialized", "pending_review", "skipped"] as const;
+      const pendingReviewRows: Array<{
+        recurrenceId: string;
+        occurrenceDate: string;
+        reviewPayload: unknown;
+      }> = [];
 
       if (recurrenceIds.length > 0) {
         const counts = await this.app.db
@@ -143,6 +149,8 @@ export class RecurrenceForecastService {
           .select({
             recurrenceId: recurrenceOccurrences.recurrenceId,
             occurrenceDate: recurrenceOccurrences.occurrenceDate,
+            status: recurrenceOccurrences.status,
+            reviewPayload: recurrenceOccurrences.reviewPayload,
           })
           .from(recurrenceOccurrences)
           .where(
@@ -156,6 +164,13 @@ export class RecurrenceForecastService {
 
         for (const row of consumedRows) {
           consumedDateSet.add(`${row.recurrenceId}:${row.occurrenceDate}`);
+          if (row.status === "pending_review") {
+            pendingReviewRows.push({
+              recurrenceId: row.recurrenceId,
+              occurrenceDate: row.occurrenceDate,
+              reviewPayload: row.reviewPayload,
+            });
+          }
         }
       }
 
@@ -180,6 +195,46 @@ export class RecurrenceForecastService {
         for (const row of categoryRows) {
           categoryTypeById.set(row.id, row.type);
         }
+      }
+
+      const recurrenceById = new Map(activeRecurrences.map((row) => [row.id, row]));
+
+      for (const pendingRow of pendingReviewRows) {
+        const recurrence = recurrenceById.get(pendingRow.recurrenceId);
+        if (!recurrence) continue;
+
+        const parsed = recurrenceOccurrenceReviewPayloadSchema.safeParse(pendingRow.reviewPayload);
+        const amount = parsed.success ? parsed.data.amount : Number(recurrence.amount);
+        if (!Number.isFinite(amount)) continue;
+
+        const monthIndex = Math.max(
+          0,
+          Math.min(11, Number(pendingRow.occurrenceDate.slice(5, 7)) - 1),
+        );
+        let counted = false;
+
+        if (recurrence.originType === "transaction") {
+          if (!recurrence.accountId || !recurrence.categoryId) continue;
+          const includeByAccount = accountSet.size === 0 || accountSet.has(recurrence.accountId);
+          if (!includeByAccount) continue;
+          const transactionType = categoryTypeById.get(recurrence.categoryId);
+          if (!transactionType) continue;
+          projected[transactionType].months[monthIndex] += amount;
+          counted = true;
+        } else if (recurrence.fromAccountId && recurrence.toAccountId) {
+          const includeExpense = accountSet.size === 0 || accountSet.has(recurrence.fromAccountId);
+          const includeIncome = accountSet.size === 0 || accountSet.has(recurrence.toAccountId);
+          if (includeExpense) {
+            projected.expense.months[monthIndex] += amount;
+            counted = true;
+          }
+          if (includeIncome) {
+            projected.income.months[monthIndex] += amount;
+            counted = true;
+          }
+        }
+
+        if (counted) projectedOccurrences += 1;
       }
 
       for (const recurrence of activeRecurrences) {
