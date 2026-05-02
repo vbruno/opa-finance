@@ -592,6 +592,7 @@ describe("Recurrences - critical rules", () => {
     expect(updatedOccurrence.metadata).toMatchObject({
       adjustments: {
         fields: expect.arrayContaining(["occurrenceDate", "amount", "description", "categoryId"]),
+        adjustedAt: expect.any(String),
       },
     });
   });

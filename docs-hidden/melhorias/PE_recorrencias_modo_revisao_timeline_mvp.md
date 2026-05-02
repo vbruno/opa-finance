@@ -867,7 +867,7 @@ Labels de UI:
 - [ ] `RCREV-S4-21` Testar sequência das 3 migrations (A → B → C) executando do zero e em snapshot de produção (`RCREV-DEF-29`).
 - [x] `RCREV-S4-22` Testar índice composto `(recurrence_id, status)` — `EXPLAIN ANALYZE` mostra index scan na query do badge (`RCREV-S2-02D`).
 - [x] `RCREV-S4-23` Testar mensagens de erro em PT-BR para 422/409 críticos (`RCREV-DEF-30`).
-- [ ] `RCREV-S4-24` Testar gravação de `metadata.adjustments` quando confirm ajusta campos do `reviewPayload` (`RCREV-DEF-34`).
+- [x] `RCREV-S4-24` Testar gravação de `metadata.adjustments` quando confirm ajusta campos do `reviewPayload` (`RCREV-DEF-34`).
 
 ### Sprint E - Documentação / Entrega
 
