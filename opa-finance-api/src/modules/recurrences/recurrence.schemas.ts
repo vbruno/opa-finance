@@ -195,6 +195,32 @@ export const materializeRecurrencesSchema = z.object({
   maxRecurrences: z.number().int().min(1).max(500).optional(),
 });
 
+const timelineIncludeProjectedSchema = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  if (value === true || value === "true" || value === 1 || value === "1") {
+    return true;
+  }
+
+  if (value === false || value === "false" || value === 0 || value === "0") {
+    return false;
+  }
+
+  return value;
+}, z.boolean().optional().default(true));
+
+export const recurrenceTimelineQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(120).default(24),
+  untilDate: z
+    .string()
+    .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+    .refine(isValidIsoDate, { message: "Data inválida." })
+    .optional(),
+  includeProjected: timelineIncludeProjectedSchema,
+});
+
 export const recurrenceOccurrenceParamsSchema = z.object({
   id: z.uuid(),
 });
@@ -313,6 +339,7 @@ export type RecurrenceOccurrenceReviewPayload = z.infer<
 >;
 export type ConfirmRecurrenceOccurrenceInput = z.infer<typeof confirmRecurrenceOccurrenceSchema>;
 export type SkipRecurrenceOccurrenceInput = z.infer<typeof skipRecurrenceOccurrenceSchema>;
+export type RecurrenceTimelineQuery = z.infer<typeof recurrenceTimelineQuerySchema>;
 export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
 export type MaterializeRecurrencesInput = z.infer<typeof materializeRecurrencesSchema>;
 export type EditRecurrenceByScopeInput = z.infer<typeof editRecurrenceByScopeSchema>;

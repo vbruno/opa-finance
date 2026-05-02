@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -444,6 +444,169 @@ describe("Recurrences - critical rules", () => {
     });
     expect(staleSkip.statusCode).toBe(409);
     expect(staleSkip.json().detail).toContain("já foi processada");
+  });
+
+  it("retorna timeline com persistidas, projetadas, sequência e ações", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 4,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [firstPending, secondPending, thirdPending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id))
+      .orderBy(asc(recurrenceOccurrences.occurrenceDate));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${firstPending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: firstPending.version },
+    });
+    expect(confirmRes.statusCode).toBe(200);
+
+    const skipRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${secondPending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: secondPending.version, reason: "Não ocorreu" },
+    });
+    expect(skipRes.statusCode).toBe(200);
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const timeline = timelineRes.json();
+
+    expect(timeline.summary).toMatchObject({
+      totalOccurrences: 4,
+      consumedOccurrences: 3,
+      materializedOccurrences: 1,
+      pendingReviewOccurrences: 1,
+      skippedOccurrences: 1,
+      failedOccurrences: 0,
+      projectedOccurrences: 1,
+      totalAmount: 480,
+      materializedAmount: 120,
+      pendingReviewAmount: 120,
+      projectedAmount: 120,
+      appliedLimit: 24,
+      isPartial: false,
+      hasMoreProjected: false,
+      projectionWindowLabel: null,
+    });
+
+    expect(timeline.items).toHaveLength(4);
+    expect(timeline.items.map((item: { status: string }) => item.status)).toEqual([
+      "materialized",
+      "skipped",
+      "pending_review",
+      "projected",
+    ]);
+    expect(timeline.items.map((item: { sequence: number | null }) => item.sequence)).toEqual([
+      1, 2, 3, 4,
+    ]);
+    expect(timeline.items[2].canConfirm).toBe(true);
+    expect(timeline.items[2].canSkip).toBe(true);
+    expect(timeline.items[0].canConfirm).toBe(false);
+    expect(timeline.items[1].canSkip).toBe(false);
+    expect(timeline.items[3].source).toBe("projected");
+    expect(timeline.items[3].id).toBeNull();
+    expect(timeline.items[3].transactionId).toBeNull();
+    expect(timeline.items[3].transferId).toBeNull();
+    expect(timeline.items[0].transactionId).toBeTruthy();
+    expect(timeline.items[1].transactionId).toBeNull();
+    expect(timeline.items[2].transactionId).toBeNull();
+    expect(secondPending.id).toBeTruthy();
+    expect(thirdPending.id).toBeTruthy();
+  });
+
+  it("retorna timeline parcial quando a projeção é limitada", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 4,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?limit=2&includeProjected=false`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const timeline = timelineRes.json();
+
+    expect(timeline.summary).toMatchObject({
+      appliedLimit: 2,
+      isPartial: true,
+      hasMoreProjected: true,
+      projectionWindowLabel: "Próximas 2 ocorrências",
+      projectedOccurrences: 0,
+    });
+    expect(timeline.items).toHaveLength(2);
+    const sequences = timeline.items.map((item: { sequence: number | null }) => item.sequence);
+    expect(sequences).toEqual([1, 2]);
+    const allPersisted = timeline.items.every((item: { source: string }) => {
+      return item.source === "persisted";
+    });
+    expect(allPersisted).toBe(true);
+  });
+
+  it("bloqueia timeline de outro usuário com 404", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const email = `other_${crypto.randomUUID()}@test.com`;
+    const { token: otherToken } = await registerAndLogin(app, app.db, email);
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline`,
+      headers: { Authorization: `Bearer ${otherToken}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(404);
   });
 
   it("confirma pendência de transferência de forma atômica", async () => {

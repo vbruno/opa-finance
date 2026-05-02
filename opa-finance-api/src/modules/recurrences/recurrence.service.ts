@@ -5,6 +5,7 @@ import { RecurrenceEditService } from "./recurrence-edit.service";
 import { RecurrenceForecastService } from "./recurrence-forecast.service";
 import { RecurrenceMaterializeService } from "./recurrence-materialize.service";
 import { RecurrenceOccurrenceService } from "./recurrence-occurrence.service";
+import { RecurrenceTimelineService } from "./recurrence-timeline.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import type {
   ConfirmRecurrenceOccurrenceInput,
@@ -13,6 +14,7 @@ import type {
   ListRecurrencesQuery,
   MaterializeRecurrencesInput,
   RecurrencesForecastQuery,
+  RecurrenceTimelineQuery,
   SkipRecurrenceOccurrenceInput,
   UpdateRecurrenceInput,
 } from "./recurrence.schemas";
@@ -27,6 +29,7 @@ export class RecurrenceService {
   private materializeService: RecurrenceMaterializeService;
   private forecastService: RecurrenceForecastService;
   private occurrenceService: RecurrenceOccurrenceService;
+  private timelineService: RecurrenceTimelineService;
 
   constructor(private app: FastifyInstance) {
     this.audit = new AuditService(app);
@@ -47,6 +50,7 @@ export class RecurrenceService {
     );
     this.forecastService = new RecurrenceForecastService(app, this.validators);
     this.occurrenceService = new RecurrenceOccurrenceService(app, this.validators);
+    this.timelineService = new RecurrenceTimelineService(app);
   }
 
   async create(userId: string, data: CreateRecurrenceInput) {
@@ -83,6 +87,10 @@ export class RecurrenceService {
 
   async forecast(userId: string, query: RecurrencesForecastQuery) {
     return this.forecastService.forecast(userId, query);
+  }
+
+  async timeline(userId: string, recurrenceId: string, query: RecurrenceTimelineQuery) {
+    return this.timelineService.timeline(userId, recurrenceId, query);
   }
 
   async confirmOccurrence(

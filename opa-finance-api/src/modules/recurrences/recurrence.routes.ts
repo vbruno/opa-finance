@@ -7,6 +7,7 @@ import {
   materializeRecurrencesSchema,
   recurrencesForecastQuerySchema,
   recurrenceOccurrenceParamsSchema,
+  recurrenceTimelineQuerySchema,
   recurrenceParamsSchema,
   skipRecurrenceOccurrenceSchema,
   updateRecurrenceSchema,
@@ -67,6 +68,25 @@ export async function recurrenceRoutes(app: FastifyInstance) {
     async (req) => {
       const query = recurrencesForecastQuerySchema.parse(req.query);
       return service.forecast(req.user.sub, query);
+    },
+  );
+
+  app.get(
+    "/recurrences/:id/timeline",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Listar timeline de recorrência",
+        description:
+          "Retorna ocorrências persistidas e projetadas de uma recorrência, com sequência e ações disponíveis.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const { id } = recurrenceParamsSchema.parse(req.params);
+      const query = recurrenceTimelineQuerySchema.parse(req.query);
+      return service.timeline(req.user.sub, id, query);
     },
   );
 
