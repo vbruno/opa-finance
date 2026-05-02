@@ -286,6 +286,65 @@ describe('recurrences feature', () => {
     ).toBeNull()
   })
 
+  it('deve mostrar estado vazio sem paginação', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () =>
+        ok({
+          page: 1,
+          limit: 20,
+          total: 0,
+          data: [],
+        }),
+      ),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    expect(
+      await screen.findByText('Nenhuma recorrência encontrada para os filtros informados.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Página 1 de 1/i)).toBeNull()
+  })
+
+  it('deve mostrar estado de erro com ação de tentar novamente', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () =>
+        new Response(JSON.stringify({ message: 'Falha inesperada' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    expect(
+      await screen.findByText('Erro ao processar a solicitação. Tente novamente.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument()
+    expect(screen.queryByText(/Página 1 de 1/i)).toBeNull()
+  })
+
   it('deve abrir detalhes e timeline da recorrência', async () => {
     let capturedTimelineSearch = ''
 
