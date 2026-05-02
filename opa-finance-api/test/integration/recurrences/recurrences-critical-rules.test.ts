@@ -515,6 +515,113 @@ describe("Recurrences - critical rules", () => {
     expect(staleConfirm.json().detail).toContain("já foi processada");
   });
 
+  it("rejeita confirm concorrente com 409 para a segunda requisição", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const rollbackMarker = `Confirm concurrency ${crypto.randomUUID()}`;
+    const suffix = crypto.randomUUID().replace(/-/g, "");
+    const fnName = `sleep_confirm_concurrency_${suffix}`;
+    const triggerName = `trg_sleep_confirm_concurrency_${suffix}`;
+
+    try {
+      await app.db.execute(
+        sql.raw(`
+          create function ${fnName}()
+          returns trigger
+          language plpgsql
+          as $$
+          begin
+            if NEW.description = '${rollbackMarker}' and NEW.type = 'expense' then
+              perform pg_sleep(1);
+            end if;
+            return NEW;
+          end;
+          $$;
+        `),
+      );
+      await app.db.execute(
+        sql.raw(`
+          create trigger ${triggerName}
+          before insert on transactions
+          for each row
+          execute function ${fnName}();
+        `),
+      );
+
+      const firstConfirmPromise = app.inject({
+        method: "POST",
+        url: `/recurrences/occurrences/${pending.id}/confirm`,
+        headers: { Authorization: `Bearer ${token}` },
+        payload: {
+          expectedVersion: pending.version,
+          description: rollbackMarker,
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const secondConfirmPromise = app.inject({
+        method: "POST",
+        url: `/recurrences/occurrences/${pending.id}/confirm`,
+        headers: { Authorization: `Bearer ${token}` },
+        payload: {
+          expectedVersion: pending.version,
+          description: rollbackMarker,
+        },
+      });
+
+      const [firstConfirm, secondConfirm] = await Promise.all([
+        firstConfirmPromise,
+        secondConfirmPromise,
+      ]);
+
+      expect([firstConfirm.statusCode, secondConfirm.statusCode].sort()).toEqual([200, 409]);
+      const conflictResponse = firstConfirm.statusCode === 409 ? firstConfirm : secondConfirm;
+      expect(conflictResponse.json().detail).toContain("já foi processada");
+
+      const [currentOccurrence] = await app.db
+        .select({
+          status: recurrenceOccurrences.status,
+          version: recurrenceOccurrences.version,
+          transactionId: recurrenceOccurrences.transactionId,
+        })
+        .from(recurrenceOccurrences)
+        .where(eq(recurrenceOccurrences.id, pending.id));
+
+      expect(currentOccurrence?.status).toBe("materialized");
+      expect(currentOccurrence?.version).toBe(pending.version + 1);
+      expect(currentOccurrence?.transactionId).toBeTruthy();
+    } finally {
+      await app.db.execute(
+        sql.raw(`
+          drop trigger if exists ${triggerName} on transactions;
+          drop function if exists ${fnName}();
+        `),
+      );
+    }
+  });
+
   it("ignora pendência sem criar transação e grava motivo", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({

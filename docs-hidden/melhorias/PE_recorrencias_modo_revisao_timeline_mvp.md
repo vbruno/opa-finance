@@ -852,7 +852,7 @@ Labels de UI:
 - [x] `RCREV-S4-06` Testar skip consumindo `by_occurrences`.
 - [x] `RCREV-S4-07` Testar timeline com persistidas e projetadas.
 - [x] `RCREV-S4-08` Testar modal de detalhe no frontend.
-- [ ] `RCREV-S4-09` Testar concorrência: dois confirms simultâneos — segundo deve receber 409.
+- [x] `RCREV-S4-09` Testar concorrência: dois confirms simultâneos — segundo deve receber 409.
 - [ ] `RCREV-S4-10` Testar idempotência do job: rodar 2x na mesma janela não duplica `pending_review`.
 - [ ] `RCREV-S4-11` Testar avanço de `nextOccurrenceDate` em `review_required` (sem alterar `lastMaterializedDate`).
 - [ ] `RCREV-S4-12` Testar que `GET /transactions` não retorna pendências.
