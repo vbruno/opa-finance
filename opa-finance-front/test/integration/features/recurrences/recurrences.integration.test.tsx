@@ -104,10 +104,10 @@ const recurrenceTimelineMock: RecurrenceTimelineResponse = {
     materializedAmount: 120,
     pendingReviewAmount: 120,
     projectedAmount: 240,
-    appliedLimit: 12,
+    appliedLimit: 24,
     isPartial: true,
     hasMoreProjected: true,
-    projectionWindowLabel: 'Próximas 12 ocorrências',
+    projectionWindowLabel: 'Próximas 24 ocorrências',
   },
   items: [
     {
@@ -271,6 +271,8 @@ describe('recurrences feature', () => {
   })
 
   it('deve abrir detalhes e timeline da recorrência', async () => {
+    let capturedTimelineSearch = ''
+
     server.use(
       http.get('*/version', () =>
         ok({
@@ -282,7 +284,10 @@ describe('recurrences feature', () => {
       http.get('*/accounts', () => ok(accountsMock)),
       http.get('*/categories', () => ok(categoriesMock)),
       http.get('*/recurrences', () => ok(recurrencesMock)),
-      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/recurrences/:id/timeline', ({ request }) => {
+        capturedTimelineSearch = new URL(request.url).search
+        return ok(recurrenceTimelineMock)
+      }),
     )
 
     renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
@@ -300,7 +305,7 @@ describe('recurrences feature', () => {
     expect(await screen.findByText('Linha do tempo')).toBeInTheDocument()
     expect(await screen.findByText(/Pendente de revisão/)).toBeInTheDocument()
     expect(await screen.findByText(/Projetada\s+·\s+Projetada/)).toBeInTheDocument()
-    expect(await screen.findByText('Próximas 12 ocorrências')).toBeInTheDocument()
+    expect(capturedTimelineSearch).toContain('limit=24')
   })
 
   it('deve bloquear exclusão quando recorrência está ativa', async () => {

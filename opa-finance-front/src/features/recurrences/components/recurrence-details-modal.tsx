@@ -39,7 +39,7 @@ export function RecurrenceDetailsModal({
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const timelineQuery = useRecurrenceTimeline(recurrence?.id, {
-    limit: 12,
+    limit: 24,
     includeProjected: true,
   })
 
