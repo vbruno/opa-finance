@@ -527,6 +527,13 @@ describe("Recurrences - critical rules", () => {
     expect(timeline.items.map((item: { sequence: number | null }) => item.sequence)).toEqual([
       1, 2, 3, 4,
     ]);
+    expect(timeline.items[1].version).toBe(1);
+    expect(timeline.items[1].reviewPayload).toMatchObject({
+      occurrenceDate: "2025-01-13",
+      originalScheduledDate: "2025-01-13",
+      originType: "transaction",
+      amount: 120,
+    });
     expect(timeline.items[2].canConfirm).toBe(true);
     expect(timeline.items[2].canSkip).toBe(true);
     expect(timeline.items[0].canConfirm).toBe(false);

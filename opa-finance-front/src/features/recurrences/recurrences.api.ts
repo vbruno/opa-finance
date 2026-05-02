@@ -85,6 +85,8 @@ export type RecurrenceTimelineItem = {
   amount: number
   transactionId: string | null
   transferId: string | null
+  version: number | null
+  reviewPayload: RecurrenceOccurrenceReviewPayload | null
   canConfirm: boolean
   canSkip: boolean
 }
@@ -190,6 +192,24 @@ export type RecurrenceTimelineQueryParams = {
   limit?: number
   untilDate?: string
   includeProjected?: boolean
+}
+
+export type ConfirmRecurrenceOccurrencePayload = {
+  expectedVersion: number
+  occurrenceDate?: string
+  amount?: number
+  description?: string | null
+  notes?: string | null
+  accountId?: string
+  categoryId?: string
+  subcategoryId?: string | null
+  fromAccountId?: string
+  toAccountId?: string
+}
+
+export type SkipRecurrenceOccurrencePayload = {
+  expectedVersion: number
+  reason?: string
 }
 
 const recurrencesKey = ['recurrences']
@@ -313,6 +333,46 @@ export function useDeleteRecurrence() {
   return useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/recurrences/${id}`)
+    },
+    onSuccess: () => {
+      invalidateRecurrenceDependentQueries(queryClient)
+    },
+  })
+}
+
+export function useConfirmRecurrenceOccurrence() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      occurrenceId,
+      payload,
+    }: {
+      occurrenceId: string
+      payload: ConfirmRecurrenceOccurrencePayload
+    }) => {
+      const response = await api.post(`/recurrences/occurrences/${occurrenceId}/confirm`, payload)
+      return response.data
+    },
+    onSuccess: () => {
+      invalidateRecurrenceDependentQueries(queryClient)
+    },
+  })
+}
+
+export function useSkipRecurrenceOccurrence() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      occurrenceId,
+      payload,
+    }: {
+      occurrenceId: string
+      payload: SkipRecurrenceOccurrencePayload
+    }) => {
+      const response = await api.post(`/recurrences/occurrences/${occurrenceId}/skip`, payload)
+      return response.data
     },
     onSuccess: () => {
       invalidateRecurrenceDependentQueries(queryClient)

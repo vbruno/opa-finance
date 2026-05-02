@@ -119,6 +119,8 @@ const recurrenceTimelineMock: RecurrenceTimelineResponse = {
       sequence: 1,
       source: 'persisted',
       amount: 120,
+      version: 1,
+      reviewPayload: null,
       canConfirm: false,
       canSkip: false,
     },
@@ -131,6 +133,18 @@ const recurrenceTimelineMock: RecurrenceTimelineResponse = {
       sequence: 2,
       source: 'persisted',
       amount: 120,
+      version: 7,
+      reviewPayload: {
+        occurrenceDate: '2026-05-01',
+        originalScheduledDate: '2026-05-01',
+        originType: 'transaction',
+        amount: 120,
+        description: 'Academia',
+        notes: null,
+        accountId: 'acc-1',
+        categoryId: 'cat-1',
+        subcategoryId: null,
+      },
       canConfirm: true,
       canSkip: true,
     },
@@ -143,6 +157,8 @@ const recurrenceTimelineMock: RecurrenceTimelineResponse = {
       amount: 120,
       transactionId: null,
       transferId: null,
+      version: null,
+      reviewPayload: null,
       canConfirm: false,
       canSkip: false,
     },
@@ -310,7 +326,118 @@ describe('recurrences feature', () => {
     expect(within(timelineTable).getByText('Parcela 2')).toBeInTheDocument()
     expect(within(timelineTable).getByText('Pendente de revisão')).toBeInTheDocument()
     expect(within(timelineTable).getByText('01/06/2026')).toBeInTheDocument()
+    expect(within(timelineTable).getByRole('button', { name: 'Confirmar' })).toBeInTheDocument()
+    expect(within(timelineTable).getByRole('button', { name: 'Ignorar' })).toBeInTheDocument()
     expect(capturedTimelineSearch).toContain('limit=24')
+  })
+
+  it('deve confirmar pendência com modal e expectedVersion', async () => {
+    let confirmBody: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.post('*/recurrences/occurrences/:id/confirm', async ({ request }) => {
+        confirmBody = (await request.json()) as Record<string, unknown>
+        return ok({
+          ...recurrenceTimelineMock.items[1],
+          status: 'materialized',
+          transactionId: 'tx-confirmed',
+          canConfirm: false,
+          canSkip: false,
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(
+      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+    )
+
+    const timelineTable = await screen.findByRole('table', {
+      name: 'Tabela de ocorrências da recorrência',
+    })
+    fireEvent.click(within(timelineTable).getByRole('button', { name: 'Confirmar' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirmar lançamento' }),
+    ).toBeInTheDocument()
+    expect(screen.getByDisplayValue('2026-05-01')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('$ 120,00')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar lançamento' }))
+
+    await waitFor(() => expect(confirmBody).not.toBeNull())
+    expect(confirmBody).toMatchObject({
+      expectedVersion: 7,
+      occurrenceDate: '2026-05-01',
+      amount: 120,
+      description: 'Academia',
+      accountId: 'acc-1',
+      categoryId: 'cat-1',
+    })
+  })
+
+  it('deve ignorar pendência com ação direta', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Esquecido')
+    let skipBody: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.post('*/recurrences/occurrences/:id/skip', async ({ request }) => {
+        skipBody = (await request.json()) as Record<string, unknown>
+        return ok({
+          ...recurrenceTimelineMock.items[1],
+          status: 'skipped',
+          canConfirm: false,
+          canSkip: false,
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(
+      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+    )
+
+    const timelineTable = await screen.findByRole('table', {
+      name: 'Tabela de ocorrências da recorrência',
+    })
+    fireEvent.click(within(timelineTable).getByRole('button', { name: 'Ignorar' }))
+
+    await waitFor(() => expect(skipBody).not.toBeNull())
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(promptSpy).toHaveBeenCalled()
+    expect(skipBody).toMatchObject({
+      expectedVersion: 7,
+      reason: 'Esquecido',
+    })
   })
 
   it('deve bloquear exclusão quando recorrência está ativa', async () => {

@@ -21,6 +21,7 @@ type TransactionAccountFieldProps = {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   tabIndex?: number
+  disabled?: boolean
 }
 
 export function TransactionAccountField({
@@ -33,6 +34,7 @@ export function TransactionAccountField({
   isOpen,
   onOpenChange,
   tabIndex,
+  disabled,
 }: TransactionAccountFieldProps) {
   const error = errors[fieldName]
 
@@ -45,6 +47,7 @@ export function TransactionAccountField({
         render={({ field }) => (
           <Select
             open={isOpen}
+            disabled={disabled}
             value={field.value ? field.value : '__none__'}
             onValueChange={(value) =>
               field.onChange(value === '__none__' ? '' : value)

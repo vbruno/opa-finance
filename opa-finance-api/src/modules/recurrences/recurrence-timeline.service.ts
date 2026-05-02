@@ -25,6 +25,8 @@ type TimelineItem = {
   amount: number;
   transactionId: string | null;
   transferId: string | null;
+  version: number | null;
+  reviewPayload: unknown | null;
   canConfirm: boolean;
   canSkip: boolean;
 };
@@ -223,6 +225,8 @@ export class RecurrenceTimelineService {
           amount,
           transactionId: persisted.transactionId,
           transferId: persisted.transferId,
+          version: persisted.version,
+          reviewPayload: persisted.reviewPayload,
           canConfirm: canReview,
           canSkip: canReview,
         });
@@ -237,6 +241,8 @@ export class RecurrenceTimelineService {
           amount: recurrence.amount,
           transactionId: null,
           transferId: null,
+          version: null,
+          reviewPayload: null,
           canConfirm: false,
           canSkip: false,
         });

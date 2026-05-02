@@ -1846,6 +1846,7 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
 - `sequence` conta a posição cronológica da série
 - `canConfirm` e `canSkip` só vêm `true` para `pending_review` em recorrência ativa
 - `projectionWindowLabel` indica janela parcial quando houver mais itens além do limite
+- itens persistidos incluem `version` e `reviewPayload` para suportar confirmação e skip com lock otimista no frontend
 
 **Response 200 (exemplo):**
 
@@ -1888,6 +1889,8 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
       "amount": 350,
       "transactionId": "tx-1",
       "transferId": null,
+      "version": 1,
+      "reviewPayload": null,
       "canConfirm": false,
       "canSkip": false
     },
@@ -1900,6 +1903,18 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
       "amount": 350,
       "transactionId": null,
       "transferId": null,
+      "version": 7,
+      "reviewPayload": {
+        "occurrenceDate": "2026-05-10",
+        "originalScheduledDate": "2026-05-10",
+        "originType": "transaction",
+        "amount": 350,
+        "description": "Plano de celular",
+        "notes": null,
+        "accountId": "uuid",
+        "categoryId": "uuid",
+        "subcategoryId": null
+      },
       "canConfirm": true,
       "canSkip": true
     },
@@ -1912,6 +1927,8 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
       "amount": 350,
       "transactionId": null,
       "transferId": null,
+      "version": null,
+      "reviewPayload": null,
       "canConfirm": false,
       "canSkip": false
     }

@@ -26,6 +26,7 @@
 - `pending_review` e `skipped` contam como ocorrência consumida em `by_occurrences`
 - Transferência recorrente é materializada de forma atômica (duas transações com rollback integral em falha)
 - Cálculo de calendário considera timezone do usuário/regra
+- Timeline expõe `version` e `reviewPayload` para itens persistidos, permitindo confirm/skip com lock otimista e pré-preenchimento do modal no frontend
 
 ## Endpoints
 

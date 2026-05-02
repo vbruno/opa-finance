@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
-import { useRecurrenceTimeline } from '@/features/recurrences'
+import { useRecurrenceTimeline, type RecurrenceTimelineItem } from '@/features/recurrences'
 import {
   formatIsoDateToPtBr,
   formatRecurrenceFrequency,
@@ -21,6 +21,8 @@ type RecurrenceDetailsModalProps = {
   accountsById: Map<string, { name: string }>
   categoriesById: Map<string, Category>
   onClose: () => void
+  onOpenConfirmOccurrence: (item: RecurrenceTimelineItem) => void
+  onSkipOccurrence: (item: RecurrenceTimelineItem) => void
 }
 
 function formatMaybeIsoDate(value: string | null) {
@@ -36,6 +38,8 @@ export function RecurrenceDetailsModal({
   accountsById,
   categoriesById,
   onClose,
+  onOpenConfirmOccurrence,
+  onSkipOccurrence,
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const timelineQuery = useRecurrenceTimeline(recurrence?.id, {
@@ -312,12 +316,34 @@ export function RecurrenceDetailsModal({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            <span className="rounded-full border px-2 py-1">
-                              {item.canConfirm ? 'Pode confirmar' : 'Sem ação de confirmação'}
-                            </span>
-                            <span className="rounded-full border px-2 py-1">
-                              {item.canSkip ? 'Pode ignorar' : 'Sem ação de ignorar'}
-                            </span>
+                            {item.canConfirm ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onOpenConfirmOccurrence(item)}
+                              >
+                                Confirmar
+                              </Button>
+                            ) : (
+                              <span className="rounded-full border px-2 py-1">
+                                Sem ação de confirmação
+                              </span>
+                            )}
+                            {item.canSkip ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onSkipOccurrence(item)}
+                              >
+                                Ignorar
+                              </Button>
+                            ) : (
+                              <span className="rounded-full border px-2 py-1">
+                                Sem ação de ignorar
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>

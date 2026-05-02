@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarRange, Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -17,10 +17,12 @@ import {
   useRecurrence,
   useEditRecurrenceByScope,
   useFinalizeRecurrence,
+  useSkipRecurrenceOccurrence,
   useRecurrences,
   useUpdateRecurrence,
   type Recurrence,
   type RecurrenceEditScope,
+  type RecurrenceTimelineItem,
 } from '@/features/recurrences'
 import { useRecurrencesSearchParams } from '@/features/recurrences/hooks/use-recurrences-search-params'
 import {
@@ -43,6 +45,7 @@ import {
   type RecurrenceFormData,
 } from '@/schemas/recurrence.schema'
 
+import { ConfirmRecurrenceOccurrenceModal } from './confirm-recurrence-occurrence-modal'
 import { RecurrenceDetailsModal } from './recurrence-details-modal'
 import { RecurrenceFormModal } from './recurrence-form-modal'
 import { RecurrencesFilters } from './recurrences-filters'
@@ -66,11 +69,16 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const [detailsRecurrence, setDetailsRecurrence] = useState<Recurrence | null>(
     null,
   )
+  const [confirmOccurrence, setConfirmOccurrence] = useState<RecurrenceTimelineItem | null>(
+    null,
+  )
   const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [conflictRecurrenceId, setConflictRecurrenceId] = useState<string | null>(
     null,
   )
 
+  const queryClient = useQueryClient()
   const accountsQuery = useAccounts()
   const categoriesQuery = useCategories()
   const recurrencesQuery = useRecurrences({
@@ -89,6 +97,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const editByScopeMutation = useEditRecurrenceByScope()
   const finalizeMutation = useFinalizeRecurrence()
   const deleteMutation = useDeleteRecurrence()
+  const skipMutation = useSkipRecurrenceOccurrence()
 
   const accountsById = useMemo(
     () => new Map((accountsQuery.data ?? []).map((account) => [account.id, account])),
@@ -195,6 +204,40 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
   function openDetailsModal(recurrence: Recurrence) {
     setDetailsRecurrence(recurrence)
+    setActionError(null)
+  }
+
+  function openConfirmOccurrenceModal(occurrence: RecurrenceTimelineItem) {
+    setConfirmOccurrence(occurrence)
+    setActionError(null)
+  }
+
+  async function handleSkipOccurrence(occurrence: RecurrenceTimelineItem) {
+    if (!detailsRecurrence || !occurrence.id || occurrence.version === null) return
+
+    setActionError(null)
+    const shouldSkip = window.confirm(
+      'Ignorar esta pendência? Ela continuará consumindo a posição da recorrência.',
+    )
+    if (!shouldSkip) return
+
+    const reason = window.prompt('Motivo opcional para ignorar:') ?? undefined
+
+    try {
+      await skipMutation.mutateAsync({
+        occurrenceId: occurrence.id,
+        payload: {
+          expectedVersion: occurrence.version,
+          reason: reason?.trim() ? reason.trim() : undefined,
+        },
+      })
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status === 409) {
+        void queryClient.invalidateQueries({ queryKey: ['recurrence-timeline'] })
+      }
+      setActionError(getApiErrorMessage(error))
+    }
   }
 
   const closeModal = useCallback(() => {
@@ -208,6 +251,8 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
   const closeDetailsModal = useCallback(() => {
     setDetailsRecurrence(null)
+    setConfirmOccurrence(null)
+    setActionError(null)
   }, [])
 
   useEffect(() => {
@@ -433,6 +478,11 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
           {formError}
         </div>
       ) : null}
+      {actionError ? (
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          {actionError}
+        </div>
+      ) : null}
 
       <RecurrencesList
         recurrences={recurrencesQuery.data?.data ?? []}
@@ -461,6 +511,16 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         accountsById={accountsById}
         categoriesById={categoriesById}
         onClose={closeDetailsModal}
+        onOpenConfirmOccurrence={openConfirmOccurrenceModal}
+        onSkipOccurrence={(occurrence) => void handleSkipOccurrence(occurrence)}
+      />
+
+      <ConfirmRecurrenceOccurrenceModal
+        recurrence={detailsRecurrence}
+        occurrence={confirmOccurrence}
+        accounts={(accountsQuery.data ?? []).filter(Boolean)}
+        categories={categories}
+        onClose={() => setConfirmOccurrence(null)}
       />
 
       <RecurrenceFormModal
