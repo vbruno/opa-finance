@@ -507,6 +507,63 @@ describe('recurrences feature', () => {
     })
   })
 
+  it('deve mostrar mensagem clara quando confirm retorna 422 por data fora do range', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.post('*/recurrences/occurrences/:id/confirm', async ({ request }) => {
+        const body = (await request.json()) as { occurrenceDate?: string }
+        if (body.occurrenceDate === '2030-01-01') {
+          return new Response(
+            JSON.stringify({
+              type: 'https://opa.dev/errors/validation-error',
+              title: 'Validation Error',
+              status: 422,
+              detail: 'A data ajustada deve estar entre 01/05/2026 e 30/04/2027.',
+              instance: '/recurrences/occurrences/occ-2/confirm',
+            }),
+            {
+              status: 422,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
+        }
+        return ok(recurrenceTimelineMock.items[1])
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(
+      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+    )
+
+    const timelineTable = await screen.findByRole('table', {
+      name: 'Tabela de ocorrências da recorrência',
+    })
+    fireEvent.click(within(timelineTable).getByRole('button', { name: 'Confirmar' }))
+
+    const dateInput = await screen.findByLabelText('Data do lançamento')
+    fireEvent.change(dateInput, { target: { value: '2030-01-01' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar lançamento' }))
+
+    expect(
+      await screen.findByText('A data ajustada deve estar entre 01/05/2026 e 30/04/2027.'),
+    ).toBeInTheDocument()
+  })
+
   it('deve ignorar pendência com ação direta', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Esquecido')

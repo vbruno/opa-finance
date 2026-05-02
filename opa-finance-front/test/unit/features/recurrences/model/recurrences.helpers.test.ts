@@ -7,6 +7,7 @@ import {
   formatRecurrenceFrequency,
   formatRecurrenceOriginType,
   formatRecurrenceStatus,
+  getRecurrenceConfirmErrorMessage,
   toRecurrenceCreatePayload,
 } from '@/features/recurrences/model/recurrences.helpers'
 import type { Recurrence } from '@/features/recurrences'
@@ -128,5 +129,33 @@ describe('recurrences.helpers', () => {
     )
 
     expect(diff.postingMode).toBe('review_required')
+  })
+
+  it('deve traduzir erro 422 do confirm quando a data ajustada estiver fora do range', () => {
+    const message = getRecurrenceConfirmErrorMessage({
+      response: {
+        status: 422,
+        data: {
+          detail: 'A data ajustada deve estar entre 01/05/2026 e 30/04/2027.',
+        },
+      },
+    })
+
+    expect(message).toBe('A data ajustada deve estar entre 01/05/2026 e 30/04/2027.')
+  })
+
+  it('deve usar fallback claro para 422 sem detalhe específico', () => {
+    const message = getRecurrenceConfirmErrorMessage({
+      response: {
+        status: 422,
+        data: {
+          detail: 'O occurrenceDate está fora do range permitido.',
+        },
+      },
+    })
+
+    expect(message).toBe(
+      'A data ajustada precisa ficar dentro do intervalo permitido para esta confirmação.',
+    )
   })
 })

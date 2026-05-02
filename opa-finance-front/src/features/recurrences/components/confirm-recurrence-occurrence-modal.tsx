@@ -15,11 +15,11 @@ import {
   type RecurrenceOccurrenceReviewPayload,
   type RecurrenceTimelineItem,
 } from '@/features/recurrences'
+import { getRecurrenceConfirmErrorMessage } from '@/features/recurrences/model/recurrences.helpers'
 import { TransactionAccountField } from '@/features/transactions/components/transaction-account-field'
 import { TransactionAmountField } from '@/features/transactions/components/transaction-amount-field'
 import { TransactionDateField } from '@/features/transactions/components/transaction-date-field'
 import { TransactionNotesField } from '@/features/transactions/components/transaction-notes-field'
-import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue, parseCurrencyInput } from '@/lib/utils'
 
 type ConfirmFormData = {
@@ -257,7 +257,7 @@ export function ConfirmRecurrenceOccurrenceModal({
       if (status === 409) {
         void queryClient.invalidateQueries({ queryKey: ['recurrence-timeline'] })
       }
-      setSubmitError(getApiErrorMessage(error))
+      setSubmitError(getRecurrenceConfirmErrorMessage(error))
     }
   }
 

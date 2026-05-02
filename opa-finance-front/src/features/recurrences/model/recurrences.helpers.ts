@@ -12,7 +12,7 @@ import {
   RECURRENCE_TIMELINE_SOURCE_LABELS,
   RECURRENCE_TIMELINE_STATUS_LABELS,
 } from '@/features/recurrences/model/recurrences.constants'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { getApiErrorMessage, getApiErrorStatus } from '@/lib/apiError'
 import { formatCurrencyValue, parseCurrencyInput } from '@/lib/utils'
 import type { RecurrenceFormData } from '@/schemas/recurrence.schema'
 
@@ -324,6 +324,34 @@ export function getRecurrenceEditErrorMessage(error: unknown) {
     normalizedMessage.includes('ja materializada')
   ) {
     return 'Ocorrência materializada no passado não pode ser editada por este fluxo. Faça o ajuste manual em Transações.'
+  }
+
+  return message
+}
+
+export function getRecurrenceConfirmErrorMessage(error: unknown) {
+  const message = getApiErrorMessage(error)
+  const status = getApiErrorStatus(error)
+  const normalizedMessage = message
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  const looksLikeRangeError =
+    normalizedMessage.includes('data ajustada') ||
+    normalizedMessage.includes('occurrencedate') ||
+    normalizedMessage.includes('intervalo') ||
+    normalizedMessage.includes('range')
+
+  if (status === 422 && looksLikeRangeError) {
+    if (
+      normalizedMessage.includes('data ajustada deve estar entre') ||
+      normalizedMessage.includes('data ajustada precisa ficar entre')
+    ) {
+      return message
+    }
+
+    return 'A data ajustada precisa ficar dentro do intervalo permitido para esta confirmação.'
   }
 
   return message
