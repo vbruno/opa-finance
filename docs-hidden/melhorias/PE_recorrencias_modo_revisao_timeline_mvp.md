@@ -859,7 +859,7 @@ Labels de UI:
 - [x] `RCREV-S4-13` Testar alteração de `postingMode` em recorrência ativa (ambos sentidos).
 - [x] `RCREV-S4-14` Testar finalização/exclusão com pendências abertas conforme `RCREV-DEF-16`.
 - [x] `RCREV-S4-15` Testar `POST /recurrences/materialize` em recorrência `review_required`.
-- [ ] `RCREV-S4-16` Testar cap de geração: criar recorrência `by_occurrences=3` em `review_required`, rodar job 5x; total de pendências geradas deve ser exatamente 3 (`RCREV-CNF-10`).
+- [x] `RCREV-S4-16` Testar cap de geração: criar recorrência `by_occurrences=3` em `review_required`, rodar job 5x; total de pendências geradas deve ser exatamente 3 (`RCREV-CNF-10`).
 - [ ] `RCREV-S4-17` Testar deduplicação no forecast: criar recorrência mensal `review_required`, gerar 3 pendências; forecast deve retornar 3 itens, não 6 (`RCREV-CNF-11`).
 - [ ] `RCREV-S4-18` Testar primeira ocorrência em criação aninhada: status sempre `materialized` independente de `postingMode` (`RCREV-DEF-26`).
 - [ ] `RCREV-S4-19` Testar limite de range em `occurrenceDate` no confirm — datas fora do range retornam 422 (`RCREV-DEF-25`).

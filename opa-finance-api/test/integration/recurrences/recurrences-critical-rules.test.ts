@@ -490,19 +490,28 @@ describe("Recurrences - critical rules", () => {
       endOccurrences: 3,
     });
 
-    const materializeRes = await app.inject({
-      method: "POST",
-      url: "/recurrences/materialize",
-      headers: { Authorization: `Bearer ${token}` },
-      payload: { untilDate: "2025-02-10" },
-    });
+    const results = [] as Array<{
+      createdOccurrences: number;
+      createdTransactions: number;
+      finalizedRecurrences: number;
+    }>;
+    for (let index = 0; index < 5; index += 1) {
+      const materializeRes = await app.inject({
+        method: "POST",
+        url: "/recurrences/materialize",
+        headers: { Authorization: `Bearer ${token}` },
+        payload: { untilDate: "2025-02-10" },
+      });
 
-    expect(materializeRes.statusCode).toBe(200);
-    expect(materializeRes.json().createdOccurrences).toBe(3);
-    expect(materializeRes.json().createdTransactions).toBe(0);
+      expect(materializeRes.statusCode).toBe(200);
+      results.push(materializeRes.json());
+    }
+
+    expect(results.map((result) => result.createdOccurrences)).toEqual([3, 0, 0, 0, 0]);
+    expect(results.every((result) => result.createdTransactions === 0)).toBe(true);
     // Recorrência permanece ativa enquanto houver pendências em aberto (RCREV-DEF-16):
     // a finalização automática só ocorre depois que todas forem confirmadas/ignoradas.
-    expect(materializeRes.json().finalizedRecurrences).toBe(0);
+    expect(results.every((result) => result.finalizedRecurrences === 0)).toBe(true);
 
     const occurrences = await app.db
       .select({ status: recurrenceOccurrences.status })
