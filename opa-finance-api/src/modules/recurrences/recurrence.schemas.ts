@@ -195,6 +195,47 @@ export const materializeRecurrencesSchema = z.object({
   maxRecurrences: z.number().int().min(1).max(500).optional(),
 });
 
+export const recurrenceOccurrenceParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+export const recurrenceOccurrenceReviewPayloadSchema = z.object({
+  occurrenceDate: z
+    .string()
+    .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+    .refine(isValidIsoDate, { message: "Data inválida." }),
+  originalScheduledDate: z
+    .string()
+    .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+    .refine(isValidIsoDate, { message: "Data inválida." }),
+  originType: recurrenceOriginTypeSchema,
+  amount: z.number().positive("Valor deve ser maior que zero."),
+  description: z.string().nullable(),
+  notes: z.string().nullable(),
+  accountId: z.uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  subcategoryId: z.uuid().nullable().optional(),
+  fromAccountId: z.uuid().nullable().optional(),
+  toAccountId: z.uuid().nullable().optional(),
+});
+
+export const confirmRecurrenceOccurrenceSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  occurrenceDate: z
+    .string()
+    .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+    .refine(isValidIsoDate, { message: "Data inválida." })
+    .optional(),
+  amount: z.number().positive("Valor deve ser maior que zero.").optional(),
+  description: z.string().max(255).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+  accountId: z.uuid().optional(),
+  categoryId: z.uuid().optional(),
+  subcategoryId: z.uuid().nullable().optional(),
+  fromAccountId: z.uuid().optional(),
+  toAccountId: z.uuid().optional(),
+});
+
 export const recurrenceEditScopeSchema = z.enum(["single", "this_and_next", "all"]);
 
 const recurrenceForecastAccountIdsSchema = z
@@ -261,6 +302,11 @@ export const editRecurrenceByScopeSchema = z
 export type CreateRecurrenceInput = z.infer<typeof createRecurrenceSchema>;
 export type UpdateRecurrenceInput = z.infer<typeof updateRecurrenceSchema>;
 export type RecurrenceParams = z.infer<typeof recurrenceParamsSchema>;
+export type RecurrenceOccurrenceParams = z.infer<typeof recurrenceOccurrenceParamsSchema>;
+export type RecurrenceOccurrenceReviewPayload = z.infer<
+  typeof recurrenceOccurrenceReviewPayloadSchema
+>;
+export type ConfirmRecurrenceOccurrenceInput = z.infer<typeof confirmRecurrenceOccurrenceSchema>;
 export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
 export type MaterializeRecurrencesInput = z.infer<typeof materializeRecurrencesSchema>;
 export type EditRecurrenceByScopeInput = z.infer<typeof editRecurrenceByScopeSchema>;

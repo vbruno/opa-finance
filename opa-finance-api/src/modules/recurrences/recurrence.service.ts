@@ -4,8 +4,10 @@ import { RecurrenceCrudService } from "./recurrence-crud.service";
 import { RecurrenceEditService } from "./recurrence-edit.service";
 import { RecurrenceForecastService } from "./recurrence-forecast.service";
 import { RecurrenceMaterializeService } from "./recurrence-materialize.service";
+import { RecurrenceOccurrenceService } from "./recurrence-occurrence.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import type {
+  ConfirmRecurrenceOccurrenceInput,
   CreateRecurrenceInput,
   EditRecurrenceByScopeInput,
   ListRecurrencesQuery,
@@ -23,6 +25,7 @@ export class RecurrenceService {
   private edit: RecurrenceEditService;
   private materializeService: RecurrenceMaterializeService;
   private forecastService: RecurrenceForecastService;
+  private occurrenceService: RecurrenceOccurrenceService;
 
   constructor(private app: FastifyInstance) {
     this.audit = new AuditService(app);
@@ -42,6 +45,7 @@ export class RecurrenceService {
       this.validators,
     );
     this.forecastService = new RecurrenceForecastService(app, this.validators);
+    this.occurrenceService = new RecurrenceOccurrenceService(app, this.validators);
   }
 
   async create(userId: string, data: CreateRecurrenceInput) {
@@ -78,5 +82,13 @@ export class RecurrenceService {
 
   async forecast(userId: string, query: RecurrencesForecastQuery) {
     return this.forecastService.forecast(userId, query);
+  }
+
+  async confirmOccurrence(
+    userId: string,
+    occurrenceId: string,
+    input: ConfirmRecurrenceOccurrenceInput,
+  ) {
+    return this.occurrenceService.confirm(userId, occurrenceId, input);
   }
 }

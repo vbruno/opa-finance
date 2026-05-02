@@ -1,10 +1,12 @@
 import { FastifyInstance } from "fastify";
 import {
   createRecurrenceSchema,
+  confirmRecurrenceOccurrenceSchema,
   editRecurrenceByScopeSchema,
   listRecurrencesQuerySchema,
   materializeRecurrencesSchema,
   recurrencesForecastQuerySchema,
+  recurrenceOccurrenceParamsSchema,
   recurrenceParamsSchema,
   updateRecurrenceSchema,
 } from "./recurrence.schemas";
@@ -152,6 +154,25 @@ export async function recurrenceRoutes(app: FastifyInstance) {
     async (req) => {
       const { id } = recurrenceParamsSchema.parse(req.params);
       return service.remove(req.user.sub, id);
+    },
+  );
+
+  app.post(
+    "/recurrences/occurrences/:id/confirm",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Confirmar pendência de recorrência",
+        description:
+          "Confirma uma ocorrência pendente de revisão e cria a transação ou transferência correspondente.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const { id } = recurrenceOccurrenceParamsSchema.parse(req.params);
+      const body = confirmRecurrenceOccurrenceSchema.parse(req.body);
+      return service.confirmOccurrence(req.user.sub, id, body);
     },
   );
 

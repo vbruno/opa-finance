@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
-import { recurrenceOccurrences, recurrences, transactions } from "@/db/schema";
+import { categories, recurrenceOccurrences, recurrences, transactions } from "@/db/schema";
 
 describe("Recurrences - critical rules", () => {
   let app: FastifyInstance;
@@ -245,6 +245,177 @@ describe("Recurrences - critical rules", () => {
       .where(eq(recurrences.id, recurrence.id));
     expect(updatedRecurrence?.status).toBe("finalized");
     expect(updatedRecurrence?.nextOccurrenceDate).toBeNull();
+  });
+
+  it("confirma pendência de transação com lock otimista e ajustes", async () => {
+    const { token, account, category, category2 } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+    expect(pending.status).toBe("pending_review");
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pending.version,
+        occurrenceDate: "2025-01-07",
+        amount: 150,
+        categoryId: category2.id,
+        description: "Despesa ajustada",
+      },
+    });
+
+    expect(confirmRes.statusCode).toBe(200);
+    const confirmed = confirmRes.json();
+    expect(confirmed.status).toBe("materialized");
+    expect(confirmed.version).toBe(pending.version + 1);
+    expect(confirmed.transactionId).toBeTruthy();
+
+    const [createdTransaction] = await app.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, confirmed.transactionId));
+    expect(createdTransaction.date).toBe("2025-01-07");
+    expect(Number(createdTransaction.amount)).toBe(150);
+    expect(createdTransaction.categoryId).toBe(category2.id);
+    expect(createdTransaction.description).toBe("Despesa ajustada");
+
+    const [updatedOccurrence] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.id, pending.id));
+    expect(updatedOccurrence.status).toBe("materialized");
+    expect(updatedOccurrence.transactionId).toBe(createdTransaction.id);
+    expect(updatedOccurrence.metadata).toMatchObject({
+      adjustments: {
+        fields: expect.arrayContaining(["occurrenceDate", "amount", "description", "categoryId"]),
+      },
+    });
+  });
+
+  it("rejeita confirmação duplicada com 409", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const firstConfirm = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+    expect(firstConfirm.statusCode).toBe(200);
+
+    const staleConfirm = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+    expect(staleConfirm.statusCode).toBe(409);
+    expect(staleConfirm.json().detail).toContain("já foi processada");
+  });
+
+  it("confirma pendência de transferência de forma atômica", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    await app.db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        postingMode: "review_required",
+        frequency: "monthly",
+        startDate: "2025-01-15",
+        dayOfMonth: 15,
+        endType: "never",
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 400,
+        description: "Reserva",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-15" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version, amount: 450 },
+    });
+
+    expect(confirmRes.statusCode).toBe(200);
+    const confirmed = confirmRes.json();
+    expect(confirmed.status).toBe("materialized");
+    expect(confirmed.transferId).toBeTruthy();
+
+    const transferTransactions = await app.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.transferId, confirmed.transferId));
+    expect(transferTransactions).toHaveLength(2);
+    expect(transferTransactions.map((tx) => tx.type).sort()).toEqual(["expense", "income"]);
+    expect(transferTransactions.every((tx) => Number(tx.amount) === 450)).toBe(true);
   });
 
   it("bloqueia escopo single quando payload tenta alterar agenda", async () => {

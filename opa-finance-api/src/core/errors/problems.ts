@@ -80,6 +80,21 @@ export class ConflictProblem extends HttpProblem {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                         422 - Unprocessable Entity                          */
+/* -------------------------------------------------------------------------- */
+export class UnprocessableProblem extends HttpProblem {
+  constructor(detail = "Não foi possível processar a solicitação", instance?: string) {
+    super({
+      type: `${BASE}/unprocessable-entity`,
+      title: "Unprocessable Entity",
+      status: 422,
+      detail,
+      instance,
+    });
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /*                         400 - Validation Error                              */
 /* -------------------------------------------------------------------------- */
 export class ValidationProblem extends HttpProblem {
