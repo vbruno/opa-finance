@@ -1,23 +1,16 @@
 // @ts-nocheck
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import {
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type FocusEvent,
   type KeyboardEventHandler,
 } from 'react'
-import {
-  useForm,
-  type ControllerRenderProps,
-} from 'react-hook-form'
+import { useForm, type ControllerRenderProps } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,9 +29,7 @@ import {
   useCreateCategory,
   useCreateSubcategory,
 } from '@/features/categories'
-import {
-  useCreateRecurrence,
-} from '@/features/recurrences'
+import { useCreateRecurrence } from '@/features/recurrences'
 import {
   buildPaginationItems,
   CATEGORY_TYPE_RANK,
@@ -90,6 +81,7 @@ import {
   transactionCreateSchema,
   type TransactionCreateFormData,
 } from '@/schemas/transaction.schema'
+
 import type { TransactionsTransferModalRequest } from './transactions-transfer-modal'
 
 type TransactionsPageProps = {
@@ -123,9 +115,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setCopiedValue,
     isDescriptionSuggestionsOpen,
     setIsDescriptionSuggestionsOpen,
-    isDescriptionFocused,
-    setIsDescriptionFocused,
-    activeSuggestionIndex,
     setActiveSuggestionIndex,
     isCreateCategoryTreeOpen,
     setIsCreateCategoryTreeOpen,
@@ -154,9 +143,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsFiltersOpen,
     isCreateMenuOpen,
     setIsCreateMenuOpen,
-    createAmountRef,
     transferAmountRef,
-    editAmountRef,
     descriptionInputRef,
     dateInputRef,
     createCategorySelectRef,
@@ -258,15 +245,12 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const categoriesQuery = useCategories()
 
   const {
-    control,
-    register,
     handleSubmit,
     reset,
     watch,
     setError,
     setValue,
     clearErrors,
-    formState: { errors, isSubmitting },
   } = useForm<TransactionCreateFormData>({
     resolver: zodResolver(transactionCreateSchema),
     defaultValues: {
@@ -298,15 +282,11 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   })
 
   const {
-    control: editControl,
-    register: editRegister,
     handleSubmit: handleEditSubmit,
     reset: resetEdit,
     watch: watchEdit,
     setError: setEditError,
     setValue: setEditValue,
-    clearErrors: clearEditErrors,
-    formState: { errors: editErrors, isSubmitting: isEditSubmitting },
   } = useForm<TransactionCreateFormData>({
     resolver: zodResolver(transactionCreateSchema),
     defaultValues: {
@@ -333,23 +313,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const {
     isCreateRecurrenceEnabled,
     setIsCreateRecurrenceEnabled,
-    createRecurrenceStartDate,
-    setCreateRecurrenceStartDate,
-    setIsCreateRecurrenceStartDateTouched,
-    createRecurrenceFrequency,
-    setCreateRecurrenceFrequency,
-    createRecurrenceEndType,
-    setCreateRecurrenceEndType,
-    createRecurrenceEndOccurrences,
-    setCreateRecurrenceEndOccurrences,
-    createRecurrenceEndDate,
-    setCreateRecurrenceEndDate,
-    createRecurrenceDayOfWeek,
-    setCreateRecurrenceDayOfWeek,
-    createRecurrenceDayOfMonth,
-    setCreateRecurrenceDayOfMonth,
-    createRecurrenceMonthOfYear,
-    setCreateRecurrenceMonthOfYear,
     resetCreateRecurrenceDraft,
     recurrenceDraft,
   } = useTransactionRecurrenceDraft({ createDate })
@@ -359,6 +322,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   const editTypeRaw = watchEdit('type')
   const editType: 'income' | 'expense' | '' =
     editTypeRaw === 'income' || editTypeRaw === 'expense' ? editTypeRaw : ''
+  const _editType = editType
   const categories = useMemo(
     () => categoriesQuery.data ?? [],
     [categoriesQuery.data],
@@ -416,14 +380,14 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   )
   const {
     createSubcategories,
-    createSubcategoryName,
-    createAccountName,
-    createCategoryTreeOptions,
-    editCategoryTreeOptions,
+    createSubcategoryName: _createSubcategoryName,
+    createAccountName: _createAccountName,
+    createCategoryTreeOptions: _createCategoryTreeOptions,
+    editCategoryTreeOptions: _editCategoryTreeOptions,
     descriptionSuggestions,
-    areDescriptionSuggestionsLoading,
-    hasDescriptionSuggestionsError,
-    shouldFilterSuggestions,
+    areDescriptionSuggestionsLoading: _areDescriptionSuggestionsLoading,
+    hasDescriptionSuggestionsError: _hasDescriptionSuggestionsError,
+    shouldFilterSuggestions: _shouldFilterSuggestions,
   } = useTransactionsCreateSupport({
     availableCategories,
     createCategoryIdsKey,
@@ -455,39 +419,20 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     [isAmountFilterInvalid, rawTransactions],
   )
   const {
-    transferForm,
-    transferEditContext,
-    transferEditError,
     repeatTransferError,
+    transferEditError,
     isRepeatTransferLoading,
     isEditTransferLoading,
-    isTransferRecurrenceEnabled,
-    setIsTransferRecurrenceEnabled,
-    transferRecurrenceStartDate,
-    setTransferRecurrenceStartDate,
-    setIsTransferRecurrenceStartDateTouched,
-    transferRecurrenceFrequency,
-    setTransferRecurrenceFrequency,
-    transferRecurrenceEndType,
-    setTransferRecurrenceEndType,
-    transferRecurrenceEndOccurrences,
-    setTransferRecurrenceEndOccurrences,
-    transferRecurrenceEndDate,
-    setTransferRecurrenceEndDate,
-    transferRecurrenceDayOfWeek,
-    setTransferRecurrenceDayOfWeek,
-    transferRecurrenceDayOfMonth,
-    setTransferRecurrenceDayOfMonth,
-    transferRecurrenceMonthOfYear,
-    setTransferRecurrenceMonthOfYear,
-    resetTransferRecurrenceDraft,
+    isTransferRecurrenceEnabled: _isTransferRecurrenceEnabled,
+    setIsTransferRecurrenceEnabled: _setIsTransferRecurrenceEnabled,
+    resetTransferRecurrenceDraft: _resetTransferRecurrenceDraft,
     clearTransferFeedback,
-    openTransferCreate: legacyOpenTransferCreate,
+    openTransferCreate: _legacyOpenTransferCreate,
     handleCloseTransferModal: legacyHandleCloseTransferModal,
-    submitTransferForm: legacySubmitTransferForm,
-    handleSwapTransferAccounts: legacyHandleSwapTransferAccounts,
-    handleOpenRepeatTransfer: legacyHandleOpenRepeatTransfer,
-    handleOpenEditTransfer: legacyHandleOpenEditTransfer,
+    submitTransferForm: _legacySubmitTransferForm,
+    handleSwapTransferAccounts: _legacyHandleSwapTransferAccounts,
+    handleOpenRepeatTransfer: _legacyHandleOpenRepeatTransfer,
+    handleOpenEditTransfer: _legacyHandleOpenEditTransfer,
   } = useTransferForm({
     isTransferOpen,
     primaryAccountId,
@@ -539,15 +484,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   })
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
 
-  const handleDateFocus = (event: FocusEvent<HTMLInputElement>) => {
-    if (!isMobile) {
-      return
-    }
-    const input = event.currentTarget
-    if (typeof input.showPicker === 'function') {
-      input.showPicker()
-    }
-  }
   const paginationItems = buildPaginationItems(page, totalPages)
   const {
     handleLimitChange,
@@ -659,7 +595,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   })
 
   const submitCreateTransaction = handleSubmit(createTransactionForm.onSubmit)
-  const submitEditTransaction = handleEditSubmit(editTransactionForm.onSubmit)
+  const _submitEditTransaction = handleEditSubmit(editTransactionForm.onSubmit)
   const { submitCreateCategory, submitCreateSubcategory } =
     useTransactionsInlineCategoryActions({
       createCategoryModalTarget,
@@ -962,7 +898,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     options[nextIndex]?.focus({ preventScroll: true })
   }, [createCategoryTreeContentRef])
 
-  const getCreateCategoryTreeValue = useCallback(() => {
+  const _getCreateCategoryTreeValue = useCallback(() => {
     if (!createCategoryId) {
       return CREATE_CATEGORY_TREE_NONE
     }
@@ -972,7 +908,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     return `category:${createCategoryId}`
   }, [CREATE_CATEGORY_TREE_NONE, createCategoryId, createSubcategoryId])
 
-  const handleCreateCategoryTreeOpenChange = useCallback((open: boolean) => {
+  const _handleCreateCategoryTreeOpenChange = useCallback((open: boolean) => {
     setIsCreateCategoryTreeOpen(open)
     if (!open) {
       setCreateCategoryTreeSearch('')
@@ -987,7 +923,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsCreateCategoryTreeOpen,
   ])
 
-  const handleCreateCategoryTreeSelectValueChange = useCallback(
+  const _handleCreateCategoryTreeSelectValueChange = useCallback(
     (
       value: string,
       onCategoryChange: ControllerRenderProps<
@@ -1050,7 +986,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     ],
   )
 
-  const handleCreateCategoryTreeSearchKeyDown: KeyboardEventHandler<HTMLInputElement> =
+  const _handleCreateCategoryTreeSearchKeyDown: KeyboardEventHandler<HTMLInputElement> =
     useCallback(
       (event) => {
         if (event.key === 'Tab') {
@@ -1121,7 +1057,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     [],
   )
 
-  const handleCreateCategoryTreeItemKeyDown = useCallback(
+  const _handleCreateCategoryTreeItemKeyDown = useCallback(
     (event: Parameters<KeyboardEventHandler<HTMLDivElement>>[0]) => {
       if (event.key === 'Backspace') {
         event.preventDefault()
@@ -1193,7 +1129,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     options[nextIndex]?.focus({ preventScroll: true })
   }, [editCategoryTreeContentRef])
 
-  const getEditCategoryTreeValue = useCallback(() => {
+  const _getEditCategoryTreeValue = useCallback(() => {
     if (!editCategoryId) {
       return CREATE_CATEGORY_TREE_NONE
     }
@@ -1203,7 +1139,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     return `category:${editCategoryId}`
   }, [CREATE_CATEGORY_TREE_NONE, editCategoryId, editSubcategoryId])
 
-  const handleEditCategoryTreeOpenChange = useCallback((open: boolean) => {
+  const _handleEditCategoryTreeOpenChange = useCallback((open: boolean) => {
     setIsEditCategoryTreeOpen(open)
     if (!open) {
       setEditCategoryTreeSearch('')
@@ -1218,7 +1154,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsEditCategoryTreeOpen,
   ])
 
-  const handleEditCategoryTreeValueChange = useCallback(
+  const _handleEditCategoryTreeValueChange = useCallback(
     (
       value: string,
       onCategoryChange: ControllerRenderProps<
@@ -1281,7 +1217,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     ],
   )
 
-  const handleEditCategoryTreeSearchKeyDown: KeyboardEventHandler<HTMLInputElement> =
+  const _handleEditCategoryTreeSearchKeyDown: KeyboardEventHandler<HTMLInputElement> =
     useCallback(
       (event) => {
         if (event.key === 'Tab') {
@@ -1324,7 +1260,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       [focusEditCategoryOption],
     )
 
-  const handleEditCategoryTreeItemKeyDown = useCallback(
+  const _handleEditCategoryTreeItemKeyDown = useCallback(
     (event: Parameters<KeyboardEventHandler<HTMLDivElement>>[0]) => {
       if (event.key === 'Backspace') {
         event.preventDefault()
@@ -1617,13 +1553,13 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     setIsTransferOpen(true)
   }, [setIsTransferOpen])
 
-  const handleOpenRepeatTransfer = useCallback((transaction: Transaction) => {
+  const _handleOpenRepeatTransfer = useCallback((transaction: Transaction) => {
     setTransferRequest({ mode: 'repeat', transaction })
     setSelectedTransaction(null)
     setIsTransferOpen(true)
   }, [setIsTransferOpen, setSelectedTransaction])
 
-  const handleOpenEditTransfer = useCallback((transaction: Transaction) => {
+  const _handleOpenEditTransfer = useCallback((transaction: Transaction) => {
     setTransferRequest({ mode: 'edit', transaction })
     setSelectedTransaction(null)
     setIsTransferOpen(true)
@@ -1803,7 +1739,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       if (key === 'e') {
         event.preventDefault()
         if (selectedTransaction.transferId) {
-          void handleOpenEditTransfer(selectedTransaction)
+          void _handleOpenEditTransfer(selectedTransaction)
         } else {
           handleOpenEdit(selectedTransaction)
         }
@@ -1823,7 +1759,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   }, [
     handleOpenDuplicate,
     handleOpenEdit,
-    handleOpenEditTransfer,
+    _handleOpenEditTransfer,
     isDeleteConfirmOpen,
     isEditOpen,
     handleOpenDelete,
