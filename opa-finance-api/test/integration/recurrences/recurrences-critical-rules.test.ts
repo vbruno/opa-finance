@@ -1186,6 +1186,71 @@ describe("Recurrences - critical rules", () => {
     ).toBe(true);
   });
 
+  it("mantem skipped ocupando posicao na sequence da timeline", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 4,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [firstPending, secondPending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id))
+      .orderBy(asc(recurrenceOccurrences.occurrenceDate));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${firstPending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: firstPending.version },
+    });
+    expect(confirmRes.statusCode).toBe(200);
+
+    const skipRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${secondPending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: secondPending.version, reason: "Não ocorreu" },
+    });
+    expect(skipRes.statusCode).toBe(200);
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?includeProjected=false`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const timeline = timelineRes.json();
+
+    expect(timeline.items.map((item: { status: string }) => item.status)).toEqual([
+      "materialized",
+      "skipped",
+      "pending_review",
+    ]);
+    expect(timeline.items.map((item: { sequence: number | null }) => item.sequence)).toEqual([
+      1, 2, 3,
+    ]);
+    expect(timeline.items[1].status).toBe("skipped");
+    expect(timeline.items[1].sequence).toBe(2);
+    expect(timeline.items[2].sequence).toBe(3);
+  });
+
   it("conta corretamente pendências e projeções na timeline de recorrência review_required", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
