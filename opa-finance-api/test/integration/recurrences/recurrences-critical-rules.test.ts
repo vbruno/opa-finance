@@ -527,7 +527,7 @@ describe("Recurrences - critical rules", () => {
     expect(timeline.items.map((item: { sequence: number | null }) => item.sequence)).toEqual([
       1, 2, 3, 4,
     ]);
-    expect(timeline.items[1].version).toBe(1);
+    expect(timeline.items[1].version).toBe(2);
     expect(timeline.items[1].reviewPayload).toMatchObject({
       occurrenceDate: "2025-01-13",
       originalScheduledDate: "2025-01-13",
@@ -547,6 +547,67 @@ describe("Recurrences - critical rules", () => {
     expect(timeline.items[2].transactionId).toBeNull();
     expect(secondPending.id).toBeTruthy();
     expect(thirdPending.id).toBeTruthy();
+  });
+
+  it("conta corretamente pendências e projeções na timeline de recorrência review_required", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 3,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const timeline = timelineRes.json();
+
+    expect(timeline.summary).toMatchObject({
+      totalOccurrences: 3,
+      consumedOccurrences: 3,
+      materializedOccurrences: 0,
+      pendingReviewOccurrences: 3,
+      skippedOccurrences: 0,
+      failedOccurrences: 0,
+      projectedOccurrences: 0,
+      totalAmount: 360,
+      materializedAmount: 0,
+      pendingReviewAmount: 360,
+      projectedAmount: 0,
+      appliedLimit: 24,
+      isPartial: false,
+      hasMoreProjected: false,
+      projectionWindowLabel: null,
+    });
+
+    expect(timeline.items).toHaveLength(3);
+    expect(timeline.items.map((item: { status: string }) => item.status)).toEqual([
+      "pending_review",
+      "pending_review",
+      "pending_review",
+    ]);
+    expect(
+      timeline.items.every(
+        (item: { canConfirm: boolean; canSkip: boolean }) => item.canConfirm && item.canSkip,
+      ),
+    ).toBe(true);
   });
 
   it("retorna timeline parcial quando a projeção é limitada", async () => {

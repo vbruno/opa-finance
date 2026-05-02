@@ -844,7 +844,7 @@ Labels de UI:
 
 ### Sprint D - Testes
 
-- [ ] `RCREV-S4-01` Testar cálculo e contagem de ocorrências.
+- [x] `RCREV-S4-01` Testar cálculo e contagem de ocorrências.
 - [ ] `RCREV-S4-02` Testar materialização automática sem regressão.
 - [ ] `RCREV-S4-03` Testar geração de pendência.
 - [ ] `RCREV-S4-04` Testar confirmação de transação.
