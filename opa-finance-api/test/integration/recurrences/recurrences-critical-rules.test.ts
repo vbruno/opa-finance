@@ -22,7 +22,7 @@ describe("Recurrences - critical rules", () => {
 
   async function createBaseContext() {
     const email = `user_${crypto.randomUUID()}@test.com`;
-    const { token } = await registerAndLogin(app, app.db, email);
+    const { token, user } = await registerAndLogin(app, app.db, email);
 
     const accountRes = await app.inject({
       method: "POST",
@@ -69,7 +69,7 @@ describe("Recurrences - critical rules", () => {
     expect(subcategoryRes.statusCode).toBe(201);
     const subcategory = subcategoryRes.json();
 
-    return { token, account, account2, category, category2, subcategory };
+    return { token, user, account, account2, category, category2, subcategory };
   }
 
   async function createTransactionRecurrence({
@@ -1249,6 +1249,94 @@ describe("Recurrences - critical rules", () => {
     expect(timeline.items[1].status).toBe("skipped");
     expect(timeline.items[1].sequence).toBe(2);
     expect(timeline.items[2].sequence).toBe(3);
+  });
+
+  it("usa o indice composto no count de pendencias por recorrencia", async () => {
+    const { token, user, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-13" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    await app.db.transaction(async (tx) => {
+      const supportRecurrences: Array<{ id: string }> = [];
+
+      for (let index = 0; index < 80; index += 1) {
+        const [supportRecurrence] = await tx
+          .insert(recurrences)
+          .values({
+            userId: user.id,
+            originType: "transaction",
+            status: "active",
+            postingMode: "review_required",
+            timezone: "UTC",
+            frequency: "weekly",
+            startDate: "2025-01-06",
+            dayOfWeek: 1,
+            endType: "by_occurrences",
+            endOccurrences: 1,
+            accountId: account.id,
+            categoryId: category.id,
+            amount: "120",
+            description: `Carga de apoio ${index + 1}`,
+            nextOccurrenceDate: "2025-01-06",
+          })
+          .returning({ id: recurrences.id });
+
+        supportRecurrences.push(supportRecurrence);
+      }
+
+      await tx.insert(recurrenceOccurrences).values(
+        supportRecurrences.map((supportRecurrence) => ({
+          recurrenceId: supportRecurrence.id,
+          originType: "transaction" as const,
+          occurrenceDate: "2025-01-06",
+          status: "pending_review" as const,
+          transactionId: null,
+          transferId: null,
+          metadata: null,
+          reviewPayload: null,
+          version: 1,
+        })),
+      );
+    });
+
+    const planText = await app.db.transaction(async (tx) => {
+      await tx.execute(sql`set local enable_seqscan = off`);
+      await tx.execute(sql`set local enable_bitmapscan = off`);
+      await tx.execute(sql`drop index if exists recurrence_occurrences_status_idx`);
+
+      const explainResult = await tx.execute(sql`
+        explain (analyze, buffers, costs off)
+        select count(*)::int as count
+        from ${recurrenceOccurrences}
+        where ${recurrenceOccurrences.recurrenceId} = ${recurrence.id}
+          and ${recurrenceOccurrences.status} = 'pending_review'
+      `);
+
+      const rows = (explainResult as { rows?: Array<Record<string, string>> }).rows ?? [];
+      return rows.map((row) => Object.values(row)[0]).join("\n");
+    });
+
+    expect(planText).toMatch(
+      /Index (Only )?Scan using recurrence_occurrences_recurrence_status_idx/,
+    );
+    expect(planText).toContain("Index Cond:");
+    expect(planText).toContain("status = 'pending_review'::recurrence_occurrence_status");
   });
 
   it("conta corretamente pendências e projeções na timeline de recorrência review_required", async () => {
