@@ -398,6 +398,40 @@ describe('recurrences feature', () => {
     expect(capturedTimelineSearch).toContain('limit=24')
   })
 
+  it('deve fechar o modal de detalhes ao pressionar Escape', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(
+      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
+    ).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Detalhes da recorrência' })).toBeNull(),
+    )
+  })
+
   it('deve ignorar pendências em massa na timeline', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Ajuste manual')
