@@ -1758,6 +1758,13 @@ Confirma uma ocorrência `pending_review` e cria a transação ou transferência
 - `expectedVersion` é obrigatório
 - `occurrenceDate`, `amount`, `description`, `notes` e vínculos podem ser ajustados
 - a ação é transacional; cria a movimentação ou falha inteira
+- quando há ajustes em relação ao snapshot de revisão, o backend persiste `metadata.adjustments.fields` e `metadata.adjustments.adjustedAt`
+
+**Erros:**
+
+- `422` - `occurrenceDate` fora do range permitido para a recorrência
+- `409` - pendência já processada por outra requisição
+- `404` - pendência não encontrada
 
 **Response 200:** ocorrência atualizada com `status = materialized`, `version` incrementada e `transactionId`/`transferId` preenchidos quando aplicável.
 
@@ -1783,6 +1790,12 @@ Marca uma ocorrência `pending_review` como ignorada.
 - `expectedVersion` é obrigatório
 - `reason` é opcional
 - `skip` consome a posição da série em `by_occurrences`
+- o backend persiste `metadata.skipReason` e `metadata.skippedAt` quando aplicável
+
+**Erros:**
+
+- `409` - pendência já processada por outra requisição
+- `404` - pendência não encontrada
 
 **Response 200:** ocorrência atualizada com `status = skipped` e `metadata.skipReason` quando informado.
 

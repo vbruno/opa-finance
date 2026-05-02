@@ -871,7 +871,7 @@ Labels de UI:
 
 ### Sprint E - Documentação / Entrega
 
-- [ ] `RCREV-S5-01` Atualizar documentação técnica da API.
+- [x] `RCREV-S5-01` Atualizar documentação técnica da API.
 - [ ] `RCREV-S5-02` Atualizar documentação operacional do job.
 - [ ] `RCREV-S5-03` Atualizar `docs-hidden/changes.md`.
 - [ ] `RCREV-S5-04` Revisar plano e mover para `done/` quando concluído.
