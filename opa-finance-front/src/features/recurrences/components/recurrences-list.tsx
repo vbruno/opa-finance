@@ -1,4 +1,4 @@
-import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { TablePagination } from '@/components/ui/table-pagination'
@@ -56,16 +56,15 @@ export function RecurrencesList({
   const hasRecurrences = recurrences.length > 0
 
   return (
-    <>
-      <div className="overflow-hidden rounded-md border">
-        <div className="grid grid-cols-[1.3fr_0.9fr_0.9fr_1.2fr_0.9fr_0.7fr_1fr] gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+    <div className="flex flex-col overflow-hidden rounded-lg border">
+      <div className="flex-1 overflow-x-auto">
+        <div className="grid grid-cols-[1.3fr_0.9fr_0.9fr_1.2fr_0.9fr_0.7fr] gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
           <span>Descrição</span>
           <span>Origem</span>
           <span>Frequência</span>
           <span>Conta/Categoria</span>
           <span>Próxima</span>
           <span>Status</span>
-          <span className="text-right">Ações</span>
         </div>
 
         {isLoading ? (
@@ -102,7 +101,11 @@ export function RecurrencesList({
           ? recurrences.map((recurrence) => (
               <div
                 key={recurrence.id}
-                className="grid grid-cols-[1.3fr_0.9fr_0.9fr_1.2fr_0.9fr_0.7fr_1fr] items-center gap-2 border-b px-3 py-2 text-sm last:border-b-0"
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpenDetails(recurrence)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenDetails(recurrence) }}
+                className="grid grid-cols-[1.3fr_0.9fr_0.9fr_1.2fr_0.9fr_0.7fr] items-center gap-2 border-b px-3 py-2 text-sm last:border-b-0 cursor-pointer hover:bg-muted/40 transition-colors"
               >
                 <div className="truncate">
                   {recurrence.description || recurrence.notes || 'Sem descrição'}
@@ -120,57 +123,6 @@ export function RecurrencesList({
                 </div>
                 <div>{formatIsoDateToPtBr(recurrence.nextOccurrenceDate)}</div>
                 <div>{formatRecurrenceStatus(recurrence.status)}</div>
-                <div className="flex justify-end gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onOpenDetails(recurrence)}
-                    aria-label={`Ver detalhes da recorrência ${recurrence.description ?? recurrence.id}`}
-                  >
-                    <Eye className="size-4" />
-                    <span>Ver detalhes</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onOpenEditModal(recurrence)}
-                    disabled={recurrence.status !== 'active'}
-                    aria-label={`Editar recorrência ${recurrence.description ?? recurrence.id}`}
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                  {recurrence.status === 'active' ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onFinalize(recurrence)}
-                        disabled={finalizePending}
-                        aria-label={`Finalizar recorrência ${recurrence.description ?? recurrence.id}`}
-                      >
-                        Finalizar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => onDelete(recurrence)}
-                        aria-label={`Excluir recorrência ativa ${recurrence.description ?? recurrence.id}`}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => onDelete(recurrence)}
-                      disabled={deletePending}
-                      aria-label={`Excluir recorrência ${recurrence.description ?? recurrence.id}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                </div>
               </div>
             ))
           : null}
@@ -185,6 +137,6 @@ export function RecurrencesList({
           totalRecords={total}
         />
       ) : null}
-    </>
+    </div>
   )
 }

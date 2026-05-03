@@ -435,9 +435,6 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
             <CalendarRange className="size-5" />
             Recorrências
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie regras recorrentes de transações e transferências.
-          </p>
         </div>
         <Button onClick={openCreateModal}>
           <Plus className="mr-2 size-4" />
@@ -510,6 +507,11 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         accountsById={accountsById}
         categoriesById={categoriesById}
         onClose={closeDetailsModal}
+        onEdit={openEditModal}
+        onFinalize={(recurrence) => void handleFinalize(recurrence)}
+        onDelete={(recurrence) => void handleDelete(recurrence)}
+        finalizePending={finalizeMutation.isPending}
+        deletePending={deleteMutation.isPending}
         onOpenConfirmOccurrence={openConfirmOccurrenceModal}
         onSkipOccurrence={(occurrence) => void handleSkipOccurrence(occurrence)}
         onActionError={setActionError}

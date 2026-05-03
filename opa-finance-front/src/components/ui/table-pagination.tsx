@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 function buildPaginationItems(
   current: number,
@@ -48,6 +49,7 @@ type TablePaginationProps = {
   pageSizeOptions?: number[]
   totalRecords?: number
   isLoading?: boolean
+  className?: string
 }
 
 export function TablePagination({
@@ -60,11 +62,12 @@ export function TablePagination({
   pageSizeOptions = [10, 20, 30, 50],
   totalRecords,
   isLoading = false,
+  className,
 }: TablePaginationProps) {
   const paginationItems = buildPaginationItems(page, totalPages, hasMore)
 
   return (
-    <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
+    <div className={cn('flex items-center justify-between border-t bg-card px-4 py-2 text-xs', className)}>
       <span className="text-muted-foreground">
         {isLoading
           ? `Carregando página ${page}...`
@@ -105,26 +108,24 @@ export function TablePagination({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          {paginationItems
-            ? paginationItems.map((item, i) =>
-                item === '...' ? (
-                  <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground">
-                    ...
-                  </span>
-                ) : (
-                  <Button
-                    key={`page-${item}`}
-                    type="button"
-                    variant={item === page ? 'default' : 'outline'}
-                    size="sm"
-                    disabled={isLoading}
-                    onClick={() => onPageChange(item)}
-                  >
-                    {item}
-                  </Button>
-                ),
-              )
-            : null}
+          {paginationItems.map((item, i) =>
+            item === '...' ? (
+              <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground">
+                ...
+              </span>
+            ) : (
+              <Button
+                key={`page-${item}`}
+                type="button"
+                variant={item === page ? 'default' : 'outline'}
+                size="sm"
+                disabled={isLoading}
+                onClick={() => onPageChange(item)}
+              >
+                {item}
+              </Button>
+            ),
+          )}
           <Button
             type="button"
             variant="outline"

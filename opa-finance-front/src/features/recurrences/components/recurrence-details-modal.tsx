@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CheckCircle2, SkipForward } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, Pencil, SkipForward, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,11 @@ type RecurrenceDetailsModalProps = {
   accountsById: Map<string, { name: string }>
   categoriesById: Map<string, Category>
   onClose: () => void
+  onEdit: (recurrence: Recurrence) => void
+  onFinalize: (recurrence: Recurrence) => void
+  onDelete: (recurrence: Recurrence) => void
+  finalizePending?: boolean
+  deletePending?: boolean
   onOpenConfirmOccurrence: (item: RecurrenceTimelineItem) => void
   onSkipOccurrence: (item: RecurrenceTimelineItem) => void
   onActionError: (message: string) => void
@@ -54,6 +59,11 @@ export function RecurrenceDetailsModal({
   accountsById,
   categoriesById,
   onClose,
+  onEdit,
+  onFinalize,
+  onDelete,
+  finalizePending = false,
+  deletePending = false,
   onOpenConfirmOccurrence,
   onSkipOccurrence,
   onActionError,
@@ -162,18 +172,47 @@ export function RecurrenceDetailsModal({
         aria-describedby="recurrence-details-description"
         className="relative flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
-        <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
-          <div className="min-w-0 space-y-0.5">
-            <h2 id="recurrence-details-title" className="text-base font-semibold sm:text-lg">
-              Detalhes da recorrência
-            </h2>
-            <p id="recurrence-details-description" className="text-xs text-muted-foreground sm:text-sm">
-              Informações da regra, do modo de lançamento e da linha do tempo.
-            </p>
+        <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <h2 id="recurrence-details-title" className="text-base font-semibold sm:text-lg">
+            Detalhes da recorrência
+          </h2>
+          <p id="recurrence-details-description" className="sr-only">
+            Informações da regra, do modo de lançamento e da linha do tempo.
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onEdit(recurrence)}
+              disabled={recurrence.status !== 'active'}
+              aria-label="Editar recorrência"
+            >
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
+            {recurrence.status === 'active' ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onFinalize(recurrence)}
+                disabled={finalizePending}
+              >
+                {finalizePending ? 'Finalizando...' : 'Finalizar'}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => onDelete(recurrence)}
+              disabled={deletePending}
+              aria-label="Excluir recorrência"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Fechar
-          </Button>
         </div>
 
         <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto px-4 py-3 sm:px-5">
@@ -277,7 +316,8 @@ export function RecurrenceDetailsModal({
                 </div>
               ) : null}
 
-<div className="overflow-x-clip overflow-y-auto rounded-2xl border flex-1 min-h-0">
+<div className="flex flex-col rounded-lg border flex-1 min-h-0 overflow-hidden">
+              <div className="overflow-x-clip overflow-y-auto flex-1 min-h-0">
                 <table
                   aria-label="Tabela de ocorrências da recorrência"
                   className="w-full text-sm"
@@ -370,28 +410,30 @@ export function RecurrenceDetailsModal({
                     ))}
                   </tbody>
                 </table>
-              </div>
 
                 {timelineQuery.data?.items.length === 0 ? (
-                  <div className="rounded-xl border p-3 text-sm text-muted-foreground">
+                  <div className="p-3 text-sm text-muted-foreground">
                     Nenhuma ocorrência encontrada para a janela consultada.
                   </div>
                 ) : null}
+              </div>
 
-                {timelineQuery.data ? (
-                  <TablePagination
-                    page={page}
-                    totalPages={timelineQuery.data.pagination.total
-                      ? Math.ceil(timelineQuery.data.pagination.total / pageSize)
-                      : null}
-                    hasMore={timelineQuery.data.pagination.hasMore}
-                    onPageChange={setPage}
-                    pageSize={pageSize}
-                    onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
-                    pageSizeOptions={[12, 24, 48]}
-                    isLoading={timelineQuery.isFetching}
-                  />
-                ) : null}
+              {timelineQuery.data ? (
+                <TablePagination
+                  page={page}
+                  totalPages={timelineQuery.data.pagination.total
+                    ? Math.ceil(timelineQuery.data.pagination.total / pageSize)
+                    : null}
+                  hasMore={timelineQuery.data.pagination.hasMore}
+                  onPageChange={setPage}
+                  pageSize={pageSize}
+                  onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
+                  pageSizeOptions={[12, 24, 48]}
+                  isLoading={timelineQuery.isFetching}
+                  className="shrink-0 bg-transparent"
+                />
+              ) : null}
+            </div>
             </div>
             )}
           </div>
