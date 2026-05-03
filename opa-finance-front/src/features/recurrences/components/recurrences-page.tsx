@@ -489,16 +489,11 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         isLoading={recurrencesQuery.isLoading}
         isError={recurrencesQuery.isError}
         errorMessage={recurrencesErrorMessage}
-        finalizePending={finalizeMutation.isPending}
-        deletePending={deleteMutation.isPending}
         accountsById={accountsById}
         categoriesById={categoriesById}
         onRetry={() => void recurrencesQuery.refetch()}
         onOpenCreateModal={openCreateModal}
         onOpenDetails={openDetailsModal}
-        onOpenEditModal={openEditModal}
-        onFinalize={(recurrence) => void handleFinalize(recurrence)}
-        onDelete={(recurrence) => void handleDelete(recurrence)}
         onPageChange={(p) => setSearch({ page: p })}
       />
 

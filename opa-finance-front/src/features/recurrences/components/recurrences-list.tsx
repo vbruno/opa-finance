@@ -20,16 +20,11 @@ type RecurrencesListProps = {
   isLoading: boolean
   isError: boolean
   errorMessage?: string
-  finalizePending: boolean
-  deletePending: boolean
   accountsById: Map<string, { name: string }>
   categoriesById: Map<string, Category>
   onRetry: () => void
   onOpenCreateModal: () => void
   onOpenDetails: (recurrence: Recurrence) => void
-  onOpenEditModal: (recurrence: Recurrence) => void
-  onFinalize: (recurrence: Recurrence) => void
-  onDelete: (recurrence: Recurrence) => void
   onPageChange: (page: number) => void
 }
 
@@ -41,16 +36,11 @@ export function RecurrencesList({
   isLoading,
   isError,
   errorMessage,
-  finalizePending,
-  deletePending,
   accountsById,
   categoriesById,
   onRetry,
   onOpenCreateModal,
   onOpenDetails,
-  onOpenEditModal,
-  onFinalize,
-  onDelete,
   onPageChange,
 }: RecurrencesListProps) {
   const hasRecurrences = recurrences.length > 0
