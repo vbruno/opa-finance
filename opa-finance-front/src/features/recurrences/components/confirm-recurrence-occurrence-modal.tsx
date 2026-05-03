@@ -83,6 +83,7 @@ export function ConfirmRecurrenceOccurrenceModal({
 
   const queryClient = useQueryClient()
   const confirmMutation = useConfirmRecurrenceOccurrence()
+  const isSubmitting = confirmMutation.isPending
 
   const form = useForm<ConfirmFormData>({
     defaultValues: buildDefaults(recurrence, occurrence?.reviewPayload ?? null),
@@ -113,6 +114,22 @@ export function ConfirmRecurrenceOccurrenceModal({
     }, 0)
     return () => window.clearTimeout(id)
   }, [occurrence])
+
+  useEffect(() => {
+    if (!occurrence) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        if (!isSubmitting) {
+          onClose()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isSubmitting, onClose, occurrence])
 
   useEffect(() => {
     if (originType !== 'transaction') {
@@ -168,7 +185,6 @@ export function ConfirmRecurrenceOccurrenceModal({
       occurrence.reviewPayload &&
       occurrence.version !== null,
   )
-  const isSubmitting = confirmMutation.isPending
 
   async function handleSubmit(values: ConfirmFormData) {
     if (!occurrence || !recurrence || !occurrence.reviewPayload || occurrence.version === null) {
@@ -266,7 +282,7 @@ export function ConfirmRecurrenceOccurrenceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 sm:p-4">
       <div className="fixed inset-0" onClick={() => !isSubmitting && onClose()} aria-hidden="true" />
       <div
         ref={modalRef}
@@ -274,206 +290,238 @@ export function ConfirmRecurrenceOccurrenceModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-recurrence-occurrence-title"
-        className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:p-6"
+        aria-describedby="confirm-recurrence-occurrence-description"
+        className="relative flex w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
-        <div className="space-y-1">
-          <h2 id="confirm-recurrence-occurrence-title" className="text-lg font-semibold">
-            Confirmar lançamento
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Ajuste os dados da pendência antes de confirmar o lançamento.
-          </p>
-        </div>
-
-        {submitError ? (
-          <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            {submitError}
-          </div>
-        ) : null}
-
-        <form className="mt-6 space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
-          <TransactionDateField
-            id="confirm-occurrence-date"
-            label="Data do lançamento"
-            register={form.register}
-            errors={form.formState.errors}
-            isMobile={false}
-            fieldName="occurrenceDate"
-            disabled={isSubmitting}
-          />
-
-          <TransactionAmountField
-            id="confirm-amount"
-            control={form.control}
-            errors={form.formState.errors}
-            clearAmountError={() => setSubmitError(null)}
-            inputMode="decimal"
-          />
-
-          <div className="space-y-2">
-            <Label htmlFor="confirm-description">Descrição</Label>
-            <Input
-              id="confirm-description"
-              placeholder="Opcional"
-              className="h-10"
-              disabled={isSubmitting}
-              {...form.register('description')}
-            />
-            {form.formState.errors.description ? (
-              <p className="text-sm text-destructive">
-                {String(form.formState.errors.description.message)}
-              </p>
-            ) : null}
-          </div>
-
-          {originType === 'transaction' ? (
-            <>
-              <TransactionAccountField
-                id="confirm-account"
-                label="Conta"
-                fieldName="accountId"
-                control={form.control}
-                errors={form.formState.errors}
-                accounts={accounts}
-                isOpen={isAccountOpen}
-                onOpenChange={setIsAccountOpen}
-                tabIndex={0}
-                disabled={isSubmitting}
-              />
-
-              <div className="space-y-2">
-                <Label htmlFor="confirm-category">Categoria</Label>
-                <Controller
-                  control={form.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <Select
-                      value={field.value || '__none__'}
-                      onValueChange={(value) => {
-                        field.onChange(value === '__none__' ? '' : value)
-                        form.setValue('subcategoryId', '')
-                      }}
-                      disabled={isSubmitting}
-                    >
-                      <SelectTrigger id="confirm-category" className="h-10">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__" className="hidden">
-                          Selecione
-                        </SelectItem>
-                        {categoryOptions.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {form.formState.errors.categoryId ? (
-                  <p className="text-sm text-destructive">
-                    {String(form.formState.errors.categoryId.message)}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirm-subcategory">Subcategoria</Label>
-                <Controller
-                  control={form.control}
-                  name="subcategoryId"
-                  render={({ field }) => (
-                    <Select
-                      value={field.value || '__none__'}
-                      onValueChange={(value) =>
-                        field.onChange(value === '__none__' ? '' : value)
-                      }
-                      disabled={isSubmitting || !selectedCategoryId || subcategoriesLoading}
-                    >
-                      <SelectTrigger id="confirm-subcategory" className="h-10">
-                        <SelectValue
-                          placeholder={
-                            selectedCategoryId
-                              ? subcategoriesLoading
-                                ? 'Carregando...'
-                                : 'Selecione'
-                              : 'Selecione a categoria primeiro'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__" className="hidden">
-                          Selecione
-                        </SelectItem>
-                        {subcategories.map((subcategory) => (
-                          <SelectItem key={subcategory.id} value={subcategory.id}>
-                            {subcategory.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {form.formState.errors.subcategoryId ? (
-                  <p className="text-sm text-destructive">
-                    {String(form.formState.errors.subcategoryId.message)}
-                  </p>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <>
-              <TransactionAccountField
-                id="confirm-from-account"
-                label="Conta de origem"
-                fieldName="fromAccountId"
-                control={form.control}
-                errors={form.formState.errors}
-                accounts={accounts}
-                isOpen={isFromAccountOpen}
-                onOpenChange={setIsFromAccountOpen}
-                tabIndex={0}
-                disabled={isSubmitting}
-              />
-
-              <TransactionAccountField
-                id="confirm-to-account"
-                label="Conta de destino"
-                fieldName="toAccountId"
-                control={form.control}
-                errors={form.formState.errors}
-                accounts={accounts}
-                isOpen={isToAccountOpen}
-                onOpenChange={setIsToAccountOpen}
-                tabIndex={0}
-                disabled={isSubmitting}
-              />
-            </>
-          )}
-
-          <TransactionNotesField
-            id="confirm-notes"
-            label="Notas"
-            fieldName="notes"
-            register={form.register}
-            errors={form.formState.errors}
-            tabIndex={0}
-          />
-
-          <div className="flex flex-wrap justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => {
-                void form.handleSubmit(handleSubmit)()
-              }}
+        <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="min-w-0 space-y-0.5">
+            <h2
+              id="confirm-recurrence-occurrence-title"
+              className="text-base font-semibold sm:text-lg"
             >
               Confirmar lançamento
-            </Button>
+            </h2>
+            <p
+              id="confirm-recurrence-occurrence-description"
+              className="text-xs text-muted-foreground sm:text-sm"
+            >
+              Ajuste os dados da pendência antes de confirmar o lançamento.
+            </p>
+          </div>
+
+          <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
+            Fechar
+          </Button>
+        </div>
+
+        <form className="flex flex-1 min-h-0 flex-col" onSubmit={form.handleSubmit(handleSubmit)}>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
+            <div className="space-y-3.5">
+              {submitError ? (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                  {submitError}
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="min-w-0">
+                  <TransactionDateField
+                    id="confirm-occurrence-date"
+                    label="Data do lançamento"
+                    register={form.register}
+                    errors={form.formState.errors}
+                    isMobile={false}
+                    fieldName="occurrenceDate"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <TransactionAmountField
+                    id="confirm-amount"
+                    control={form.control}
+                    errors={form.formState.errors}
+                    clearAmountError={() => setSubmitError(null)}
+                    inputMode="decimal"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="space-y-2 lg:col-span-2">
+                  <Label htmlFor="confirm-description">Descrição</Label>
+                  <Input
+                    id="confirm-description"
+                    placeholder="Opcional"
+                    className="h-10 w-full"
+                    disabled={isSubmitting}
+                    {...form.register('description')}
+                  />
+                  {form.formState.errors.description ? (
+                    <p className="text-sm text-destructive">
+                      {String(form.formState.errors.description.message)}
+                    </p>
+                  ) : null}
+                </div>
+
+                {originType === 'transaction' ? (
+                  <>
+                    <div className="min-w-0 lg:col-span-2">
+                      <TransactionAccountField
+                        id="confirm-account"
+                        label="Conta"
+                        fieldName="accountId"
+                        control={form.control}
+                        errors={form.formState.errors}
+                        accounts={accounts}
+                        isOpen={isAccountOpen}
+                        onOpenChange={setIsAccountOpen}
+                        tabIndex={0}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <Label htmlFor="confirm-category">Categoria</Label>
+                      <Controller
+                        control={form.control}
+                        name="categoryId"
+                        render={({ field }) => (
+                          <Select
+                            value={field.value || '__none__'}
+                            onValueChange={(value) => {
+                              field.onChange(value === '__none__' ? '' : value)
+                              form.setValue('subcategoryId', '')
+                            }}
+                            disabled={isSubmitting}
+                          >
+                            <SelectTrigger id="confirm-category" className="h-10">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__" className="hidden">
+                                Selecione
+                              </SelectItem>
+                              {categoryOptions.map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {form.formState.errors.categoryId ? (
+                        <p className="text-sm text-destructive">
+                          {String(form.formState.errors.categoryId.message)}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="min-w-0">
+                      <Label htmlFor="confirm-subcategory">Subcategoria</Label>
+                      <Controller
+                        control={form.control}
+                        name="subcategoryId"
+                        render={({ field }) => (
+                          <Select
+                            value={field.value || '__none__'}
+                            onValueChange={(value) =>
+                              field.onChange(value === '__none__' ? '' : value)
+                            }
+                            disabled={isSubmitting || !selectedCategoryId || subcategoriesLoading}
+                          >
+                            <SelectTrigger id="confirm-subcategory" className="h-10">
+                              <SelectValue
+                                placeholder={
+                                  selectedCategoryId
+                                    ? subcategoriesLoading
+                                      ? 'Carregando...'
+                                      : 'Selecione'
+                                    : 'Selecione a categoria primeiro'
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__" className="hidden">
+                                Selecione
+                              </SelectItem>
+                              {subcategories.map((subcategory) => (
+                                <SelectItem key={subcategory.id} value={subcategory.id}>
+                                  {subcategory.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {form.formState.errors.subcategoryId ? (
+                        <p className="text-sm text-destructive">
+                          {String(form.formState.errors.subcategoryId.message)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="min-w-0">
+                      <TransactionAccountField
+                        id="confirm-from-account"
+                        label="Conta de origem"
+                        fieldName="fromAccountId"
+                        control={form.control}
+                        errors={form.formState.errors}
+                        accounts={accounts}
+                        isOpen={isFromAccountOpen}
+                        onOpenChange={setIsFromAccountOpen}
+                        tabIndex={0}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <TransactionAccountField
+                        id="confirm-to-account"
+                        label="Conta de destino"
+                        fieldName="toAccountId"
+                        control={form.control}
+                        errors={form.formState.errors}
+                        accounts={accounts}
+                        isOpen={isToAccountOpen}
+                        onOpenChange={setIsToAccountOpen}
+                        tabIndex={0}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <TransactionNotesField
+                  id="confirm-notes"
+                  label="Notas"
+                  fieldName="notes"
+                  register={form.register}
+                  errors={form.formState.errors}
+                  tabIndex={0}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t px-4 py-3 sm:px-5">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+              >
+                Confirmar lançamento
+              </Button>
+            </div>
           </div>
         </form>
       </div>

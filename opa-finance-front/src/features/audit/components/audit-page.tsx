@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -290,29 +291,16 @@ export function AuditPage({ search, navigate }: AuditPageProps) {
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between rounded-md border p-3">
-        <p className="text-xs text-muted-foreground">
-          Página {page} de {totalPages} • {total} registros
-        </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1 || auditLogsQuery.isLoading}
-            onClick={() => setSearch({ page: page - 1 })}
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages || auditLogsQuery.isLoading}
-            onClick={() => setSearch({ page: page + 1 })}
-          >
-            Próxima
-          </Button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        hasMore={page < totalPages}
+        onPageChange={(p) => setSearch({ page: p })}
+        pageSize={limit}
+        onPageSizeChange={(size) => setSearch({ limit: size, page: 1 })}
+        totalRecords={total}
+        isLoading={auditLogsQuery.isLoading}
+      />
 
       {selectedLog ? (
         <AuditDetailModal

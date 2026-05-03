@@ -110,10 +110,18 @@ export type RecurrenceTimelineSummary = {
   projectionWindowLabel: string | null
 }
 
+export type RecurrenceTimelinePagination = {
+  page: number
+  limit: number
+  hasMore: boolean
+  total: number | null
+}
+
 export type RecurrenceTimelineResponse = {
   recurrence: Recurrence
   summary: RecurrenceTimelineSummary
   items: RecurrenceTimelineItem[]
+  pagination: RecurrenceTimelinePagination
 }
 
 export type RecurrenceListResponse = {
@@ -191,6 +199,8 @@ export type EditRecurrenceByScopePayload = {
 
 export type RecurrenceTimelineQueryParams = {
   limit?: number
+  page?: number
+  dir?: 'asc' | 'desc'
   untilDate?: string
   includeProjected?: boolean
 }

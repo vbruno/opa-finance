@@ -502,8 +502,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         onOpenEditModal={openEditModal}
         onFinalize={(recurrence) => void handleFinalize(recurrence)}
         onDelete={(recurrence) => void handleDelete(recurrence)}
-        onPrevPage={() => setSearch({ page: Math.max(1, page - 1) })}
-        onNextPage={() => setSearch({ page: Math.min(totalPages, page + 1) })}
+        onPageChange={(p) => setSearch({ page: p })}
       />
 
       <RecurrenceDetailsModal

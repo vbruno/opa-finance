@@ -1,6 +1,7 @@
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { TablePagination } from '@/components/ui/table-pagination'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
 import {
@@ -29,8 +30,7 @@ type RecurrencesListProps = {
   onOpenEditModal: (recurrence: Recurrence) => void
   onFinalize: (recurrence: Recurrence) => void
   onDelete: (recurrence: Recurrence) => void
-  onPrevPage: () => void
-  onNextPage: () => void
+  onPageChange: (page: number) => void
 }
 
 export function RecurrencesList({
@@ -51,8 +51,7 @@ export function RecurrencesList({
   onOpenEditModal,
   onFinalize,
   onDelete,
-  onPrevPage,
-  onNextPage,
+  onPageChange,
 }: RecurrencesListProps) {
   const hasRecurrences = recurrences.length > 0
 
@@ -178,24 +177,13 @@ export function RecurrencesList({
       </div>
 
       {!isLoading && !isError && hasRecurrences ? (
-        <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
-          <span>
-            Página {page} de {totalPages} · {total} registros
-          </span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={page <= 1} onClick={onPrevPage}>
-              Anterior
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages}
-              onClick={onNextPage}
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          hasMore={page < totalPages}
+          onPageChange={onPageChange}
+          totalRecords={total}
+        />
       ) : null}
     </>
   )

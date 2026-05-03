@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { type UseFormReturn } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,7 @@ export function RecurrenceFormModal({
   onReloadAfterConflict,
   onSubcategoriesRefetch,
 }: RecurrenceFormModalProps) {
+  const modalRef = useRef<HTMLDivElement | null>(null)
   const selectedCategoryId = form.watch('categoryId')
   const postingMode = form.watch('postingMode')
   const [isAccountSelectOpen, setIsAccountSelectOpen] = useState(false)
@@ -102,6 +103,10 @@ export function RecurrenceFormModal({
     selectedCategoryType === 'income' || selectedCategoryType === 'expense'
       ? selectedCategoryType
       : ''
+  const isEditingActive = isEditing && editingRecurrence?.status === 'active'
+  const hasFormErrors = Object.keys(form.formState.errors).length > 0
+  const isSubmitDisabled =
+    isAnyMutationPending || isFormSupportDataLoading || Boolean(isSubcategoriesError)
 
   const categoryTreeOptions = useMemo(
     () =>
@@ -136,484 +141,542 @@ export function RecurrenceFormModal({
     lastCategoryId,
   })
 
+  useEffect(() => {
+    if (!open) return
+
+    const id = window.setTimeout(() => {
+      modalRef.current?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(id)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose, open])
+
   if (!open) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl rounded-xl border bg-background p-5"
+        ref={modalRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recurrence-form-modal-title"
+        aria-describedby="recurrence-form-modal-description"
+        className="relative flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">
-            {isEditing ? 'Editar recorrência' : 'Nova recorrência'}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {isEditing
-              ? 'Atualize os dados da regra e escolha o escopo da edição.'
-              : 'Configure a regra para geração automática de lançamentos.'}
-          </p>
+        <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="min-w-0 space-y-0.5">
+            <h2
+              id="recurrence-form-modal-title"
+              className="text-base font-semibold sm:text-lg"
+            >
+              {isEditing ? 'Editar recorrência' : 'Nova recorrência'}
+            </h2>
+            <p
+              id="recurrence-form-modal-description"
+              className="max-w-2xl text-xs text-muted-foreground sm:text-sm"
+            >
+              {isEditing
+                ? 'Atualize a regra, ajuste o escopo da edição e revise os campos antes de salvar.'
+                : 'Configure a regra para geração automática de lançamentos.'}
+            </p>
+          </div>
+
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            Fechar
+          </Button>
         </div>
 
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div>
-              <Label>Origem</Label>
-              <Select
-                value={originType}
-                onValueChange={(value) => {
-                  form.setValue(
-                    'originType',
-                    value as 'transaction' | 'transfer',
-                  )
-                  form.setValue('accountId', '')
-                  form.setValue('categoryId', '')
-                  form.setValue('subcategoryId', '')
-                  form.setValue('fromAccountId', '')
-                  form.setValue('toAccountId', '')
-                }}
-                disabled={isEditing}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Origem" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transaction">Transação</SelectItem>
-                  <SelectItem value="transfer">Transferência</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <form className="flex flex-1 min-h-0 flex-col" onSubmit={form.handleSubmit(onSubmit)}>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+                <div className="min-w-0">
+                  <Label>Origem</Label>
+                  <Select
+                    value={originType}
+                    onValueChange={(value) => {
+                      form.setValue(
+                        'originType',
+                        value as 'transaction' | 'transfer',
+                      )
+                      form.setValue('accountId', '')
+                      form.setValue('categoryId', '')
+                      form.setValue('subcategoryId', '')
+                      form.setValue('fromAccountId', '')
+                      form.setValue('toAccountId', '')
+                    }}
+                    disabled={isEditing}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Origem" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="transaction">Transação</SelectItem>
+                      <SelectItem value="transfer">Transferência</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <Label>Frequência</Label>
-              <Select
-                value={frequency}
-                onValueChange={(value) =>
-                  form.setValue(
-                    'frequency',
-                    value as RecurrenceFormData['frequency'],
-                  )
-                }
-                disabled={isSingleScopeEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Frequência" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="biweekly">Quinzenal</SelectItem>
-                  <SelectItem value="monthly">Mensal</SelectItem>
-                  <SelectItem value="yearly">Anual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Modo de lançamento</Label>
-              <Select
-                value={postingMode}
-                onValueChange={(value) =>
-                  form.setValue(
-                    'postingMode',
-                    value as RecurrenceFormData['postingMode'],
-                  )
-                }
-                disabled={isSingleScopeEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Modo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {RECURRENCE_POSTING_MODES.map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {RECURRENCE_POSTING_MODE_LABELS[mode]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <TransactionAmountField
-                id="recurrence-amount"
-                control={form.control}
-                errors={form.formState.errors}
-                amountRef={amountRef}
-                clearAmountError={() => form.clearErrors('amount')}
-                setAmountError={(message) => {
-                  form.setError('amount', { type: 'manual', message })
-                }}
-                inputMode="numeric"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <TransactionDateField
-              id="recurrence-start-date"
-              label="Data inicial"
-              fieldName="startDate"
-              register={form.register}
-              errors={form.formState.errors}
-              isMobile={false}
-              disabled={isSingleScopeEdit}
-            />
-
-            {(frequency === 'weekly' || frequency === 'biweekly') && (
-              <div>
-                <Label>Dia da semana</Label>
-                <Select
-                  value={form.watch('dayOfWeek') || '__none__'}
-                  onValueChange={(value) =>
-                    form.setValue(
-                      'dayOfWeek',
-                      value === '__none__' ? '' : value,
-                    )
-                  }
-                  disabled={isSingleScopeEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Selecione</SelectItem>
-                    {RECURRENCE_DAY_OF_WEEK_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {(frequency === 'monthly' || frequency === 'yearly') && (
-              <div>
-                <Label>Dia do mês</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={31}
-                  {...form.register('dayOfMonth')}
-                  disabled={isSingleScopeEdit}
-                />
-              </div>
-            )}
-
-            {frequency === 'yearly' && (
-              <div>
-                <Label>Mês</Label>
-                <Select
-                  value={form.watch('monthOfYear') || '__none__'}
-                  onValueChange={(value) =>
-                    form.setValue(
-                      'monthOfYear',
-                      value === '__none__' ? '' : value,
-                    )
-                  }
-                  disabled={isSingleScopeEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Selecione</SelectItem>
-                    {RECURRENCE_MONTH_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <Label>Término</Label>
-              <Select
-                value={endType}
-                onValueChange={(value) =>
-                  form.setValue(
-                    'endType',
-                    value as RecurrenceFormData['endType'],
-                  )
-                }
-                disabled={isSingleScopeEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Término" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="never">Sem fim</SelectItem>
-                  <SelectItem value="by_occurrences">
-                    Por ocorrências
-                  </SelectItem>
-                  <SelectItem value="until_date">Por data final</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {endType === 'by_occurrences' && (
-              <div>
-                <Label>Qtd. ocorrências</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  {...form.register('endOccurrences')}
-                  disabled={isSingleScopeEdit}
-                />
-              </div>
-            )}
-
-            {endType === 'until_date' && (
-              <div>
-                <Label>Data final</Label>
-                <Input
-                  type="date"
-                  {...form.register('endDate')}
-                  disabled={isSingleScopeEdit}
-                />
-              </div>
-            )}
-          </div>
-
-          {originType === 'transaction' ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <TransactionAccountField
-                id="recurrence-account"
-                label="Conta"
-                control={form.control}
-                errors={form.formState.errors}
-                accounts={accounts}
-                isOpen={isAccountSelectOpen}
-                onOpenChange={setIsAccountSelectOpen}
-              />
-
-              <TransactionTypeField
-                id="recurrence-transaction-type"
-                label="Tipo (derivado da categoria)"
-                errors={form.formState.errors}
-                type={selectedTransactionType}
-              />
-
-              <div className="md:col-span-2">
-                <TransactionCategoryField
-                  id="recurrence-category"
-                  control={form.control}
-                  errors={form.formState.errors}
-                  isOpen={isCategoryTreeOpen}
-                  options={categoryTreeOptions}
-                  search={categoryTreeSearch}
-                  onSearchChange={(value) => {
-                    setCategoryTreeSearch(value)
-                    window.requestAnimationFrame(() => {
-                      categoryTreeSearchInputRef.current?.focus()
-                    })
-                  }}
-                  contentRef={categoryTreeContentRef}
-                  searchInputRef={categoryTreeSearchInputRef}
-                  disabled={Boolean(isSubcategoriesError)}
-                  disabledMessage={
-                    isSubcategoriesError
-                      ? 'Erro ao carregar subcategorias da categoria selecionada.'
-                      : undefined
-                  }
-                  allowInlineCreate={false}
-                  getCategoryTreeValue={getCategoryTreeValue}
-                  onValueChange={handleCategoryTreeSelectValueChange}
-                  onOpenChange={handleCategoryTreeOpenChange}
-                  onSearchKeyDown={handleCategoryTreeSearchKeyDown}
-                  onItemKeyDown={handleCategoryTreeItemKeyDown}
-                />
-                {isSubcategoriesError ? (
-                  <div className="mt-2 space-y-1 text-xs text-red-300">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={onSubcategoriesRefetch}
-                    >
-                      Tentar novamente
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <Label>Conta origem</Label>
-                <Select
-                  value={form.watch('fromAccountId') || '__none__'}
-                  onValueChange={(value) =>
-                    form.setValue(
-                      'fromAccountId',
-                      value === '__none__' ? '' : value,
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Selecione</SelectItem>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Conta destino</Label>
-                <Select
-                  value={form.watch('toAccountId') || '__none__'}
-                  onValueChange={(value) =>
-                    form.setValue(
-                      'toAccountId',
-                      value === '__none__' ? '' : value,
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Selecione</SelectItem>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <TransactionDescriptionField
-              id="recurrence-description"
-              register={form.register}
-              errors={form.formState.errors}
-              descriptionInputRef={descriptionInputRef}
-              setValue={form.setValue}
-              descriptionSuggestions={[]}
-              areDescriptionSuggestionsLoading={false}
-              hasDescriptionSuggestionsError={false}
-              shouldFilterSuggestions={false}
-              isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
-              setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
-              isDescriptionFocused={isDescriptionFocused}
-              setIsDescriptionFocused={setIsDescriptionFocused}
-              activeSuggestionIndex={activeSuggestionIndex}
-              setActiveSuggestionIndex={setActiveSuggestionIndex}
-              enableSuggestions={false}
-            />
-            <TransactionNotesField
-              id="recurrence-notes"
-              label="Observações"
-              register={form.register}
-              errors={form.formState.errors}
-            />
-          </div>
-
-          {isEditing && editingRecurrence?.status === 'active' ? (
-            <div className="grid grid-cols-1 gap-3 rounded-md border p-3 md:grid-cols-2">
-              <div>
-                <Label>Aplicar edição em</Label>
-                <Select
-                  value={editScope}
-                  onValueChange={(value) =>
-                    form.setValue(
-                      'editScope',
-                      value as RecurrenceFormData['editScope'],
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Escopo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="this_and_next">
-                      Esta e próximas
-                    </SelectItem>
-                    <SelectItem value="single">Somente esta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {editScope !== 'all' ? (
-                <div>
-                  <Label>Data da ocorrência</Label>
-                  <Input
-                    type="date"
-                    min={
-                      editScope === 'single'
-                        ? getTodayIsoDateInTimezone(
-                            editingRecurrence?.timezone,
-                          )
-                        : undefined
+                <div className="min-w-0">
+                  <Label>Frequência</Label>
+                  <Select
+                    value={frequency}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        'frequency',
+                        value as RecurrenceFormData['frequency'],
+                      )
                     }
-                    {...form.register('occurrenceDate')}
+                    disabled={isSingleScopeEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Frequência" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                      <SelectItem value="biweekly">Quinzenal</SelectItem>
+                      <SelectItem value="monthly">Mensal</SelectItem>
+                      <SelectItem value="yearly">Anual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-0">
+                  <Label>Modo de lançamento</Label>
+                  <Select
+                    value={postingMode}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        'postingMode',
+                        value as RecurrenceFormData['postingMode'],
+                      )
+                    }
+                    disabled={isSingleScopeEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Modo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_POSTING_MODES.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {RECURRENCE_POSTING_MODE_LABELS[mode]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-0">
+                  <TransactionAmountField
+                    id="recurrence-amount"
+                    control={form.control}
+                    errors={form.formState.errors}
+                    amountRef={amountRef}
+                    clearAmountError={() => form.clearErrors('amount')}
+                    setAmountError={(message) => {
+                      form.setError('amount', { type: 'manual', message })
+                    }}
+                    inputMode="numeric"
                   />
-                  {editScope === 'single' ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Para ocorrência passada já materializada, faça ajuste
-                      manual em Transações.
-                    </p>
+                </div>
+              </div>
+
+              <div
+                className={
+                  frequency === 'yearly'
+                    ? 'grid grid-cols-1 gap-3 xl:grid-cols-3'
+                    : 'grid grid-cols-1 gap-3 xl:grid-cols-2'
+                }
+              >
+                <div className="min-w-0">
+                  <TransactionDateField
+                    id="recurrence-start-date"
+                    label="Data inicial"
+                    fieldName="startDate"
+                    register={form.register}
+                    errors={form.formState.errors}
+                    isMobile={false}
+                    disabled={isSingleScopeEdit}
+                  />
+                </div>
+
+                {(frequency === 'weekly' || frequency === 'biweekly') && (
+                  <div className="min-w-0">
+                    <Label>Dia da semana</Label>
+                    <Select
+                      value={form.watch('dayOfWeek') || '__none__'}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          'dayOfWeek',
+                          value === '__none__' ? '' : value,
+                        )
+                      }
+                      disabled={isSingleScopeEdit}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Selecione</SelectItem>
+                        {RECURRENCE_DAY_OF_WEEK_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {(frequency === 'monthly' || frequency === 'yearly') && (
+                  <div className="min-w-0">
+                    <Label>Dia do mês</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className="h-10 w-full"
+                      {...form.register('dayOfMonth')}
+                      disabled={isSingleScopeEdit}
+                    />
+                  </div>
+                )}
+
+                {frequency === 'yearly' && (
+                  <div className="min-w-0">
+                    <Label>Mês</Label>
+                    <Select
+                      value={form.watch('monthOfYear') || '__none__'}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          'monthOfYear',
+                          value === '__none__' ? '' : value,
+                        )
+                      }
+                      disabled={isSingleScopeEdit}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Selecione</SelectItem>
+                        {RECURRENCE_MONTH_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+                <div className="min-w-0">
+                  <Label>Término</Label>
+                  <Select
+                    value={endType}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        'endType',
+                        value as RecurrenceFormData['endType'],
+                      )
+                    }
+                    disabled={isSingleScopeEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Término" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="never">Sem fim</SelectItem>
+                      <SelectItem value="by_occurrences">
+                        Por ocorrências
+                      </SelectItem>
+                      <SelectItem value="until_date">Por data final</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {endType === 'by_occurrences' && (
+                  <div className="min-w-0">
+                    <Label>Qtd. ocorrências</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      {...form.register('endOccurrences')}
+                      disabled={isSingleScopeEdit}
+                    />
+                  </div>
+                )}
+
+                {endType === 'until_date' && (
+                  <div className="min-w-0">
+                    <Label>Data final</Label>
+                    <Input
+                      type="date"
+                      {...form.register('endDate')}
+                      disabled={isSingleScopeEdit}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {originType === 'transaction' ? (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+                  <div className="min-w-0 lg:col-span-7">
+                    <TransactionAccountField
+                      id="recurrence-account"
+                      label="Conta"
+                      control={form.control}
+                      errors={form.formState.errors}
+                      accounts={accounts}
+                      isOpen={isAccountSelectOpen}
+                      onOpenChange={setIsAccountSelectOpen}
+                    />
+                  </div>
+
+                  <div className="min-w-0 lg:col-span-5">
+                    <TransactionTypeField
+                      id="recurrence-transaction-type"
+                      label="Tipo (derivado da categoria)"
+                      errors={form.formState.errors}
+                      type={selectedTransactionType}
+                    />
+                  </div>
+
+                  <div className="lg:col-span-12">
+                    <TransactionCategoryField
+                      id="recurrence-category"
+                      control={form.control}
+                      errors={form.formState.errors}
+                      isOpen={isCategoryTreeOpen}
+                      options={categoryTreeOptions}
+                      search={categoryTreeSearch}
+                      onSearchChange={(value) => {
+                        setCategoryTreeSearch(value)
+                        window.requestAnimationFrame(() => {
+                          categoryTreeSearchInputRef.current?.focus()
+                        })
+                      }}
+                      contentRef={categoryTreeContentRef}
+                      searchInputRef={categoryTreeSearchInputRef}
+                      disabled={Boolean(isSubcategoriesError)}
+                      disabledMessage={
+                        isSubcategoriesError
+                          ? 'Erro ao carregar subcategorias da categoria selecionada.'
+                          : undefined
+                      }
+                      allowInlineCreate={false}
+                      getCategoryTreeValue={getCategoryTreeValue}
+                      onValueChange={handleCategoryTreeSelectValueChange}
+                      onOpenChange={handleCategoryTreeOpenChange}
+                      onSearchKeyDown={handleCategoryTreeSearchKeyDown}
+                      onItemKeyDown={handleCategoryTreeItemKeyDown}
+                    />
+                    {isSubcategoriesError ? (
+                      <div className="mt-2 space-y-1 text-xs text-red-300">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={onSubcategoriesRefetch}
+                        >
+                          Tentar novamente
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="min-w-0">
+                    <Label>Conta origem</Label>
+                    <Select
+                      value={form.watch('fromAccountId') || '__none__'}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          'fromAccountId',
+                          value === '__none__' ? '' : value,
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Selecione</SelectItem>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0">
+                    <Label>Conta destino</Label>
+                    <Select
+                      value={form.watch('toAccountId') || '__none__'}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          'toAccountId',
+                          value === '__none__' ? '' : value,
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Selecione</SelectItem>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="min-w-0">
+                  <TransactionDescriptionField
+                    id="recurrence-description"
+                    register={form.register}
+                    errors={form.formState.errors}
+                    descriptionInputRef={descriptionInputRef}
+                    setValue={form.setValue}
+                    descriptionSuggestions={[]}
+                    areDescriptionSuggestionsLoading={false}
+                    hasDescriptionSuggestionsError={false}
+                    shouldFilterSuggestions={false}
+                    isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
+                    setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
+                    isDescriptionFocused={isDescriptionFocused}
+                    setIsDescriptionFocused={setIsDescriptionFocused}
+                    activeSuggestionIndex={activeSuggestionIndex}
+                    setActiveSuggestionIndex={setActiveSuggestionIndex}
+                    enableSuggestions={false}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <TransactionNotesField
+                    id="recurrence-notes"
+                    label="Observações"
+                    register={form.register}
+                    errors={form.formState.errors}
+                  />
+                </div>
+              </div>
+
+              {isEditingActive ? (
+                <div className="grid grid-cols-1 gap-3 rounded-xl border bg-muted/20 p-4 lg:grid-cols-12">
+                  <div className="min-w-0 lg:col-span-6">
+                    <Label>Aplicar edição em</Label>
+                    <Select
+                      value={editScope}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          'editScope',
+                          value as RecurrenceFormData['editScope'],
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escopo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="this_and_next">
+                          Esta e próximas
+                        </SelectItem>
+                        <SelectItem value="single">Somente esta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {editScope !== 'all' ? (
+                    <div className="min-w-0 lg:col-span-6">
+                      <Label>Data da ocorrência</Label>
+                      <Input
+                        type="date"
+                        min={
+                          editScope === 'single'
+                            ? getTodayIsoDateInTimezone(
+                                editingRecurrence?.timezone,
+                              )
+                            : undefined
+                        }
+                        {...form.register('occurrenceDate')}
+                      />
+                      {editScope === 'single' ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Para ocorrência passada já materializada, faça ajuste
+                          manual em Transações.
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               ) : null}
-            </div>
-          ) : null}
 
-          {formError ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-300">
-              <p>{formError}</p>
-              {conflictRecurrenceId ? (
-                <div className="mt-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void onReloadAfterConflict()}
-                    disabled={isConflictRefetching}
-                  >
-                    Recarregar dados da recorrência
-                  </Button>
+              {formError ? (
+                <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+                  <p>{formError}</p>
+                  {conflictRecurrenceId ? (
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void onReloadAfterConflict()}
+                        disabled={isConflictRefetching}
+                      >
+                        Recarregar dados da recorrência
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {hasFormErrors ? (
+                <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+                  Verifique os campos obrigatórios e tente novamente.
                 </div>
               ) : null}
             </div>
-          ) : null}
+          </div>
 
-          {Object.keys(form.formState.errors).length > 0 ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-300">
-              Verifique os campos obrigatórios e tente novamente.
+          <div className="shrink-0 border-t px-4 py-3 sm:px-5">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmitDisabled}>
+                {isEditing ? 'Salvar edição' : 'Criar recorrência'}
+              </Button>
             </div>
-          ) : null}
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                isAnyMutationPending ||
-                isFormSupportDataLoading ||
-                Boolean(isSubcategoriesError)
-              }
-            >
-              {isEditing ? 'Salvar edição' : 'Criar recorrência'}
-            </Button>
           </div>
         </form>
       </div>

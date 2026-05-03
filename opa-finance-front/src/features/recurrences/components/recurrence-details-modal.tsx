@@ -1,6 +1,8 @@
+import { ArrowDown, ArrowUp, CheckCircle2, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
 import {
@@ -13,10 +15,10 @@ import {
   formatRecurrenceFrequency,
   formatRecurrenceOriginType,
   formatRecurrenceStatus,
-  formatRecurrenceTarget,
   formatRecurrenceTimelineSource,
   formatRecurrenceTimelineStatus,
 } from '@/features/recurrences/model/recurrences.helpers'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
 
@@ -38,6 +40,15 @@ function formatMaybeText(value: string | null | undefined) {
   return value?.trim() ? value : 'Sem informação'
 }
 
+function MetaCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-3 py-2 min-w-0">
+      <dt className="text-[11px] text-muted-foreground/70 shrink-0">{label}</dt>
+      <dd className="text-xs font-medium text-right truncate" title={value}>{value}</dd>
+    </div>
+  )
+}
+
 export function RecurrenceDetailsModal({
   recurrence,
   accountsById,
@@ -49,14 +60,20 @@ export function RecurrenceDetailsModal({
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const [isBulkSkipping, setIsBulkSkipping] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(12)
+  const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const skipMutation = useSkipRecurrenceOccurrence()
   const timelineQuery = useRecurrenceTimeline(recurrence?.id, {
-    limit: 24,
+    limit: pageSize,
+    page,
+    dir,
     includeProjected: true,
   })
 
   useEffect(() => {
     if (!recurrence) return
+    setPage(1)
     const id = window.setTimeout(() => {
       modalRef.current?.focus()
     }, 0)
@@ -76,20 +93,6 @@ export function RecurrenceDetailsModal({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose, recurrence])
-
-  const summaryCards = useMemo(() => {
-    const summary = timelineQuery.data?.summary
-    if (!summary) return []
-
-    return [
-      ['Consumidas', summary.consumedOccurrences.toString()],
-      ['Lançadas', summary.materializedOccurrences.toString()],
-      ['Pendentes', summary.pendingReviewOccurrences.toString()],
-      ['Ignoradas', summary.skippedOccurrences.toString()],
-      ['Falhas', summary.failedOccurrences.toString()],
-      ['Projetadas', summary.projectedOccurrences.toString()],
-    ] as const
-  }, [timelineQuery.data?.summary])
 
   const pendingReviewItems = useMemo(
     () =>
@@ -131,8 +134,24 @@ export function RecurrenceDetailsModal({
     return null
   }
 
+  const accountName = recurrence.accountId
+    ? (accountsById.get(recurrence.accountId)?.name ?? recurrence.accountId)
+    : '-'
+  const fromAccountName = recurrence.fromAccountId
+    ? (accountsById.get(recurrence.fromAccountId)?.name ?? recurrence.fromAccountId)
+    : '-'
+  const toAccountName = recurrence.toAccountId
+    ? (accountsById.get(recurrence.toAccountId)?.name ?? recurrence.toAccountId)
+    : '-'
+  const categoryName = recurrence.categoryId
+    ? (categoriesById.get(recurrence.categoryId)?.name ?? recurrence.categoryId)
+    : '-'
+  const subcategoryName = recurrence.subcategoryId
+    ? (categoriesById.get(recurrence.subcategoryId)?.name ?? null)
+    : null
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
         ref={modalRef}
@@ -141,14 +160,14 @@ export function RecurrenceDetailsModal({
         aria-modal="true"
         aria-labelledby="recurrence-details-title"
         aria-describedby="recurrence-details-description"
-        className="relative w-full max-w-4xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:max-h-none sm:p-6"
+        className="relative flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h2 id="recurrence-details-title" className="text-lg font-semibold">
+        <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="min-w-0 space-y-0.5">
+            <h2 id="recurrence-details-title" className="text-base font-semibold sm:text-lg">
               Detalhes da recorrência
             </h2>
-            <p id="recurrence-details-description" className="text-sm text-muted-foreground">
+            <p id="recurrence-details-description" className="text-xs text-muted-foreground sm:text-sm">
               Informações da regra, do modo de lançamento e da linha do tempo.
             </p>
           </div>
@@ -157,149 +176,95 @@ export function RecurrenceDetailsModal({
           </Button>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Descrição
-            </p>
-            <p className="mt-1 font-medium">
-              {formatMaybeText(recurrence.description)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Status
-            </p>
-            <p className="mt-1 font-medium">{formatRecurrenceStatus(recurrence.status)}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Modo de lançamento
-            </p>
-            <p className="mt-1 font-medium">
-              {recurrence.postingMode === 'automatic' ? 'Automático' : 'Com revisão'}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Valor
-            </p>
-            <p className="mt-1 font-medium">{formatCurrencyValue(recurrence.amount)}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Origem
-            </p>
-            <p className="mt-1 font-medium">
-              {formatRecurrenceOriginType(recurrence.originType)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Frequência
-            </p>
-            <p className="mt-1 font-medium">
-              {formatRecurrenceFrequency(recurrence.frequency)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Conta / categoria
-            </p>
-            <p className="mt-1 font-medium">
-              {formatRecurrenceTarget(recurrence, accountsById, categoriesById)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Próxima ocorrência
-            </p>
-            <p className="mt-1 font-medium">
-              {formatIsoDateToPtBr(recurrence.nextOccurrenceDate)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Início
-            </p>
-            <p className="mt-1 font-medium">{formatIsoDateToPtBr(recurrence.startDate)}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Última materialização
-            </p>
-            <p className="mt-1 font-medium">
-              {formatMaybeIsoDate(recurrence.lastMaterializedDate)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Finalizada em
-            </p>
-            <p className="mt-1 font-medium">
-              {formatMaybeIsoDate(recurrence.finalizedAt?.slice(0, 10) ?? null)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Atualizada em
-            </p>
-            <p className="mt-1 font-medium">
-              {formatMaybeIsoDate(recurrence.updatedAt.slice(0, 10))}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-base font-semibold">Linha do tempo</h3>
-              <p className="text-sm text-muted-foreground">
-                Últimas ocorrências persistidas e projeções calculadas.
-              </p>
+        <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto px-4 py-3 sm:px-5">
+          <dl className="shrink-0 overflow-hidden rounded-2xl border bg-muted/20 divide-y">
+            <div className="grid grid-cols-3 divide-x">
+              <div className="col-span-2 flex items-center gap-3 px-3 py-2 min-w-0">
+                <dt className="text-[11px] text-muted-foreground/70 shrink-0">Descrição</dt>
+                <dd className="text-xs font-medium truncate" title={formatMaybeText(recurrence.description)}>
+                  {formatMaybeText(recurrence.description)}
+                </dd>
+              </div>
+              <MetaCell label="Status" value={formatRecurrenceStatus(recurrence.status)} />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-3 divide-x">
+              <MetaCell label="Modo de lançamento" value={recurrence.postingMode === 'automatic' ? 'Automático' : 'Com revisão'} />
+              <MetaCell label="Origem" value={formatRecurrenceOriginType(recurrence.originType)} />
+              <MetaCell label="Valor" value={formatCurrencyValue(recurrence.amount)} />
+            </div>
+            {recurrence.originType === 'transaction' ? (
+              <div className="grid grid-cols-3 divide-x">
+                <MetaCell label="Conta" value={accountName} />
+                <div className="flex items-center justify-between gap-4 px-3 py-2 min-w-0">
+                  <dt className="text-[11px] text-muted-foreground/70 shrink-0">Categoria</dt>
+                  <dd className="text-xs font-medium text-right min-w-0">
+                    <span className="block truncate" title={categoryName}>{categoryName}</span>
+                    {subcategoryName ? (
+                      <span className="block truncate text-muted-foreground/70" title={subcategoryName}>{subcategoryName}</span>
+                    ) : null}
+                  </dd>
+                </div>
+                <div aria-hidden="true" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 divide-x">
+                <MetaCell label="De conta" value={fromAccountName} />
+                <MetaCell label="Para conta" value={toAccountName} />
+                <div aria-hidden="true" />
+              </div>
+            )}
+            <div className="grid grid-cols-3 divide-x">
+              <MetaCell label="Frequência" value={formatRecurrenceFrequency(recurrence.frequency)} />
+              <MetaCell label="Próxima ocorrência" value={formatIsoDateToPtBr(recurrence.nextOccurrenceDate)} />
+              <MetaCell label="Início" value={formatIsoDateToPtBr(recurrence.startDate)} />
+            </div>
+            <div className="grid grid-cols-3 divide-x">
+              <MetaCell label="Última materialização" value={formatMaybeIsoDate(recurrence.lastMaterializedDate)} />
+              <MetaCell label="Atualizada em" value={formatMaybeIsoDate(recurrence.updatedAt.slice(0, 10))} />
+              <MetaCell label="Finalizada em" value={formatMaybeIsoDate(recurrence.finalizedAt?.slice(0, 10) ?? null)} />
+            </div>
+          </dl>
+
+          <div className="flex flex-col flex-1 min-h-0 gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Linha do tempo</h3>
+              <div className="flex flex-wrap items-center gap-2">
               {pendingReviewItems.length > 0 ? (
-                <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
+                <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-100">
                   {pendingReviewItems.length} pendência(s) em aberto
                 </span>
               ) : null}
               {timelineQuery.data?.summary.projectionWindowLabel ? (
-                <span className="rounded-md border bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
+                <span className="rounded-md border bg-muted/20 px-2 py-0.5 text-xs text-muted-foreground">
                   {timelineQuery.data.summary.projectionWindowLabel}
                 </span>
               ) : null}
             </div>
           </div>
 
-          {timelineQuery.isLoading ? (
-            <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-              Carregando timeline da recorrência...
-            </div>
-          ) : timelineQuery.isError ? (
-            <div className="space-y-3 rounded-lg border p-4 text-sm text-destructive">
-              <p>{getApiErrorMessage(timelineQuery.error)}</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void timelineQuery.refetch()}
-              >
-                Tentar novamente
-              </Button>
-            </div>
-          ) : (
-            <>
+            {timelineQuery.isLoading ? (
+              <div className="rounded-xl border p-3 text-sm text-muted-foreground">
+                Carregando timeline da recorrência...
+              </div>
+            ) : timelineQuery.isError ? (
+              <div className="space-y-2 rounded-xl border p-3 text-sm text-destructive">
+                <p>{getApiErrorMessage(timelineQuery.error)}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void timelineQuery.refetch()}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col flex-1 min-h-0 gap-2">
               {pendingReviewItems.length > 0 ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-                  <div className="space-y-1">
-                    <p className="font-medium">
-                      Esta recorrência tem pendências em aberto.
-                    </p>
-                    <p>
-                      Finalizar ou excluir continua bloqueado até você ignorar ou confirmar as pendências.
-                    </p>
-                  </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                  <p>
+                    Pendências em aberto bloqueiam finalizar ou excluir esta recorrência.
+                  </p>
                   <Button
                     type="button"
                     variant="outline"
@@ -307,116 +272,98 @@ export function RecurrenceDetailsModal({
                     onClick={() => void handleSkipPendingReviewItems()}
                     disabled={isBulkSkipping}
                   >
-                    {isBulkSkipping ? 'Ignorando...' : 'Ignorar pendências em massa'}
+                    {isBulkSkipping ? 'Ignorando...' : 'Ignorar em massa'}
                   </Button>
                 </div>
               ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {summaryCards.map(([label, value]) => (
-                  <div key={label} className="rounded-lg border bg-muted/20 p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {label}
-                    </p>
-                    <p className="mt-1 text-lg font-semibold">{value}</p>
-                  </div>
-                ))}
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Total estimado
-                  </p>
-                  <p className="mt-1 text-lg font-semibold">
-                    {timelineQuery.data?.summary.totalAmount === null
-                      ? 'Parcial'
-                      : formatCurrencyValue(timelineQuery.data?.summary.totalAmount ?? 0)}
-                  </p>
-                </div>
-              </div>
-
-              {timelineQuery.data?.summary.isPartial ? (
-                <p className="text-sm text-muted-foreground">
-                  Exibindo uma janela parcial da recorrência.
-                </p>
-              ) : null}
-
-              <div className="overflow-x-auto rounded-lg border">
+<div className="overflow-x-clip overflow-y-auto rounded-2xl border flex-1 min-h-0">
                 <table
                   aria-label="Tabela de ocorrências da recorrência"
-                  className="min-w-[920px] w-full text-sm"
+                  className="w-full text-sm"
                 >
-                  <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                  <thead className="sticky top-0 z-10 bg-muted text-left text-xs uppercase text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-3">Data</th>
-                      <th className="px-4 py-3">Parcela</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Origem</th>
-                      <th className="px-4 py-3 text-right">Valor</th>
-                      <th className="px-4 py-3">Vínculo</th>
-                      <th className="px-4 py-3">Ações</th>
+                      <th
+                        className="px-3 py-2 cursor-pointer select-none hover:text-foreground"
+                        onClick={() => { setDir(d => d === 'asc' ? 'desc' : 'asc'); setPage(1) }}
+                      >
+                        <span className="flex items-center gap-1">
+                          Data
+                          {dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                        </span>
+                      </th>
+                      <th className="px-3 py-1.5">Recorrência</th>
+                      <th className="px-3 py-1.5">Status</th>
+                      <th className="px-3 py-1.5">Origem</th>
+                      <th className="px-3 py-1.5 text-right">Valor</th>
+                      <th className="px-3 py-1.5">Vínculo</th>
+                      <th className="px-3 py-1.5 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {timelineQuery.data?.items.map((item) => (
-                      <tr key={`${item.source}-${item.id ?? item.occurrenceDate}`} className="border-t align-top">
-                        <td className="px-4 py-3 font-medium">
+                      <tr key={`${item.source}-${item.id ?? item.occurrenceDate}`} className="border-t">
+                        <td className="px-3 py-1.5 font-medium whitespace-nowrap">
                           {formatIsoDateToPtBr(item.occurrenceDate)}
                         </td>
-                        <td className="px-4 py-3">
-                          {item.sequence ? `Parcela ${item.sequence}` : '-'}
+                        <td className="px-3 py-1.5 whitespace-nowrap tabular-nums">
+                          {item.sequence
+                            ? timelineQuery.data?.summary.totalOccurrences
+                              ? `${item.sequence} / ${timelineQuery.data.summary.totalOccurrences}`
+                              : `${item.sequence}`
+                            : '-'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-1.5">
                           {formatRecurrenceTimelineStatus(item.status)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-1.5">
                           {formatRecurrenceTimelineSource(item.source)}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium">
+                        <td className="px-3 py-1.5 text-right font-medium whitespace-nowrap">
                           {formatCurrencyValue(item.amount)}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="space-y-1">
-                            <p>
-                              {item.transactionId
-                                ? `Transação ${item.transactionId}`
-                                : item.transferId
-                                  ? `Transferência ${item.transferId}`
-                                  : 'Projetada'}
-                            </p>
-                            {item.source === 'persisted' && item.id ? (
-                              <p className="text-xs text-muted-foreground">ID {item.id}</p>
-                            ) : null}
-                          </div>
+                        <td className="px-3 py-1.5">
+                          {item.transactionId
+                            ? `Transação ${item.transactionId}`
+                            : item.transferId
+                              ? `Transferência ${item.transferId}`
+                              : 'Projetada'}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {item.canConfirm ? (
+                        <td className="px-3 py-1.5">
+                          <div className="flex justify-end gap-1">
+                            <ShortcutTooltip
+                              label={item.canConfirm ? 'Confirmar' : 'Sem ação de confirmação'}
+                              className="w-auto"
+                            >
                               <Button
                                 type="button"
-                                size="sm"
+                                size="icon-sm"
                                 variant="outline"
+                                className="disabled:opacity-40"
                                 onClick={() => onOpenConfirmOccurrence(item)}
+                                disabled={!item.canConfirm}
+                                aria-label="Confirmar ocorrência"
                               >
-                                Confirmar
+                                <CheckCircle2 className="h-4 w-4" />
                               </Button>
-                            ) : (
-                              <span className="rounded-full border px-2 py-1">
-                                Sem ação de confirmação
-                              </span>
-                            )}
-                            {item.canSkip ? (
+                            </ShortcutTooltip>
+                            <ShortcutTooltip
+                              label={item.canSkip ? 'Ignorar' : 'Sem ação de ignorar'}
+                              className="w-auto"
+                            >
                               <Button
                                 type="button"
-                                size="sm"
+                                size="icon-sm"
                                 variant="outline"
+                                className="disabled:opacity-40"
                                 onClick={() => onSkipOccurrence(item)}
+                                disabled={!item.canSkip}
+                                aria-label="Ignorar ocorrência"
                               >
-                                Ignorar
+                                <SkipForward className="h-4 w-4" />
                               </Button>
-                            ) : (
-                              <span className="rounded-full border px-2 py-1">
-                                Sem ação de ignorar
-                              </span>
-                            )}
+                            </ShortcutTooltip>
                           </div>
                         </td>
                       </tr>
@@ -425,13 +372,29 @@ export function RecurrenceDetailsModal({
                 </table>
               </div>
 
-              {timelineQuery.data?.items.length === 0 ? (
-                <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-                  Nenhuma ocorrência encontrada para a janela consultada.
-                </div>
-              ) : null}
-            </>
-          )}
+                {timelineQuery.data?.items.length === 0 ? (
+                  <div className="rounded-xl border p-3 text-sm text-muted-foreground">
+                    Nenhuma ocorrência encontrada para a janela consultada.
+                  </div>
+                ) : null}
+
+                {timelineQuery.data ? (
+                  <TablePagination
+                    page={page}
+                    totalPages={timelineQuery.data.pagination.total
+                      ? Math.ceil(timelineQuery.data.pagination.total / pageSize)
+                      : null}
+                    hasMore={timelineQuery.data.pagination.hasMore}
+                    onPageChange={setPage}
+                    pageSize={pageSize}
+                    onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
+                    pageSizeOptions={[12, 24, 48]}
+                    isLoading={timelineQuery.isFetching}
+                  />
+                ) : null}
+            </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -212,7 +212,9 @@ const timelineIncludeProjectedSchema = z.preprocess((value) => {
 }, z.boolean().optional().default(true));
 
 export const recurrenceTimelineQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(120).default(24),
+  limit: z.coerce.number().int().min(1).max(120).default(12),
+  page: z.coerce.number().int().min(1).default(1),
+  dir: z.enum(["asc", "desc"]).default("asc"),
   untilDate: z
     .string()
     .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")

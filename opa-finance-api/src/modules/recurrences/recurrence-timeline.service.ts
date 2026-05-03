@@ -49,10 +49,18 @@ type TimelineSummary = {
   projectionWindowLabel: string | null;
 };
 
+type TimelinePagination = {
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  total: number | null;
+};
+
 type TimelineResponse = {
   recurrence: SerializedRecurrence;
   summary: TimelineSummary;
   items: TimelineItem[];
+  pagination: TimelinePagination;
 };
 
 type TimelineOccurrenceRow = {
@@ -119,6 +127,24 @@ export class RecurrenceTimelineService {
       return `Próximas ${query.limit} ocorrências`;
     }
     return `Próximas ${query.limit} ocorrências`;
+  }
+
+  private countOccurrences(
+    schedule: RecurrenceSchedule,
+    startDate: string,
+    endDate: string,
+  ): number {
+    let count = 0;
+    let cursorDate = getFirstOccurrenceOnOrAfter(schedule, startDate);
+    while (compareIsoDate(cursorDate, endDate) <= 0) {
+      count++;
+      try {
+        cursorDate = getNextOccurrenceAfter(schedule, cursorDate);
+      } catch {
+        break;
+      }
+    }
+    return count;
   }
 
   async timeline(userId: string, recurrenceId: string, query: RecurrenceTimelineQuery) {
@@ -192,13 +218,36 @@ export class RecurrenceTimelineService {
       },
     );
 
+    // Compute pagination offset
+    const page = query.page;
+    const limit = query.limit;
+
+    // For desc with finite recurrences, compute reverse offset so page 1 = newest
+    let reverseOffset: number | null = null;
+    let paginationTotal: number | null = null;
+
+    if (query.dir === "desc") {
+      if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
+        paginationTotal = recurrence.endOccurrences;
+        reverseOffset = Math.max(0, paginationTotal - page * limit);
+      } else if (recurrence.endType === "until_date" && recurrence.endDate) {
+        paginationTotal = this.countOccurrences(schedule, recurrence.startDate, recurrence.endDate);
+        reverseOffset = Math.max(0, paginationTotal - page * limit);
+      }
+      // 'never' endType: reverseOffset stays null → falls back to asc window
+    }
+
+    const effectiveOffset = reverseOffset !== null ? reverseOffset : (page - 1) * limit;
+
     const items: TimelineItem[] = [];
     let projectedOccurrences = 0;
     let projectedAmount = 0;
     let sequence = 0;
     let persistedIndex = 0;
+    let processedCount = 0;
     let cursorDate = getFirstOccurrenceOnOrAfter(schedule, recurrence.startDate);
     let lastProcessedDate: string | null = null;
+    let paginationHasMore = false;
 
     const untilDate = query.untilDate ?? null;
     const shouldUseSequence = recurrence.endType === "by_occurrences";
@@ -216,52 +265,56 @@ export class RecurrenceTimelineService {
       const amount = this.resolveOccurrenceAmount(recurrence, persisted);
       const canReview = persisted?.status === "pending_review" && recurrence.status === "active";
       const sequenceValue = shouldUseSequence ? sequence + 1 : null;
+      const isProjected = !persisted && query.includeProjected && recurrence.status === "active";
 
-      if (persisted) {
-        items.push({
-          id: persisted.id,
-          sequence: sequenceValue,
-          occurrenceDate: persisted.occurrenceDate,
-          status: persisted.status,
-          source: "persisted",
-          amount,
-          transactionId: persisted.transactionId,
-          transferId: persisted.transferId,
-          version: persisted.version,
-          reviewPayload: persisted.reviewPayload,
-          canConfirm: canReview,
-          canSkip: canReview,
-        });
-        persistedIndex += 1;
-      } else if (query.includeProjected && recurrence.status === "active") {
-        items.push({
-          id: null,
-          sequence: sequenceValue,
-          occurrenceDate: cursorDate,
-          status: "projected",
-          source: "projected",
-          amount: recurrence.amount,
-          transactionId: null,
-          transferId: null,
-          version: null,
-          reviewPayload: null,
-          canConfirm: false,
-          canSkip: false,
-        });
-        projectedOccurrences += 1;
-        projectedAmount += recurrence.amount;
+      if (persisted) persistedIndex++;
+
+      if (persisted || isProjected) {
+        if (processedCount < effectiveOffset) {
+          processedCount++;
+        } else if (items.length < limit) {
+          if (persisted) {
+            items.push({
+              id: persisted.id,
+              sequence: sequenceValue,
+              occurrenceDate: persisted.occurrenceDate,
+              status: persisted.status,
+              source: "persisted",
+              amount,
+              transactionId: persisted.transactionId,
+              transferId: persisted.transferId,
+              version: persisted.version,
+              reviewPayload: persisted.reviewPayload,
+              canConfirm: canReview,
+              canSkip: canReview,
+            });
+          } else {
+            items.push({
+              id: null,
+              sequence: sequenceValue,
+              occurrenceDate: cursorDate,
+              status: "projected",
+              source: "projected",
+              amount: recurrence.amount,
+              transactionId: null,
+              transferId: null,
+              version: null,
+              reviewPayload: null,
+              canConfirm: false,
+              canSkip: false,
+            });
+            projectedOccurrences++;
+            projectedAmount += recurrence.amount;
+          }
+          processedCount++;
+        } else {
+          paginationHasMore = true;
+          break;
+        }
       }
 
       lastProcessedDate = cursorDate;
-      sequence += 1;
-
-      if (query.includeProjected && items.length >= query.limit) {
-        break;
-      }
-
-      if (!query.includeProjected && items.length >= query.limit) {
-        break;
-      }
+      sequence++;
 
       if (!query.includeProjected && persistedIndex >= persistedRows.length) {
         break;
@@ -276,6 +329,12 @@ export class RecurrenceTimelineService {
       } catch {
         break;
       }
+    }
+
+    // For desc with known total: reverse items and derive hasMore from reverseOffset
+    if (query.dir === "desc" && reverseOffset !== null) {
+      items.reverse();
+      paginationHasMore = reverseOffset > 0;
     }
 
     const consumedOccurrences = this.resolveConsumedOccurrences(counts);
@@ -313,10 +372,18 @@ export class RecurrenceTimelineService {
       projectionWindowLabel: this.resolveTimelineLabel(query, hasMoreProjected, recurrence),
     };
 
+    const pagination: TimelinePagination = {
+      page,
+      limit,
+      hasMore: paginationHasMore,
+      total: paginationTotal,
+    };
+
     return {
       recurrence,
       summary,
       items,
+      pagination,
     } satisfies TimelineResponse;
   }
 }

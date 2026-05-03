@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -15,6 +14,7 @@ import { useForm, type ControllerRenderProps } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { TablePagination } from '@/components/ui/table-pagination'
 import {
   Select,
   SelectContent,
@@ -30,7 +30,6 @@ import {
   useCreateSubcategory,
 } from '@/features/categories'
 import {
-  buildPaginationItems,
   CATEGORY_TYPE_RANK,
   formatDateDisplay,
   formatDateInput,
@@ -478,7 +477,6 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   })
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
 
-  const paginationItems = buildPaginationItems(page, totalPages)
   const {
     handleLimitChange,
     goToPreviousPage,
@@ -2381,74 +2379,15 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
             formatCurrencyValue={formatCurrencyValue}
           />
           </div>
-          <div className="flex items-center justify-between border-t bg-card px-4 py-2 text-xs">
-            <span className="text-muted-foreground">
-              {isTransactionsRefetching
-                ? `Carregando página ${page}...`
-                : `Página ${page} de ${totalPages}`}
-            </span>
-            <div className="flex items-center gap-3">
-              <Select
-                value={String(limit)}
-                disabled={isTransactionsRefetching}
-                onValueChange={handleLimitChange}
-              >
-                <SelectTrigger
-                  className="h-8 w-[72px] bg-background px-2 text-xs dark:border-muted/80"
-                  aria-label="Quantidade de linhas"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[10, 20, 30, 50].map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 1 || isTransactionsRefetching}
-                  onClick={goToPreviousPage}
-                  aria-label="Página anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {paginationItems.map((item, index) =>
-                  item === '...' ? (
-                    <span
-                      key={`pagination-ellipsis-${index}`}
-                      className="px-1 text-muted-foreground"
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <Button
-                      key={`pagination-page-${item}`}
-                      variant={item === page ? 'default' : 'outline'}
-                      size="sm"
-                      disabled={isTransactionsRefetching}
-                      onClick={() => goToPage(item)}
-                    >
-                      {item}
-                    </Button>
-                  ),
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === totalPages || isTransactionsRefetching}
-                  onClick={goToNextPage}
-                  aria-label="Próxima página"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            hasMore={page < totalPages}
+            onPageChange={goToPage}
+            pageSize={limit}
+            onPageSizeChange={(size) => handleLimitChange(String(size))}
+            isLoading={isTransactionsRefetching}
+          />
         </div>
       </div>
 
