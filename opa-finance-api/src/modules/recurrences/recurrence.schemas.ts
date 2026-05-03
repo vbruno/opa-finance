@@ -264,6 +264,21 @@ export const confirmRecurrenceOccurrenceSchema = z.object({
   toAccountId: z.uuid().optional(),
 });
 
+export const recurrenceAnticipateSchema = z.object({
+  occurrenceDate: z
+    .string()
+    .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+    .refine(isValidIsoDate, { message: "Data inválida." }),
+  amount: z.number().positive("Valor deve ser maior que zero.").optional(),
+  description: z.string().max(255).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+  accountId: z.uuid().optional(),
+  categoryId: z.uuid().optional(),
+  subcategoryId: z.uuid().nullable().optional(),
+  fromAccountId: z.uuid().optional(),
+  toAccountId: z.uuid().optional(),
+});
+
 export const skipRecurrenceOccurrenceSchema = z.object({
   expectedVersion: z.number().int().positive(),
   reason: z.string().trim().max(500).optional(),

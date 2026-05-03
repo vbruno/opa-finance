@@ -143,6 +143,7 @@ export function invalidateTransactionDependents(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['accounts'] })
   queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
   queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
+  queryClient.invalidateQueries({ queryKey: ['recurrence-timeline'] })
 }
 
 export function useTransactions(

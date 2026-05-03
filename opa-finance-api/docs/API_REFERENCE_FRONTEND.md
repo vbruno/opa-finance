@@ -1867,6 +1867,8 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
 - `canConfirm` e `canSkip` só vêm `true` para `pending_review` em recorrência ativa
 - `projectionWindowLabel` indica janela parcial quando houver mais itens além do limite
 - itens persistidos incluem `version` e `reviewPayload` para suportar confirmação e skip com lock otimista no frontend
+- para itens `materialized` com `transactionId`, o campo `amount` reflete o valor **atual** da transação no banco — não o `reviewPayload`; se o usuário editou o valor da transação após a materialização, a timeline exibe o valor atualizado
+- para transferências (`transferId != null`) o `amount` ainda vem do `reviewPayload` (comportamento mantido)
 
 **Response 200 (exemplo):**
 

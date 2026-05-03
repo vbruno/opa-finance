@@ -176,6 +176,13 @@
       "when": 1777694100000,
       "tag": "0024_audit_recurrence_occurrence_entity",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1777847751929,
+      "tag": "0025_powerful_lionheart",
+      "breakpoints": true
     }
   ]
 }

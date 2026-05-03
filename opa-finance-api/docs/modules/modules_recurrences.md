@@ -27,6 +27,7 @@
 - Transferência recorrente é materializada de forma atômica (duas transações com rollback integral em falha)
 - Cálculo de calendário considera timezone do usuário/regra
 - Timeline expõe `version` e `reviewPayload` para itens persistidos, permitindo confirm/skip com lock otimista e pré-preenchimento do modal no frontend
+- Para ocorrências `materialized` com `transactionId`, o `amount` exibido na timeline é sempre o valor atual da tabela `transactions` (não o `reviewPayload`), refletindo edições feitas após a materialização; para transferências (`transferId != null`), o comportamento é mantido via `reviewPayload`
 - A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
 
 ## Endpoints

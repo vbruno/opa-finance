@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { NotFoundProblem } from "../../core/errors/problems";
 import {
@@ -7,7 +7,7 @@ import {
   getNextOccurrenceAfter,
   type RecurrenceSchedule,
 } from "../../core/utils/recurrence-schedule.utils";
-import { recurrences, recurrenceOccurrences } from "../../db/schema";
+import { recurrences, recurrenceOccurrences, transactions } from "../../db/schema";
 import { serializeRecurrence } from "./recurrence.helpers";
 import type { RecurrenceTimelineQuery } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
@@ -93,7 +93,13 @@ export class RecurrenceTimelineService {
   private resolveOccurrenceAmount(
     recurrence: SerializedRecurrence,
     occurrence: TimelineOccurrenceRow | undefined,
+    materializedAmounts: Map<string, number>,
   ) {
+    if (occurrence?.status === "materialized" && occurrence.transactionId) {
+      const live = materializedAmounts.get(occurrence.transactionId);
+      if (live !== undefined) return live;
+    }
+
     if (!occurrence?.reviewPayload) {
       return recurrence.amount;
     }
@@ -192,9 +198,29 @@ export class RecurrenceTimelineService {
 
     const persistedByDate = new Map(persistedRows.map((row) => [row.occurrenceDate, row]));
 
+    const materializedTransactionIds = persistedRows
+      .filter((r) => r.status === "materialized" && r.transactionId)
+      .map((r) => r.transactionId as string);
+
+    const materializedAmounts = new Map<string, number>();
+    if (materializedTransactionIds.length > 0) {
+      const txRows = await this.app.db
+        .select({ id: transactions.id, amount: transactions.amount })
+        .from(transactions)
+        .where(
+          and(
+            inArray(transactions.id, materializedTransactionIds),
+            eq(transactions.userId, userId),
+          ),
+        );
+      for (const row of txRows) {
+        materializedAmounts.set(row.id, Number(row.amount));
+      }
+    }
+
     const counts = persistedRows.reduce<TimelineCounts>(
       (acc, row) => {
-        const amount = this.resolveOccurrenceAmount(recurrence, row);
+        const amount = this.resolveOccurrenceAmount(recurrence, row, materializedAmounts);
         if (row.status === "materialized") {
           acc.materializedOccurrences += 1;
           acc.materializedAmount += amount;
@@ -262,7 +288,7 @@ export class RecurrenceTimelineService {
       }
 
       const persisted = persistedByDate.get(cursorDate);
-      const amount = this.resolveOccurrenceAmount(recurrence, persisted);
+      const amount = this.resolveOccurrenceAmount(recurrence, persisted, materializedAmounts);
       const canReview = persisted?.status === "pending_review" && recurrence.status === "active";
       const sequenceValue = shouldUseSequence ? sequence + 1 : null;
       const isProjected = !persisted && query.includeProjected && recurrence.status === "active";
