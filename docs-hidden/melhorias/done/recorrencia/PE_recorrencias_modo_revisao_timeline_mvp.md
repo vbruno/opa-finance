@@ -864,7 +864,7 @@ Labels de UI:
 - [x] `RCREV-S4-18` Testar primeira ocorrência em criação aninhada: status sempre `materialized` independente de `postingMode` (`RCREV-DEF-26`).
 - [x] `RCREV-S4-19` Testar limite de range em `occurrenceDate` no confirm — datas fora do range retornam 422 (`RCREV-DEF-25`).
 - [x] `RCREV-S4-20` Testar `sequence` em série com gaps: `skipped` ocupa posição (`RCREV-DEF-24`).
-- [ ] `RCREV-S4-21` Testar sequência das 3 migrations (A → B → C) executando do zero e em snapshot de produção (`RCREV-DEF-29`).
+- [x] `RCREV-S4-21` Testar sequência das 3 migrations (A → B → C) executando do zero e em snapshot de produção (`RCREV-DEF-29`) — validação do banco remoto pulada por decisão explícita do usuário.
 - [x] `RCREV-S4-22` Testar índice composto `(recurrence_id, status)` — `EXPLAIN ANALYZE` mostra index scan na query do badge (`RCREV-S2-02D`).
 - [x] `RCREV-S4-23` Testar mensagens de erro em PT-BR para 422/409 críticos (`RCREV-DEF-30`).
 - [x] `RCREV-S4-24` Testar gravação de `metadata.adjustments` quando confirm ajusta campos do `reviewPayload` (`RCREV-DEF-34`).
@@ -874,7 +874,7 @@ Labels de UI:
 - [x] `RCREV-S5-01` Atualizar documentação técnica da API.
 - [x] `RCREV-S5-02` Atualizar documentação operacional do job.
 - [x] `RCREV-S5-03` Atualizar `docs-hidden/changes.md`.
-- [ ] `RCREV-S5-04` Revisar plano e mover para `done/` quando concluído.
+- [x] `RCREV-S5-04` Revisar plano e mover para `done/` quando concluído — PE movido para `done/recorrencia/` e task S4-21 mantida como validação pulada por decisão explícita do usuário.
 
 ## Matriz de execução por etapa (obrigatória)
 

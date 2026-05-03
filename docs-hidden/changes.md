@@ -1,5 +1,7 @@
 # Alterações recentes
 
+- 2026-05-03: Backend/Recorrências — PE concluído e movido para `docs-hidden/melhorias/done/recorrencia/`; a única validação não executada (`RCREV-S4-21`) foi explicitamente pulada por decisão do usuário. Task `RCREV-S5-04` marcada no PE. Arquivos editados/criados: `docs-hidden/melhorias/done/recorrencia/PE_recorrencias_modo_revisao_timeline_mvp.md`, `docs-hidden/changes.md`. Validação: `git diff --check`.
+
 - 2026-05-03: Backend/Recorrências — consolidação final da documentação do backend: `docs/API_REFERENCE_FRONTEND.md`, módulo de recorrências e runbook do job diário ficaram alinhados ao fluxo `automatic` / `review_required`, timeline, confirm/skip, auditoria e diagnóstico operacional. Task `RCREV-S5-03` marcada no PE. Arquivos editados/criados: `docs-hidden/changes.md`, `docs-hidden/melhorias/PE_recorrencias_modo_revisao_timeline_mvp.md`. Validação: revisão documental e `git diff --check`.
 
 - 2026-05-03: Backend/Recorrências — runbook operacional do job diário atualizado com o comportamento atual de `review_required`, `failed` terminal no MVP, eventos de log úteis e comandos de diagnóstico por status. Task `RCREV-S5-02` marcada no PE. Arquivos editados/criados: `docs-hidden/melhorias/done/recorrencia/PE_recorrencia_runbook_job_diario.md`, `docs-hidden/changes.md`, `docs-hidden/melhorias/PE_recorrencias_modo_revisao_timeline_mvp.md`. Validação: `git diff --check`.
