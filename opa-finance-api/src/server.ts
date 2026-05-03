@@ -4,6 +4,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import type Ajv from "ajv";
 import { config } from "dotenv";
+import { sql } from "drizzle-orm";
 import Fastify from "fastify";
 import { env } from "./core/config/env";
 import { registerErrorHandler } from "./core/middlewares/handle-route-error";
@@ -25,6 +26,35 @@ import { transferRoutes } from "./modules/transfers/transfer.routes";
 import { userRoutes } from "./modules/users/user.routes";
 
 config();
+
+const DATABASE_BOOT_CHECK_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function ensureDatabaseConnection() {
+  await withTimeout(
+    db.execute(sql`SELECT 1`),
+    DATABASE_BOOT_CHECK_TIMEOUT_MS,
+    `Database boot check timeout after ${DATABASE_BOOT_CHECK_TIMEOUT_MS}ms`,
+  );
+}
 
 function buildCorsOrigin(nodeEnv: string, configuredOrigins: string[]) {
   const isDevLike = nodeEnv === "development" || nodeEnv === "test";
@@ -49,6 +79,8 @@ function buildCorsOrigin(nodeEnv: string, configuredOrigins: string[]) {
 }
 
 async function start() {
+  await ensureDatabaseConnection();
+
   const app = Fastify({
     logger: {
       level: env.NODE_ENV === "production" ? (env.LOG_LEVEL ?? "info") : "warn",
@@ -153,4 +185,7 @@ async function start() {
   console.log(`🔥 API running on http://${env.HOST}:${env.PORT}`);
 }
 
-start();
+start().catch((error) => {
+  console.error("❌ Falha ao iniciar API (checagem de banco ou bootstrap):", error);
+  process.exit(1);
+});
