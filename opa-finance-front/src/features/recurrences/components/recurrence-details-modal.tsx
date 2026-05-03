@@ -265,21 +265,6 @@ export function RecurrenceDetailsModal({
           </dl>
 
           <div className="flex flex-col flex-1 min-h-0 gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Linha do tempo</h3>
-              <div className="flex flex-wrap items-center gap-2">
-              {pendingReviewItems.length > 0 ? (
-                <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-100">
-                  {pendingReviewItems.length} pendência(s) em aberto
-                </span>
-              ) : null}
-              {timelineQuery.data?.summary.projectionWindowLabel ? (
-                <span className="rounded-md border bg-muted/20 px-2 py-0.5 text-xs text-muted-foreground">
-                  {timelineQuery.data.summary.projectionWindowLabel}
-                </span>
-              ) : null}
-            </div>
-          </div>
 
             {timelineQuery.isLoading ? (
               <div className="rounded-xl border p-3 text-sm text-muted-foreground">

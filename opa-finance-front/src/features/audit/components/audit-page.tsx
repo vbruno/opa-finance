@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { TablePagination } from '@/components/ui/table-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { useAccounts } from '@/features/accounts'
 import {
   useAuditLogs,
@@ -96,15 +96,12 @@ export function AuditPage({ search, navigate }: AuditPageProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="flex h-full flex-col gap-4">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold">Histórico</h1>
-        <p className="text-sm text-muted-foreground">
-          Lista simples de alterações. Use "Detalhes" para abrir mais informações.
-        </p>
       </div>
 
-      <div className="rounded-lg border p-3">
+      <div className="shrink-0 rounded-lg border p-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Filtros opcionais</p>
           <Button
@@ -116,7 +113,7 @@ export function AuditPage({ search, navigate }: AuditPageProps) {
           </Button>
         </div>
         {showFilters ? (
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs text-muted-foreground">
                 Entidade
@@ -201,69 +198,38 @@ export function AuditPage({ search, navigate }: AuditPageProps) {
               />
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs text-muted-foreground">
-                Limite
-              </label>
-              <Select
-                value={String(limit)}
-                onValueChange={(value) =>
-                  setSearch({
-                    page: 1,
-                    limit: Number(value),
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="20" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         ) : null}
       </div>
 
       {auditLogsQuery.isError ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400">
+        <div className="shrink-0 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400">
           {getApiErrorMessage(auditLogsQuery.error)}
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        {auditLogsQuery.isLoading ? (
-          <div className="rounded-md border p-4 text-sm text-muted-foreground">
-            Carregando histórico...
-          </div>
-        ) : null}
-
-        {!auditLogsQuery.isLoading &&
-        (auditLogsQuery.data?.data.length ?? 0) === 0 ? (
-          <div className="rounded-md border p-4 text-sm text-muted-foreground">
-            Nenhum evento encontrado para os filtros informados.
-          </div>
-        ) : null}
-
-        {auditLogsQuery.data?.data.length ? (
-          <div className="overflow-hidden rounded-md border">
-            <div className="grid grid-cols-[1fr_1fr_1.5fr_2fr_1.5fr] gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
-              <span>Tela</span>
-              <span>Tipo</span>
-              <span>Conta</span>
-              <span>Descrição</span>
-              <span>Data/Hora</span>
-            </div>
-            {auditLogsQuery.data.data.map((log) => {
-              const createdAt = new Date(log.createdAt)
-              return (
-                <article key={log.id} className="border-b last:border-b-0">
-                  <div
-                    className="grid cursor-pointer grid-cols-[1fr_1fr_1.5fr_2fr_1.5fr] gap-2 px-3 py-2 text-sm transition-colors hover:bg-muted/30"
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden rounded-lg border">
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <table
+            aria-label="Tabela de histórico de alterações"
+            className="w-full text-sm"
+          >
+            <thead className="sticky top-0 z-10 bg-muted text-left text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Tela</th>
+                <th className="px-3 py-2">Tipo</th>
+                <th className="px-3 py-2">Conta</th>
+                <th className="px-3 py-2">Descrição</th>
+                <th className="px-3 py-2">Data/Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogsQuery.data?.data.map((log) => {
+                const createdAt = new Date(log.createdAt)
+                return (
+                  <tr
+                    key={log.id}
+                    className="border-t cursor-pointer transition-colors hover:bg-muted/30"
                     role="button"
                     tabIndex={0}
                     onClick={() => setSelectedLog(log)}
@@ -274,33 +240,40 @@ export function AuditPage({ search, navigate }: AuditPageProps) {
                       }
                     }}
                   >
-                    <span>{screenLabel(log.entityType)}</span>
-                    <span>{log.summary?.action ?? actionLabel(log.action)}</span>
-                    <span className="truncate">
-                      {resolveAuditAccountLabel(log, accountNameById)}
-                    </span>
-                    <span className="truncate">
-                      {log.summary?.description ?? `ID ${log.entityId}`}
-                    </span>
-                    <span>{createdAt.toLocaleString('pt-BR')}</span>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        ) : null}
-      </div>
+                    <td className="px-3 py-1.5 whitespace-nowrap">{screenLabel(log.entityType)}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">{log.summary?.action ?? actionLabel(log.action)}</td>
+                    <td className="px-3 py-1.5 max-w-[180px] truncate">{resolveAuditAccountLabel(log, accountNameById)}</td>
+                    <td className="px-3 py-1.5 max-w-[240px] truncate">{log.summary?.description ?? `ID ${log.entityId}`}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">{createdAt.toLocaleString('pt-BR')}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
 
-      <TablePagination
-        page={page}
-        totalPages={totalPages}
-        hasMore={page < totalPages}
-        onPageChange={(p) => setSearch({ page: p })}
-        pageSize={limit}
-        onPageSizeChange={(size) => setSearch({ limit: size, page: 1 })}
-        totalRecords={total}
-        isLoading={auditLogsQuery.isLoading}
-      />
+          {auditLogsQuery.isLoading ? (
+            <div className="p-4 text-sm text-muted-foreground">
+              Carregando histórico...
+            </div>
+          ) : !auditLogsQuery.isLoading && (auditLogsQuery.data?.data.length ?? 0) === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground">
+              Nenhum evento encontrado para os filtros informados.
+            </div>
+          ) : null}
+        </div>
+
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          hasMore={page < totalPages}
+          onPageChange={(p) => setSearch({ page: p })}
+          pageSize={limit}
+          onPageSizeChange={(size) => setSearch({ limit: size, page: 1 })}
+          totalRecords={total}
+          isLoading={auditLogsQuery.isLoading}
+          className="shrink-0 bg-transparent"
+        />
+      </div>
 
       {selectedLog ? (
         <AuditDetailModal
