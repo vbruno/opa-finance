@@ -15,7 +15,7 @@ const optionalTrimmedString = z
 export const recurrenceFormSchema = z
   .object({
     originType: z.enum(['transaction', 'transfer']),
-    postingMode: z.enum(['automatic', 'review_required']).default('automatic'),
+    postingMode: z.enum(['automatic', 'review_required'], { message: 'Selecione o modo de lançamento.' }),
     frequency: z.enum(['weekly', 'biweekly', 'monthly', 'yearly']),
     startDate: z
       .string()

@@ -21,8 +21,8 @@ export function getDefaultRecurrenceFormValues(
 ): RecurrenceFormData {
   return {
     originType: 'transaction',
-    postingMode: 'automatic',
-    frequency: 'monthly',
+    postingMode: '' as RecurrenceFormData['postingMode'],
+    frequency: 'weekly',
     startDate: getTodayIsoDateInTimezone(userTimezone),
     dayOfWeek: '',
     dayOfMonth: '',

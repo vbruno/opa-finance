@@ -1965,6 +1965,47 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
 
 ---
 
+### POST `/recurrences/:id/anticipate`
+
+Cria e materializa imediatamente uma ocorrência projetada de uma recorrência ativa, sem aguardar o job diário.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request body:**
+
+```json
+{
+  "occurrenceDate": "2026-06-10",
+  "amount": 350,
+  "description": "Plano de celular",
+  "notes": null,
+  "accountId": "uuid",
+  "categoryId": "uuid",
+  "subcategoryId": null
+}
+```
+
+Campos para transferência usam `fromAccountId` e `toAccountId` em vez de `accountId`/`categoryId`.
+
+**Regras:**
+- `occurrenceDate` obrigatório e deve corresponder a uma data válida da série
+- Recorrência deve estar `active`
+- Não pode existir ocorrência já registrada para a mesma data
+- `by_occurrences`: rejeita se o limite de ocorrências já foi atingido
+- Campos omitidos herdam o valor da regra-mãe
+
+**Response 200:** shape idêntico ao `POST /recurrences/occurrences/:id/confirm` — ocorrência materializada com `transactionId`/`transferId` preenchidos.
+
+**Erros:**
+
+- `400` - payload inválido
+- `401` - não autenticado
+- `404` - recorrência não encontrada
+- `409` - já existe ocorrência para a data informada
+- `422` - data inválida na série, recorrência não ativa, ou limite de ocorrências atingido
+
+---
+
 ### GET `/recurrences/forecast`
 
 Retorna projeção de recorrências até o fim do ano, com separação explícita entre:

@@ -31,7 +31,6 @@ import { TransactionCategoryField } from '../../transactions/components/transact
 import { TransactionDateField } from '../../transactions/components/transaction-date-field'
 import { TransactionDescriptionField } from '../../transactions/components/transaction-description-field'
 import { TransactionNotesField } from '../../transactions/components/transaction-notes-field'
-import { TransactionTypeField } from '../../transactions/components/transaction-type-field'
 
 type RecurrenceFormModalProps = {
   open: boolean
@@ -46,8 +45,12 @@ type RecurrenceFormModalProps = {
   editingRecurrence: Recurrence | null
   accounts: Account[]
   categories: Category[]
-  subcategories: Subcategory[]
+  subcategoriesByCategory: Record<string, Subcategory[]>
   selectedCategoryType: Category['type'] | null
+  descriptionSuggestions: string[]
+  areDescriptionSuggestionsLoading: boolean
+  hasDescriptionSuggestionsError: boolean
+  shouldFilterSuggestions: boolean
   originType: RecurrenceFormData['originType']
   frequency: RecurrenceFormData['frequency']
   endType: RecurrenceFormData['endType']
@@ -72,8 +75,12 @@ export function RecurrenceFormModal({
   editingRecurrence,
   accounts,
   categories,
-  subcategories,
+  subcategoriesByCategory,
   selectedCategoryType,
+  descriptionSuggestions,
+  areDescriptionSuggestionsLoading,
+  hasDescriptionSuggestionsError,
+  shouldFilterSuggestions,
   originType,
   frequency,
   endType,
@@ -99,10 +106,21 @@ export function RecurrenceFormModal({
   const categoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
   const categoryTreeContentRef = useRef<HTMLDivElement | null>(null)
   const lastCategoryId = useRef<string | null>(null)
-  const selectedTransactionType: 'income' | 'expense' | '' =
-    selectedCategoryType === 'income' || selectedCategoryType === 'expense'
-      ? selectedCategoryType
-      : ''
+  const startDate = form.watch('startDate')
+  const isWeeklyFrequency = frequency === 'weekly' || frequency === 'biweekly'
+
+  useEffect(() => {
+    if (!open || !isWeeklyFrequency || !startDate || isSingleScopeEdit) return
+    const [year, month, day] = startDate.split('-').map(Number)
+    if (!year || !month || !day) return
+    const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+    form.setValue('dayOfWeek', String(dow))
+  }, [open, startDate, isWeeklyFrequency, isSingleScopeEdit, form])
+
+  const dayOfWeek = form.watch('dayOfWeek')
+  const derivedDayOfWeekLabel =
+    RECURRENCE_DAY_OF_WEEK_OPTIONS.find((o) => o.value === dayOfWeek)?.label ?? ''
+
   const isEditingActive = isEditing && editingRecurrence?.status === 'active'
   const hasFormErrors = Object.keys(form.formState.errors).length > 0
   const isSubmitDisabled =
@@ -112,12 +130,10 @@ export function RecurrenceFormModal({
     () =>
       buildCategoryTreeOptions({
         categories,
-        subcategoriesByCategory: selectedCategoryId
-          ? { [selectedCategoryId]: subcategories }
-          : {},
+        subcategoriesByCategory,
         search: categoryTreeSearch,
       }),
-    [categories, categoryTreeSearch, selectedCategoryId, subcategories],
+    [categories, categoryTreeSearch, subcategoriesByCategory],
   )
 
   const {
@@ -178,37 +194,49 @@ export function RecurrenceFormModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="recurrence-form-modal-title"
-        aria-describedby="recurrence-form-modal-description"
         className="relative flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
-          <div className="min-w-0 space-y-0.5">
-            <h2
-              id="recurrence-form-modal-title"
-              className="text-base font-semibold sm:text-lg"
-            >
-              {isEditing ? 'Editar recorrência' : 'Nova recorrência'}
-            </h2>
-            <p
-              id="recurrence-form-modal-description"
-              className="max-w-2xl text-xs text-muted-foreground sm:text-sm"
-            >
-              {isEditing
-                ? 'Atualize a regra, ajuste o escopo da edição e revise os campos antes de salvar.'
-                : 'Configure a regra para geração automática de lançamentos.'}
-            </p>
-          </div>
-
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Fechar
-          </Button>
+        <div className="border-b px-4 py-3 sm:px-5">
+          <h2
+            id="recurrence-form-modal-title"
+            className="text-base font-semibold sm:text-lg"
+          >
+            {isEditing ? 'Editar recorrência' : 'Nova recorrência'}
+          </h2>
         </div>
 
         <form className="flex flex-1 min-h-0 flex-col" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+              {/* 1. Modo de lançamento | Origem | Frequência */}
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                <div className="min-w-0">
+                  <Label>Modo de lançamento</Label>
+                  <Select
+                    value={postingMode || '__none__'}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        'postingMode',
+                        value === '__none__' ? '' as RecurrenceFormData['postingMode'] : value as RecurrenceFormData['postingMode'],
+                      )
+                    }
+                    disabled={isSingleScopeEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__" className="hidden">Selecione</SelectItem>
+                      {RECURRENCE_POSTING_MODES.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {RECURRENCE_POSTING_MODE_LABELS[mode]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="min-w-0">
                   <Label>Origem</Label>
                   <Select
@@ -259,47 +287,9 @@ export function RecurrenceFormModal({
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="min-w-0">
-                  <Label>Modo de lançamento</Label>
-                  <Select
-                    value={postingMode}
-                    onValueChange={(value) =>
-                      form.setValue(
-                        'postingMode',
-                        value as RecurrenceFormData['postingMode'],
-                      )
-                    }
-                    disabled={isSingleScopeEdit}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Modo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RECURRENCE_POSTING_MODES.map((mode) => (
-                        <SelectItem key={mode} value={mode}>
-                          {RECURRENCE_POSTING_MODE_LABELS[mode]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="min-w-0">
-                  <TransactionAmountField
-                    id="recurrence-amount"
-                    control={form.control}
-                    errors={form.formState.errors}
-                    amountRef={amountRef}
-                    clearAmountError={() => form.clearErrors('amount')}
-                    setAmountError={(message) => {
-                      form.setError('amount', { type: 'manual', message })
-                    }}
-                    inputMode="numeric"
-                  />
-                </div>
               </div>
 
+              {/* 2. Data inicial | Dia do mês/semana [| Mês] */}
               <div
                 className={
                   frequency === 'yearly'
@@ -319,31 +309,15 @@ export function RecurrenceFormModal({
                   />
                 </div>
 
-                {(frequency === 'weekly' || frequency === 'biweekly') && (
+                {isWeeklyFrequency && (
                   <div className="min-w-0">
                     <Label>Dia da semana</Label>
-                    <Select
-                      value={form.watch('dayOfWeek') || '__none__'}
-                      onValueChange={(value) =>
-                        form.setValue(
-                          'dayOfWeek',
-                          value === '__none__' ? '' : value,
-                        )
-                      }
-                      disabled={isSingleScopeEdit}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Selecione</SelectItem>
-                        {RECURRENCE_DAY_OF_WEEK_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      readOnly
+                      value={derivedDayOfWeekLabel}
+                      className="h-10 cursor-default"
+                      tabIndex={-1}
+                    />
                   </div>
                 )}
 
@@ -390,6 +364,7 @@ export function RecurrenceFormModal({
                 )}
               </div>
 
+              {/* 3. Término | Data final / Qtd. ocorrências */}
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
                 <div className="min-w-0">
                   <Label>Término</Label>
@@ -408,9 +383,7 @@ export function RecurrenceFormModal({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="never">Sem fim</SelectItem>
-                      <SelectItem value="by_occurrences">
-                        Por ocorrências
-                      </SelectItem>
+                      <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
                       <SelectItem value="until_date">Por data final</SelectItem>
                     </SelectContent>
                   </Select>
@@ -422,6 +395,7 @@ export function RecurrenceFormModal({
                     <Input
                       type="number"
                       min={1}
+                      className="h-10"
                       {...form.register('endOccurrences')}
                       disabled={isSingleScopeEdit}
                     />
@@ -433,6 +407,7 @@ export function RecurrenceFormModal({
                     <Label>Data final</Label>
                     <Input
                       type="date"
+                      className="h-10"
                       {...form.register('endDate')}
                       disabled={isSingleScopeEdit}
                     />
@@ -440,9 +415,42 @@ export function RecurrenceFormModal({
                 )}
               </div>
 
+              {/* 4. Descrição */}
+              <div className="min-w-0">
+                <TransactionDescriptionField
+                  id="recurrence-description"
+                  register={form.register}
+                  errors={form.formState.errors}
+                  descriptionInputRef={descriptionInputRef}
+                  setValue={form.setValue}
+                  descriptionSuggestions={descriptionSuggestions}
+                  areDescriptionSuggestionsLoading={areDescriptionSuggestionsLoading}
+                  hasDescriptionSuggestionsError={hasDescriptionSuggestionsError}
+                  shouldFilterSuggestions={shouldFilterSuggestions}
+                  isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
+                  setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
+                  isDescriptionFocused={isDescriptionFocused}
+                  setIsDescriptionFocused={setIsDescriptionFocused}
+                  activeSuggestionIndex={activeSuggestionIndex}
+                  setActiveSuggestionIndex={setActiveSuggestionIndex}
+                  enableSuggestions={true}
+                />
+              </div>
+
+              {/* 5. Observações */}
+              <div className="min-w-0">
+                <TransactionNotesField
+                  id="recurrence-notes"
+                  label="Observações"
+                  register={form.register}
+                  errors={form.formState.errors}
+                />
+              </div>
+
+              {/* 6. Conta | Valor  /  Conta origem | Conta destino */}
               {originType === 'transaction' ? (
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-                  <div className="min-w-0 lg:col-span-7">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="min-w-0">
                     <TransactionAccountField
                       id="recurrence-account"
                       label="Conta"
@@ -453,57 +461,18 @@ export function RecurrenceFormModal({
                       onOpenChange={setIsAccountSelectOpen}
                     />
                   </div>
-
-                  <div className="min-w-0 lg:col-span-5">
-                    <TransactionTypeField
-                      id="recurrence-transaction-type"
-                      label="Tipo (derivado da categoria)"
-                      errors={form.formState.errors}
-                      type={selectedTransactionType}
-                    />
-                  </div>
-
-                  <div className="lg:col-span-12">
-                    <TransactionCategoryField
-                      id="recurrence-category"
+                  <div className="min-w-0">
+                    <TransactionAmountField
+                      id="recurrence-amount"
                       control={form.control}
                       errors={form.formState.errors}
-                      isOpen={isCategoryTreeOpen}
-                      options={categoryTreeOptions}
-                      search={categoryTreeSearch}
-                      onSearchChange={(value) => {
-                        setCategoryTreeSearch(value)
-                        window.requestAnimationFrame(() => {
-                          categoryTreeSearchInputRef.current?.focus()
-                        })
+                      amountRef={amountRef}
+                      clearAmountError={() => form.clearErrors('amount')}
+                      setAmountError={(message) => {
+                        form.setError('amount', { type: 'manual', message })
                       }}
-                      contentRef={categoryTreeContentRef}
-                      searchInputRef={categoryTreeSearchInputRef}
-                      disabled={Boolean(isSubcategoriesError)}
-                      disabledMessage={
-                        isSubcategoriesError
-                          ? 'Erro ao carregar subcategorias da categoria selecionada.'
-                          : undefined
-                      }
-                      allowInlineCreate={false}
-                      getCategoryTreeValue={getCategoryTreeValue}
-                      onValueChange={handleCategoryTreeSelectValueChange}
-                      onOpenChange={handleCategoryTreeOpenChange}
-                      onSearchKeyDown={handleCategoryTreeSearchKeyDown}
-                      onItemKeyDown={handleCategoryTreeItemKeyDown}
+                      inputMode="numeric"
                     />
-                    {isSubcategoriesError ? (
-                      <div className="mt-2 space-y-1 text-xs text-red-300">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={onSubcategoriesRefetch}
-                        >
-                          Tentar novamente
-                        </Button>
-                      </div>
-                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -559,36 +528,51 @@ export function RecurrenceFormModal({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="min-w-0">
-                  <TransactionDescriptionField
-                    id="recurrence-description"
-                    register={form.register}
+              {/* 5. Categoria/Subcategoria (largura total — apenas transação) */}
+              {originType === 'transaction' && (
+                <div>
+                  <TransactionCategoryField
+                    id="recurrence-category"
+                    control={form.control}
                     errors={form.formState.errors}
-                    descriptionInputRef={descriptionInputRef}
-                    setValue={form.setValue}
-                    descriptionSuggestions={[]}
-                    areDescriptionSuggestionsLoading={false}
-                    hasDescriptionSuggestionsError={false}
-                    shouldFilterSuggestions={false}
-                    isDescriptionSuggestionsOpen={isDescriptionSuggestionsOpen}
-                    setIsDescriptionSuggestionsOpen={setIsDescriptionSuggestionsOpen}
-                    isDescriptionFocused={isDescriptionFocused}
-                    setIsDescriptionFocused={setIsDescriptionFocused}
-                    activeSuggestionIndex={activeSuggestionIndex}
-                    setActiveSuggestionIndex={setActiveSuggestionIndex}
-                    enableSuggestions={false}
+                    isOpen={isCategoryTreeOpen}
+                    options={categoryTreeOptions}
+                    search={categoryTreeSearch}
+                    onSearchChange={(value) => {
+                      setCategoryTreeSearch(value)
+                      window.requestAnimationFrame(() => {
+                        categoryTreeSearchInputRef.current?.focus()
+                      })
+                    }}
+                    contentRef={categoryTreeContentRef}
+                    searchInputRef={categoryTreeSearchInputRef}
+                    disabled={Boolean(isSubcategoriesError)}
+                    disabledMessage={
+                      isSubcategoriesError
+                        ? 'Erro ao carregar subcategorias da categoria selecionada.'
+                        : undefined
+                    }
+                    allowInlineCreate={false}
+                    getCategoryTreeValue={getCategoryTreeValue}
+                    onValueChange={handleCategoryTreeSelectValueChange}
+                    onOpenChange={handleCategoryTreeOpenChange}
+                    onSearchKeyDown={handleCategoryTreeSearchKeyDown}
+                    onItemKeyDown={handleCategoryTreeItemKeyDown}
                   />
+                  {isSubcategoriesError ? (
+                    <div className="mt-2 space-y-1 text-xs text-red-300">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={onSubcategoriesRefetch}
+                      >
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="min-w-0">
-                  <TransactionNotesField
-                    id="recurrence-notes"
-                    label="Observações"
-                    register={form.register}
-                    errors={form.formState.errors}
-                  />
-                </div>
-              </div>
+              )}
 
               {isEditingActive ? (
                 <div className="grid grid-cols-1 gap-3 rounded-xl border bg-muted/20 p-4 lg:grid-cols-12">

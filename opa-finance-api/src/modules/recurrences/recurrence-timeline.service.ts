@@ -326,7 +326,7 @@ export class RecurrenceTimelineService {
               transferId: null,
               version: null,
               reviewPayload: null,
-              canConfirm: false,
+              canConfirm: true,
               canSkip: false,
             });
             projectedOccurrences++;

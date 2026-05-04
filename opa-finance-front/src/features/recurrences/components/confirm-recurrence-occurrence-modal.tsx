@@ -10,6 +10,7 @@ import type { Account } from '@/features/accounts'
 import type { Category } from '@/features/categories'
 import { fetchSubcategories } from '@/features/categories'
 import {
+  useAnticipateRecurrenceOccurrence,
   useConfirmRecurrenceOccurrence,
   type Recurrence,
   type RecurrenceOccurrenceReviewPayload,
@@ -51,7 +52,22 @@ function normalizeOptionalText(value: string | undefined) {
 function buildDefaults(
   recurrence: Recurrence | null,
   reviewPayload: RecurrenceOccurrenceReviewPayload | null,
+  occurrenceDate?: string,
 ): ConfirmFormData {
+  if (!reviewPayload && recurrence) {
+    return {
+      originType: recurrence.originType,
+      occurrenceDate: occurrenceDate ?? '',
+      amount: `$ ${formatCurrencyValue(recurrence.amount)}`,
+      description: recurrence.description ?? '',
+      notes: recurrence.notes ?? '',
+      accountId: recurrence.accountId ?? '',
+      categoryId: recurrence.categoryId ?? '',
+      subcategoryId: recurrence.subcategoryId ?? '',
+      fromAccountId: recurrence.fromAccountId ?? '',
+      toAccountId: recurrence.toAccountId ?? '',
+    }
+  }
   return {
     originType: recurrence?.originType ?? reviewPayload?.originType ?? 'transaction',
     occurrenceDate: reviewPayload?.occurrenceDate ?? '',
@@ -81,12 +97,15 @@ export function ConfirmRecurrenceOccurrenceModal({
   const [subcategories, setSubcategories] = useState<Array<{ id: string; name: string }>>([])
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false)
 
+  const isProjected = occurrence?.source === 'projected'
+
   const queryClient = useQueryClient()
   const confirmMutation = useConfirmRecurrenceOccurrence()
-  const isSubmitting = confirmMutation.isPending
+  const anticipateMutation = useAnticipateRecurrenceOccurrence()
+  const isSubmitting = confirmMutation.isPending || anticipateMutation.isPending
 
   const form = useForm<ConfirmFormData>({
-    defaultValues: buildDefaults(recurrence, occurrence?.reviewPayload ?? null),
+    defaultValues: buildDefaults(recurrence, occurrence?.reviewPayload ?? null, occurrence?.occurrenceDate),
   })
 
   const selectedCategoryId = form.watch('categoryId')
@@ -103,7 +122,7 @@ export function ConfirmRecurrenceOccurrenceModal({
 
   useEffect(() => {
     if (!occurrence) return
-    form.reset(buildDefaults(recurrence, occurrence.reviewPayload))
+    form.reset(buildDefaults(recurrence, occurrence.reviewPayload, occurrence.occurrenceDate))
     setSubmitError(null)
   }, [form, occurrence, recurrence])
 
@@ -181,18 +200,13 @@ export function ConfirmRecurrenceOccurrenceModal({
   const canRender = Boolean(
     recurrence &&
       occurrence &&
-      occurrence.id &&
-      occurrence.reviewPayload &&
-      occurrence.version !== null,
+      (isProjected || (occurrence.id && occurrence.reviewPayload && occurrence.version !== null)),
   )
 
   async function handleSubmit(values: ConfirmFormData) {
-    if (!occurrence || !recurrence || !occurrence.reviewPayload || occurrence.version === null) {
-      return
-    }
+    if (!occurrence || !recurrence) return
 
-    const occurrenceId = occurrence.id
-    if (!occurrenceId) {
+    if (!isProjected && (!occurrence.reviewPayload || occurrence.version === null || !occurrence.id)) {
       return
     }
 
@@ -204,11 +218,11 @@ export function ConfirmRecurrenceOccurrenceModal({
       return
     }
 
-    const accountId = values.accountId || reviewPayload.accountId || undefined
-    const categoryId = values.categoryId || reviewPayload.categoryId || undefined
-    const subcategoryId = values.subcategoryId || reviewPayload.subcategoryId || undefined
-    const fromAccountId = values.fromAccountId || reviewPayload.fromAccountId || undefined
-    const toAccountId = values.toAccountId || reviewPayload.toAccountId || undefined
+    const accountId = values.accountId || reviewPayload?.accountId || undefined
+    const categoryId = values.categoryId || reviewPayload?.categoryId || undefined
+    const subcategoryId = values.subcategoryId || reviewPayload?.subcategoryId || undefined
+    const fromAccountId = values.fromAccountId || reviewPayload?.fromAccountId || undefined
+    const toAccountId = values.toAccountId || reviewPayload?.toAccountId || undefined
 
     if (values.originType === 'transaction') {
       if (!accountId) {
@@ -234,39 +248,62 @@ export function ConfirmRecurrenceOccurrenceModal({
       }
     }
 
-    const payload =
-      values.originType === 'transaction'
-        ? {
-            expectedVersion: occurrence.version,
-            occurrenceDate: values.occurrenceDate || reviewPayload.occurrenceDate,
-            amount: parsedAmount,
-            description:
-              normalizeOptionalText(values.description) ??
-              reviewPayload.description ??
-              null,
-            notes: normalizeOptionalText(values.notes) ?? reviewPayload.notes ?? null,
-            accountId,
-            categoryId,
-            subcategoryId,
-          }
-        : {
-            expectedVersion: occurrence.version,
-            occurrenceDate: values.occurrenceDate || reviewPayload.occurrenceDate,
-            amount: parsedAmount,
-            description:
-              normalizeOptionalText(values.description) ??
-              reviewPayload.description ??
-              null,
-            notes: normalizeOptionalText(values.notes) ?? reviewPayload.notes ?? null,
-            fromAccountId,
-            toAccountId,
-          }
-
     try {
-      await confirmMutation.mutateAsync({
-        occurrenceId,
-        payload,
-      })
+      if (isProjected) {
+        const anticipatePayload =
+          values.originType === 'transaction'
+            ? {
+                occurrenceDate: values.occurrenceDate || occurrence.occurrenceDate,
+                amount: parsedAmount,
+                description: normalizeOptionalText(values.description) ?? null,
+                notes: normalizeOptionalText(values.notes) ?? null,
+                accountId,
+                categoryId,
+                subcategoryId,
+              }
+            : {
+                occurrenceDate: values.occurrenceDate || occurrence.occurrenceDate,
+                amount: parsedAmount,
+                description: normalizeOptionalText(values.description) ?? null,
+                notes: normalizeOptionalText(values.notes) ?? null,
+                fromAccountId,
+                toAccountId,
+              }
+
+        await anticipateMutation.mutateAsync({
+          recurrenceId: recurrence.id,
+          payload: anticipatePayload,
+        })
+      } else {
+        const confirmPayload =
+          values.originType === 'transaction'
+            ? {
+                expectedVersion: occurrence.version!,
+                occurrenceDate: values.occurrenceDate || reviewPayload!.occurrenceDate,
+                amount: parsedAmount,
+                description:
+                  normalizeOptionalText(values.description) ?? reviewPayload!.description ?? null,
+                notes: normalizeOptionalText(values.notes) ?? reviewPayload!.notes ?? null,
+                accountId,
+                categoryId,
+                subcategoryId,
+              }
+            : {
+                expectedVersion: occurrence.version!,
+                occurrenceDate: values.occurrenceDate || reviewPayload!.occurrenceDate,
+                amount: parsedAmount,
+                description:
+                  normalizeOptionalText(values.description) ?? reviewPayload!.description ?? null,
+                notes: normalizeOptionalText(values.notes) ?? reviewPayload!.notes ?? null,
+                fromAccountId,
+                toAccountId,
+              }
+
+        await confirmMutation.mutateAsync({
+          occurrenceId: occurrence.id!,
+          payload: confirmPayload,
+        })
+      }
       onClose()
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status

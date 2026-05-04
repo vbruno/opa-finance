@@ -5,6 +5,7 @@ import {
   editRecurrenceByScopeSchema,
   listRecurrencesQuerySchema,
   materializeRecurrencesSchema,
+  recurrenceAnticipateSchema,
   recurrencesForecastQuerySchema,
   recurrenceOccurrenceParamsSchema,
   recurrenceTimelineQuerySchema,
@@ -194,6 +195,25 @@ export async function recurrenceRoutes(app: FastifyInstance) {
       const { id } = recurrenceOccurrenceParamsSchema.parse(req.params);
       const body = confirmRecurrenceOccurrenceSchema.parse(req.body);
       return service.confirmOccurrence(req.user.sub, id, body);
+    },
+  );
+
+  app.post(
+    "/recurrences/:id/anticipate",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Antecipar ocorrência projetada",
+        description:
+          "Cria e materializa imediatamente uma ocorrência projetada de uma recorrência ativa, sem aguardar o job diário.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const { id } = recurrenceParamsSchema.parse(req.params);
+      const body = recurrenceAnticipateSchema.parse(req.body);
+      return service.anticipateOccurrence(req.user.sub, id, body);
     },
   );
 

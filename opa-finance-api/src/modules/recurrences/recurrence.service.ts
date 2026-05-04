@@ -13,6 +13,7 @@ import type {
   EditRecurrenceByScopeInput,
   ListRecurrencesQuery,
   MaterializeRecurrencesInput,
+  RecurrenceAnticipateInput,
   RecurrencesForecastQuery,
   RecurrenceTimelineQuery,
   SkipRecurrenceOccurrenceInput,
@@ -58,7 +59,22 @@ export class RecurrenceService {
   }
 
   async create(userId: string, data: CreateRecurrenceInput) {
-    return this.crud.create(userId, data);
+    const created = await this.crud.create(userId, data);
+
+    if (data.postingMode === "automatic") {
+      const today = await this.validators.getNowIsoDateInTimezone(
+        await this.validators.getUserTimezone(userId),
+      );
+      if (created.nextOccurrenceDate && created.nextOccurrenceDate <= today) {
+        await this.materializeService
+          .materialize(userId, { recurrenceId: created.id })
+          .catch((err) =>
+            this.app.log.warn({ err, recurrenceId: created.id }, "immediate materialize failed"),
+          );
+      }
+    }
+
+    return created;
   }
 
   async list(userId: string, query: ListRecurrencesQuery) {
@@ -107,5 +123,13 @@ export class RecurrenceService {
 
   async skipOccurrence(userId: string, occurrenceId: string, input: SkipRecurrenceOccurrenceInput) {
     return this.occurrenceService.skip(userId, occurrenceId, input);
+  }
+
+  async anticipateOccurrence(
+    userId: string,
+    recurrenceId: string,
+    input: RecurrenceAnticipateInput,
+  ) {
+    return this.occurrenceService.anticipate(userId, recurrenceId, input);
   }
 }

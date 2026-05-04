@@ -170,6 +170,7 @@ export class RecurrenceMaterializeService {
           eq(recurrences.userId, userId),
           eq(recurrences.status, "active"),
           sql`${recurrences.deletedAt} IS NULL`,
+          input.recurrenceId ? eq(recurrences.id, input.recurrenceId) : undefined,
         ),
       )
       .orderBy(asc(recurrences.createdAt))

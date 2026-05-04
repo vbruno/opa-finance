@@ -4,7 +4,19 @@ import { CalendarRange, Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useAccounts } from '@/features/accounts'
 import { getUser } from '@/features/auth'
 import {
@@ -34,6 +46,9 @@ import {
   getTodayIsoDateInTimezone,
   toRecurrenceCreatePayload,
 } from '@/features/recurrences/model/recurrences.helpers'
+import { useDebouncedValue } from '@/features/transactions/hooks/use-debounced-value'
+import { buildDescriptionSuggestions } from '@/features/transactions/model/transactions-page.helpers'
+import { useTransactionDescriptions } from '@/features/transactions/transactions.api'
 import type {
   RecurrencesNavigateFn,
   RecurrencesSearchParams,
@@ -74,6 +89,13 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   )
   const [formError, setFormError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<
+    | { type: 'finalize'; recurrence: Recurrence }
+    | { type: 'delete'; recurrence: Recurrence }
+    | { type: 'skip-occurrence'; occurrence: RecurrenceTimelineItem }
+    | null
+  >(null)
+  const [skipReason, setSkipReason] = useState('')
   const [conflictRecurrenceId, setConflictRecurrenceId] = useState<string | null>(
     null,
   )
@@ -99,9 +121,14 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const deleteMutation = useDeleteRecurrence()
   const skipMutation = useSkipRecurrenceOccurrence()
 
+  const accounts = accountsQuery.data ?? []
+  const primaryAccountId = useMemo(
+    () => accounts.find((a) => a.isPrimary)?.id ?? accounts[0]?.id ?? '',
+    [accounts],
+  )
   const accountsById = useMemo(
-    () => new Map((accountsQuery.data ?? []).map((account) => [account.id, account])),
-    [accountsQuery.data],
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
   )
   const categories = useMemo(
     () => (categoriesQuery.data ?? []).filter((category) => !category.system),
@@ -135,29 +162,52 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     updateMutation.isPending ||
     editByScopeMutation.isPending
 
-  const subcategoriesQuery = useQuery({
-    queryKey: ['subcategories', 'recurrences-form', selectedCategoryId],
+  const categoryIdsKey = useMemo(
+    () => categories.map((c) => c.id).join(','),
+    [categories],
+  )
+  const allSubcategoriesQuery = useQuery({
+    queryKey: ['subcategories', 'recurrences-form-all', categoryIdsKey],
     queryFn: async () => {
-      if (!selectedCategoryId) return []
-      return fetchSubcategories(selectedCategoryId)
+      const entries = await Promise.all(
+        categories.map(async (category) => {
+          const subs = await fetchSubcategories(category.id)
+          return [category.id, subs] as const
+        }),
+      )
+      return Object.fromEntries(entries)
     },
-    enabled:
-      isFormOpen &&
-      originType === 'transaction' &&
-      Boolean(selectedCategoryId),
+    enabled: isFormOpen && originType === 'transaction' && categories.length > 0,
   })
+  const subcategoriesByCategory = allSubcategoriesQuery.data ?? {}
+
+  const selectedAccountId = form.watch('accountId')
+  const descriptionValue = form.watch('description')
+  const debouncedDescription = useDebouncedValue(descriptionValue, 1000)
+  const trimmedDescription = debouncedDescription?.trim() ?? ''
+  const shouldFilterDescriptions = /\s/.test(debouncedDescription ?? '') || trimmedDescription.length > 0
+
+  const filteredDescriptionsQuery = useTransactionDescriptions(
+    { accountId: selectedAccountId ?? '', q: trimmedDescription, limit: 20 },
+    { enabled: isFormOpen && Boolean(selectedAccountId) && shouldFilterDescriptions },
+  )
+  const descriptionSuggestions = useMemo(
+    () =>
+      buildDescriptionSuggestions({
+        baseItems: [],
+        filteredItems: filteredDescriptionsQuery.data?.items ?? [],
+        shouldFilter: shouldFilterDescriptions,
+        queryText: trimmedDescription,
+      }),
+    [filteredDescriptionsQuery.data, shouldFilterDescriptions, trimmedDescription],
+  )
+
   const isFormSupportDataLoading =
     accountsQuery.isLoading ||
     categoriesQuery.isLoading ||
-    (isFormOpen &&
-      originType === 'transaction' &&
-      Boolean(selectedCategoryId) &&
-      (subcategoriesQuery.isLoading || subcategoriesQuery.isFetching))
+    (isFormOpen && originType === 'transaction' && allSubcategoriesQuery.isLoading)
   const isSubcategoriesError =
-    isFormOpen &&
-    originType === 'transaction' &&
-    Boolean(selectedCategoryId) &&
-    subcategoriesQuery.isError
+    isFormOpen && originType === 'transaction' && allSubcategoriesQuery.isError
 
   const total = recurrencesQuery.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / limit))
@@ -165,32 +215,11 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     ? getApiErrorMessage(recurrencesQuery.error)
     : undefined
 
-  useEffect(() => {
-    const currentCategoryId = form.getValues('categoryId')
-    const currentSubcategoryId = form.getValues('subcategoryId')
-    if (!currentCategoryId || !currentSubcategoryId) return
-    if (subcategoriesQuery.isLoading || subcategoriesQuery.isFetching) return
-    if (!subcategoriesQuery.data) return
-
-    const availableSubcategories = subcategoriesQuery.data ?? []
-    const hasCurrent = availableSubcategories.some(
-      (subcategory) => subcategory.id === currentSubcategoryId,
-    )
-    if (!hasCurrent) {
-      form.setValue('subcategoryId', '')
-    }
-  }, [
-    form,
-    subcategoriesQuery.data,
-    subcategoriesQuery.isFetching,
-    subcategoriesQuery.isLoading,
-  ])
-
   function openCreateModal() {
     setEditingRecurrence(null)
     setFormError(null)
     setConflictRecurrenceId(null)
-    form.reset(getDefaultRecurrenceFormValues(userTimezone))
+    form.reset({ ...getDefaultRecurrenceFormValues(userTimezone), accountId: primaryAccountId })
     setIsFormOpen(true)
   }
 
@@ -212,23 +241,22 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setActionError(null)
   }
 
-  async function handleSkipOccurrence(occurrence: RecurrenceTimelineItem) {
+  function handleSkipOccurrence(occurrence: RecurrenceTimelineItem) {
     if (!detailsRecurrence || !occurrence.id || occurrence.version === null) return
+    setSkipReason('')
+    setConfirmDialog({ type: 'skip-occurrence', occurrence })
+  }
 
+  async function executeSkipOccurrence(occurrence: RecurrenceTimelineItem) {
+    if (!occurrence.id || occurrence.version === null) return
+    setConfirmDialog(null)
     setActionError(null)
-    const shouldSkip = window.confirm(
-      'Ignorar esta pendência? Ela continuará consumindo a posição da recorrência.',
-    )
-    if (!shouldSkip) return
-
-    const reason = window.prompt('Motivo opcional para ignorar:') ?? undefined
-
     try {
       await skipMutation.mutateAsync({
         occurrenceId: occurrence.id,
         payload: {
           expectedVersion: occurrence.version,
-          reason: reason?.trim() ? reason.trim() : undefined,
+          reason: skipReason.trim() || undefined,
         },
       })
     } catch (error) {
@@ -269,43 +297,35 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [closeModal, isAnyMutationPending, isFormOpen])
 
-  async function handleFinalize(recurrence: Recurrence) {
-    if (
-      !window.confirm(
-        'Finalizar esta recorrência? Ela deixará de gerar novas ocorrências.',
-      )
-    ) {
-      return
-    }
+  function handleFinalize(recurrence: Recurrence) {
+    setConfirmDialog({ type: 'finalize', recurrence })
+  }
 
-    setFormError(null)
+  async function executeFinalize(recurrence: Recurrence) {
+    setConfirmDialog(null)
+    setActionError(null)
     try {
       await finalizeMutation.mutateAsync(recurrence.id)
     } catch (error) {
-      setFormError(getApiErrorMessage(error))
+      setActionError(getApiErrorMessage(error))
     }
   }
 
-  async function handleDelete(recurrence: Recurrence) {
-    setFormError(null)
-
+  function handleDelete(recurrence: Recurrence) {
     if (recurrence.status === 'active') {
-      setFormError('Finalize a recorrência antes de excluir.')
+      setActionError('Finalize a recorrência antes de excluir.')
       return
     }
+    setConfirmDialog({ type: 'delete', recurrence })
+  }
 
-    if (
-      !window.confirm(
-        'Excluir esta recorrência finalizada? Esta operação é lógica e preserva histórico técnico.',
-      )
-    ) {
-      return
-    }
-
+  async function executeDelete(recurrence: Recurrence) {
+    setConfirmDialog(null)
+    setActionError(null)
     try {
       await deleteMutation.mutateAsync(recurrence.id)
     } catch (error) {
-      setFormError(getApiErrorMessage(error))
+      setActionError(getApiErrorMessage(error))
     }
   }
 
@@ -444,7 +464,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
       <RecurrencesFilters
         search={search}
-        accounts={accountsQuery.data ?? []}
+        accounts={accounts}
         onSetSearch={setSearch}
       />
 
@@ -507,6 +527,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         onDelete={(recurrence) => void handleDelete(recurrence)}
         finalizePending={finalizeMutation.isPending}
         deletePending={deleteMutation.isPending}
+        errorMessage={actionError}
         onOpenConfirmOccurrence={openConfirmOccurrenceModal}
         onSkipOccurrence={(occurrence) => void handleSkipOccurrence(occurrence)}
         onActionError={setActionError}
@@ -515,7 +536,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
       <ConfirmRecurrenceOccurrenceModal
         recurrence={detailsRecurrence}
         occurrence={confirmOccurrence}
-        accounts={(accountsQuery.data ?? []).filter(Boolean)}
+        accounts={(accounts).filter(Boolean)}
         categories={categories}
         onClose={() => setConfirmOccurrence(null)}
       />
@@ -531,10 +552,14 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         conflictRecurrenceId={conflictRecurrenceId}
         isConflictRefetching={conflictRecurrenceQuery.isFetching}
         editingRecurrence={editingRecurrence}
-        accounts={accountsQuery.data ?? []}
+        accounts={accounts}
         categories={categories}
-        subcategories={subcategoriesQuery.data ?? []}
+        subcategoriesByCategory={subcategoriesByCategory}
         selectedCategoryType={selectedCategoryType}
+        descriptionSuggestions={descriptionSuggestions}
+        areDescriptionSuggestionsLoading={filteredDescriptionsQuery.isLoading}
+        hasDescriptionSuggestionsError={filteredDescriptionsQuery.isError}
+        shouldFilterSuggestions={shouldFilterDescriptions}
         originType={originType}
         frequency={frequency}
         endType={endType}
@@ -543,8 +568,87 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         onClose={closeModal}
         onSubmit={onSubmit}
         onReloadAfterConflict={handleReloadAfterConflict}
-        onSubcategoriesRefetch={() => void subcategoriesQuery.refetch()}
+        onSubcategoriesRefetch={() => void allSubcategoriesQuery.refetch()}
       />
+
+      {/* Finalizar */}
+      <AlertDialog
+        open={confirmDialog?.type === 'finalize'}
+        onOpenChange={(open) => { if (!open) setConfirmDialog(null) }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar recorrência</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ela deixará de gerar novas ocorrências. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDialog?.type === 'finalize' && void executeFinalize(confirmDialog.recurrence)}
+            >
+              Finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Excluir */}
+      <AlertDialog
+        open={confirmDialog?.type === 'delete'}
+        onOpenChange={(open) => { if (!open) setConfirmDialog(null) }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir recorrência</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação é lógica e preserva o histórico técnico, mas a recorrência não poderá ser recuperada pela interface.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => confirmDialog?.type === 'delete' && void executeDelete(confirmDialog.recurrence)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Ignorar ocorrência */}
+      <AlertDialog
+        open={confirmDialog?.type === 'skip-occurrence'}
+        onOpenChange={(open) => { if (!open) setConfirmDialog(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ignorar pendência</AlertDialogTitle>
+            <AlertDialogDescription>
+              A ocorrência continuará consumindo a posição da recorrência.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="skip-reason-page">Motivo (opcional)</Label>
+            <Input
+              id="skip-reason-page"
+              placeholder="Ex.: pagamento adiado"
+              value={skipReason}
+              onChange={(e) => setSkipReason(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDialog?.type === 'skip-occurrence' && void executeSkipOccurrence(confirmDialog.occurrence)}
+            >
+              Ignorar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

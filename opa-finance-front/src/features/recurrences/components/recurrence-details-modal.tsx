@@ -1,7 +1,19 @@
 import { ArrowDown, ArrowUp, CheckCircle2, Pencil, SkipForward, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
@@ -32,6 +44,7 @@ type RecurrenceDetailsModalProps = {
   onDelete: (recurrence: Recurrence) => void
   finalizePending?: boolean
   deletePending?: boolean
+  errorMessage?: string | null
   onOpenConfirmOccurrence: (item: RecurrenceTimelineItem) => void
   onSkipOccurrence: (item: RecurrenceTimelineItem) => void
   onActionError: (message: string) => void
@@ -64,12 +77,15 @@ export function RecurrenceDetailsModal({
   onDelete,
   finalizePending = false,
   deletePending = false,
+  errorMessage,
   onOpenConfirmOccurrence,
   onSkipOccurrence,
   onActionError,
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const [isBulkSkipping, setIsBulkSkipping] = useState(false)
+  const [bulkSkipOpen, setBulkSkipOpen] = useState(false)
+  const [bulkSkipReason, setBulkSkipReason] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(12)
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
@@ -112,16 +128,14 @@ export function RecurrenceDetailsModal({
     [timelineQuery.data?.items],
   )
 
-  async function handleSkipPendingReviewItems() {
+  function handleSkipPendingReviewItems() {
     if (!recurrence || pendingReviewItems.length === 0) return
+    setBulkSkipReason('')
+    setBulkSkipOpen(true)
+  }
 
-    const shouldSkip = window.confirm(
-      `Ignorar ${pendingReviewItems.length} pendência(s) em aberto? Elas continuarão consumindo a posição da recorrência.`,
-    )
-    if (!shouldSkip) return
-
-    const reason = window.prompt('Motivo opcional para ignorar em massa:') ?? undefined
-
+  async function executeBulkSkip() {
+    setBulkSkipOpen(false)
     setIsBulkSkipping(true)
     try {
       for (const item of pendingReviewItems) {
@@ -129,7 +143,7 @@ export function RecurrenceDetailsModal({
           occurrenceId: item.id as string,
           payload: {
             expectedVersion: item.version as number,
-            reason: reason?.trim() ? reason.trim() : undefined,
+            reason: bulkSkipReason.trim() || undefined,
           },
         })
       }
@@ -161,6 +175,7 @@ export function RecurrenceDetailsModal({
     : null
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
@@ -214,6 +229,14 @@ export function RecurrenceDetailsModal({
             </Button>
           </div>
         </div>
+
+        {errorMessage ? (
+          <div className="shrink-0 border-b px-4 py-2 sm:px-5">
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto px-4 py-3 sm:px-5">
           <dl className="shrink-0 overflow-hidden rounded-2xl border bg-muted/20 divide-y">
@@ -425,5 +448,32 @@ export function RecurrenceDetailsModal({
         </div>
       </div>
     </div>
+
+    <AlertDialog open={bulkSkipOpen} onOpenChange={(open) => { if (!open) setBulkSkipOpen(false) }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Ignorar {pendingReviewItems.length} pendência(s)</AlertDialogTitle>
+          <AlertDialogDescription>
+            Elas continuarão consumindo a posição da recorrência.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-skip-reason">Motivo (opcional)</Label>
+          <Input
+            id="bulk-skip-reason"
+            placeholder="Ex.: lançamentos fora do período"
+            value={bulkSkipReason}
+            onChange={(e) => setBulkSkipReason(e.target.value)}
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={() => void executeBulkSkip()}>
+            Ignorar todas
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }

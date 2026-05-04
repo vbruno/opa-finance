@@ -223,6 +223,18 @@ export type SkipRecurrenceOccurrencePayload = {
   reason?: string
 }
 
+export type AnticipateRecurrenceOccurrencePayload = {
+  occurrenceDate: string
+  amount?: number
+  description?: string | null
+  notes?: string | null
+  accountId?: string
+  categoryId?: string
+  subcategoryId?: string | null
+  fromAccountId?: string
+  toAccountId?: string
+}
+
 const recurrencesKey = ['recurrences']
 const recurrenceKey = (id: string) => ['recurrence', id]
 
@@ -383,6 +395,26 @@ export function useSkipRecurrenceOccurrence() {
       payload: SkipRecurrenceOccurrencePayload
     }) => {
       const response = await api.post(`/recurrences/occurrences/${occurrenceId}/skip`, payload)
+      return response.data
+    },
+    onSuccess: () => {
+      invalidateRecurrenceDependentQueries(queryClient)
+    },
+  })
+}
+
+export function useAnticipateRecurrenceOccurrence() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      recurrenceId,
+      payload,
+    }: {
+      recurrenceId: string
+      payload: AnticipateRecurrenceOccurrencePayload
+    }) => {
+      const response = await api.post(`/recurrences/${recurrenceId}/anticipate`, payload)
       return response.data
     },
     onSuccess: () => {

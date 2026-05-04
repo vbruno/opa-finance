@@ -28,6 +28,7 @@
 - Cálculo de calendário considera timezone do usuário/regra
 - Timeline expõe `version` e `reviewPayload` para itens persistidos, permitindo confirm/skip com lock otimista e pré-preenchimento do modal no frontend
 - Para ocorrências `materialized` com `transactionId`, o `amount` exibido na timeline é sempre o valor atual da tabela `transactions` (não o `reviewPayload`), refletindo edições feitas após a materialização; para transferências (`transferId != null`), o comportamento é mantido via `reviewPayload`
+- Antecipação (`POST /recurrences/:id/anticipate`): permite materializar imediatamente uma ocorrência projetada (ainda não persistida); valida que a data é válida na série, que não existe duplicata e que o limite `by_occurrences` não foi atingido; insere a ocorrência e cria a transação/transferência na mesma transação de banco
 - A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
 
 ## Endpoints
@@ -41,6 +42,7 @@
 - `DELETE /recurrences/:id`
 - `POST /recurrences/occurrences/:id/confirm`
 - `POST /recurrences/occurrences/:id/skip`
+- `POST /recurrences/:id/anticipate`
 - `POST /recurrences/materialize`
 - `GET /recurrences/:id/timeline`
 - `GET /recurrences/forecast`

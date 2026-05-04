@@ -1,13 +1,18 @@
 import { randomUUID } from "crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { ConflictProblem, NotFoundProblem, UnprocessableProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
-import { compareIsoDate } from "../../core/utils/recurrence-schedule.utils";
+import {
+  compareIsoDate,
+  getFirstOccurrenceOnOrAfter,
+  type RecurrenceSchedule,
+} from "../../core/utils/recurrence-schedule.utils";
 import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
 import type {
   ConfirmRecurrenceOccurrenceInput,
+  RecurrenceAnticipateInput,
   RecurrenceOccurrenceReviewPayload,
   SkipRecurrenceOccurrenceInput,
 } from "./recurrence.schemas";
@@ -394,6 +399,174 @@ export class RecurrenceOccurrenceService {
         userId,
         occurrenceId: confirmedOccurrence.id,
         operation: "recurrence-occurrence-confirm",
+      },
+    );
+
+    return confirmedOccurrence;
+  }
+
+  async anticipate(userId: string, recurrenceId: string, input: RecurrenceAnticipateInput) {
+    const actionPath = `/recurrences/${recurrenceId}/anticipate`;
+
+    const [loaded] = await this.app.db
+      .select()
+      .from(recurrences)
+      .where(
+        and(
+          eq(recurrences.id, recurrenceId),
+          eq(recurrences.userId, userId),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!loaded) {
+      throw new NotFoundProblem("Recorrência não encontrada.", actionPath);
+    }
+
+    if (loaded.status !== "active") {
+      throw new UnprocessableProblem(
+        "Apenas recorrências ativas podem ter ocorrências antecipadas.",
+        actionPath,
+      );
+    }
+
+    const schedule: RecurrenceSchedule = {
+      startDate: loaded.startDate,
+      frequency: loaded.frequency,
+      dayOfWeek: loaded.dayOfWeek,
+      dayOfMonth: loaded.dayOfMonth,
+      monthOfYear: loaded.monthOfYear,
+    };
+
+    const firstOnOrAfter = getFirstOccurrenceOnOrAfter(schedule, input.occurrenceDate);
+    if (firstOnOrAfter !== input.occurrenceDate) {
+      throw new UnprocessableProblem(
+        "A data informada não corresponde a uma ocorrência válida da série.",
+        actionPath,
+      );
+    }
+
+    if (compareIsoDate(input.occurrenceDate, loaded.startDate) < 0) {
+      throw new UnprocessableProblem(
+        "A data informada é anterior ao início da recorrência.",
+        actionPath,
+      );
+    }
+
+    if (loaded.endDate && compareIsoDate(input.occurrenceDate, loaded.endDate) > 0) {
+      throw new UnprocessableProblem(
+        "A data informada é posterior ao término da recorrência.",
+        actionPath,
+      );
+    }
+
+    const [existing] = await this.app.db
+      .select({ id: recurrenceOccurrences.id })
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          eq(recurrenceOccurrences.occurrenceDate, input.occurrenceDate),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      throw new ConflictProblem("Já existe uma ocorrência registrada para esta data.", actionPath);
+    }
+
+    if (loaded.endType === "by_occurrences" && loaded.endOccurrences) {
+      const [consumedResult] = await this.app.db
+        .select({ total: count() })
+        .from(recurrenceOccurrences)
+        .where(
+          and(
+            eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+            sql`${recurrenceOccurrences.status} IN ('materialized', 'pending_review', 'skipped')`,
+          ),
+        );
+
+      if ((consumedResult?.total ?? 0) >= loaded.endOccurrences) {
+        throw new UnprocessableProblem(
+          "A recorrência já atingiu o número máximo de ocorrências.",
+          actionPath,
+        );
+      }
+    }
+
+    const reviewPayload: RecurrenceOccurrenceReviewPayload = {
+      occurrenceDate: input.occurrenceDate,
+      originalScheduledDate: input.occurrenceDate,
+      originType: loaded.originType,
+      amount: input.amount ?? Number(loaded.amount),
+      description: input.description !== undefined ? input.description : loaded.description,
+      notes: input.notes !== undefined ? input.notes : loaded.notes,
+      accountId: input.accountId ?? loaded.accountId,
+      categoryId: input.categoryId ?? loaded.categoryId,
+      subcategoryId: input.subcategoryId !== undefined ? input.subcategoryId : loaded.subcategoryId,
+      fromAccountId: input.fromAccountId ?? loaded.fromAccountId,
+      toAccountId: input.toAccountId ?? loaded.toAccountId,
+    };
+
+    await this.validateConfirmPayloadOwnership(userId, loaded, reviewPayload);
+
+    const confirmedOccurrence = await this.app.db.transaction(async (tx: DB) => {
+      const confirmedAt = new Date().toISOString();
+
+      const [newOccurrence] = await tx
+        .insert(recurrenceOccurrences)
+        .values({
+          recurrenceId,
+          originType: loaded.originType,
+          occurrenceDate: input.occurrenceDate,
+          status: "materialized",
+          version: 1,
+          reviewPayload,
+          metadata: { confirmedAt, source: "anticipate" },
+        })
+        .returning();
+
+      const result =
+        reviewPayload.originType === "transaction"
+          ? await this.createTransactionFromPending(tx, loaded, reviewPayload)
+          : await this.createTransferFromPending(tx, loaded, reviewPayload);
+
+      const [savedOccurrence] = await tx
+        .update(recurrenceOccurrences)
+        .set({
+          transactionId: result.transactionId,
+          transferId: result.transferId,
+        })
+        .where(eq(recurrenceOccurrences.id, newOccurrence.id))
+        .returning();
+
+      return {
+        ...savedOccurrence,
+        reviewPayload,
+      };
+    });
+
+    await this.recurrenceAudit.logBestEffort(
+      {
+        userId,
+        entityType: "recurrence_occurrence",
+        entityId: confirmedOccurrence.id,
+        action: "confirm",
+        beforeData: null,
+        afterData: this.recurrenceAudit.toOccurrenceAuditData(
+          confirmedOccurrence,
+          confirmedOccurrence.reviewPayload as Record<string, unknown> | null,
+        ),
+        metadata: {
+          operation: "recurrence-occurrence-anticipate",
+        },
+      },
+      {
+        recurrenceId: loaded.id,
+        userId,
+        occurrenceId: confirmedOccurrence.id,
+        operation: "recurrence-occurrence-anticipate",
       },
     );
 
