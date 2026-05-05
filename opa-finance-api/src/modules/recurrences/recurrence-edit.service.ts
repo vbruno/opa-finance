@@ -75,7 +75,7 @@ export class RecurrenceEditService {
       data.dayOfWeek !== undefined ||
       data.dayOfMonth !== undefined ||
       data.monthOfYear !== undefined ||
-      (data.endType !== undefined && data.endType !== "never") ||
+      data.endType !== undefined ||
       data.endOccurrences !== undefined ||
       data.endDate !== undefined
     );
@@ -532,7 +532,8 @@ export class RecurrenceEditService {
     );
 
     const mergedStartDate = data.startDate ?? existing.startDate;
-    const mergedEndDate = data.endDate ?? existing.endDate;
+    const nextEndType = data.endType ?? existing.endType;
+    const mergedEndDate = nextEndType === "until_date" ? (data.endDate ?? existing.endDate) : null;
     if (mergedEndDate && mergedEndDate < mergedStartDate) {
       throw new ValidationProblem(
         "Data final não pode ser anterior à data de início.",
@@ -541,14 +542,56 @@ export class RecurrenceEditService {
     }
 
     const payload: Partial<typeof recurrences.$inferInsert> = {};
-    if (data.frequency !== undefined) payload.frequency = data.frequency;
+    const nextFrequency = data.frequency ?? existing.frequency;
+    if (data.frequency !== undefined) {
+      payload.frequency = data.frequency;
+      if (nextFrequency === "weekly" || nextFrequency === "biweekly") {
+        payload.dayOfMonth = null;
+        payload.monthOfYear = null;
+      }
+      if (nextFrequency === "monthly") {
+        payload.dayOfWeek = null;
+        payload.monthOfYear = null;
+      }
+      if (nextFrequency === "yearly") {
+        payload.dayOfWeek = null;
+      }
+    }
     if (data.startDate !== undefined) payload.startDate = data.startDate;
-    if (data.dayOfWeek !== undefined) payload.dayOfWeek = data.dayOfWeek;
-    if (data.dayOfMonth !== undefined) payload.dayOfMonth = data.dayOfMonth;
-    if (data.monthOfYear !== undefined) payload.monthOfYear = data.monthOfYear;
-    if (data.endType !== undefined) payload.endType = data.endType;
-    if (data.endOccurrences !== undefined) payload.endOccurrences = data.endOccurrences;
-    if (data.endDate !== undefined) payload.endDate = data.endDate;
+    if (
+      data.dayOfWeek !== undefined &&
+      (nextFrequency === "weekly" || nextFrequency === "biweekly")
+    ) {
+      payload.dayOfWeek = data.dayOfWeek;
+    }
+    if (
+      data.dayOfMonth !== undefined &&
+      (nextFrequency === "monthly" || nextFrequency === "yearly")
+    ) {
+      payload.dayOfMonth = data.dayOfMonth;
+    }
+    if (data.monthOfYear !== undefined && nextFrequency === "yearly") {
+      payload.monthOfYear = data.monthOfYear;
+    }
+    if (data.endType !== undefined) {
+      payload.endType = data.endType;
+      if (data.endType === "never") {
+        payload.endOccurrences = null;
+        payload.endDate = null;
+      }
+      if (data.endType === "by_occurrences") {
+        payload.endDate = null;
+      }
+      if (data.endType === "until_date") {
+        payload.endOccurrences = null;
+      }
+    }
+    if (nextEndType === "by_occurrences" && data.endOccurrences !== undefined) {
+      payload.endOccurrences = data.endOccurrences;
+    }
+    if (nextEndType === "until_date" && data.endDate !== undefined) {
+      payload.endDate = data.endDate;
+    }
     if (data.postingMode !== undefined) payload.postingMode = data.postingMode;
     if (data.accountId !== undefined) payload.accountId = data.accountId;
     if (data.categoryId !== undefined) payload.categoryId = data.categoryId;

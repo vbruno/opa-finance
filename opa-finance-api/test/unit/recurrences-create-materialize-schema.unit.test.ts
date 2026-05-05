@@ -56,9 +56,45 @@ describe("recurrences create and update schema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("aceita update vazio pelo default interno de endType (comportamento atual)", () => {
-    const result = updateRecurrenceSchema.safeParse({});
+  it("aceita update parcial sem aplicar defaults da criação", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      description: "Descrição alterada",
+    });
+
     expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.endType).toBeUndefined();
+    expect(result.data.postingMode).toBeUndefined();
+  });
+
+  it("bloqueia update vazio", () => {
+    const result = updateRecurrenceSchema.safeParse({});
+
+    expect(result.success).toBe(false);
+  });
+
+  it("bloqueia update apenas com expectedVersion", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      expectedVersion: 1,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("aceita limpar subcategoria no update", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      subcategoryId: null,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("bloqueia mudança de frequência sem campos de agenda obrigatórios", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      frequency: "weekly",
+    });
+
+    expect(result.success).toBe(false);
   });
 });
 

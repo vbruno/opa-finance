@@ -305,7 +305,8 @@ export function useUpdateRecurrence() {
       const response = await api.put<Recurrence>(`/recurrences/${id}`, payload)
       return response.data
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(recurrenceKey(variables.id), data)
       invalidateRecurrenceDependentQueries(queryClient)
       queryClient.invalidateQueries({ queryKey: recurrenceKey(variables.id) })
     },

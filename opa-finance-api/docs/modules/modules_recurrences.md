@@ -20,6 +20,8 @@
 - Status de ocorrência: `materialized`, `pending_review`, `skipped` e `failed`
 - Regra `active` não pode ser excluída; deve ser finalizada antes
 - Edição concorrente usa controle otimista e pode retornar `409`
+- Update parcial de recorrência não aplica defaults de criação; campos omitidos preservam o valor atual da regra
+- Edição por escopo no frontend usa snapshot por escopo: `all` com regra completa, `this_and_next` com nova regra sem `startDate`, `single` apenas com campos de negócio da ocorrência
 - Materialização usa chave idempotente para evitar duplicidade
 - `failed` é estado terminal no MVP; não há retry automático nem reabertura por fluxo padrão
 - `review_required` gera `pending_review` no job e não materializa diretamente a transação/transferência

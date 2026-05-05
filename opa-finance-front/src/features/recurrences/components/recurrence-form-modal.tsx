@@ -46,14 +46,11 @@ type RecurrenceFormModalProps = {
   accounts: Account[]
   categories: Category[]
   subcategoriesByCategory: Record<string, Subcategory[]>
-  selectedCategoryType: Category['type'] | null
   descriptionSuggestions: string[]
   areDescriptionSuggestionsLoading: boolean
   hasDescriptionSuggestionsError: boolean
   shouldFilterSuggestions: boolean
   originType: RecurrenceFormData['originType']
-  frequency: RecurrenceFormData['frequency']
-  endType: RecurrenceFormData['endType']
   editScope: RecurrenceFormData['editScope']
   form: UseFormReturn<RecurrenceFormData>
   onClose: () => void
@@ -76,14 +73,11 @@ export function RecurrenceFormModal({
   accounts,
   categories,
   subcategoriesByCategory,
-  selectedCategoryType,
   descriptionSuggestions,
   areDescriptionSuggestionsLoading,
   hasDescriptionSuggestionsError,
   shouldFilterSuggestions,
   originType,
-  frequency,
-  endType,
   editScope,
   form,
   onClose,
@@ -94,6 +88,8 @@ export function RecurrenceFormModal({
   const modalRef = useRef<HTMLDivElement | null>(null)
   const selectedCategoryId = form.watch('categoryId')
   const postingMode = form.watch('postingMode')
+  const endType = form.watch('endType')
+  const frequency = form.watch('frequency')
   const [isAccountSelectOpen, setIsAccountSelectOpen] = useState(false)
   const [isCategoryTreeOpen, setIsCategoryTreeOpen] = useState(false)
   const [categoryTreeSearch, setCategoryTreeSearch] = useState('')
@@ -106,20 +102,8 @@ export function RecurrenceFormModal({
   const categoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
   const categoryTreeContentRef = useRef<HTMLDivElement | null>(null)
   const lastCategoryId = useRef<string | null>(null)
-  const startDate = form.watch('startDate')
-  const isWeeklyFrequency = frequency === 'weekly' || frequency === 'biweekly'
-
-  useEffect(() => {
-    if (!open || !isWeeklyFrequency || !startDate || isSingleScopeEdit) return
-    const [year, month, day] = startDate.split('-').map(Number)
-    if (!year || !month || !day) return
-    const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-    form.setValue('dayOfWeek', String(dow))
-  }, [open, startDate, isWeeklyFrequency, isSingleScopeEdit, form])
-
   const dayOfWeek = form.watch('dayOfWeek')
-  const derivedDayOfWeekLabel =
-    RECURRENCE_DAY_OF_WEEK_OPTIONS.find((o) => o.value === dayOfWeek)?.label ?? ''
+  const isWeeklyFrequency = frequency === 'weekly' || frequency === 'biweekly'
 
   const isEditingActive = isEditing && editingRecurrence?.status === 'active'
   const hasFormErrors = Object.keys(form.formState.errors).length > 0
@@ -159,6 +143,14 @@ export function RecurrenceFormModal({
 
   useEffect(() => {
     if (!open) return
+
+    setIsAccountSelectOpen(false)
+    setIsCategoryTreeOpen(false)
+    setCategoryTreeSearch('')
+    setIsDescriptionSuggestionsOpen(false)
+    setIsDescriptionFocused(false)
+    setActiveSuggestionIndex(0)
+    lastCategoryId.current = null
 
     const id = window.setTimeout(() => {
       modalRef.current?.focus()
@@ -212,7 +204,7 @@ export function RecurrenceFormModal({
               {/* 1. Modo de lançamento | Origem | Frequência */}
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
                 <div className="min-w-0">
-                  <Label>Modo de lançamento</Label>
+                  <Label htmlFor="recurrence-posting-mode">Modo de lançamento</Label>
                   <Select
                     value={postingMode || '__none__'}
                     onValueChange={(value) =>
@@ -223,7 +215,7 @@ export function RecurrenceFormModal({
                     }
                     disabled={isSingleScopeEdit}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="recurrence-posting-mode">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
@@ -238,7 +230,7 @@ export function RecurrenceFormModal({
                 </div>
 
                 <div className="min-w-0">
-                  <Label>Origem</Label>
+                  <Label htmlFor="recurrence-origin-type">Origem</Label>
                   <Select
                     value={originType}
                     onValueChange={(value) => {
@@ -254,7 +246,7 @@ export function RecurrenceFormModal({
                     }}
                     disabled={isEditing}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="recurrence-origin-type">
                       <SelectValue placeholder="Origem" />
                     </SelectTrigger>
                     <SelectContent>
@@ -265,18 +257,28 @@ export function RecurrenceFormModal({
                 </div>
 
                 <div className="min-w-0">
-                  <Label>Frequência</Label>
+                  <Label htmlFor="recurrence-frequency">Frequência</Label>
                   <Select
                     value={frequency}
-                    onValueChange={(value) =>
-                      form.setValue(
-                        'frequency',
-                        value as RecurrenceFormData['frequency'],
-                      )
-                    }
+                    onValueChange={(value) => {
+                      const nextFrequency =
+                        value as RecurrenceFormData['frequency']
+
+                      form.setValue('frequency', nextFrequency)
+
+                      if (nextFrequency === 'weekly' || nextFrequency === 'biweekly') {
+                        form.setValue('dayOfMonth', '')
+                        form.setValue('monthOfYear', '')
+                      } else if (nextFrequency === 'monthly') {
+                        form.setValue('dayOfWeek', '')
+                        form.setValue('monthOfYear', '')
+                      } else if (nextFrequency === 'yearly') {
+                        form.setValue('dayOfWeek', '')
+                      }
+                    }}
                     disabled={isSingleScopeEdit}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="recurrence-frequency">
                       <SelectValue placeholder="Frequência" />
                     </SelectTrigger>
                     <SelectContent>
@@ -311,20 +313,37 @@ export function RecurrenceFormModal({
 
                 {isWeeklyFrequency && (
                   <div className="min-w-0">
-                    <Label>Dia da semana</Label>
-                    <Input
-                      readOnly
-                      value={derivedDayOfWeekLabel}
-                      className="h-10 cursor-default"
-                      tabIndex={-1}
-                    />
+                    <Label htmlFor="recurrence-day-of-week">Dia da semana</Label>
+                    <Select
+                      value={dayOfWeek || '__none__'}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          'dayOfWeek',
+                          value === '__none__' ? '' : value,
+                        )
+                      }
+                      disabled={isSingleScopeEdit}
+                    >
+                      <SelectTrigger id="recurrence-day-of-week">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Selecione</SelectItem>
+                        {RECURRENCE_DAY_OF_WEEK_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
                 {(frequency === 'monthly' || frequency === 'yearly') && (
                   <div className="min-w-0">
-                    <Label>Dia do mês</Label>
+                    <Label htmlFor="recurrence-day-of-month">Dia do mês</Label>
                     <Input
+                      id="recurrence-day-of-month"
                       type="number"
                       min={1}
                       max={31}
@@ -337,7 +356,7 @@ export function RecurrenceFormModal({
 
                 {frequency === 'yearly' && (
                   <div className="min-w-0">
-                    <Label>Mês</Label>
+                    <Label htmlFor="recurrence-month-of-year">Mês</Label>
                     <Select
                       value={form.watch('monthOfYear') || '__none__'}
                       onValueChange={(value) =>
@@ -348,7 +367,7 @@ export function RecurrenceFormModal({
                       }
                       disabled={isSingleScopeEdit}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="recurrence-month-of-year">
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
@@ -367,7 +386,7 @@ export function RecurrenceFormModal({
               {/* 3. Término | Data final / Qtd. ocorrências */}
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
                 <div className="min-w-0">
-                  <Label>Término</Label>
+                  <Label htmlFor="recurrence-end-type">Término</Label>
                   <Select
                     value={endType}
                     onValueChange={(value) =>
@@ -378,7 +397,7 @@ export function RecurrenceFormModal({
                     }
                     disabled={isSingleScopeEdit}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="recurrence-end-type">
                       <SelectValue placeholder="Término" />
                     </SelectTrigger>
                     <SelectContent>

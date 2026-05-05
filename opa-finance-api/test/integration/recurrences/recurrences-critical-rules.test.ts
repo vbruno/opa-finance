@@ -1988,6 +1988,79 @@ describe("Recurrences - critical rules", () => {
     expect(res.json().detail).toContain("ocorrência já materializada");
   });
 
+  it("preserva término por ocorrências em update parcial de descrição", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-06",
+      endType: "by_occurrences",
+      endOccurrences: 5,
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        description: "Despesa recorrente 1.6",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().description).toBe("Despesa recorrente 1.6");
+    expect(res.json().endType).toBe("by_occurrences");
+    expect(res.json().endOccurrences).toBe(5);
+
+    const [saved] = await app.db
+      .select({
+        endType: recurrences.endType,
+        endOccurrences: recurrences.endOccurrences,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(saved.endType).toBe("by_occurrences");
+    expect(saved.endOccurrences).toBe(5);
+  });
+
+  it("aceita snapshot completo do frontend com observações vazias ao editar descrição", async () => {
+    const { token, account, category, subcategory } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-06",
+      endType: "by_occurrences",
+      endOccurrences: 5,
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        postingMode: "automatic",
+        frequency: "weekly",
+        startDate: "2099-01-06",
+        dayOfWeek: 1,
+        endType: "by_occurrences",
+        endOccurrences: 5,
+        accountId: account.id,
+        categoryId: category.id,
+        subcategoryId: subcategory.id,
+        amount: 50,
+        description: "Despesa recorrente 2.1",
+        notes: null,
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
   it("retorna 409 em conflito otimista de versao", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({

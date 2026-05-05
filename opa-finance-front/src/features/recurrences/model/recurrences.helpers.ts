@@ -113,6 +113,97 @@ export function toRecurrenceCreatePayload(
   }
 }
 
+export function toRecurrenceUpdatePayload(
+  values: RecurrenceFormData,
+): RecurrenceUpdatePayload {
+  const parsedAmount = parseCurrencyInput(values.amount)
+  if (parsedAmount === null || parsedAmount <= 0) {
+    throw new Error('Valor inválido.')
+  }
+
+  const common: RecurrenceUpdatePayload = {
+    postingMode: values.postingMode,
+    frequency: values.frequency,
+    startDate: values.startDate,
+    amount: parsedAmount,
+    description: values.description?.trim() ? values.description.trim() : null,
+    notes: values.notes?.trim() ? values.notes.trim() : null,
+    endType: values.endType,
+  }
+
+  if (values.frequency === 'weekly' || values.frequency === 'biweekly') {
+    common.dayOfWeek = Number(values.dayOfWeek)
+  }
+
+  if (values.frequency === 'monthly' || values.frequency === 'yearly') {
+    common.dayOfMonth = Number(values.dayOfMonth)
+  }
+
+  if (values.frequency === 'yearly') {
+    common.monthOfYear = Number(values.monthOfYear)
+  }
+
+  if (values.endType === 'by_occurrences') {
+    common.endOccurrences = Number(values.endOccurrences)
+  }
+
+  if (values.endType === 'until_date') {
+    common.endDate = values.endDate
+  }
+
+  if (values.originType === 'transaction') {
+    return {
+      ...common,
+      accountId: values.accountId || '',
+      categoryId: values.categoryId || '',
+      subcategoryId: values.subcategoryId || null,
+    }
+  }
+
+  return {
+    ...common,
+    fromAccountId: values.fromAccountId || '',
+    toAccountId: values.toAccountId || '',
+  }
+}
+
+export function toScopedRecurrenceUpdatePayload(
+  values: RecurrenceFormData,
+  detectedChanges?: RecurrenceUpdatePayload,
+): RecurrenceUpdatePayload {
+  const payload = toRecurrenceUpdatePayload(values)
+
+  if (values.editScope === 'this_and_next') {
+    delete payload.startDate
+  }
+
+  if (values.editScope === 'single') {
+    delete payload.postingMode
+    delete payload.frequency
+    delete payload.startDate
+    delete payload.dayOfWeek
+    delete payload.dayOfMonth
+    delete payload.monthOfYear
+    delete payload.endType
+    delete payload.endOccurrences
+    delete payload.endDate
+  }
+
+  if (detectedChanges) {
+    const nullableClearKeys = ['description', 'notes', 'subcategoryId'] as const
+    for (const key of nullableClearKeys) {
+      if (
+        payload[key] === null &&
+        !Object.prototype.hasOwnProperty.call(detectedChanges, key)
+      ) {
+        delete payload[key]
+      }
+    }
+  }
+
+  return payload
+}
+
 export function buildScopedRecurrenceUpdatePayload(
   values: RecurrenceFormData,
   recurrence: Recurrence,

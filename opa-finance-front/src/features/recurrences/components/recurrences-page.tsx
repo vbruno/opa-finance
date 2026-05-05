@@ -45,15 +45,17 @@ import {
   getRecurrenceFormValuesFromEntity,
   getTodayIsoDateInTimezone,
   toRecurrenceCreatePayload,
+  toScopedRecurrenceUpdatePayload,
 } from '@/features/recurrences/model/recurrences.helpers'
-import { useDebouncedValue } from '@/features/transactions/hooks/use-debounced-value'
-import { buildDescriptionSuggestions } from '@/features/transactions/model/transactions-page.helpers'
-import { useTransactionDescriptions } from '@/features/transactions/transactions.api'
 import type {
   RecurrencesNavigateFn,
   RecurrencesSearchParams,
 } from '@/features/recurrences/model/recurrences.types'
+import { useDebouncedValue } from '@/features/transactions/hooks/use-debounced-value'
+import { buildDescriptionSuggestions } from '@/features/transactions/model/transactions-page.helpers'
+import { useTransactionDescriptions } from '@/features/transactions/transactions.api'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   recurrenceFormSchema,
@@ -121,7 +123,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const deleteMutation = useDeleteRecurrence()
   const skipMutation = useSkipRecurrenceOccurrence()
 
-  const accounts = accountsQuery.data ?? []
+  const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
   const primaryAccountId = useMemo(
     () => accounts.find((a) => a.isPrimary)?.id ?? accounts[0]?.id ?? '',
     [accounts],
@@ -145,16 +147,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   })
 
   const originType = form.watch('originType')
-  const frequency = form.watch('frequency')
-  const endType = form.watch('endType')
-  const selectedCategoryId = form.watch('categoryId')
   const editScope = form.watch('editScope')
-  const selectedCategoryType = useMemo(() => {
-    if (originType !== 'transaction' || !selectedCategoryId) {
-      return null
-    }
-    return categoriesById.get(selectedCategoryId)?.type ?? null
-  }, [categoriesById, originType, selectedCategoryId])
   const isEditing = Boolean(editingRecurrence)
   const isSingleScopeEdit = isEditing && editScope === 'single'
   const isAnyMutationPending =
@@ -223,12 +216,24 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setIsFormOpen(true)
   }
 
-  function openEditModal(recurrence: Recurrence) {
-    setEditingRecurrence(recurrence)
+  async function openEditModal(recurrence: Recurrence) {
     setFormError(null)
     setConflictRecurrenceId(null)
-    form.reset(getRecurrenceFormValuesFromEntity(recurrence))
-    setIsFormOpen(true)
+
+    try {
+      const response = await api.get<Recurrence>(`/recurrences/${recurrence.id}`)
+      const latestRecurrence = response.data
+
+      setEditingRecurrence(latestRecurrence)
+      form.reset(getRecurrenceFormValuesFromEntity(latestRecurrence))
+      setIsFormOpen(true)
+    } catch (error) {
+      setFormError(
+        getApiErrorMessage(error, {
+          defaultMessage: 'Não foi possível carregar os dados mais recentes da recorrência.',
+        }),
+      )
+    }
   }
 
   function openDetailsModal(recurrence: Recurrence) {
@@ -386,30 +391,37 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     }
 
     try {
-      const createPayload = toRecurrenceCreatePayload(values)
-
       if (!editingRecurrence) {
+        const createPayload = toRecurrenceCreatePayload(values)
         await createMutation.mutateAsync(createPayload)
         closeModal()
         return
       }
 
-      const updatePayload = {
-        ...buildScopedRecurrenceUpdatePayload(values, editingRecurrence),
-      }
+      const detectedChanges = buildScopedRecurrenceUpdatePayload(
+        values,
+        editingRecurrence,
+      )
 
-      if (Object.keys(updatePayload).length === 0) {
+      if (Object.keys(detectedChanges).length === 0) {
         setFormError('Nenhuma alteração detectada para salvar.')
         return
       }
 
+      const updatePayload = toScopedRecurrenceUpdatePayload(
+        values,
+        detectedChanges,
+      )
       updatePayload.expectedVersion = editingRecurrence.version
 
       if (values.editScope === 'all') {
-        await updateMutation.mutateAsync({
+        const updatedRecurrence = await updateMutation.mutateAsync({
           id: editingRecurrence.id,
           payload: updatePayload,
         })
+        setDetailsRecurrence((current) =>
+          current?.id === updatedRecurrence.id ? updatedRecurrence : current,
+        )
       } else {
         await editByScopeMutation.mutateAsync({
           id: editingRecurrence.id,
@@ -555,14 +567,11 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         accounts={accounts}
         categories={categories}
         subcategoriesByCategory={subcategoriesByCategory}
-        selectedCategoryType={selectedCategoryType}
         descriptionSuggestions={descriptionSuggestions}
         areDescriptionSuggestionsLoading={filteredDescriptionsQuery.isLoading}
         hasDescriptionSuggestionsError={filteredDescriptionsQuery.isError}
         shouldFilterSuggestions={shouldFilterDescriptions}
         originType={originType}
-        frequency={frequency}
-        endType={endType}
         editScope={editScope}
         form={form}
         onClose={closeModal}

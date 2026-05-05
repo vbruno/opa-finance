@@ -62,6 +62,7 @@ const recurrencesMock: RecurrenceListResponse = {
       originType: 'transaction',
       status: 'active',
       timezone: 'Australia/Adelaide',
+      postingMode: 'automatic',
       frequency: 'monthly',
       startDate: '2026-04-01',
       dayOfWeek: null,
@@ -372,9 +373,7 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
 
     expect(
       await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
@@ -417,9 +416,7 @@ describe('recurrences feature', () => {
 
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
-    fireEvent.click(
-      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
 
     expect(
       await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
@@ -464,9 +461,7 @@ describe('recurrences feature', () => {
 
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
-    fireEvent.click(
-      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
 
     const bulkSkipButton = await screen.findByRole('button', {
       name: 'Ignorar pendências em massa',
@@ -515,7 +510,7 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
     fireEvent.click(
-      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+      screen.getByRole('button', { name: /Academia.*Em execução/i }),
     )
 
     const timelineTable = await screen.findByRole('table', {
@@ -581,7 +576,7 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
     fireEvent.click(
-      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+      screen.getByRole('button', { name: /Academia.*Em execução/i }),
     )
 
     const timelineTable = await screen.findByRole('table', {
@@ -631,7 +626,7 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
     fireEvent.click(
-      screen.getByRole('button', { name: /Ver detalhes da recorrência Academia/i }),
+      screen.getByRole('button', { name: /Academia.*Em execução/i }),
     )
 
     const timelineTable = await screen.findByRole('table', {
@@ -740,14 +735,25 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
 
-    fireEvent.click(screen.getByRole('button', { name: /Editar recorrência/i }))
-    const modalHint = await screen.findByText(
-      'Atualize os dados da regra e escolha o escopo da edição.',
+    fireEvent.click(
+      screen.getByRole('button', { name: /Academia.*Em execução/i }),
     )
-    const modal = modalHint.closest('div')?.parentElement
-    if (!modal) {
-      throw new Error('Modal de edição não encontrado')
-    }
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+
+    expect(within(modal).getByRole('combobox', { name: 'Modo de lançamento' })).toHaveTextContent('Automático')
+    expect(within(modal).getByRole('combobox', { name: 'Origem' })).toHaveTextContent('Transação')
+    expect(within(modal).getByRole('combobox', { name: 'Frequência' })).toHaveTextContent('Mensal')
+    expect(within(modal).getByRole('spinbutton', { name: 'Dia do mês' })).toHaveValue(1)
+    expect(within(modal).getByRole('combobox', { name: 'Término' })).toHaveTextContent('Sem fim')
+    expect(within(modal).getByRole('combobox', { name: 'Conta' })).toHaveTextContent('CommBank ACC')
+    expect(within(modal).getByRole('combobox', { name: 'Categoria/Subcategoria' })).toHaveTextContent('Pessoal')
+    expect(within(modal).getByDisplayValue('Academia')).toBeInTheDocument()
 
     const descriptionInput = within(modal).getByDisplayValue('Academia')
     fireEvent.change(descriptionInput, { target: { value: 'Academia atualizada' } })
@@ -758,5 +764,130 @@ describe('recurrences feature', () => {
     await waitFor(() => expect(updateCalled).toBe(true))
 
     expect((await screen.findAllByText(/Conflito de edição:/i)).length).toBeGreaterThan(0)
+  })
+
+  it('deve recarregar os dados mais recentes antes de abrir a edição', async () => {
+    const latestRecurrence = {
+      ...recurrencesMock.data[0],
+      postingMode: 'review_required' as const,
+      frequency: 'yearly' as const,
+      dayOfWeek: null,
+      dayOfMonth: 15,
+      monthOfYear: 12,
+      endType: 'until_date' as const,
+      endOccurrences: null,
+      endDate: '2026-12-31',
+      version: 2,
+      description: 'Academia atualizada',
+      updatedAt: '2026-05-05T00:00:00.000Z',
+    }
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id', () => ok(latestRecurrence)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+
+    expect(within(modal).getByRole('combobox', { name: 'Modo de lançamento' })).toHaveTextContent('Com revisão')
+    expect(within(modal).getByRole('combobox', { name: 'Frequência' })).toHaveTextContent('Anual')
+    expect(within(modal).getByRole('spinbutton', { name: 'Dia do mês' })).toHaveValue(15)
+    expect(within(modal).getByRole('combobox', { name: 'Mês' })).toHaveTextContent('Dezembro')
+    expect(within(modal).getByRole('combobox', { name: 'Término' })).toHaveTextContent('Por data final')
+    expect(within(modal).getByDisplayValue('2026-12-31')).toBeInTheDocument()
+    expect(within(modal).getByDisplayValue('Academia atualizada')).toBeInTheDocument()
+  })
+
+  it('deve preservar término por ocorrências quando editar apenas a descrição', async () => {
+    const recurrenceWithOccurrences = {
+      ...recurrencesMock.data[0],
+      endType: 'by_occurrences' as const,
+      endOccurrences: 5,
+      endDate: null,
+    }
+
+    let capturedPayload: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () =>
+        ok({
+          ...recurrencesMock,
+          data: [recurrenceWithOccurrences],
+        }),
+      ),
+      http.get('*/recurrences/:id', () => ok(recurrenceWithOccurrences)),
+      http.put('*/recurrences/:id', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>
+        return ok({
+          ...recurrenceWithOccurrences,
+          description: 'Academia atualizada',
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    const descriptionInput = within(modal).getByDisplayValue('Academia')
+    fireEvent.change(descriptionInput, { target: { value: 'Academia atualizada' } })
+
+    const saveButton = screen.getByRole('button', { name: 'Salvar edição' })
+    await waitFor(() => expect(saveButton).not.toBeDisabled())
+    fireEvent.click(saveButton)
+
+    await waitFor(() => expect(capturedPayload).not.toBeNull())
+    expect(capturedPayload).toMatchObject({
+      endType: 'by_occurrences',
+      endOccurrences: 5,
+      description: 'Academia atualizada',
+      expectedVersion: 1,
+    })
+    expect(capturedPayload).not.toHaveProperty('notes')
+    expect(capturedPayload).not.toMatchObject({
+      endType: 'never',
+    })
+    await waitFor(() =>
+      expect(within(detailsModal).getByText('Academia atualizada')).toBeInTheDocument(),
+    )
   })
 })

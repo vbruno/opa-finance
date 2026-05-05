@@ -1642,6 +1642,10 @@ Atualiza uma recorrência ativa.
 
 - suporta controle de concorrência otimista via `expectedVersion`
 - aceita atualização de `postingMode`
+- o payload pode ser parcial, mas campos omitidos não recebem defaults de criação; por exemplo, omitir `endType` preserva o término atual da recorrência
+- se `frequency` for enviado, os campos de agenda obrigatórios para a frequência também devem ser enviados (`dayOfWeek` para `weekly`/`biweekly`, `dayOfMonth` para `monthly`, `dayOfMonth` + `monthOfYear` para `yearly`)
+- se `endType` for enviado, o campo complementar obrigatório também deve ser enviado (`endOccurrences` para `by_occurrences`, `endDate` para `until_date`); campos incompatíveis com o novo término são limpos pelo backend
+- `subcategoryId: null` limpa a subcategoria da recorrência de transação
 
 **Request Body (parcial):**
 
@@ -1692,7 +1696,8 @@ Aplica edição por escopo em recorrência ativa:
 - `single` exige ocorrência já materializada na data selecionada
 - `single` não permite editar ocorrência materializada passada
 - `single` não permite alterar agenda (`frequency`, `startDate`, `endType`, etc.)
-- `postingMode` pode ser alterado em `all` e `this_and_next`; em `single` o backend ignora a troca para não afetar a regra-mãe
+- `postingMode` pode ser alterado em `all` e `this_and_next`; em `single`, o cliente não deve enviar campos de regra/agenda para não afetar a regra-mãe
+- no fluxo de edição do frontend, `all` envia snapshot completo da regra, `this_and_next` envia snapshot da nova regra sem `startDate` (o início vem de `occurrenceDate`) e `single` envia apenas campos de negócio da ocorrência
 
 **Erros:**
 

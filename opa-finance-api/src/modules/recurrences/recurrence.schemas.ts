@@ -158,18 +158,109 @@ export const createRecurrenceSchema = z
     }
   });
 
-export const updateRecurrenceSchema = createRecurrenceSchema
-  .partial()
-  .extend({
+const optionalDateSchema = z
+  .string()
+  .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+  .refine(isValidIsoDate, { message: "Data inválida." })
+  .optional();
+
+export const updateRecurrenceSchema = z
+  .object({
+    originType: recurrenceOriginTypeSchema.optional(),
+    postingMode: recurrencePostingModeSchema.optional(),
+    frequency: recurrenceFrequencySchema.optional(),
+    startDate: optionalDateSchema,
+    dayOfWeek: z.number().int().min(0).max(6).optional(),
+    dayOfMonth: z.number().int().min(1).max(31).optional(),
+    monthOfYear: z.number().int().min(1).max(12).optional(),
+    endType: recurrenceEndTypeSchema.optional(),
+    endOccurrences: z.number().int().min(1).optional(),
+    endDate: optionalDateSchema,
+    accountId: z.uuid().optional(),
+    categoryId: z.uuid().optional(),
+    subcategoryId: z.uuid().nullable().optional(),
+    fromAccountId: z.uuid().optional(),
+    toAccountId: z.uuid().optional(),
+    amount: z.number().positive("Valor deve ser maior que zero.").optional(),
+    description: z.string().max(255).nullable().optional(),
+    notes: z.string().max(500).nullable().optional(),
     expectedVersion: z.number().int().positive().optional(),
   })
-  .refine((data) => data.originType === undefined, {
-    message: "Não é permitido alterar o tipo de origem da recorrência.",
-    path: ["originType"],
+  .superRefine((data, ctx) => {
+    if (data.originType !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Não é permitido alterar o tipo de origem da recorrência.",
+        path: ["originType"],
+      });
+    }
+
+    if (data.frequency === "weekly" || data.frequency === "biweekly") {
+      if (data.dayOfWeek === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Dia da semana é obrigatório para frequência semanal/quinzenal.",
+          path: ["dayOfWeek"],
+        });
+      }
+    }
+
+    if (data.frequency === "monthly" && data.dayOfMonth === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Dia do mês é obrigatório para frequência mensal.",
+        path: ["dayOfMonth"],
+      });
+    }
+
+    if (data.frequency === "yearly") {
+      if (data.monthOfYear === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Mês é obrigatório para frequência anual.",
+          path: ["monthOfYear"],
+        });
+      }
+      if (data.dayOfMonth === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Dia do mês é obrigatório para frequência anual.",
+          path: ["dayOfMonth"],
+        });
+      }
+    }
+
+    if (data.endType === "by_occurrences" && data.endOccurrences === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Quantidade de ocorrências é obrigatória para este tipo de término.",
+        path: ["endOccurrences"],
+      });
+    }
+
+    if (data.endType === "until_date" && data.endDate === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Data final é obrigatória para este tipo de término.",
+        path: ["endDate"],
+      });
+    }
+
+    if (data.startDate && data.endDate && data.endDate < data.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Data final não pode ser anterior à data de início.",
+        path: ["endDate"],
+      });
+    }
   })
-  .refine((data) => Object.values(data).some((value) => value !== undefined), {
-    message: "Pelo menos um campo deve ser atualizado.",
-  });
+  .refine(
+    (data) =>
+      Object.entries(data).some(([key, value]) => key !== "expectedVersion" && value !== undefined),
+    {
+      message: "Pelo menos um campo deve ser atualizado.",
+    },
+  );
 
 export const recurrenceParamsSchema = z.object({
   id: z.uuid(),
