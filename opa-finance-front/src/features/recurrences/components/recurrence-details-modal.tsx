@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
+import { TablePagination } from '@/components/ui/table-pagination'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
 import {
@@ -29,8 +30,8 @@ import {
   formatRecurrenceStatus,
   formatRecurrenceTimelineSource,
   formatRecurrenceTimelineStatus,
+  getRecurrenceOperationalEndDate,
 } from '@/features/recurrences/model/recurrences.helpers'
-import { TablePagination } from '@/components/ui/table-pagination'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
 
@@ -90,12 +91,20 @@ export function RecurrenceDetailsModal({
   const [pageSize, setPageSize] = useState(12)
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const skipMutation = useSkipRecurrenceOccurrence()
-  const timelineQuery = useRecurrenceTimeline(recurrence?.id, {
-    limit: pageSize,
-    page,
-    dir,
-    includeProjected: true,
-  })
+  const timelineParams = useMemo(() => {
+    const operationalEndDate = recurrence
+      ? getRecurrenceOperationalEndDate(recurrence)
+      : null
+
+    return {
+      limit: pageSize,
+      page,
+      dir,
+      untilDate: operationalEndDate ?? undefined,
+      includeProjected: true,
+    }
+  }, [dir, page, pageSize, recurrence])
+  const timelineQuery = useRecurrenceTimeline(recurrence?.id, timelineParams)
 
   useEffect(() => {
     if (!recurrence) return

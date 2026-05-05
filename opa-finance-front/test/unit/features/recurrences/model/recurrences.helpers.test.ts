@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  addOneYearIsoDate,
   buildScopedRecurrenceUpdatePayload,
   compareIsoDate,
   formatIsoDateToPtBr,
   formatRecurrenceFrequency,
   formatRecurrenceOriginType,
   formatRecurrenceStatus,
+  getRecurrenceOperationalEndDate,
   getRecurrenceConfirmErrorMessage,
   toRecurrenceCreatePayload,
   toScopedRecurrenceUpdatePayload,
@@ -94,11 +96,50 @@ describe('recurrences.helpers', () => {
     expect(compareIsoDate('2026-04-18', '2026-04-17')).toBe(1)
   })
 
+  it('deve calcular horizonte operacional de 1 ano para recorrência sem fim', () => {
+    expect(addOneYearIsoDate('2026-05-06')).toBe('2027-05-06')
+    expect(addOneYearIsoDate('2024-02-29')).toBe('2025-02-28')
+    expect(getRecurrenceOperationalEndDate(makeRecurrence({
+      endType: 'never',
+      startDate: '2026-05-06',
+    }))).toBe('2027-05-06')
+  })
+
+  it('deve usar data final como horizonte operacional quando término for por data final', () => {
+    expect(getRecurrenceOperationalEndDate(makeRecurrence({
+      endType: 'until_date',
+      endDate: '2026-12-31',
+    }))).toBe('2026-12-31')
+  })
+
+  it('não deve calcular horizonte operacional no front para término por ocorrências', () => {
+    expect(getRecurrenceOperationalEndDate(makeRecurrence({
+      endType: 'by_occurrences',
+      endOccurrences: 5,
+    }))).toBeNull()
+  })
+
   it('deve gerar payload de criação para transação', () => {
     const payload = toRecurrenceCreatePayload(makeForm())
     expect(payload.originType).toBe('transaction')
     expect(payload.postingMode).toBe('automatic')
     expect(payload.amount).toBe(120)
+  })
+
+  it('deve gerar payload de criação por data final', () => {
+    const payload = toRecurrenceCreatePayload(
+      makeForm({
+        endType: 'until_date',
+        endOccurrences: '5',
+        endDate: '2026-12-31',
+      }),
+    )
+
+    expect(payload).toMatchObject({
+      endType: 'until_date',
+      endDate: '2026-12-31',
+    })
+    expect(payload.endOccurrences).toBeUndefined()
   })
 
   it('deve remover campos de agenda no escopo single no payload de update', () => {
@@ -151,6 +192,42 @@ describe('recurrences.helpers', () => {
       endOccurrences: 5,
       description: 'Academia 1.6',
     })
+  })
+
+  it('deve montar snapshot de troca de término por ocorrências para data final', () => {
+    const payload = toScopedRecurrenceUpdatePayload(
+      makeForm({
+        editScope: 'all',
+        endType: 'until_date',
+        endOccurrences: '5',
+        endDate: '2026-12-31',
+      }),
+    )
+
+    expect(payload).toMatchObject({
+      endType: 'until_date',
+      endDate: '2026-12-31',
+    })
+    expect(payload.endOccurrences).toBeUndefined()
+  })
+
+  it('deve detectar troca de término por ocorrências para data final', () => {
+    const diff = buildScopedRecurrenceUpdatePayload(
+      makeForm({
+        editScope: 'all',
+        endType: 'until_date',
+        endOccurrences: '5',
+        endDate: '2026-12-31',
+      }),
+      makeRecurrence({
+        endType: 'by_occurrences',
+        endOccurrences: 5,
+        endDate: null,
+      }),
+    )
+
+    expect(diff.endType).toBe('until_date')
+    expect(diff.endDate).toBe('2026-12-31')
   })
 
   it('deve omitir limpezas nulas quando o campo opcional não mudou', () => {

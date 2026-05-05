@@ -189,6 +189,20 @@ function mockDesktopViewport() {
   })
 }
 
+async function selectRecurrenceFormOption(
+  modal: HTMLElement,
+  fieldName: string,
+  optionName: string,
+) {
+  const trigger = within(modal).getByRole('combobox', { name: fieldName })
+  fireEvent.pointerDown(trigger, {
+    button: 0,
+    ctrlKey: false,
+    pointerType: 'mouse',
+  })
+  fireEvent.click(await screen.findByRole('option', { name: optionName }))
+}
+
 describe('recurrences feature', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -294,6 +308,80 @@ describe('recurrences feature', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Nova recorrência' })).toBeNull(),
     )
+  })
+
+  it('deve criar recorrência por data final', async () => {
+    let capturedPayload: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+      http.post('*/recurrences', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>
+        return ok({
+          ...recurrencesMock.data[0],
+          frequency: 'monthly',
+          dayOfWeek: null,
+          dayOfMonth: 5,
+          endType: 'until_date',
+          endOccurrences: null,
+          endDate: '2026-12-31',
+          amount: 250,
+          description: 'Notebook',
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    fireEvent.click(screen.getByRole('button', { name: 'Nova recorrência' }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Nova recorrência' })
+    await selectRecurrenceFormOption(modal, 'Modo de lançamento', 'Automático')
+    await selectRecurrenceFormOption(modal, 'Frequência', 'Mensal')
+    fireEvent.change(within(modal).getByLabelText('Dia do mês'), {
+      target: { value: '5' },
+    })
+    await selectRecurrenceFormOption(modal, 'Término', 'Por data final')
+    fireEvent.change(await within(modal).findByLabelText('Data final'), {
+      target: { value: '2026-12-31' },
+    })
+    await selectRecurrenceFormOption(modal, 'Conta', 'CommBank ACC')
+    await selectRecurrenceFormOption(modal, 'Categoria/Subcategoria', 'Pessoal')
+    fireEvent.change(within(modal).getByLabelText('Valor'), {
+      target: { value: '25000' },
+    })
+    fireEvent.change(within(modal).getByLabelText('Descrição'), {
+      target: { value: 'Notebook' },
+    })
+
+    const createButton = screen.getByRole('button', { name: 'Criar recorrência' })
+    await waitFor(() => expect(createButton).not.toBeDisabled())
+    fireEvent.click(createButton)
+
+    await waitFor(() => expect(capturedPayload).not.toBeNull())
+    expect(capturedPayload).toMatchObject({
+      frequency: 'monthly',
+      dayOfMonth: 5,
+      endType: 'until_date',
+      endDate: '2026-12-31',
+      accountId: 'acc-1',
+      categoryId: 'cat-1',
+      amount: 250,
+      description: 'Notebook',
+    })
+    expect(capturedPayload).not.toHaveProperty('endOccurrences')
   })
 
   it('deve mostrar estado vazio sem paginação', async () => {
@@ -997,14 +1085,16 @@ describe('recurrences feature', () => {
     fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
 
     const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
-    expect(within(modal).getByRole('combobox', { name: 'Dia da semana' })).toHaveTextContent('Terça')
+    const dayOfWeekField = within(modal).getByLabelText('Dia da semana')
+    expect(dayOfWeekField).toHaveValue('Terça')
+    expect(dayOfWeekField).toHaveAttribute('readonly')
 
     fireEvent.change(within(modal).getByLabelText('Data inicial'), {
       target: { value: '2026-05-07' },
     })
 
     await waitFor(() =>
-      expect(within(modal).getByRole('combobox', { name: 'Dia da semana' })).toHaveTextContent('Quinta'),
+      expect(within(modal).getByLabelText('Dia da semana')).toHaveValue('Quinta'),
     )
   })
 
@@ -1036,6 +1126,8 @@ describe('recurrences feature', () => {
         }),
       ),
       http.get('*/recurrences/:id', () => ok(recurrenceWithOccurrences)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
       http.put('*/recurrences/:id', async ({ request }) => {
         capturedPayload = (await request.json()) as Record<string, unknown>
         return ok({
@@ -1078,5 +1170,81 @@ describe('recurrences feature', () => {
     await waitFor(() =>
       expect(within(detailsModal).getByText('Academia atualizada')).toBeInTheDocument(),
     )
+  })
+
+  it('deve salvar troca de término por ocorrências para data final', async () => {
+    const recurrenceWithOccurrences = {
+      ...recurrencesMock.data[0],
+      endType: 'by_occurrences' as const,
+      endOccurrences: 5,
+      endDate: null,
+    }
+
+    let capturedPayload: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () =>
+        ok({
+          ...recurrencesMock,
+          data: [recurrenceWithOccurrences],
+        }),
+      ),
+      http.get('*/recurrences/:id', () => ok(recurrenceWithOccurrences)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+      http.put('*/recurrences/:id', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>
+        return ok({
+          ...recurrenceWithOccurrences,
+          endType: 'until_date',
+          endOccurrences: null,
+          endDate: '2026-12-31',
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    expect(within(modal).getByRole('combobox', { name: 'Término' })).toHaveTextContent('Por ocorrências')
+
+    await selectRecurrenceFormOption(modal, 'Término', 'Por data final')
+    fireEvent.change(await within(modal).findByLabelText('Data final'), {
+      target: { value: '2026-12-31' },
+    })
+
+    const saveButton = screen.getByRole('button', { name: 'Salvar edição' })
+    await waitFor(() => expect(saveButton).not.toBeDisabled())
+    fireEvent.click(saveButton)
+
+    await waitFor(() => expect(capturedPayload).not.toBeNull())
+    expect(capturedPayload).toMatchObject({
+      endType: 'until_date',
+      endDate: '2026-12-31',
+      expectedVersion: 1,
+    })
+    expect(capturedPayload).not.toHaveProperty('endOccurrences')
+    expect(capturedPayload).not.toMatchObject({
+      endType: 'never',
+    })
   })
 })

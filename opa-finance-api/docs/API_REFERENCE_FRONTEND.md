@@ -1645,6 +1645,8 @@ Atualiza uma recorrência ativa.
 - o payload pode ser parcial, mas campos omitidos não recebem defaults de criação; por exemplo, omitir `endType` preserva o término atual da recorrência
 - se `frequency` for enviado, os campos de agenda obrigatórios para a frequência também devem ser enviados (`dayOfWeek` para `weekly`/`biweekly`, `dayOfMonth` para `monthly`, `dayOfMonth` + `monthOfYear` para `yearly`)
 - se `endType` for enviado, o campo complementar obrigatório também deve ser enviado (`endOccurrences` para `by_occurrences`, `endDate` para `until_date`); campos incompatíveis com o novo término são limpos pelo backend
+- ao trocar de `by_occurrences` para `until_date`, envie `endType: "until_date"` e `endDate`; o backend limpa `endOccurrences`
+- recorrências `until_date` retornam timeline finita, com `summary.totalOccurrences` e `pagination.total` calculados até `endDate`
 - `subcategoryId: null` limpa a subcategoria da recorrência de transação
 
 **Request Body (parcial):**
@@ -1829,6 +1831,8 @@ Quando `maxRecurrences` não é enviado, usa lote padrão de `200` (máximo `500
 - `automatic` materializa diretamente
 - `review_required` cria `pending_review`
 - `pending_review`, `materialized` e `skipped` contam como consumidas em `by_occurrences`
+- recorrências `never` possuem horizonte operacional máximo de 1 ano a partir de `startDate`; materialização com `untilDate` maior é limitada a esse horizonte
+- recorrências `never` são finalizadas automaticamente ao ultrapassar o horizonte operacional, desde que não exista `pending_review` aberta
 
 **Response 200:**
 
@@ -1874,6 +1878,8 @@ Retorna a timeline de uma recorrência misturando ocorrências persistidas e pro
 - itens persistidos incluem `version` e `reviewPayload` para suportar confirmação e skip com lock otimista no frontend
 - para itens `materialized` com `transactionId`, o campo `amount` reflete o valor **atual** da transação no banco — não o `reviewPayload`; se o usuário editou o valor da transação após a materialização, a timeline exibe o valor atualizado
 - para transferências (`transferId != null`) o `amount` ainda vem do `reviewPayload` (comportamento mantido)
+- recorrências `never` são projetadas no máximo até `startDate + 1 ano`, mesmo quando `untilDate` aponta para uma data posterior
+- em recorrências `never`, `summary.totalOccurrences` permanece `null`, mas `pagination.total` considera apenas o horizonte operacional de 1 ano
 
 **Response 200 (exemplo):**
 

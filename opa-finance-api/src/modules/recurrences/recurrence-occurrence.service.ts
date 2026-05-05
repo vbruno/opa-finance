@@ -10,6 +10,7 @@ import {
 } from "../../core/utils/recurrence-schedule.utils";
 import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
+import { addOneYearIsoDate, resolveOperationalEndDate } from "./recurrence.helpers";
 import type {
   ConfirmRecurrenceOccurrenceInput,
   RecurrenceAnticipateInput,
@@ -40,12 +41,6 @@ export class RecurrenceOccurrenceService {
     private validators: RecurrenceValidators,
     private recurrenceAudit: RecurrenceAudit,
   ) {}
-
-  private addOneYear(dateString: string) {
-    const [year, month, day] = dateString.split("-").map(Number);
-    const next = new Date(Date.UTC(year + 1, month - 1, day));
-    return next.toISOString().slice(0, 10);
-  }
 
   private mergeConfirmPayload(
     reviewPayload: RecurrenceOccurrenceReviewPayload,
@@ -92,7 +87,7 @@ export class RecurrenceOccurrenceService {
     const minDate = recurrence.startDate;
     const maxDate =
       recurrence.endDate ??
-      this.addOneYear(await this.validators.getNowIsoDateInTimezone(recurrence.timezone));
+      addOneYearIsoDate(await this.validators.getNowIsoDateInTimezone(recurrence.timezone));
 
     if (
       compareIsoDate(occurrenceDate, minDate) < 0 ||
@@ -454,9 +449,12 @@ export class RecurrenceOccurrenceService {
       );
     }
 
-    if (loaded.endDate && compareIsoDate(input.occurrenceDate, loaded.endDate) > 0) {
+    const operationalEndDate = resolveOperationalEndDate(loaded);
+    if (operationalEndDate && compareIsoDate(input.occurrenceDate, operationalEndDate) > 0) {
       throw new UnprocessableProblem(
-        "A data informada é posterior ao término da recorrência.",
+        loaded.endType === "never"
+          ? "A data informada ultrapassa o limite de 1 ano da recorrência sem fim."
+          : "A data informada é posterior ao término da recorrência.",
         actionPath,
       );
     }

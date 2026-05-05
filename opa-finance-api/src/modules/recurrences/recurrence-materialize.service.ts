@@ -11,6 +11,7 @@ import {
 } from "../../core/utils/recurrence-schedule.utils";
 import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
+import { minIsoDate, resolveOperationalEndDate } from "./recurrence.helpers";
 import type { MaterializeRecurrencesInput } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
@@ -221,6 +222,8 @@ export class RecurrenceMaterializeService {
           todayByTimezone.set(recurrence.timezone, untilDate);
         }
       }
+      const operationalEndDate = resolveOperationalEndDate(recurrence);
+      const effectiveUntilDate = minIsoDate(untilDate, operationalEndDate) ?? untilDate;
       let cursorDate = recurrence.nextOccurrenceDate ?? recurrence.startDate;
 
       let localCreated = 0;
@@ -244,9 +247,10 @@ export class RecurrenceMaterializeService {
         const needsConsumedCount =
           recurrence.endType === "by_occurrences" && !!recurrence.endOccurrences;
         const needsPendingReviewCount =
-          needsConsumedCount ||
-          (recurrence.postingMode === "review_required" &&
-            (recurrence.endType === "until_date" || recurrence.endType === "by_occurrences"));
+          recurrence.postingMode === "review_required" &&
+          (needsConsumedCount ||
+            recurrence.endType === "until_date" ||
+            recurrence.endType === "never");
         if (needsConsumedCount || needsPendingReviewCount) {
           const countRows = await this.app.db
             .select({
@@ -274,7 +278,7 @@ export class RecurrenceMaterializeService {
           }
         }
 
-        while (compareIsoDate(cursorDate, untilDate) <= 0) {
+        while (compareIsoDate(cursorDate, effectiveUntilDate) <= 0) {
           iterations += 1;
           if (!localFirstProcessedDate) {
             localFirstProcessedDate = cursorDate;
@@ -411,9 +415,9 @@ export class RecurrenceMaterializeService {
             if (occurrenceOutcome.transferId) localTransfers += 1;
             if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
               consumedCount += 1;
-              if (occurrenceOutcome.status === "pending_review") {
-                openPendingReviewCount += 1;
-              }
+            }
+            if (occurrenceOutcome.status === "pending_review") {
+              openPendingReviewCount += 1;
             }
           } else {
             localSkipped += 1;
@@ -452,6 +456,15 @@ export class RecurrenceMaterializeService {
           }
 
           cursorDate = getNextOccurrenceAfter(schedule, cursorDate);
+        }
+
+        if (
+          recurrence.endType === "never" &&
+          operationalEndDate &&
+          compareIsoDate(cursorDate, operationalEndDate) > 0 &&
+          openPendingReviewCount === 0
+        ) {
+          shouldFinalize = true;
         }
       } catch (error) {
         this.app.log.error(

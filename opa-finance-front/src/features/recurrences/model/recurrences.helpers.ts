@@ -86,10 +86,10 @@ export function toRecurrenceCreatePayload(
     dayOfMonth: values.dayOfMonth ? Number(values.dayOfMonth) : undefined,
     monthOfYear: values.monthOfYear ? Number(values.monthOfYear) : undefined,
     endType: values.endType,
-    endOccurrences: values.endOccurrences
+    endOccurrences: values.endType === 'by_occurrences' && values.endOccurrences
       ? Number(values.endOccurrences)
       : undefined,
-    endDate: values.endDate || undefined,
+    endDate: values.endType === 'until_date' ? values.endDate || undefined : undefined,
     amount: parsedAmount,
     description: values.description || undefined,
     notes: values.notes || undefined,
@@ -400,6 +400,27 @@ export function formatIsoDateToPtBr(isoDate: string | null | undefined) {
 export function compareIsoDate(a: string, b: string) {
   if (a === b) return 0
   return a < b ? -1 : 1
+}
+
+export function addOneYearIsoDate(isoDate: string) {
+  const [yearValue, monthValue, dayValue] = isoDate.split('-').map(Number)
+  const maxDay = new Date(Date.UTC(yearValue + 1, monthValue, 0)).getUTCDate()
+  const date = new Date(
+    Date.UTC(yearValue + 1, monthValue - 1, Math.min(dayValue, maxDay)),
+  )
+  return date.toISOString().slice(0, 10)
+}
+
+export function getRecurrenceOperationalEndDate(recurrence: Recurrence) {
+  if (recurrence.endType === 'never') {
+    return addOneYearIsoDate(recurrence.startDate)
+  }
+
+  if (recurrence.endType === 'until_date') {
+    return recurrence.endDate
+  }
+
+  return null
 }
 
 export function getRecurrenceEditErrorMessage(error: unknown) {

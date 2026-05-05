@@ -1,25 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ValidationProblem } from "@/core/errors/problems";
 import { buildCreatePayloadFromRecurrence } from "@/modules/recurrences/recurrence.helpers";
-import { RecurrenceService } from "@/modules/recurrences/recurrence.service";
 import { RecurrenceValidators } from "@/modules/recurrences/recurrence.validators";
 
-function buildService() {
-  const app = {
-    db: {},
-    log: {
-      error: vi.fn(),
-      warn: vi.fn(),
-      info: vi.fn(),
-      debug: vi.fn(),
-    },
-  } as any;
-
-  return new RecurrenceService(app);
-}
-
 function buildValidators() {
-  return new RecurrenceValidators({} as any);
+  return new RecurrenceValidators({} as ConstructorParameters<typeof RecurrenceValidators>[0]);
 }
 
 describe("recurrence service (unit)", () => {
@@ -95,5 +80,39 @@ describe("recurrence service (unit)", () => {
     expect(payload.amount).toBe(200);
     expect(payload.categoryId).toBe("cat-2");
     expect(payload.subcategoryId).toBeUndefined();
+  });
+
+  it("normaliza término ao criar nova regra this_and_next com data final", () => {
+    const payload = buildCreatePayloadFromRecurrence(
+      {
+        originType: "transaction",
+        postingMode: "automatic",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfWeek: null,
+        dayOfMonth: 10,
+        monthOfYear: null,
+        endType: "by_occurrences",
+        endOccurrences: 5,
+        endDate: null,
+        accountId: "acc-1",
+        categoryId: "cat-1",
+        subcategoryId: null,
+        fromAccountId: null,
+        toAccountId: null,
+        amount: 100,
+        description: "Base",
+        notes: null,
+      },
+      {
+        endType: "until_date",
+        endDate: "2099-12-31",
+      },
+      "2099-02-10",
+    );
+
+    expect(payload.endType).toBe("until_date");
+    expect(payload.endDate).toBe("2099-12-31");
+    expect(payload.endOccurrences).toBeUndefined();
   });
 });

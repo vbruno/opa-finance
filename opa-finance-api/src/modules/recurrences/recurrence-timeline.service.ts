@@ -8,7 +8,7 @@ import {
   type RecurrenceSchedule,
 } from "../../core/utils/recurrence-schedule.utils";
 import { recurrences, recurrenceOccurrences, transactions } from "../../db/schema";
-import { serializeRecurrence } from "./recurrence.helpers";
+import { minIsoDate, resolveOperationalEndDate, serializeRecurrence } from "./recurrence.helpers";
 import type { RecurrenceTimelineQuery } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
 
@@ -251,13 +251,20 @@ export class RecurrenceTimelineService {
     // For desc with finite recurrences, compute reverse offset so page 1 = newest
     let reverseOffset: number | null = null;
     let paginationTotal: number | null = null;
+    const operationalEndDate = resolveOperationalEndDate(recurrence);
+    const effectiveEndDate = minIsoDate(query.untilDate, operationalEndDate);
+
+    if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
+      paginationTotal = recurrence.endOccurrences;
+    } else if (
+      operationalEndDate &&
+      (recurrence.endType === "until_date" || recurrence.endType === "never")
+    ) {
+      paginationTotal = this.countOccurrences(schedule, recurrence.startDate, operationalEndDate);
+    }
 
     if (query.dir === "desc") {
-      if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
-        paginationTotal = recurrence.endOccurrences;
-        reverseOffset = Math.max(0, paginationTotal - page * limit);
-      } else if (recurrence.endType === "until_date" && recurrence.endDate) {
-        paginationTotal = this.countOccurrences(schedule, recurrence.startDate, recurrence.endDate);
+      if (paginationTotal !== null) {
         reverseOffset = Math.max(0, paginationTotal - page * limit);
       }
       // 'never' endType: reverseOffset stays null → falls back to asc window
@@ -272,14 +279,13 @@ export class RecurrenceTimelineService {
     let persistedIndex = 0;
     let processedCount = 0;
     let cursorDate = getFirstOccurrenceOnOrAfter(schedule, recurrence.startDate);
-    let lastProcessedDate: string | null = null;
     let paginationHasMore = false;
 
-    const untilDate = query.untilDate ?? null;
-    const shouldUseSequence = recurrence.endType === "by_occurrences";
+    const shouldUseSequence =
+      recurrence.endType === "by_occurrences" || recurrence.endType === "until_date";
 
     while (true) {
-      if (untilDate && compareIsoDate(cursorDate, untilDate) > 0) {
+      if (effectiveEndDate && compareIsoDate(cursorDate, effectiveEndDate) > 0) {
         break;
       }
 
@@ -339,7 +345,6 @@ export class RecurrenceTimelineService {
         }
       }
 
-      lastProcessedDate = cursorDate;
       sequence++;
 
       if (!query.includeProjected && persistedIndex >= persistedRows.length) {
@@ -366,13 +371,18 @@ export class RecurrenceTimelineService {
     const consumedOccurrences = this.resolveConsumedOccurrences(counts);
     const hasMoreProjected = (() => {
       if (recurrence.status !== "active") return false;
-      if (recurrence.endType === "never") return true;
       if (recurrence.endType === "by_occurrences" && recurrence.endOccurrences) {
         return consumedOccurrences + projectedOccurrences < recurrence.endOccurrences;
       }
       if (recurrence.endType === "until_date" && recurrence.endDate) {
-        const referenceDate = lastProcessedDate ?? untilDate ?? recurrence.startDate;
-        return compareIsoDate(referenceDate, recurrence.endDate) < 0;
+        if (!query.includeProjected) return false;
+        if (paginationHasMore) return true;
+        return Boolean(query.untilDate && compareIsoDate(query.untilDate, recurrence.endDate) < 0);
+      }
+      if (recurrence.endType === "never" && operationalEndDate) {
+        if (!query.includeProjected) return false;
+        if (paginationHasMore) return true;
+        return Boolean(query.untilDate && compareIsoDate(query.untilDate, operationalEndDate) < 0);
       }
       return false;
     })();
@@ -381,7 +391,9 @@ export class RecurrenceTimelineService {
       totalOccurrences:
         recurrence.endType === "by_occurrences" && recurrence.endOccurrences
           ? recurrence.endOccurrences
-          : null,
+          : recurrence.endType === "until_date"
+            ? paginationTotal
+            : null,
       consumedOccurrences,
       materializedOccurrences: counts.materializedOccurrences,
       pendingReviewOccurrences: counts.pendingReviewOccurrences,

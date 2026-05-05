@@ -13,6 +13,32 @@ export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function addOneYearIsoDate(dateString: string): string {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const maxDay = new Date(Date.UTC(year + 1, month, 0)).getUTCDate();
+  return toIsoDate(new Date(Date.UTC(year + 1, month - 1, Math.min(day, maxDay))));
+}
+
+export function minIsoDate(...dates: Array<string | null | undefined>): string | null {
+  return dates.filter((date): date is string => Boolean(date)).sort(compareIsoDate)[0] ?? null;
+}
+
+export function resolveOperationalEndDate(recurrence: {
+  startDate: string;
+  endType: "never" | "by_occurrences" | "until_date";
+  endDate?: string | null;
+}): string | null {
+  if (recurrence.endType === "never") {
+    return addOneYearIsoDate(recurrence.startDate);
+  }
+
+  if (recurrence.endType === "until_date") {
+    return recurrence.endDate ?? null;
+  }
+
+  return null;
+}
+
 export function getFirstOccurrenceForRecurrence(schedule: RecurrenceSchedule): string {
   return getFirstOccurrence(schedule);
 }
@@ -42,6 +68,13 @@ export function buildCreatePayloadFromRecurrence(
   changes: UpdateRecurrenceInput,
   startDate: string,
 ): CreateRecurrenceInput {
+  const endType = changes.endType ?? recurrence.endType;
+  const endOccurrences =
+    endType === "by_occurrences"
+      ? (changes.endOccurrences ?? recurrence.endOccurrences ?? undefined)
+      : undefined;
+  const endDate =
+    endType === "until_date" ? (changes.endDate ?? recurrence.endDate ?? undefined) : undefined;
   const nextSubcategoryId =
     changes.categoryId !== undefined && changes.subcategoryId === undefined
       ? undefined
@@ -55,9 +88,9 @@ export function buildCreatePayloadFromRecurrence(
     dayOfWeek: changes.dayOfWeek ?? recurrence.dayOfWeek ?? undefined,
     dayOfMonth: changes.dayOfMonth ?? recurrence.dayOfMonth ?? undefined,
     monthOfYear: changes.monthOfYear ?? recurrence.monthOfYear ?? undefined,
-    endType: changes.endType ?? recurrence.endType,
-    endOccurrences: changes.endOccurrences ?? recurrence.endOccurrences ?? undefined,
-    endDate: changes.endDate ?? recurrence.endDate ?? undefined,
+    endType,
+    endOccurrences,
+    endDate,
     accountId: changes.accountId ?? recurrence.accountId ?? undefined,
     categoryId: changes.categoryId ?? recurrence.categoryId ?? undefined,
     subcategoryId: nextSubcategoryId,

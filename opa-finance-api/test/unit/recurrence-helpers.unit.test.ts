@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  addOneYearIsoDate,
   emptyMonths,
   getFirstOccurrenceForRecurrence,
   getNextOccurrenceAfterDate,
   mergeLastMaterializedDate,
+  minIsoDate,
+  resolveOperationalEndDate,
   serializeRecurrence,
   sumYear,
   toIsoDate,
@@ -18,6 +21,58 @@ describe("recurrence helpers (unit)", () => {
     it("usa UTC, não timezone local", () => {
       const d = new Date("2025-12-31T23:59:59.000Z");
       expect(toIsoDate(d)).toBe("2025-12-31");
+    });
+  });
+
+  describe("addOneYearIsoDate", () => {
+    it("adiciona 1 ano preservando mês e dia", () => {
+      expect(addOneYearIsoDate("2026-05-06")).toBe("2027-05-06");
+    });
+
+    it("ajusta 29/02 para o último dia válido do ano seguinte", () => {
+      expect(addOneYearIsoDate("2024-02-29")).toBe("2025-02-28");
+    });
+  });
+
+  describe("minIsoDate", () => {
+    it("retorna a menor data ignorando nulos", () => {
+      expect(minIsoDate(undefined, "2027-05-06", "2026-12-31", null)).toBe("2026-12-31");
+    });
+
+    it("retorna null quando não há datas", () => {
+      expect(minIsoDate(undefined, null)).toBeNull();
+    });
+  });
+
+  describe("resolveOperationalEndDate", () => {
+    it("usa startDate + 1 ano para recorrência sem fim", () => {
+      expect(
+        resolveOperationalEndDate({
+          startDate: "2026-05-06",
+          endType: "never",
+          endDate: null,
+        }),
+      ).toBe("2027-05-06");
+    });
+
+    it("usa endDate para recorrência por data final", () => {
+      expect(
+        resolveOperationalEndDate({
+          startDate: "2026-05-06",
+          endType: "until_date",
+          endDate: "2026-12-31",
+        }),
+      ).toBe("2026-12-31");
+    });
+
+    it("não cria horizonte operacional para recorrência por quantidade", () => {
+      expect(
+        resolveOperationalEndDate({
+          startDate: "2026-05-06",
+          endType: "by_occurrences",
+          endDate: null,
+        }),
+      ).toBeNull();
     });
   });
 
@@ -74,14 +129,19 @@ describe("recurrence helpers (unit)", () => {
 
   describe("serializeRecurrence", () => {
     it("converte amount de string/Decimal para number", () => {
-      const row = { id: "r1", amount: "123.45" } as any;
+      const row = { id: "r1", amount: "123.45" } as Parameters<typeof serializeRecurrence>[0];
       const result = serializeRecurrence(row);
       expect(result.amount).toBe(123.45);
       expect(typeof result.amount).toBe("number");
     });
 
     it("preserva todos os outros campos", () => {
-      const row = { id: "r1", amount: "50", description: "Teste", status: "active" } as any;
+      const row = {
+        id: "r1",
+        amount: "50",
+        description: "Teste",
+        status: "active",
+      } as Parameters<typeof serializeRecurrence>[0];
       const result = serializeRecurrence(row);
       expect(result.id).toBe("r1");
       expect(result.description).toBe("Teste");

@@ -91,7 +91,7 @@ describe("Recurrences - critical rules", () => {
     startDate?: string;
     dayOfWeek?: number;
     postingMode?: "automatic" | "review_required";
-    endType?: "never" | "by_occurrences";
+    endType?: "never" | "by_occurrences" | "until_date";
     endOccurrences?: number;
     endDate?: string;
   }) {
@@ -2024,6 +2024,182 @@ describe("Recurrences - critical rules", () => {
 
     expect(saved.endType).toBe("by_occurrences");
     expect(saved.endOccurrences).toBe(5);
+  });
+
+  it("altera término por ocorrências para data final em update global", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-06",
+      endType: "by_occurrences",
+      endOccurrences: 5,
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        postingMode: "automatic",
+        frequency: "weekly",
+        startDate: "2099-01-06",
+        dayOfWeek: 1,
+        endType: "until_date",
+        endDate: "2099-12-31",
+        accountId: account.id,
+        categoryId: category.id,
+        amount: 120,
+        description: "Despesa recorrente",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().endType).toBe("until_date");
+    expect(res.json().endDate).toBe("2099-12-31");
+    expect(res.json().endOccurrences).toBeNull();
+
+    const [saved] = await app.db
+      .select({
+        endType: recurrences.endType,
+        endOccurrences: recurrences.endOccurrences,
+        endDate: recurrences.endDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(saved.endType).toBe("until_date");
+    expect(saved.endDate).toBe("2099-12-31");
+    expect(saved.endOccurrences).toBeNull();
+  });
+
+  it("cria recorrência por data final e limita a timeline até a data final", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-05",
+      endType: "until_date",
+      endDate: "2099-01-19",
+    });
+
+    expect(recurrence.endType).toBe("until_date");
+    expect(recurrence.endDate).toBe("2099-01-19");
+    expect(recurrence.endOccurrences).toBeNull();
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?limit=12&includeProjected=true`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const body = timelineRes.json();
+    expect(body.summary.totalOccurrences).toBe(3);
+    expect(body.summary.hasMoreProjected).toBe(false);
+    expect(body.pagination.total).toBe(3);
+    expect(body.pagination.hasMore).toBe(false);
+    expect(
+      body.items.map((item: { occurrenceDate: string; sequence: number | null }) => ({
+        occurrenceDate: item.occurrenceDate,
+        sequence: item.sequence,
+      })),
+    ).toEqual([
+      { occurrenceDate: "2099-01-05", sequence: 1 },
+      { occurrenceDate: "2099-01-12", sequence: 2 },
+      { occurrenceDate: "2099-01-19", sequence: 3 },
+    ]);
+  });
+
+  it("limita timeline semanal de recorrência sem fim ao horizonte operacional de 1 ano", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-06",
+      dayOfWeek: 1,
+      endType: "never",
+    });
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?limit=120&untilDate=2101-01-01&includeProjected=true`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const body = timelineRes.json();
+    const items = body.items as Array<{ occurrenceDate: string; sequence: number | null }>;
+
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.at(-1)?.occurrenceDate).toBe("2100-01-04");
+    expect(items.every((item) => item.occurrenceDate <= "2100-01-06")).toBe(true);
+    expect(items.some((item) => item.occurrenceDate > "2100-01-06")).toBe(false);
+    expect(items.every((item) => item.sequence === null)).toBe(true);
+    expect(body.summary.totalOccurrences).toBeNull();
+    expect(body.summary.hasMoreProjected).toBe(false);
+    expect(body.pagination.total).toBe(items.length);
+    expect(body.pagination.hasMore).toBe(false);
+  });
+
+  it("limita materialização de recorrência sem fim ao horizonte operacional de 1 ano", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        postingMode: "automatic",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "never",
+        accountId: account.id,
+        categoryId: category.id,
+        amount: 120,
+        description: "Despesa recorrente",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2101-01-01" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdOccurrences).toBeGreaterThan(0);
+    expect(materializeRes.json().createdOccurrences).toBe(13);
+    expect(materializeRes.json().finalizedRecurrences).toBe(1);
+
+    const occurrences = await app.db
+      .select({ occurrenceDate: recurrenceOccurrences.occurrenceDate })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id))
+      .orderBy(asc(recurrenceOccurrences.occurrenceDate));
+
+    expect(occurrences.length).toBeGreaterThan(0);
+    expect(occurrences.every((occurrence) => occurrence.occurrenceDate <= "2100-01-10")).toBe(true);
+    expect(occurrences.some((occurrence) => occurrence.occurrenceDate > "2100-01-10")).toBe(false);
+
+    const [saved] = await app.db
+      .select({
+        status: recurrences.status,
+        nextOccurrenceDate: recurrences.nextOccurrenceDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(saved.status).toBe("finalized");
+    expect(saved.nextOccurrenceDate).toBeNull();
   });
 
   it("aceita snapshot completo do frontend com observações vazias ao editar descrição", async () => {

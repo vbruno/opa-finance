@@ -117,6 +117,12 @@ export function RecurrenceFormModal({
   const dayOfWeek = form.watch('dayOfWeek')
   const startDate = form.watch('startDate')
   const isWeeklyFrequency = frequency === 'weekly' || frequency === 'biweekly'
+  const selectedDayOfWeekLabel = useMemo(
+    () =>
+      RECURRENCE_DAY_OF_WEEK_OPTIONS.find((option) => option.value === dayOfWeek)
+        ?.label ?? 'Definido pela data inicial',
+    [dayOfWeek],
+  )
 
   const isEditingActive = isEditing && editingRecurrence?.status === 'active'
   const hasFormErrors = Object.keys(form.formState.errors).length > 0
@@ -356,28 +362,14 @@ export function RecurrenceFormModal({
                 {isWeeklyFrequency && (
                   <div className="min-w-0">
                     <Label htmlFor="recurrence-day-of-week">Dia da semana</Label>
-                    <Select
-                      value={dayOfWeek || '__none__'}
-                      onValueChange={(value) =>
-                        form.setValue(
-                          'dayOfWeek',
-                          value === '__none__' ? '' : value,
-                        )
-                      }
-                      disabled={isSingleScopeEdit}
-                    >
-                      <SelectTrigger id="recurrence-day-of-week">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Selecione</SelectItem>
-                        {RECURRENCE_DAY_OF_WEEK_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="recurrence-day-of-week"
+                      value={selectedDayOfWeekLabel}
+                      readOnly
+                      tabIndex={-1}
+                      aria-readonly="true"
+                      className="h-10 pointer-events-none cursor-default bg-background text-foreground"
+                    />
                   </div>
                 )}
 
@@ -431,12 +423,40 @@ export function RecurrenceFormModal({
                   <Label htmlFor="recurrence-end-type">Término</Label>
                   <Select
                     value={endType}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
+                      const nextEndType = value as RecurrenceFormData['endType']
+
                       form.setValue(
                         'endType',
-                        value as RecurrenceFormData['endType'],
+                        nextEndType,
+                        { shouldDirty: true, shouldValidate: true },
                       )
-                    }
+
+                      if (nextEndType === 'never') {
+                        form.setValue('endOccurrences', '', {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                        form.setValue('endDate', '', {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+
+                      if (nextEndType === 'by_occurrences') {
+                        form.setValue('endDate', '', {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+
+                      if (nextEndType === 'until_date') {
+                        form.setValue('endOccurrences', '', {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                    }}
                     disabled={isSingleScopeEdit}
                   >
                     <SelectTrigger id="recurrence-end-type">
@@ -452,8 +472,9 @@ export function RecurrenceFormModal({
 
                 {endType === 'by_occurrences' && (
                   <div className="min-w-0">
-                    <Label>Qtd. ocorrências</Label>
+                    <Label htmlFor="recurrence-end-occurrences">Qtd. ocorrências</Label>
                     <Input
+                      id="recurrence-end-occurrences"
                       type="number"
                       min={1}
                       className="h-10"
@@ -465,8 +486,9 @@ export function RecurrenceFormModal({
 
                 {endType === 'until_date' && (
                   <div className="min-w-0">
-                    <Label>Data final</Label>
+                    <Label htmlFor="recurrence-end-date">Data final</Label>
                     <Input
+                      id="recurrence-end-date"
                       type="date"
                       className="h-10"
                       {...form.register('endDate')}
