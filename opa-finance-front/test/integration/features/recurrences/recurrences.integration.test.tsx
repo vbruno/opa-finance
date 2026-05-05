@@ -444,6 +444,10 @@ describe('recurrences feature', () => {
   })
 
   it('deve abrir detalhes e timeline da recorrência', async () => {
+    const recurrenceWithNotes = {
+      ...recurrencesMock.data[0],
+      notes: 'Cobrar ajuste anual do plano',
+    }
     let capturedTimelineSearch = ''
 
     server.use(
@@ -456,10 +460,18 @@ describe('recurrences feature', () => {
       ),
       http.get('*/accounts', () => ok(accountsMock)),
       http.get('*/categories', () => ok(categoriesMock)),
-      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences', () =>
+        ok({
+          ...recurrencesMock,
+          data: [recurrenceWithNotes],
+        }),
+      ),
       http.get('*/recurrences/:id/timeline', ({ request }) => {
         capturedTimelineSearch = new URL(request.url).search
-        return ok(recurrenceTimelineMock)
+        return ok({
+          ...recurrenceTimelineMock,
+          recurrence: recurrenceWithNotes,
+        })
       }),
     )
 
@@ -473,6 +485,8 @@ describe('recurrences feature', () => {
     expect(
       await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('Observações')).toBeInTheDocument()
+    expect(screen.getByText('Cobrar ajuste anual do plano')).toBeInTheDocument()
     const timelineTable = await screen.findByRole('table', {
       name: 'Tabela de ocorrências da recorrência',
     })

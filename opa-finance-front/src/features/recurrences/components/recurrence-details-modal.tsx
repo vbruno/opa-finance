@@ -295,6 +295,12 @@ export function RecurrenceDetailsModal({
               <MetaCell label="Atualizada em" value={formatMaybeIsoDate(recurrence.updatedAt.slice(0, 10))} />
               <MetaCell label="Finalizada em" value={formatMaybeIsoDate(recurrence.finalizedAt?.slice(0, 10) ?? null)} />
             </div>
+            <div className="flex items-center gap-3 px-3 py-2 min-w-0">
+              <dt className="text-[11px] text-muted-foreground/70 shrink-0">Observações</dt>
+              <dd className="text-xs font-medium truncate" title={recurrence.notes ?? ''}>
+                {recurrence.notes ?? ''}
+              </dd>
+            </div>
           </dl>
 
           <div className="flex flex-col flex-1 min-h-0 gap-2">
