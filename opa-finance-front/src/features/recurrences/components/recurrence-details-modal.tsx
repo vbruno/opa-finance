@@ -195,27 +195,28 @@ export function RecurrenceDetailsModal({
             Informações da regra, do modo de lançamento e da linha do tempo.
           </p>
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => onEdit(recurrence)}
-              disabled={recurrence.status !== 'active'}
-              aria-label="Editar recorrência"
-            >
-              <Pencil className="h-4 w-4" />
-              Editar
-            </Button>
             {recurrence.status === 'active' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onFinalize(recurrence)}
-                disabled={finalizePending}
-              >
-                {finalizePending ? 'Finalizando...' : 'Finalizar'}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(recurrence)}
+                  aria-label="Editar recorrência"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onFinalize(recurrence)}
+                  disabled={finalizePending}
+                >
+                  {finalizePending ? 'Finalizando...' : 'Finalizar'}
+                </Button>
+              </>
             ) : null}
             <Button
               type="button"

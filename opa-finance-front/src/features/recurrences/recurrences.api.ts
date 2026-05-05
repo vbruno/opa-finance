@@ -344,7 +344,8 @@ export function useFinalizeRecurrence() {
       const response = await api.put<Recurrence>(`/recurrences/${id}/finalize`)
       return response.data
     },
-    onSuccess: (_data, id) => {
+    onSuccess: (data, id) => {
+      queryClient.setQueryData(recurrenceKey(id), data)
       invalidateRecurrenceDependentQueries(queryClient)
       queryClient.invalidateQueries({ queryKey: recurrenceKey(id) })
     },
@@ -358,7 +359,9 @@ export function useDeleteRecurrence() {
     mutationFn: async (id: string) => {
       await api.delete(`/recurrences/${id}`)
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: recurrenceKey(id) })
+      queryClient.removeQueries({ queryKey: ['recurrence-timeline', id] })
       invalidateRecurrenceDependentQueries(queryClient)
     },
   })

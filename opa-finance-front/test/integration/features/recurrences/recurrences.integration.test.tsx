@@ -165,6 +165,12 @@ const recurrenceTimelineMock: RecurrenceTimelineResponse = {
       canSkip: false,
     },
   ],
+  pagination: {
+    page: 1,
+    limit: 12,
+    hasMore: false,
+    total: 3,
+  },
 }
 
 function mockDesktopViewport() {
@@ -258,7 +264,7 @@ describe('recurrences feature', () => {
     expect(capturedSearch).toContain('frequency=monthly')
     expect(capturedSearch).toContain('accountId=acc-1')
     expect(capturedSearch).toContain('q=aca')
-    expect(screen.getByText('Página 2 de 3 · 101 registros')).toBeInTheDocument()
+    expect(screen.getByText('Página 2 de 3 • 101 registros')).toBeInTheDocument()
   })
 
   it('deve abrir modal de criação e fechar com Escape', async () => {
@@ -272,6 +278,7 @@ describe('recurrences feature', () => {
       ),
       http.get('*/accounts', () => ok(accountsMock)),
       http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
       http.get('*/recurrences', () => ok(recurrencesMock)),
     )
 
@@ -280,13 +287,13 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     fireEvent.click(screen.getByRole('button', { name: 'Nova recorrência' }))
     expect(
-      await screen.findByText('Configure a regra para geração automática de lançamentos.'),
+      await screen.findByRole('dialog', { name: 'Nova recorrência' }),
     ).toBeInTheDocument()
 
     fireEvent.keyDown(window, { key: 'Escape' })
-    expect(
-      screen.queryByText('Configure a regra para geração automática de lançamentos.'),
-    ).toBeNull()
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Nova recorrência' })).toBeNull(),
+    )
   })
 
   it('deve mostrar estado vazio sem paginação', async () => {
@@ -378,23 +385,30 @@ describe('recurrences feature', () => {
     expect(
       await screen.findByRole('heading', { name: 'Detalhes da recorrência' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('Linha do tempo')).toBeInTheDocument()
     const timelineTable = await screen.findByRole('table', {
       name: 'Tabela de ocorrências da recorrência',
     })
     expect(within(timelineTable).getAllByRole('row')).toHaveLength(4)
-    expect(within(timelineTable).getByText('Parcela 2')).toBeInTheDocument()
+    expect(within(timelineTable).getByText('2 / 12')).toBeInTheDocument()
     expect(within(timelineTable).getByText('Pendente de revisão')).toBeInTheDocument()
     expect(within(timelineTable).getByText('01/06/2026')).toBeInTheDocument()
-    expect(within(timelineTable).getByRole('button', { name: 'Confirmar' })).toBeInTheDocument()
-    expect(within(timelineTable).getByRole('button', { name: 'Ignorar' })).toBeInTheDocument()
     expect(
-      await screen.findByText('Esta recorrência tem pendências em aberto.'),
+      within(timelineTable)
+        .getAllByRole('button', { name: 'Confirmar ocorrência' })
+        .some((button) => !button.hasAttribute('disabled')),
+    ).toBe(true)
+    expect(
+      within(timelineTable)
+        .getAllByRole('button', { name: 'Ignorar ocorrência' })
+        .some((button) => !button.hasAttribute('disabled')),
+    ).toBe(true)
+    expect(
+      await screen.findByText('Pendências em aberto bloqueiam finalizar ou excluir esta recorrência.'),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Ignorar pendências em massa' }),
+      screen.getByRole('button', { name: 'Ignorar em massa' }),
     ).toBeInTheDocument()
-    expect(capturedTimelineSearch).toContain('limit=24')
+    expect(capturedTimelineSearch).toContain('limit=12')
   })
 
   it('deve fechar o modal de detalhes ao pressionar Escape', async () => {
@@ -430,8 +444,6 @@ describe('recurrences feature', () => {
   })
 
   it('deve ignorar pendências em massa na timeline', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Ajuste manual')
     const skipBodies: Record<string, unknown>[] = []
 
     server.use(
@@ -463,14 +475,18 @@ describe('recurrences feature', () => {
     await screen.findByText('Academia')
     fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
 
-    const bulkSkipButton = await screen.findByRole('button', {
-      name: 'Ignorar pendências em massa',
-    })
+    const bulkSkipButton = await screen.findByRole('button', { name: 'Ignorar em massa' })
     fireEvent.click(bulkSkipButton)
 
+    const confirmDialog = await screen.findByRole('alertdialog', {
+      name: 'Ignorar 1 pendência(s)',
+    })
+    fireEvent.change(within(confirmDialog).getByLabelText('Motivo (opcional)'), {
+      target: { value: 'Ajuste manual' },
+    })
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Ignorar todas' }))
+
     await waitFor(() => expect(skipBodies).toHaveLength(1))
-    expect(confirmSpy).toHaveBeenCalled()
-    expect(promptSpy).toHaveBeenCalled()
     expect(skipBodies[0]).toMatchObject({
       expectedVersion: 7,
       reason: 'Ajuste manual',
@@ -516,7 +532,11 @@ describe('recurrences feature', () => {
     const timelineTable = await screen.findByRole('table', {
       name: 'Tabela de ocorrências da recorrência',
     })
-    fireEvent.click(within(timelineTable).getByRole('button', { name: 'Confirmar' }))
+    const confirmOccurrenceButton = within(timelineTable)
+      .getAllByRole<HTMLButtonElement>('button', { name: 'Confirmar ocorrência' })
+      .find((button) => !button.disabled)
+    expect(confirmOccurrenceButton).toBeDefined()
+    fireEvent.click(confirmOccurrenceButton as HTMLButtonElement)
 
     expect(
       await screen.findByRole('heading', { name: 'Confirmar lançamento' }),
@@ -582,7 +602,11 @@ describe('recurrences feature', () => {
     const timelineTable = await screen.findByRole('table', {
       name: 'Tabela de ocorrências da recorrência',
     })
-    fireEvent.click(within(timelineTable).getByRole('button', { name: 'Confirmar' }))
+    const confirmOccurrenceButton = within(timelineTable)
+      .getAllByRole<HTMLButtonElement>('button', { name: 'Confirmar ocorrência' })
+      .find((button) => !button.disabled)
+    expect(confirmOccurrenceButton).toBeDefined()
+    fireEvent.click(confirmOccurrenceButton as HTMLButtonElement)
 
     const dateInput = await screen.findByLabelText('Data do lançamento')
     fireEvent.change(dateInput, { target: { value: '2030-01-01' } })
@@ -594,8 +618,6 @@ describe('recurrences feature', () => {
   })
 
   it('deve ignorar pendência com ação direta', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Esquecido')
     let skipBody: Record<string, unknown> | null = null
 
     server.use(
@@ -632,11 +654,21 @@ describe('recurrences feature', () => {
     const timelineTable = await screen.findByRole('table', {
       name: 'Tabela de ocorrências da recorrência',
     })
-    fireEvent.click(within(timelineTable).getByRole('button', { name: 'Ignorar' }))
+    const skipOccurrenceButton = within(timelineTable)
+      .getAllByRole<HTMLButtonElement>('button', { name: 'Ignorar ocorrência' })
+      .find((button) => !button.disabled)
+    expect(skipOccurrenceButton).toBeDefined()
+    fireEvent.click(skipOccurrenceButton as HTMLButtonElement)
+
+    const confirmDialog = await screen.findByRole('alertdialog', {
+      name: 'Ignorar pendência',
+    })
+    fireEvent.change(within(confirmDialog).getByLabelText('Motivo (opcional)'), {
+      target: { value: 'Esquecido' },
+    })
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Ignorar' }))
 
     await waitFor(() => expect(skipBody).not.toBeNull())
-    expect(confirmSpy).toHaveBeenCalled()
-    expect(promptSpy).toHaveBeenCalled()
     expect(skipBody).toMatchObject({
       expectedVersion: 7,
       reason: 'Esquecido',
@@ -655,23 +687,25 @@ describe('recurrences feature', () => {
       http.get('*/accounts', () => ok(accountsMock)),
       http.get('*/categories', () => ok(categoriesMock)),
       http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
     )
 
     renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
 
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
-    fireEvent.click(
-      screen.getByRole('button', { name: /Excluir recorrência ativa/i }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: 'Excluir recorrência' }))
 
     expect(
-      await screen.findByText('Finalize a recorrência antes de excluir.'),
+      await within(detailsModal).findByText('Finalize a recorrência antes de excluir.'),
     ).toBeInTheDocument()
   })
 
   it('deve finalizar recorrência ativa', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     let finalizeCalled = false
 
     server.use(
@@ -685,12 +719,15 @@ describe('recurrences feature', () => {
       http.get('*/accounts', () => ok(accountsMock)),
       http.get('*/categories', () => ok(categoriesMock)),
       http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
       http.put('*/recurrences/:id/finalize', ({ params }) => {
         finalizeCalled = true
         return ok({
           ...recurrencesMock.data[0],
           id: String(params.id),
           status: 'finalized',
+          finalizedAt: '2026-05-05T00:00:00.000Z',
+          updatedAt: '2026-05-05T00:00:00.000Z',
         })
       }),
     )
@@ -699,8 +736,110 @@ describe('recurrences feature', () => {
     await screen.findByRole('heading', { name: 'Recorrências' })
     await screen.findByText('Academia')
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalizar recorrência/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+
+    fireEvent.click(within(detailsModal).getByRole('button', { name: 'Finalizar' }))
+    const confirmDialog = await screen.findByRole('alertdialog', {
+      name: 'Finalizar recorrência',
+    })
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Finalizar' }))
+
     await waitFor(() => expect(finalizeCalled).toBe(true))
+    await waitFor(() =>
+      expect(within(detailsModal).getByText('Finalizada')).toBeInTheDocument(),
+    )
+    expect(
+      within(detailsModal).queryByRole('button', { name: 'Finalizar' }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(detailsModal).queryByRole('button', { name: 'Editar recorrência' }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(detailsModal).getByRole('button', { name: 'Excluir recorrência' }),
+    ).toBeInTheDocument()
+  })
+
+  it('deve fechar detalhes após excluir recorrência finalizada', async () => {
+    let deleteCalled = false
+    let deleted = false
+    const finalizedRecurrencesMock: RecurrenceListResponse = {
+      ...recurrencesMock,
+      data: [
+        {
+          ...recurrencesMock.data[0],
+          description: 'Notebook',
+          status: 'finalized',
+          pendingReviewCount: 0,
+          finalizedAt: '2026-05-05T00:00:00.000Z',
+        },
+      ],
+    }
+    const finalizedTimelineMock: RecurrenceTimelineResponse = {
+      ...recurrenceTimelineMock,
+      recurrence: finalizedRecurrencesMock.data[0],
+      items: [],
+      pagination: {
+        page: 1,
+        limit: 12,
+        hasMore: false,
+        total: 0,
+      },
+    }
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/recurrences', () =>
+        ok(deleted ? { ...finalizedRecurrencesMock, data: [], total: 0 } : finalizedRecurrencesMock),
+      ),
+      http.get('*/recurrences/:id/timeline', () => {
+        if (deleted) {
+          return new Response(JSON.stringify({ message: 'Recorrência não encontrada.' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return ok(finalizedTimelineMock)
+      }),
+      http.delete('*/recurrences/:id', () => {
+        deleteCalled = true
+        deleted = true
+        return new Response(null, { status: 204 })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Notebook')
+
+    fireEvent.click(screen.getByRole('button', { name: /Notebook.*Finalizada/i }))
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+
+    fireEvent.click(within(detailsModal).getByRole('button', { name: 'Excluir recorrência' }))
+    const confirmDialog = await screen.findByRole('alertdialog', {
+      name: 'Excluir recorrência',
+    })
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Excluir' }))
+
+    await waitFor(() => expect(deleteCalled).toBe(true))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Detalhes da recorrência' }),
+      ).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByText('Recorrência não encontrada.')).not.toBeInTheDocument()
   })
 
   it('deve mostrar erro de conflito 409 ao salvar edição', async () => {
@@ -817,6 +956,56 @@ describe('recurrences feature', () => {
     expect(within(modal).getByRole('combobox', { name: 'Término' })).toHaveTextContent('Por data final')
     expect(within(modal).getByDisplayValue('2026-12-31')).toBeInTheDocument()
     expect(within(modal).getByDisplayValue('Academia atualizada')).toBeInTheDocument()
+  })
+
+  it('deve sincronizar dia da semana ao alterar data inicial em recorrência semanal', async () => {
+    const latestRecurrence = {
+      ...recurrencesMock.data[0],
+      frequency: 'weekly' as const,
+      startDate: '2026-05-05',
+      dayOfWeek: 2,
+      dayOfMonth: null,
+      monthOfYear: null,
+      endType: 'by_occurrences' as const,
+      endOccurrences: 5,
+    }
+
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id', () => ok(latestRecurrence)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    expect(within(modal).getByRole('combobox', { name: 'Dia da semana' })).toHaveTextContent('Terça')
+
+    fireEvent.change(within(modal).getByLabelText('Data inicial'), {
+      target: { value: '2026-05-07' },
+    })
+
+    await waitFor(() =>
+      expect(within(modal).getByRole('combobox', { name: 'Dia da semana' })).toHaveTextContent('Quinta'),
+    )
   })
 
   it('deve preservar término por ocorrências quando editar apenas a descrição', async () => {

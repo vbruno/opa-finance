@@ -310,7 +310,10 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setConfirmDialog(null)
     setActionError(null)
     try {
-      await finalizeMutation.mutateAsync(recurrence.id)
+      const finalizedRecurrence = await finalizeMutation.mutateAsync(recurrence.id)
+      setDetailsRecurrence((current) =>
+        current?.id === finalizedRecurrence.id ? finalizedRecurrence : current,
+      )
     } catch (error) {
       setActionError(getApiErrorMessage(error))
     }
@@ -329,6 +332,10 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setActionError(null)
     try {
       await deleteMutation.mutateAsync(recurrence.id)
+      setDetailsRecurrence((current) =>
+        current?.id === recurrence.id ? null : current,
+      )
+      setConfirmOccurrence(null)
     } catch (error) {
       setActionError(getApiErrorMessage(error))
     }

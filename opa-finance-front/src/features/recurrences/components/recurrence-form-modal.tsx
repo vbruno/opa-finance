@@ -32,6 +32,17 @@ import { TransactionDateField } from '../../transactions/components/transaction-
 import { TransactionDescriptionField } from '../../transactions/components/transaction-description-field'
 import { TransactionNotesField } from '../../transactions/components/transaction-notes-field'
 
+function getIsoDateDayOfWeekValue(value: string | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return ''
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return ''
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (Number.isNaN(date.getTime())) return ''
+
+  return String(date.getUTCDay())
+}
+
 type RecurrenceFormModalProps = {
   open: boolean
   isEditing: boolean
@@ -102,7 +113,9 @@ export function RecurrenceFormModal({
   const categoryTreeSearchInputRef = useRef<HTMLInputElement | null>(null)
   const categoryTreeContentRef = useRef<HTMLDivElement | null>(null)
   const lastCategoryId = useRef<string | null>(null)
+  const lastStartDate = useRef<string | null>(null)
   const dayOfWeek = form.watch('dayOfWeek')
+  const startDate = form.watch('startDate')
   const isWeeklyFrequency = frequency === 'weekly' || frequency === 'biweekly'
 
   const isEditingActive = isEditing && editingRecurrence?.status === 'active'
@@ -151,13 +164,33 @@ export function RecurrenceFormModal({
     setIsDescriptionFocused(false)
     setActiveSuggestionIndex(0)
     lastCategoryId.current = null
+    lastStartDate.current = form.getValues('startDate') ?? null
 
     const id = window.setTimeout(() => {
       modalRef.current?.focus()
     }, 0)
 
     return () => window.clearTimeout(id)
-  }, [open])
+  }, [form, open])
+
+  useEffect(() => {
+    if (!open || isSingleScopeEdit) return
+
+    const previousStartDate = lastStartDate.current
+    lastStartDate.current = startDate ?? null
+
+    if (!isWeeklyFrequency || !startDate || previousStartDate === startDate) {
+      return
+    }
+
+    const nextDayOfWeek = getIsoDateDayOfWeekValue(startDate)
+    if (nextDayOfWeek && nextDayOfWeek !== form.getValues('dayOfWeek')) {
+      form.setValue('dayOfWeek', nextDayOfWeek, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+  }, [form, isSingleScopeEdit, isWeeklyFrequency, open, startDate])
 
   useEffect(() => {
     if (!open) return
@@ -269,6 +302,15 @@ export function RecurrenceFormModal({
                       if (nextFrequency === 'weekly' || nextFrequency === 'biweekly') {
                         form.setValue('dayOfMonth', '')
                         form.setValue('monthOfYear', '')
+                        const nextDayOfWeek = getIsoDateDayOfWeekValue(
+                          form.getValues('startDate'),
+                        )
+                        if (nextDayOfWeek) {
+                          form.setValue('dayOfWeek', nextDayOfWeek, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                        }
                       } else if (nextFrequency === 'monthly') {
                         form.setValue('dayOfWeek', '')
                         form.setValue('monthOfYear', '')
