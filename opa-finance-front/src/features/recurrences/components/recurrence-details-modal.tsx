@@ -49,6 +49,7 @@ type RecurrenceDetailsModalProps = {
   onOpenConfirmOccurrence: (item: RecurrenceTimelineItem) => void
   onSkipOccurrence: (item: RecurrenceTimelineItem) => void
   onActionError: (message: string) => void
+  onEditOccurrence?: (item: RecurrenceTimelineItem) => void
 }
 
 function formatMaybeIsoDate(value: string | null) {
@@ -82,6 +83,7 @@ export function RecurrenceDetailsModal({
   onOpenConfirmOccurrence,
   onSkipOccurrence,
   onActionError,
+  onEditOccurrence,
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const [isBulkSkipping, setIsBulkSkipping] = useState(false)
@@ -396,6 +398,20 @@ export function RecurrenceDetailsModal({
                         </td>
                         <td className="px-3 py-1.5">
                           <div className="flex justify-end gap-1">
+                            {onEditOccurrence && recurrence.status === 'active' && (item.status === 'projected' || item.status === 'pending_review') ? (
+                              <ShortcutTooltip label="Editar ocorrência" className="w-auto">
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="outline"
+                                  onClick={() => onEditOccurrence(item)}
+                                  disabled={isBulkSkipping}
+                                  aria-label="Editar ocorrência"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </ShortcutTooltip>
+                            ) : null}
                             <ShortcutTooltip
                               label={item.canConfirm ? 'Confirmar' : 'Sem ação de confirmação'}
                               className="w-auto"
