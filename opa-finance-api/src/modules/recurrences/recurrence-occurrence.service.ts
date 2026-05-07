@@ -8,7 +8,13 @@ import {
   getFirstOccurrenceOnOrAfter,
   type RecurrenceSchedule,
 } from "../../core/utils/recurrence-schedule.utils";
-import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
+import {
+  categories,
+  recurrenceOccurrenceOverrides,
+  recurrenceOccurrences,
+  recurrences,
+  transactions,
+} from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
 import { addOneYearIsoDate, resolveOperationalEndDate } from "./recurrence.helpers";
 import type {
@@ -614,6 +620,15 @@ export class RecurrenceOccurrenceService {
           actionPath,
         );
       }
+
+      await tx
+        .delete(recurrenceOccurrenceOverrides)
+        .where(
+          and(
+            eq(recurrenceOccurrenceOverrides.recurrenceId, loaded.recurrence.id),
+            eq(recurrenceOccurrenceOverrides.occurrenceDate, loaded.occurrence.occurrenceDate),
+          ),
+        );
 
       return savedOccurrence;
     });

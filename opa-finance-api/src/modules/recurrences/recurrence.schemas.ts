@@ -266,6 +266,13 @@ export const recurrenceParamsSchema = z.object({
   id: z.uuid(),
 });
 
+export const deleteOccurrenceOverrideParamsSchema = z.object({
+  id: z.uuid(),
+  date: z.string().regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.").refine(isValidIsoDate, {
+    message: "Data inválida.",
+  }),
+});
+
 export const listRecurrencesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -376,6 +383,24 @@ export const skipRecurrenceOccurrenceSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 
+export const upsertOccurrenceOverrideSchema = z
+  .object({
+    occurrenceDate: z
+      .string()
+      .regex(ISO_DATE_REGEX, "Data inválida. Use YYYY-MM-DD.")
+      .refine(isValidIsoDate, { message: "Data inválida." }),
+    amount: z.number().positive("Valor deve ser maior que zero.").optional(),
+    description: z.string().max(255).nullable().optional(),
+    notes: z.string().max(500).nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      data.amount !== undefined || data.description !== undefined || data.notes !== undefined,
+    {
+      message: "Informe ao menos um campo para sobrescrever.",
+    },
+  );
+
 export const recurrenceEditScopeSchema = z.enum(["single", "this_and_next", "all"]);
 
 const recurrenceForecastAccountIdsSchema = z
@@ -442,6 +467,7 @@ export const editRecurrenceByScopeSchema = z
 export type CreateRecurrenceInput = z.infer<typeof createRecurrenceSchema>;
 export type UpdateRecurrenceInput = z.infer<typeof updateRecurrenceSchema>;
 export type RecurrenceParams = z.infer<typeof recurrenceParamsSchema>;
+export type DeleteOccurrenceOverrideParams = z.infer<typeof deleteOccurrenceOverrideParamsSchema>;
 export type RecurrenceOccurrenceParams = z.infer<typeof recurrenceOccurrenceParamsSchema>;
 export type RecurrenceOccurrenceReviewPayload = z.infer<
   typeof recurrenceOccurrenceReviewPayloadSchema
@@ -449,6 +475,7 @@ export type RecurrenceOccurrenceReviewPayload = z.infer<
 export type ConfirmRecurrenceOccurrenceInput = z.infer<typeof confirmRecurrenceOccurrenceSchema>;
 export type SkipRecurrenceOccurrenceInput = z.infer<typeof skipRecurrenceOccurrenceSchema>;
 export type RecurrenceAnticipateInput = z.infer<typeof recurrenceAnticipateSchema>;
+export type UpsertOccurrenceOverrideInput = z.infer<typeof upsertOccurrenceOverrideSchema>;
 export type RecurrenceTimelineQuery = z.infer<typeof recurrenceTimelineQuerySchema>;
 export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
 export type MaterializeRecurrencesInput = z.infer<typeof materializeRecurrencesSchema>;

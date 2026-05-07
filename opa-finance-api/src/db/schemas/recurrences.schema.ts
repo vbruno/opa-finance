@@ -139,3 +139,34 @@ export const recurrenceOccurrences = pgTable(
     index("recurrence_occurrences_status_idx").on(table.status),
   ],
 );
+
+export const recurrenceOccurrenceOverrides = pgTable(
+  "recurrence_occurrence_overrides",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    recurrenceId: uuid("recurrence_id")
+      .notNull()
+      .references(() => recurrences.id, { onDelete: "cascade" }),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    occurrenceDate: date("occurrence_date").notNull(),
+
+    amount: numeric("amount", { precision: 12, scale: 2 }),
+    description: text("description"),
+    notes: text("notes"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("recurrence_occurrence_overrides_uidx").on(
+      table.recurrenceId,
+      table.occurrenceDate,
+    ),
+    index("recurrence_occurrence_overrides_recurrence_idx").on(table.recurrenceId),
+  ],
+);

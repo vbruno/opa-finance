@@ -3,6 +3,7 @@ import {
   createRecurrenceSchema,
   confirmRecurrenceOccurrenceSchema,
   editRecurrenceByScopeSchema,
+  deleteOccurrenceOverrideParamsSchema,
   listRecurrencesQuerySchema,
   materializeRecurrencesSchema,
   recurrenceAnticipateSchema,
@@ -12,6 +13,7 @@ import {
   recurrenceParamsSchema,
   skipRecurrenceOccurrenceSchema,
   updateRecurrenceSchema,
+  upsertOccurrenceOverrideSchema,
 } from "./recurrence.schemas";
 import { RecurrenceService } from "./recurrence.service";
 
@@ -142,6 +144,43 @@ export async function recurrenceRoutes(app: FastifyInstance) {
       const { id } = recurrenceParamsSchema.parse(req.params);
       const body = editRecurrenceByScopeSchema.parse(req.body);
       return service.editByScope(req.user.sub, id, body);
+    },
+  );
+
+  app.put(
+    "/recurrences/:id/occurrences/override",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Criar ou atualizar sobrescrita de ocorrência projetada",
+        description:
+          "Sobrescreve valor, descrição e/ou observações de uma ocorrência projetada sem alterar a regra da recorrência.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => {
+      const { id } = recurrenceParamsSchema.parse(req.params);
+      const body = upsertOccurrenceOverrideSchema.parse(req.body);
+      return service.upsertOccurrenceOverride(req.user.sub, id, body);
+    },
+  );
+
+  app.delete(
+    "/recurrences/:id/occurrences/override/:date",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: recurrenceTag,
+        summary: "Remover sobrescrita de ocorrência projetada",
+        description: "Remove a sobrescrita pontual de uma ocorrência projetada da recorrência.",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req, reply) => {
+      const { id, date } = deleteOccurrenceOverrideParamsSchema.parse(req.params);
+      await service.deleteOccurrenceOverride(req.user.sub, id, date);
+      return reply.status(204).send();
     },
   );
 

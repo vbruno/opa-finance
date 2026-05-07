@@ -1,4 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import {
   ConflictProblem,
@@ -13,7 +14,13 @@ import {
   getNextOccurrenceAfter,
   type RecurrenceSchedule,
 } from "../../core/utils/recurrence-schedule.utils";
-import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
+import {
+  categories,
+  recurrenceOccurrenceOverrides,
+  recurrenceOccurrences,
+  recurrences,
+  transactions,
+} from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { RecurrenceCrudService } from "./recurrence-crud.service";
 import { RecurrenceAudit } from "./recurrence.audit";
@@ -863,6 +870,38 @@ export class RecurrenceEditService {
           nextOccurrenceDate,
         })
         .returning();
+
+      const overridesToMigrate = await tx
+        .select()
+        .from(recurrenceOccurrenceOverrides)
+        .where(
+          and(
+            eq(recurrenceOccurrenceOverrides.recurrenceId, recurrenceId),
+            sql`${recurrenceOccurrenceOverrides.occurrenceDate} >= ${targetOccurrenceDate}`,
+          ),
+        );
+
+      if (overridesToMigrate.length > 0) {
+        await tx.insert(recurrenceOccurrenceOverrides).values(
+          overridesToMigrate.map((override) => ({
+            id: randomUUID(),
+            recurrenceId: createdRecurrence.id,
+            userId: override.userId,
+            occurrenceDate: override.occurrenceDate,
+            amount: override.amount,
+            description: override.description,
+            notes: override.notes,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        );
+        await tx.delete(recurrenceOccurrenceOverrides).where(
+          inArray(
+            recurrenceOccurrenceOverrides.id,
+            overridesToMigrate.map((override) => override.id),
+          ),
+        );
+      }
 
       await this.auditService.log(
         {

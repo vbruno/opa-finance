@@ -387,7 +387,14 @@ export function RecurrenceDetailsModal({
                           {formatRecurrenceTimelineSource(item.source)}
                         </td>
                         <td className="px-3 py-1.5 text-right font-medium whitespace-nowrap">
-                          {formatCurrencyValue(item.amount)}
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {item.hasOverride ? (
+                              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                Ajustada
+                              </span>
+                            ) : null}
+                            {formatCurrencyValue(item.amount)}
+                          </span>
                         </td>
                         <td className="px-3 py-1.5">
                           {item.transactionId

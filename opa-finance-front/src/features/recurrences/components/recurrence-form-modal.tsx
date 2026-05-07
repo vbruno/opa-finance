@@ -20,7 +20,6 @@ import {
   RECURRENCE_POSTING_MODE_LABELS,
   RECURRENCE_POSTING_MODES,
 } from '@/features/recurrences/model/recurrences.constants'
-import { getTodayIsoDateInTimezone } from '@/features/recurrences/model/recurrences.helpers'
 import { useCategoryTreeInteraction } from '@/features/transactions/hooks/use-category-tree-interaction'
 import { buildCategoryTreeOptions } from '@/features/transactions/model/transactions-page.helpers'
 import { type RecurrenceFormData } from '@/schemas/recurrence.schema'
@@ -46,6 +45,8 @@ function getIsoDateDayOfWeekValue(value: string | undefined) {
 type RecurrenceFormModalProps = {
   open: boolean
   isEditing: boolean
+  isOccurrenceEdit: boolean
+  occurrenceEditStatus?: 'projected' | 'pending_review'
   isSingleScopeEdit: boolean
   isAnyMutationPending: boolean
   isFormSupportDataLoading: boolean
@@ -73,6 +74,8 @@ type RecurrenceFormModalProps = {
 export function RecurrenceFormModal({
   open,
   isEditing,
+  isOccurrenceEdit,
+  occurrenceEditStatus,
   isSingleScopeEdit,
   isAnyMutationPending,
   isFormSupportDataLoading,
@@ -233,7 +236,7 @@ export function RecurrenceFormModal({
             id="recurrence-form-modal-title"
             className="text-base font-semibold sm:text-lg"
           >
-            {isEditing ? 'Editar recorrência' : 'Nova recorrência'}
+            {isOccurrenceEdit ? 'Editar ocorrência' : isEditing ? 'Editar recorrência' : 'Nova recorrência'}
           </h2>
         </div>
 
@@ -241,6 +244,7 @@ export function RecurrenceFormModal({
           <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
             <div className="space-y-4">
               {/* 1. Modo de lançamento | Origem | Frequência */}
+              {!isOccurrenceEdit && (
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
                 <div className="min-w-0">
                   <Label htmlFor="recurrence-posting-mode">Modo de lançamento</Label>
@@ -338,8 +342,10 @@ export function RecurrenceFormModal({
                   </Select>
                 </div>
               </div>
+              )}
 
               {/* 2. Data inicial | Dia do mês/semana [| Mês] */}
+              {!isOccurrenceEdit && (
               <div
                 className={
                   frequency === 'yearly'
@@ -416,8 +422,10 @@ export function RecurrenceFormModal({
                   </div>
                 )}
               </div>
+              )}
 
               {/* 3. Término | Data final / Qtd. ocorrências */}
+              {!isOccurrenceEdit && (
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
                 <div className="min-w-0">
                   <Label htmlFor="recurrence-end-type">Término</Label>
@@ -497,6 +505,7 @@ export function RecurrenceFormModal({
                   </div>
                 )}
               </div>
+              )}
 
               {/* 4. Descrição */}
               <div className="min-w-0">
@@ -531,7 +540,21 @@ export function RecurrenceFormModal({
               </div>
 
               {/* 6. Conta | Valor  /  Conta origem | Conta destino */}
-              {originType === 'transaction' ? (
+              {isOccurrenceEdit ? (
+                <div className="min-w-0">
+                  <TransactionAmountField
+                    id="recurrence-amount"
+                    control={form.control}
+                    errors={form.formState.errors}
+                    amountRef={amountRef}
+                    clearAmountError={() => form.clearErrors('amount')}
+                    setAmountError={(message) => {
+                      form.setError('amount', { type: 'manual', message })
+                    }}
+                    inputMode="numeric"
+                  />
+                </div>
+              ) : originType === 'transaction' ? (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   <div className="min-w-0">
                     <TransactionAccountField
@@ -612,7 +635,7 @@ export function RecurrenceFormModal({
               )}
 
               {/* 5. Categoria/Subcategoria (largura total — apenas transação) */}
-              {originType === 'transaction' && (
+              {!isOccurrenceEdit && originType === 'transaction' && (
                 <div>
                   <TransactionCategoryField
                     id="recurrence-category"
@@ -657,10 +680,10 @@ export function RecurrenceFormModal({
                 </div>
               )}
 
-              {isEditingActive ? (
+              {isEditingActive && isOccurrenceEdit && occurrenceEditStatus === 'pending_review' ? (
                 <div className="grid grid-cols-1 gap-3 rounded-xl border bg-muted/20 p-4 lg:grid-cols-12">
                   <div className="min-w-0 lg:col-span-6">
-                    <Label>Aplicar edição em</Label>
+                    <Label htmlFor="recurrence-edit-scope">Aplicar edição em</Label>
                     <Select
                       value={editScope}
                       onValueChange={(value) =>
@@ -670,41 +693,28 @@ export function RecurrenceFormModal({
                         )
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="recurrence-edit-scope">
                         <SelectValue placeholder="Escopo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="single">Somente esta</SelectItem>
                         <SelectItem value="this_and_next">
                           Esta e próximas
                         </SelectItem>
-                        <SelectItem value="single">Somente esta</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  <p className="text-xs text-muted-foreground lg:col-span-12">
+                    {editScope === 'this_and_next'
+                      ? 'As alterações serão aplicadas nesta ocorrência e em todas as próximas a partir da linha selecionada.'
+                      : 'As alterações serão aplicadas somente nesta ocorrência selecionada.'}
+                  </p>
+                </div>
+              ) : null}
 
-                  {editScope !== 'all' ? (
-                    <div className="min-w-0 lg:col-span-6">
-                      <Label>Data da ocorrência</Label>
-                      <Input
-                        type="date"
-                        min={
-                          editScope === 'single'
-                            ? getTodayIsoDateInTimezone(
-                                editingRecurrence?.timezone,
-                              )
-                            : undefined
-                        }
-                        {...form.register('occurrenceDate')}
-                      />
-                      {editScope === 'single' ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Para ocorrência passada já materializada, faça ajuste
-                          manual em Transações.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
+              {isOccurrenceEdit && occurrenceEditStatus === 'projected' ? (
+                <div className="rounded-xl border bg-muted/20 p-4 text-xs text-muted-foreground">
+                  Esta edição será aplicada somente nesta ocorrência projetada selecionada.
                 </div>
               ) : null}
 

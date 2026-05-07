@@ -8,6 +8,7 @@
 - Materialização sob demanda de ocorrências pendentes
 - Confirmação e ignorar pendências de revisão
 - Timeline de recorrência com ocorrências persistidas e projetadas
+- Overrides pontuais de ocorrências projetadas
 - Forecast de recorrências (real x projetado)
 - Job diário de materialização com lock, retry e idempotência
 
@@ -36,6 +37,11 @@
 - Para ocorrências `materialized` com `transactionId`, o `amount` exibido na timeline é sempre o valor atual da tabela `transactions` (não o `reviewPayload`), refletindo edições feitas após a materialização; para transferências (`transferId != null`), o comportamento é mantido via `reviewPayload`
 - Antecipação (`POST /recurrences/:id/anticipate`): permite materializar imediatamente uma ocorrência projetada (ainda não persistida); valida que a data é válida na série, que não existe duplicata e que o limite `by_occurrences` não foi atingido; insere a ocorrência e cria a transação/transferência na mesma transação de banco
 - A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
+- Overrides pontuais (`recurrence_occurrence_overrides`) permitem ajustar apenas `amount`, `description` e `notes` de uma ocorrência `projected`; campos `NULL` herdam o valor da regra-mãe
+- Overrides só podem ser criados para datas futuras válidas da série e sem ocorrência persistida (`materialized`, `pending_review`, `skipped` ou `failed`)
+- A timeline retorna `hasOverride` e mescla o `amount` em itens projetados; itens persistidos não são afetados por overrides
+- A materialização consome o override dentro da mesma transação e remove o registro após criar a ocorrência
+- `this_and_next` migra overrides futuros para a nova regra criada; `skip` remove override da mesma data quando existir
 
 ## Endpoints
 
@@ -44,6 +50,8 @@
 - `GET /recurrences/:id`
 - `PUT /recurrences/:id`
 - `PUT /recurrences/:id/edit-scope`
+- `PUT /recurrences/:id/occurrences/override`
+- `DELETE /recurrences/:id/occurrences/override/:date`
 - `PUT /recurrences/:id/finalize`
 - `DELETE /recurrences/:id`
 - `POST /recurrences/occurrences/:id/confirm`
@@ -52,3 +60,49 @@
 - `POST /recurrences/materialize`
 - `GET /recurrences/:id/timeline`
 - `GET /recurrences/forecast`
+
+### Overrides de ocorrência projetada
+
+`PUT /recurrences/:id/occurrences/override`
+
+Body:
+
+```json
+{
+  "occurrenceDate": "2030-01-14",
+  "amount": 250,
+  "description": "Descrição pontual",
+  "notes": "Observação pontual"
+}
+```
+
+Regras:
+
+- `occurrenceDate` deve estar em `YYYY-MM-DD`
+- pelo menos um campo entre `amount`, `description` e `notes` deve ser informado
+- `amount`, quando informado, deve ser maior que zero
+- `description`/`notes` com `null` fazem a ocorrência herdar o valor da regra
+- retorna `404` se a recorrência não pertence ao usuário autenticado
+- retorna `422` para data passada, data fora da série, data fora do término/horizonte operacional ou data já persistida em `recurrence_occurrences`
+
+Response `200`:
+
+```json
+{
+  "id": "uuid",
+  "recurrenceId": "uuid",
+  "userId": "uuid",
+  "occurrenceDate": "2030-01-14",
+  "amount": 250,
+  "description": "Descrição pontual",
+  "notes": "Observação pontual",
+  "createdAt": "2030-01-01T00:00:00.000Z",
+  "updatedAt": "2030-01-01T00:00:00.000Z"
+}
+```
+
+`DELETE /recurrences/:id/occurrences/override/:date`
+
+- remove o override pontual da data
+- retorna `204` sem body
+- retorna `404` se a recorrência ou o override não existir para o usuário

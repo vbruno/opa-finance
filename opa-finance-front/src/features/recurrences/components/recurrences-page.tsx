@@ -32,6 +32,7 @@ import {
   useSkipRecurrenceOccurrence,
   useRecurrences,
   useUpdateRecurrence,
+  useUpsertRecurrenceOccurrenceOverride,
   type Recurrence,
   type RecurrenceEditScope,
   type RecurrenceTimelineItem,
@@ -44,6 +45,7 @@ import {
   getRecurrenceEditErrorMessage,
   getRecurrenceFormValuesFromEntity,
   getTodayIsoDateInTimezone,
+  toOccurrenceChangesPayload,
   toRecurrenceCreatePayload,
   toScopedRecurrenceUpdatePayload,
 } from '@/features/recurrences/model/recurrences.helpers'
@@ -57,6 +59,7 @@ import { useTransactionDescriptions } from '@/features/transactions/transactions
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { api } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { formatCurrencyValue } from '@/lib/utils'
 import {
   recurrenceFormSchema,
   type RecurrenceFormData,
@@ -80,6 +83,8 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const { page, limit, setSearch } = useRecurrencesSearchParams({ search, navigate })
 
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isOccurrenceEditMode, setIsOccurrenceEditMode] = useState(false)
+  const [occurrenceEditStatus, setOccurrenceEditStatus] = useState<'projected' | 'pending_review' | null>(null)
   const [editingRecurrence, setEditingRecurrence] = useState<Recurrence | null>(
     null,
   )
@@ -119,6 +124,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const createMutation = useCreateRecurrence()
   const updateMutation = useUpdateRecurrence()
   const editByScopeMutation = useEditRecurrenceByScope()
+  const upsertOverrideMutation = useUpsertRecurrenceOccurrenceOverride()
   const finalizeMutation = useFinalizeRecurrence()
   const deleteMutation = useDeleteRecurrence()
   const skipMutation = useSkipRecurrenceOccurrence()
@@ -153,7 +159,8 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const isAnyMutationPending =
     createMutation.isPending ||
     updateMutation.isPending ||
-    editByScopeMutation.isPending
+    editByScopeMutation.isPending ||
+    upsertOverrideMutation.isPending
 
   const categoryIdsKey = useMemo(
     () => categories.map((c) => c.id).join(','),
@@ -219,6 +226,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   async function openEditModal(recurrence: Recurrence) {
     setFormError(null)
     setConflictRecurrenceId(null)
+    setIsOccurrenceEditMode(false)
 
     try {
       const response = await api.get<Recurrence>(`/recurrences/${recurrence.id}`)
@@ -231,6 +239,35 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
       setFormError(
         getApiErrorMessage(error, {
           defaultMessage: 'Não foi possível carregar os dados mais recentes da recorrência.',
+        }),
+      )
+    }
+  }
+
+  async function openOccurrenceEditModal(item: RecurrenceTimelineItem) {
+    if (!detailsRecurrence) return
+    if (item.status !== 'projected' && item.status !== 'pending_review') return
+    setFormError(null)
+    setConflictRecurrenceId(null)
+
+    try {
+      const response = await api.get<Recurrence>(`/recurrences/${detailsRecurrence.id}`)
+      const latestRecurrence = response.data
+
+      setEditingRecurrence(latestRecurrence)
+      setIsOccurrenceEditMode(true)
+      setOccurrenceEditStatus(item.status)
+      form.reset({
+        ...getRecurrenceFormValuesFromEntity(latestRecurrence),
+        amount: `$ ${formatCurrencyValue(item.amount)}`,
+        editScope: 'single',
+        occurrenceDate: item.occurrenceDate,
+      })
+      setIsFormOpen(true)
+    } catch (error) {
+      setActionError(
+        getApiErrorMessage(error, {
+          defaultMessage: 'Não foi possível carregar os dados da recorrência para edição.',
         }),
       )
     }
@@ -276,6 +313,8 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   const closeModal = useCallback(() => {
     if (isAnyMutationPending) return
     setIsFormOpen(false)
+    setIsOccurrenceEditMode(false)
+    setOccurrenceEditStatus(null)
     setEditingRecurrence(null)
     setFormError(null)
     setConflictRecurrenceId(null)
@@ -383,6 +422,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     setConflictRecurrenceId(null)
 
     if (
+      !isOccurrenceEditMode &&
       editingRecurrence &&
       values.editScope === 'single' &&
       values.occurrenceDate &&
@@ -401,6 +441,40 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
       if (!editingRecurrence) {
         const createPayload = toRecurrenceCreatePayload(values)
         await createMutation.mutateAsync(createPayload)
+        closeModal()
+        return
+      }
+
+      if (isOccurrenceEditMode) {
+        if (!values.occurrenceDate) {
+          setFormError('Data da ocorrência ausente.')
+          return
+        }
+
+        const changes = toOccurrenceChangesPayload(values)
+
+        if (occurrenceEditStatus === 'projected') {
+          await upsertOverrideMutation.mutateAsync({
+            recurrenceId: editingRecurrence.id,
+            payload: {
+              occurrenceDate: values.occurrenceDate,
+              ...changes,
+            },
+          })
+          closeModal()
+          return
+        }
+
+        const scope = values.editScope
+        if (scope !== 'single' && scope !== 'this_and_next') {
+          setFormError('Escopo inválido para edição de ocorrência.')
+          return
+        }
+
+        await editByScopeMutation.mutateAsync({
+          id: editingRecurrence.id,
+          payload: { scope, occurrenceDate: values.occurrenceDate, changes },
+        })
         closeModal()
         return
       }
@@ -550,6 +624,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         onOpenConfirmOccurrence={openConfirmOccurrenceModal}
         onSkipOccurrence={(occurrence) => void handleSkipOccurrence(occurrence)}
         onActionError={setActionError}
+        onEditOccurrence={(item) => void openOccurrenceEditModal(item)}
       />
 
       <ConfirmRecurrenceOccurrenceModal
@@ -563,6 +638,8 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
       <RecurrenceFormModal
         open={isFormOpen}
         isEditing={isEditing}
+        isOccurrenceEdit={isOccurrenceEditMode}
+        occurrenceEditStatus={occurrenceEditStatus ?? undefined}
         isSingleScopeEdit={isSingleScopeEdit}
         isAnyMutationPending={isAnyMutationPending}
         isFormSupportDataLoading={isFormSupportDataLoading}

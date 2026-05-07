@@ -1,11 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Account } from '@/features/accounts'
 import type { Category } from '@/features/categories'
 import { fetchSubcategories } from '@/features/categories'
@@ -17,7 +16,6 @@ import {
   type RecurrenceTimelineItem,
 } from '@/features/recurrences'
 import { getRecurrenceConfirmErrorMessage } from '@/features/recurrences/model/recurrences.helpers'
-import { TransactionAccountField } from '@/features/transactions/components/transaction-account-field'
 import { TransactionAmountField } from '@/features/transactions/components/transaction-amount-field'
 import { TransactionDateField } from '@/features/transactions/components/transaction-date-field'
 import { TransactionNotesField } from '@/features/transactions/components/transaction-notes-field'
@@ -52,13 +50,13 @@ function normalizeOptionalText(value: string | undefined) {
 function buildDefaults(
   recurrence: Recurrence | null,
   reviewPayload: RecurrenceOccurrenceReviewPayload | null,
-  occurrenceDate?: string,
+  occurrence: RecurrenceTimelineItem | null,
 ): ConfirmFormData {
   if (!reviewPayload && recurrence) {
     return {
       originType: recurrence.originType,
-      occurrenceDate: occurrenceDate ?? '',
-      amount: `$ ${formatCurrencyValue(recurrence.amount)}`,
+      occurrenceDate: occurrence?.occurrenceDate ?? '',
+      amount: `$ ${formatCurrencyValue(occurrence?.amount ?? recurrence.amount)}`,
       description: recurrence.description ?? '',
       notes: recurrence.notes ?? '',
       accountId: recurrence.accountId ?? '',
@@ -91,9 +89,6 @@ export function ConfirmRecurrenceOccurrenceModal({
 }: ConfirmRecurrenceOccurrenceModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [isAccountOpen, setIsAccountOpen] = useState(false)
-  const [isFromAccountOpen, setIsFromAccountOpen] = useState(false)
-  const [isToAccountOpen, setIsToAccountOpen] = useState(false)
   const [subcategories, setSubcategories] = useState<Array<{ id: string; name: string }>>([])
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false)
 
@@ -105,24 +100,47 @@ export function ConfirmRecurrenceOccurrenceModal({
   const isSubmitting = confirmMutation.isPending || anticipateMutation.isPending
 
   const form = useForm<ConfirmFormData>({
-    defaultValues: buildDefaults(recurrence, occurrence?.reviewPayload ?? null, occurrence?.occurrenceDate),
+    defaultValues: buildDefaults(recurrence, occurrence?.reviewPayload ?? null, occurrence),
   })
 
   const selectedCategoryId = form.watch('categoryId')
+  const selectedSubcategoryId = form.watch('subcategoryId')
+  const selectedAccountId = form.watch('accountId')
+  const selectedFromAccountId = form.watch('fromAccountId')
+  const selectedToAccountId = form.watch('toAccountId')
   const originType =
     recurrence?.originType ?? occurrence?.reviewPayload?.originType ?? 'transaction'
 
-  const categoryOptions = useMemo(
-    () =>
-      [...categories]
-        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
-        .map((category) => ({ id: category.id, name: category.name })),
+  const accountsById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
+  )
+
+  const categoriesById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
     [categories],
   )
 
+  const readonlyAccountName = selectedAccountId
+    ? (accountsById.get(selectedAccountId)?.name ?? selectedAccountId)
+    : 'Sem conta'
+  const readonlyFromAccountName = selectedFromAccountId
+    ? (accountsById.get(selectedFromAccountId)?.name ?? selectedFromAccountId)
+    : 'Sem conta'
+  const readonlyToAccountName = selectedToAccountId
+    ? (accountsById.get(selectedToAccountId)?.name ?? selectedToAccountId)
+    : 'Sem conta'
+  const readonlyCategoryName = selectedCategoryId
+    ? (categoriesById.get(selectedCategoryId)?.name ?? selectedCategoryId)
+    : 'Sem categoria'
+  const readonlySubcategoryName = selectedSubcategoryId
+    ? (subcategories.find((subcategory) => subcategory.id === selectedSubcategoryId)?.name ??
+      (subcategoriesLoading ? 'Carregando...' : selectedSubcategoryId))
+    : 'Sem subcategoria'
+
   useEffect(() => {
     if (!occurrence) return
-    form.reset(buildDefaults(recurrence, occurrence.reviewPayload, occurrence.occurrenceDate))
+    form.reset(buildDefaults(recurrence, occurrence.reviewPayload, occurrence))
     setSubmitError(null)
   }, [form, occurrence, recurrence])
 
@@ -404,49 +422,26 @@ export function ConfirmRecurrenceOccurrenceModal({
                 {originType === 'transaction' ? (
                   <>
                     <div className="min-w-0 lg:col-span-2">
-                      <TransactionAccountField
+                      <Label htmlFor="confirm-account">Conta</Label>
+                      <Input
                         id="confirm-account"
-                        label="Conta"
-                        fieldName="accountId"
-                        control={form.control}
-                        errors={form.formState.errors}
-                        accounts={accounts}
-                        isOpen={isAccountOpen}
-                        onOpenChange={setIsAccountOpen}
-                        tabIndex={0}
-                        disabled={isSubmitting}
+                        value={readonlyAccountName}
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
+                        className="h-10 pointer-events-none cursor-default bg-background text-foreground"
                       />
                     </div>
 
                     <div className="min-w-0">
                       <Label htmlFor="confirm-category">Categoria</Label>
-                      <Controller
-                        control={form.control}
-                        name="categoryId"
-                        render={({ field }) => (
-                          <Select
-                            value={field.value || '__none__'}
-                            onValueChange={(value) => {
-                              field.onChange(value === '__none__' ? '' : value)
-                              form.setValue('subcategoryId', '')
-                            }}
-                            disabled={isSubmitting}
-                          >
-                            <SelectTrigger id="confirm-category" className="h-10">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__" className="hidden">
-                                Selecione
-                              </SelectItem>
-                              {categoryOptions.map((category) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                      <Input
+                        id="confirm-category"
+                        value={readonlyCategoryName}
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
+                        className="h-10 pointer-events-none cursor-default bg-background text-foreground"
                       />
                       {form.formState.errors.categoryId ? (
                         <p className="text-sm text-destructive">
@@ -457,40 +452,13 @@ export function ConfirmRecurrenceOccurrenceModal({
 
                     <div className="min-w-0">
                       <Label htmlFor="confirm-subcategory">Subcategoria</Label>
-                      <Controller
-                        control={form.control}
-                        name="subcategoryId"
-                        render={({ field }) => (
-                          <Select
-                            value={field.value || '__none__'}
-                            onValueChange={(value) =>
-                              field.onChange(value === '__none__' ? '' : value)
-                            }
-                            disabled={isSubmitting || !selectedCategoryId || subcategoriesLoading}
-                          >
-                            <SelectTrigger id="confirm-subcategory" className="h-10">
-                              <SelectValue
-                                placeholder={
-                                  selectedCategoryId
-                                    ? subcategoriesLoading
-                                      ? 'Carregando...'
-                                      : 'Selecione'
-                                    : 'Selecione a categoria primeiro'
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__" className="hidden">
-                                Selecione
-                              </SelectItem>
-                              {subcategories.map((subcategory) => (
-                                <SelectItem key={subcategory.id} value={subcategory.id}>
-                                  {subcategory.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                      <Input
+                        id="confirm-subcategory"
+                        value={readonlySubcategoryName}
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
+                        className="h-10 pointer-events-none cursor-default bg-background text-foreground"
                       />
                       {form.formState.errors.subcategoryId ? (
                         <p className="text-sm text-destructive">
@@ -502,32 +470,26 @@ export function ConfirmRecurrenceOccurrenceModal({
                 ) : (
                   <>
                     <div className="min-w-0">
-                      <TransactionAccountField
+                      <Label htmlFor="confirm-from-account">Conta de origem</Label>
+                      <Input
                         id="confirm-from-account"
-                        label="Conta de origem"
-                        fieldName="fromAccountId"
-                        control={form.control}
-                        errors={form.formState.errors}
-                        accounts={accounts}
-                        isOpen={isFromAccountOpen}
-                        onOpenChange={setIsFromAccountOpen}
-                        tabIndex={0}
-                        disabled={isSubmitting}
+                        value={readonlyFromAccountName}
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
+                        className="h-10 pointer-events-none cursor-default bg-background text-foreground"
                       />
                     </div>
 
                     <div className="min-w-0">
-                      <TransactionAccountField
+                      <Label htmlFor="confirm-to-account">Conta de destino</Label>
+                      <Input
                         id="confirm-to-account"
-                        label="Conta de destino"
-                        fieldName="toAccountId"
-                        control={form.control}
-                        errors={form.formState.errors}
-                        accounts={accounts}
-                        isOpen={isToAccountOpen}
-                        onOpenChange={setIsToAccountOpen}
-                        tabIndex={0}
-                        disabled={isSubmitting}
+                        value={readonlyToAccountName}
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
+                        className="h-10 pointer-events-none cursor-default bg-background text-foreground"
                       />
                     </div>
                   </>

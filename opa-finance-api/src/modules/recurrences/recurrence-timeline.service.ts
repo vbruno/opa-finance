@@ -7,7 +7,12 @@ import {
   getNextOccurrenceAfter,
   type RecurrenceSchedule,
 } from "../../core/utils/recurrence-schedule.utils";
-import { recurrences, recurrenceOccurrences, transactions } from "../../db/schema";
+import {
+  recurrenceOccurrenceOverrides,
+  recurrenceOccurrences,
+  recurrences,
+  transactions,
+} from "../../db/schema";
 import { minIsoDate, resolveOperationalEndDate, serializeRecurrence } from "./recurrence.helpers";
 import type { RecurrenceTimelineQuery } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
@@ -29,6 +34,7 @@ type TimelineItem = {
   reviewPayload: unknown | null;
   canConfirm: boolean;
   canSkip: boolean;
+  hasOverride: boolean;
 };
 
 type TimelineSummary = {
@@ -72,6 +78,8 @@ type TimelineOccurrenceRow = {
   version: number;
   reviewPayload: unknown;
 };
+
+type TimelineOverrideRow = typeof recurrenceOccurrenceOverrides.$inferSelect;
 
 type TimelineCounts = {
   materializedOccurrences: number;
@@ -319,6 +327,7 @@ export class RecurrenceTimelineService {
               reviewPayload: persisted.reviewPayload,
               canConfirm: canReview,
               canSkip: canReview,
+              hasOverride: false,
             });
           } else {
             items.push({
@@ -334,9 +343,9 @@ export class RecurrenceTimelineService {
               reviewPayload: null,
               canConfirm: true,
               canSkip: false,
+              hasOverride: false,
             });
             projectedOccurrences++;
-            projectedAmount += recurrence.amount;
           }
           processedCount++;
         } else {
@@ -367,6 +376,37 @@ export class RecurrenceTimelineService {
       items.reverse();
       paginationHasMore = reverseOffset > 0;
     }
+
+    const projectedDates = items
+      .filter((item) => item.source === "projected")
+      .map((item) => item.occurrenceDate);
+
+    if (projectedDates.length > 0) {
+      const overrides: TimelineOverrideRow[] = await this.app.db
+        .select()
+        .from(recurrenceOccurrenceOverrides)
+        .where(
+          and(
+            eq(recurrenceOccurrenceOverrides.recurrenceId, recurrenceId),
+            inArray(recurrenceOccurrenceOverrides.occurrenceDate, projectedDates),
+          ),
+        );
+      const overrideByDate = new Map(
+        overrides.map((override) => [override.occurrenceDate, override]),
+      );
+
+      for (const item of items) {
+        if (item.source !== "projected") continue;
+        const override = overrideByDate.get(item.occurrenceDate);
+        if (!override) continue;
+        item.amount = override.amount === null ? item.amount : Number(override.amount);
+        item.hasOverride = true;
+      }
+    }
+
+    projectedAmount = items
+      .filter((item) => item.source === "projected")
+      .reduce((acc, item) => acc + item.amount, 0);
 
     const consumedOccurrences = this.resolveConsumedOccurrences(counts);
     const hasMoreProjected = (() => {

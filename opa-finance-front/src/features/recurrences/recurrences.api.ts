@@ -90,6 +90,7 @@ export type RecurrenceTimelineItem = {
   reviewPayload: RecurrenceOccurrenceReviewPayload | null
   canConfirm: boolean
   canSkip: boolean
+  hasOverride: boolean
 }
 
 export type RecurrenceTimelineSummary = {
@@ -233,6 +234,25 @@ export type AnticipateRecurrenceOccurrencePayload = {
   subcategoryId?: string | null
   fromAccountId?: string
   toAccountId?: string
+}
+
+export type UpsertRecurrenceOccurrenceOverridePayload = {
+  occurrenceDate: string
+  amount?: number
+  description?: string | null
+  notes?: string | null
+}
+
+export type RecurrenceOccurrenceOverride = {
+  id: string
+  recurrenceId: string
+  userId: string
+  occurrenceDate: string
+  amount: number | null
+  description: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 const recurrencesKey = ['recurrences']
@@ -420,6 +440,48 @@ export function useAnticipateRecurrenceOccurrence() {
     }) => {
       const response = await api.post(`/recurrences/${recurrenceId}/anticipate`, payload)
       return response.data
+    },
+    onSuccess: () => {
+      invalidateRecurrenceDependentQueries(queryClient)
+    },
+  })
+}
+
+export function useUpsertRecurrenceOccurrenceOverride() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      recurrenceId,
+      payload,
+    }: {
+      recurrenceId: string
+      payload: UpsertRecurrenceOccurrenceOverridePayload
+    }) => {
+      const response = await api.put<RecurrenceOccurrenceOverride>(
+        `/recurrences/${recurrenceId}/occurrences/override`,
+        payload,
+      )
+      return response.data
+    },
+    onSuccess: () => {
+      invalidateRecurrenceDependentQueries(queryClient)
+    },
+  })
+}
+
+export function useDeleteRecurrenceOccurrenceOverride() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      recurrenceId,
+      occurrenceDate,
+    }: {
+      recurrenceId: string
+      occurrenceDate: string
+    }) => {
+      await api.delete(`/recurrences/${recurrenceId}/occurrences/override/${occurrenceDate}`)
     },
     onSuccess: () => {
       invalidateRecurrenceDependentQueries(queryClient)

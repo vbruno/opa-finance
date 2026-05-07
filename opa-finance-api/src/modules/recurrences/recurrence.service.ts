@@ -5,6 +5,7 @@ import { RecurrenceEditService } from "./recurrence-edit.service";
 import { RecurrenceForecastService } from "./recurrence-forecast.service";
 import { RecurrenceMaterializeService } from "./recurrence-materialize.service";
 import { RecurrenceOccurrenceService } from "./recurrence-occurrence.service";
+import { RecurrenceOverrideService } from "./recurrence-override.service";
 import { RecurrenceTimelineService } from "./recurrence-timeline.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import type {
@@ -18,6 +19,7 @@ import type {
   RecurrenceTimelineQuery,
   SkipRecurrenceOccurrenceInput,
   UpdateRecurrenceInput,
+  UpsertOccurrenceOverrideInput,
 } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
@@ -30,6 +32,7 @@ export class RecurrenceService {
   private materializeService: RecurrenceMaterializeService;
   private forecastService: RecurrenceForecastService;
   private occurrenceService: RecurrenceOccurrenceService;
+  private overrideService: RecurrenceOverrideService;
   private timelineService: RecurrenceTimelineService;
 
   constructor(private app: FastifyInstance) {
@@ -55,6 +58,7 @@ export class RecurrenceService {
       this.validators,
       this.recurrenceAudit,
     );
+    this.overrideService = new RecurrenceOverrideService(app, this.validators);
     this.timelineService = new RecurrenceTimelineService(app);
   }
 
@@ -131,5 +135,17 @@ export class RecurrenceService {
     input: RecurrenceAnticipateInput,
   ) {
     return this.occurrenceService.anticipate(userId, recurrenceId, input);
+  }
+
+  async upsertOccurrenceOverride(
+    userId: string,
+    recurrenceId: string,
+    input: UpsertOccurrenceOverrideInput,
+  ) {
+    return this.overrideService.upsert(userId, recurrenceId, input);
+  }
+
+  async deleteOccurrenceOverride(userId: string, recurrenceId: string, occurrenceDate: string) {
+    return this.overrideService.delete(userId, recurrenceId, occurrenceDate);
   }
 }

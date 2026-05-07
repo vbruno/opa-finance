@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerAndLogin } from "../helpers/auth";
 import { resetTables } from "../helpers/resetTables";
 import { buildTestApp } from "../setup";
-import { categories, recurrenceOccurrences, recurrences, transactions } from "@/db/schema";
+import {
+  categories,
+  recurrenceOccurrenceOverrides,
+  recurrenceOccurrences,
+  recurrences,
+  transactions,
+} from "@/db/schema";
 
 describe("Recurrences - critical rules", () => {
   let app: FastifyInstance;
@@ -2711,5 +2717,213 @@ describe("Recurrences - critical rules", () => {
         `),
       );
     }
+  });
+
+  it("override cria sobrescrita e a timeline mescla valor da ocorrencia projetada", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 3,
+    });
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2030-01-14",
+        amount: 250,
+        description: "Despesa com override",
+        notes: "observacao pontual",
+      },
+    });
+
+    expect(overrideRes.statusCode).toBe(200);
+    expect(overrideRes.json()).toMatchObject({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2030-01-14",
+      amount: 250,
+      description: "Despesa com override",
+      notes: "observacao pontual",
+    });
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?untilDate=2030-01-21&limit=3`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const overrideItem = timelineRes
+      .json()
+      .items.find((item: { occurrenceDate: string }) => item.occurrenceDate === "2030-01-14");
+    expect(overrideItem).toMatchObject({
+      occurrenceDate: "2030-01-14",
+      status: "projected",
+      source: "projected",
+      amount: 250,
+      hasOverride: true,
+    });
+  });
+
+  it("override materializacao consome a sobrescrita e remove o registro", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2030-01-14",
+        amount: 333,
+        description: "Override materializado",
+        notes: "nota do override",
+      },
+    });
+    expect(overrideRes.statusCode).toBe(200);
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2030-01-14" },
+    });
+
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdTransactions).toBe(2);
+
+    const [createdTx] = await app.db
+      .select({
+        amount: transactions.amount,
+        description: transactions.description,
+        notes: transactions.notes,
+      })
+      .from(transactions)
+      .where(and(eq(transactions.userId, recurrence.userId), eq(transactions.date, "2030-01-14")));
+
+    expect(Number(createdTx?.amount)).toBe(333);
+    expect(createdTx?.description).toBe("Override materializado");
+    expect(createdTx?.notes).toBe("nota do override");
+
+    const remainingOverrides = await app.db
+      .select({ id: recurrenceOccurrenceOverrides.id })
+      .from(recurrenceOccurrenceOverrides)
+      .where(eq(recurrenceOccurrenceOverrides.recurrenceId, recurrence.id));
+    expect(remainingOverrides).toHaveLength(0);
+  });
+
+  it("override this_and_next migra sobrescritas futuras para a nova recorrencia", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 5,
+    });
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { occurrenceDate: "2030-01-21", amount: 444 },
+    });
+    expect(overrideRes.statusCode).toBe(200);
+
+    const editRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2030-01-14",
+        changes: { amount: 180, expectedVersion: recurrence.version },
+      },
+    });
+
+    expect(editRes.statusCode).toBe(200);
+    const newRecurrenceId = editRes.json().newRecurrence.id;
+
+    const migratedOverrides = await app.db
+      .select({
+        recurrenceId: recurrenceOccurrenceOverrides.recurrenceId,
+        occurrenceDate: recurrenceOccurrenceOverrides.occurrenceDate,
+        amount: recurrenceOccurrenceOverrides.amount,
+      })
+      .from(recurrenceOccurrenceOverrides)
+      .where(eq(recurrenceOccurrenceOverrides.occurrenceDate, "2030-01-21"));
+
+    expect(migratedOverrides).toHaveLength(1);
+    expect(migratedOverrides[0]).toMatchObject({
+      recurrenceId: newRecurrenceId,
+      occurrenceDate: "2030-01-21",
+    });
+    expect(Number(migratedOverrides[0]?.amount)).toBe(444);
+  });
+
+  it("override skip remove sobrescrita da mesma data da pendencia", async () => {
+    const { token, account, category, user } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 1,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2030-01-07" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+    expect(pending?.status).toBe("pending_review");
+
+    await app.db.insert(recurrenceOccurrenceOverrides).values({
+      recurrenceId: recurrence.id,
+      userId: user.id,
+      occurrenceDate: "2030-01-07",
+      amount: "555",
+    });
+
+    const skipRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+
+    expect(skipRes.statusCode).toBe(200);
+
+    const remainingOverrides = await app.db
+      .select({ id: recurrenceOccurrenceOverrides.id })
+      .from(recurrenceOccurrenceOverrides)
+      .where(eq(recurrenceOccurrenceOverrides.recurrenceId, recurrence.id));
+    expect(remainingOverrides).toHaveLength(0);
   });
 });

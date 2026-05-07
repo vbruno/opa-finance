@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { ValidationProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
@@ -9,13 +9,21 @@ import {
   getNextOccurrenceAfter,
   type RecurrenceSchedule,
 } from "../../core/utils/recurrence-schedule.utils";
-import { categories, recurrenceOccurrences, recurrences, transactions } from "../../db/schema";
+import {
+  categories,
+  recurrenceOccurrenceOverrides,
+  recurrenceOccurrences,
+  recurrences,
+  transactions,
+} from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
 import { minIsoDate, resolveOperationalEndDate } from "./recurrence.helpers";
 import type { MaterializeRecurrencesInput } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
 type RecurrenceOccurrenceRow = typeof recurrenceOccurrences.$inferSelect;
+type RecurrenceRow = typeof recurrences.$inferSelect;
+type RecurrenceOverrideRow = typeof recurrenceOccurrenceOverrides.$inferSelect;
 
 export class RecurrenceMaterializeService {
   private readonly defaultMaterializationBatchSize = 200;
@@ -27,7 +35,21 @@ export class RecurrenceMaterializeService {
     private validators: RecurrenceValidators,
   ) {}
 
-  private buildReviewPayload(recurrence: typeof recurrences.$inferSelect, occurrenceDate: string) {
+  private buildEffectiveRecurrence(
+    recurrence: RecurrenceRow,
+    override: RecurrenceOverrideRow | null,
+  ): RecurrenceRow {
+    if (!override) return recurrence;
+
+    return {
+      ...recurrence,
+      amount: override.amount ?? recurrence.amount,
+      description: override.description ?? recurrence.description,
+      notes: override.notes ?? recurrence.notes,
+    };
+  }
+
+  private buildReviewPayload(recurrence: RecurrenceRow, occurrenceDate: string) {
     return {
       occurrenceDate,
       originalScheduledDate: occurrenceDate,
@@ -45,7 +67,7 @@ export class RecurrenceMaterializeService {
 
   private async materializeTransactionOccurrence(
     tx: DB,
-    recurrence: typeof recurrences.$inferSelect,
+    recurrence: RecurrenceRow,
     occurrenceDate: string,
   ) {
     if (!recurrence.accountId || !recurrence.categoryId) {
@@ -88,7 +110,7 @@ export class RecurrenceMaterializeService {
 
   private async materializeTransferOccurrence(
     tx: DB,
-    recurrence: typeof recurrences.$inferSelect,
+    recurrence: RecurrenceRow,
     occurrenceDate: string,
     transferCategoryId: string,
   ) {
@@ -278,6 +300,20 @@ export class RecurrenceMaterializeService {
           }
         }
 
+        const overrideRows: RecurrenceOverrideRow[] = await this.app.db
+          .select()
+          .from(recurrenceOccurrenceOverrides)
+          .where(
+            and(
+              eq(recurrenceOccurrenceOverrides.recurrenceId, recurrence.id),
+              gte(recurrenceOccurrenceOverrides.occurrenceDate, cursorDate),
+              lte(recurrenceOccurrenceOverrides.occurrenceDate, effectiveUntilDate),
+            ),
+          );
+        const overrideByDate = new Map(
+          overrideRows.map((override) => [override.occurrenceDate, override]),
+        );
+
         while (compareIsoDate(cursorDate, effectiveUntilDate) <= 0) {
           iterations += 1;
           if (!localFirstProcessedDate) {
@@ -309,6 +345,9 @@ export class RecurrenceMaterializeService {
           }
 
           const occurrenceOutcome = await this.app.db.transaction(async (tx: DB) => {
+            const override = overrideByDate.get(cursorDate) ?? null;
+            const effectiveRecurrence = this.buildEffectiveRecurrence(recurrence, override ?? null);
+
             const [occurrence] = await tx
               .insert(recurrenceOccurrences)
               .values({
@@ -323,7 +362,7 @@ export class RecurrenceMaterializeService {
                 },
                 reviewPayload:
                   recurrence.postingMode === "review_required"
-                    ? this.buildReviewPayload(recurrence, cursorDate)
+                    ? this.buildReviewPayload(effectiveRecurrence, cursorDate)
                     : null,
               })
               .onConflictDoNothing({
@@ -346,6 +385,12 @@ export class RecurrenceMaterializeService {
             }
 
             if (recurrence.postingMode === "review_required") {
+              if (override) {
+                await tx
+                  .delete(recurrenceOccurrenceOverrides)
+                  .where(eq(recurrenceOccurrenceOverrides.id, override.id));
+              }
+
               return {
                 inserted: true,
                 occurrence,
@@ -358,7 +403,7 @@ export class RecurrenceMaterializeService {
             if (recurrence.originType === "transaction") {
               const transactionResult = await this.materializeTransactionOccurrence(
                 tx,
-                recurrence,
+                effectiveRecurrence,
                 cursorDate,
               );
 
@@ -369,6 +414,12 @@ export class RecurrenceMaterializeService {
                 })
                 .where(eq(recurrenceOccurrences.id, occurrence.id))
                 .returning();
+
+              if (override) {
+                await tx
+                  .delete(recurrenceOccurrenceOverrides)
+                  .where(eq(recurrenceOccurrenceOverrides.id, override.id));
+              }
 
               return {
                 inserted: true,
@@ -385,7 +436,7 @@ export class RecurrenceMaterializeService {
 
             const transferResult = await this.materializeTransferOccurrence(
               tx,
-              recurrence,
+              effectiveRecurrence,
               cursorDate,
               ensuredTransferCategoryId,
             );
@@ -397,6 +448,12 @@ export class RecurrenceMaterializeService {
               })
               .where(eq(recurrenceOccurrences.id, occurrence.id))
               .returning();
+
+            if (override) {
+              await tx
+                .delete(recurrenceOccurrenceOverrides)
+                .where(eq(recurrenceOccurrenceOverrides.id, override.id));
+            }
 
             return {
               inserted: true,

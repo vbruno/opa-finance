@@ -332,6 +332,22 @@ export function buildScopedRecurrenceUpdatePayload(
   return diff
 }
 
+export function toOccurrenceChangesPayload(values: RecurrenceFormData): {
+  amount: number
+  description: string | null
+  notes: string | null
+} {
+  const parsedAmount = parseCurrencyInput(values.amount)
+  if (parsedAmount === null || parsedAmount <= 0) {
+    throw new Error('Valor inválido.')
+  }
+  return {
+    amount: parsedAmount,
+    description: values.description?.trim() || null,
+    notes: values.notes?.trim() || null,
+  }
+}
+
 export function formatRecurrenceOriginType(originType: Recurrence['originType']) {
   return RECURRENCE_ORIGIN_LABELS[originType]
 }
