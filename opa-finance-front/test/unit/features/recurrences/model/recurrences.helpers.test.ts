@@ -44,6 +44,7 @@ function makeRecurrence(partial: Partial<Recurrence> = {}): Recurrence {
     amount: 120,
     description: 'Academia',
     notes: null,
+    hasConsumedOccurrences: false,
     nextOccurrenceDate: '2026-05-01',
     lastMaterializedDate: null,
     lastMaterializedAt: null,

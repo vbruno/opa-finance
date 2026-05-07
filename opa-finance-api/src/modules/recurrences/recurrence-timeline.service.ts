@@ -13,7 +13,12 @@ import {
   recurrences,
   transactions,
 } from "../../db/schema";
-import { minIsoDate, resolveOperationalEndDate, serializeRecurrence } from "./recurrence.helpers";
+import {
+  minIsoDate,
+  resolveOperationalEndDate,
+  serializeRecurrence,
+  STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES,
+} from "./recurrence.helpers";
 import type { RecurrenceTimelineQuery } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
 
@@ -63,7 +68,7 @@ type TimelinePagination = {
 };
 
 type TimelineResponse = {
-  recurrence: SerializedRecurrence;
+  recurrence: SerializedRecurrence & { hasConsumedOccurrences: boolean };
   summary: TimelineSummary;
   items: TimelineItem[];
   pagination: TimelinePagination;
@@ -128,6 +133,12 @@ export class RecurrenceTimelineService {
     ].reduce((acc, value) => acc + value, 0);
   }
 
+  private hasConsumedOccurrences(persistedRows: TimelineOccurrenceRow[]) {
+    return persistedRows.some((row) =>
+      STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES.includes(row.status),
+    );
+  }
+
   private resolveTimelineLabel(
     query: RecurrenceTimelineQuery,
     hasMoreProjected: boolean,
@@ -181,13 +192,13 @@ export class RecurrenceTimelineService {
       );
     }
 
-    const recurrence = serializeRecurrence(recurrenceRow);
+    const recurrenceBase = serializeRecurrence(recurrenceRow);
     const schedule: RecurrenceSchedule = {
-      startDate: recurrence.startDate,
-      frequency: recurrence.frequency,
-      dayOfWeek: recurrence.dayOfWeek,
-      dayOfMonth: recurrence.dayOfMonth,
-      monthOfYear: recurrence.monthOfYear,
+      startDate: recurrenceBase.startDate,
+      frequency: recurrenceBase.frequency,
+      dayOfWeek: recurrenceBase.dayOfWeek,
+      dayOfMonth: recurrenceBase.dayOfMonth,
+      monthOfYear: recurrenceBase.monthOfYear,
     };
 
     const persistedRows: TimelineOccurrenceRow[] = await this.app.db
@@ -203,6 +214,11 @@ export class RecurrenceTimelineService {
       .from(recurrenceOccurrences)
       .where(eq(recurrenceOccurrences.recurrenceId, recurrenceId))
       .orderBy(asc(recurrenceOccurrences.occurrenceDate));
+
+    const recurrence = {
+      ...recurrenceBase,
+      hasConsumedOccurrences: this.hasConsumedOccurrences(persistedRows),
+    };
 
     const persistedByDate = new Map(persistedRows.map((row) => [row.occurrenceDate, row]));
 

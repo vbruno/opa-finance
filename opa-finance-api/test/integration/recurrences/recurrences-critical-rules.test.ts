@@ -125,6 +125,30 @@ describe("Recurrences - critical rules", () => {
     return res.json();
   }
 
+  async function insertOccurrenceForRecurrence({
+    recurrenceId,
+    originType = "transaction",
+    occurrenceDate,
+    status,
+  }: {
+    recurrenceId: string;
+    originType?: "transaction" | "transfer";
+    occurrenceDate: string;
+    status: typeof recurrenceOccurrences.$inferInsert.status;
+  }) {
+    const [occurrence] = await app.db
+      .insert(recurrenceOccurrences)
+      .values({
+        recurrenceId,
+        originType,
+        occurrenceDate,
+        status,
+      })
+      .returning();
+
+    return occurrence;
+  }
+
   it("garante idempotencia na materializacao", async () => {
     const { token, account, category } = await createBaseContext();
     await createTransactionRecurrence({
@@ -2925,5 +2949,253 @@ describe("Recurrences - critical rules", () => {
       .from(recurrenceOccurrenceOverrides)
       .where(eq(recurrenceOccurrenceOverrides.recurrenceId, recurrence.id));
     expect(remainingOverrides).toHaveLength(0);
+  });
+
+  it("permite edição de estrutura antes de qualquer ocorrência consumida", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+    });
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        startDate: "2030-01-14",
+        frequency: "monthly",
+        dayOfMonth: 14,
+        endType: "until_date",
+        endDate: "2030-12-14",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(200);
+    expect(updateRes.json()).toMatchObject({
+      hasConsumedOccurrences: false,
+      startDate: "2030-01-14",
+      frequency: "monthly",
+      dayOfMonth: 14,
+      endType: "until_date",
+      endDate: "2030-12-14",
+    });
+  });
+
+  it("bloqueia edição de estrutura consumida após ocorrência materialized", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2030-01-07",
+      status: "materialized",
+    });
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        startDate: "2030-01-14",
+        frequency: "monthly",
+        dayOfMonth: 14,
+        endType: "by_occurrences",
+        endOccurrences: 8,
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(422);
+    expect(updateRes.json().detail).toContain("Edite apenas descrição/observações");
+  });
+
+  it("bloqueia edição de estrutura consumida em conta/categoria/subcategoria", async () => {
+    const { token, account, account2, category, category2, subcategory } =
+      await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2030-01-07",
+      status: "materialized",
+    });
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        accountId: account2.id,
+        categoryId: category2.id,
+        subcategoryId: subcategory.id,
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(422);
+    expect(updateRes.json().detail).toContain("Esta e próximas");
+  });
+
+  it("bloqueia amount em edição global consumida inclusive via scope all", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2030-01-07",
+      status: "materialized",
+    });
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "all",
+        changes: {
+          amount: 999,
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(422);
+    expect(updateRes.json().detail).toContain("ocorrências geradas");
+  });
+
+  it("permite description e notes em edição global consumida", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2030-01-07",
+      status: "materialized",
+    });
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        description: "Academia ajustada",
+        notes: "Somente texto livre",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(200);
+    expect(updateRes.json()).toMatchObject({
+      description: "Academia ajustada",
+      notes: "Somente texto livre",
+      hasConsumedOccurrences: true,
+    });
+  });
+
+  it.each([["pending_review" as const], ["skipped" as const], ["failed" as const]])(
+    "bloqueia estrutura consumida quando já existe ocorrência %s",
+    async (status) => {
+      const { token, account, category } = await createBaseContext();
+      const recurrence = await createTransactionRecurrence({
+        token,
+        accountId: account.id,
+        categoryId: category.id,
+        startDate: "2030-01-07",
+        dayOfWeek: 1,
+      });
+
+      await insertOccurrenceForRecurrence({
+        recurrenceId: recurrence.id,
+        occurrenceDate: "2030-01-07",
+        status,
+      });
+
+      const updateRes = await app.inject({
+        method: "PUT",
+        url: `/recurrences/${recurrence.id}`,
+        headers: { Authorization: `Bearer ${token}` },
+        payload: {
+          frequency: "monthly",
+          dayOfMonth: 10,
+          expectedVersion: recurrence.version,
+        },
+      });
+
+      expect(updateRes.statusCode).toBe(422);
+      expect(updateRes.json().detail).toContain("Edite apenas descrição/observações");
+    },
+  );
+
+  it("mantém this_and_next permitido para mudança futura não consumida", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2030-01-07",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 8,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2030-01-07",
+      status: "materialized",
+    });
+
+    const editRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2030-01-21",
+        changes: {
+          amount: 180,
+          frequency: "monthly",
+          dayOfMonth: 21,
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(editRes.statusCode).toBe(200);
+    expect(editRes.json().scope).toBe("this_and_next");
+    expect(editRes.json().newRecurrence).toMatchObject({
+      startDate: "2030-01-21",
+      frequency: "monthly",
+      dayOfMonth: 21,
+      amount: 180,
+    });
   });
 });

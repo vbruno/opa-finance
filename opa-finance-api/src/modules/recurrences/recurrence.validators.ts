@@ -10,7 +10,7 @@ import {
   subcategories,
   users,
 } from "../../db/schema";
-import { toIsoDate } from "./recurrence.helpers";
+import { STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES, toIsoDate } from "./recurrence.helpers";
 import type { CreateRecurrenceInput, UpdateRecurrenceInput } from "./recurrence.schemas";
 
 export class RecurrenceValidators {
@@ -33,6 +33,20 @@ export class RecurrenceValidators {
       );
 
     return row?.latestDate ?? null;
+  }
+
+  async hasConsumedOccurrences(recurrenceId: string, executor: DB = this.db): Promise<boolean> {
+    const [row] = await executor
+      .select({ total: sql<number>`count(*)::int` })
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          inArray(recurrenceOccurrences.status, STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES),
+        ),
+      );
+
+    return (row?.total ?? 0) > 0;
   }
 
   async getNowIsoDateInTimezone(timezone: string): Promise<string> {

@@ -79,6 +79,7 @@ const recurrencesMock: RecurrenceListResponse = {
       amount: 120,
       description: 'Academia',
       notes: null,
+      hasConsumedOccurrences: false,
       pendingReviewCount: 1,
       nextOccurrenceDate: '2026-05-01',
       lastMaterializedDate: null,
@@ -174,6 +175,16 @@ const recurrenceTimelineMock: RecurrenceTimelineResponse = {
     hasMore: false,
     total: 3,
   },
+}
+
+const consumedRecurrenceMock = {
+  ...recurrencesMock.data[0],
+  hasConsumedOccurrences: true,
+}
+
+const consumedTimelineMock: RecurrenceTimelineResponse = {
+  ...recurrenceTimelineMock,
+  recurrence: consumedRecurrenceMock,
 }
 
 function mockDesktopViewport() {
@@ -1292,6 +1303,131 @@ describe('recurrences feature', () => {
     expect(within(formModal).queryByText('Todas')).not.toBeInTheDocument()
     expect(within(formModal).queryByText('Somente esta')).not.toBeInTheDocument()
     expect(within(formModal).queryByText('Esta e próximas')).not.toBeInTheDocument()
+  })
+
+  it('deve exibir bloqueio estrutural ao editar recorrência consumida', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({ version: '1.2.0', commit: 'abc123', buildTime: '2026-04-17T00:00:00.000Z' }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () =>
+        ok({ ...recurrencesMock, data: [consumedRecurrenceMock] }),
+      ),
+      http.get('*/recurrences/:id', () => ok(consumedRecurrenceMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(consumedTimelineMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+    const detailsModal = await screen.findByRole('dialog', { name: 'Detalhes da recorrência' })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const formModal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    expect(
+      within(formModal).getByText(
+        /Esta recorrência já possui ocorrências geradas\. Para alterar valor, agenda, conta ou categoria das próximas/i,
+      ),
+    ).toBeInTheDocument()
+
+    expect(within(formModal).getByRole('combobox', { name: 'Modo de lançamento' })).toBeDisabled()
+    expect(within(formModal).getByRole('combobox', { name: 'Frequência' })).toBeDisabled()
+    expect(within(formModal).getByLabelText('Data inicial')).toBeDisabled()
+    expect(within(formModal).getByRole('combobox', { name: 'Término' })).toBeDisabled()
+    expect(within(formModal).getByRole('combobox', { name: 'Conta' })).toBeDisabled()
+    expect(within(formModal).getByRole('combobox', { name: 'Categoria/Subcategoria' })).toBeDisabled()
+    expect(within(formModal).getByLabelText('Valor')).toBeDisabled()
+
+    expect(within(formModal).getByLabelText('Descrição')).not.toBeDisabled()
+    expect(within(formModal).getByLabelText('Observações')).not.toBeDisabled()
+  })
+
+  it('deve enviar somente description e notes no save global de recorrência consumida', async () => {
+    let capturedPayload: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({ version: '1.2.0', commit: 'abc123', buildTime: '2026-04-17T00:00:00.000Z' }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () =>
+        ok({ ...recurrencesMock, data: [consumedRecurrenceMock] }),
+      ),
+      http.get('*/recurrences/:id', () => ok(consumedRecurrenceMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(consumedTimelineMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+      http.put('*/recurrences/:id', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>
+        return ok({
+          ...consumedRecurrenceMock,
+          description: 'Academia premium',
+          notes: 'Ajuste textual permitido',
+        })
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+    const detailsModal = await screen.findByRole('dialog', { name: 'Detalhes da recorrência' })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const formModal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    fireEvent.change(within(formModal).getByLabelText('Descrição'), {
+      target: { value: 'Academia premium' },
+    })
+    fireEvent.change(within(formModal).getByLabelText('Observações'), {
+      target: { value: 'Ajuste textual permitido' },
+    })
+
+    fireEvent.click(within(formModal).getByRole('button', { name: 'Salvar edição' }))
+
+    await waitFor(() => expect(capturedPayload).not.toBeNull())
+    expect(capturedPayload).toEqual({
+      description: 'Academia premium',
+      notes: 'Ajuste textual permitido',
+      expectedVersion: consumedRecurrenceMock.version,
+    })
+  })
+
+  it('deve manter formulário completo para recorrência sem bloqueio estrutural', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({ version: '1.2.0', commit: 'abc123', buildTime: '2026-04-17T00:00:00.000Z' }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id', () => ok(recurrencesMock.data[0])),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+    const detailsModal = await screen.findByRole('dialog', { name: 'Detalhes da recorrência' })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const formModal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    expect(
+      within(formModal).queryByText(/Esta recorrência já possui ocorrências geradas/i),
+    ).not.toBeInTheDocument()
+    expect(within(formModal).getByRole('combobox', { name: 'Frequência' })).not.toBeDisabled()
+    expect(within(formModal).getByLabelText('Valor')).not.toBeDisabled()
   })
 
   it('deve abrir edição contextual por linha da timeline com default Somente esta', async () => {

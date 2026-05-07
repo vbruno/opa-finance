@@ -20,6 +20,7 @@ type TransactionAmountFieldProps = {
   setAmountError?: (message: string) => void
   tabIndex?: number
   inputMode?: 'decimal' | 'numeric'
+  disabled?: boolean
 }
 
 export function TransactionAmountField({
@@ -31,6 +32,7 @@ export function TransactionAmountField({
   setAmountError,
   tabIndex,
   inputMode = 'decimal',
+  disabled,
 }: TransactionAmountFieldProps) {
   function handleAmountChange(
     rawValue: string,
@@ -95,6 +97,7 @@ export function TransactionAmountField({
             }}
             aria-invalid={!!errors.amount}
             tabIndex={tabIndex}
+            disabled={disabled}
           />
         )}
       />

@@ -1,4 +1,4 @@
-import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, ilike, inArray, or, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import {
   ConflictProblem,
@@ -12,7 +12,11 @@ import type { DB } from "../../core/plugins/drizzle";
 import { recurrenceOccurrences, recurrences } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { RecurrenceAudit } from "./recurrence.audit";
-import { getFirstOccurrenceForRecurrence, serializeRecurrence } from "./recurrence.helpers";
+import {
+  STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES,
+  getFirstOccurrenceForRecurrence,
+  serializeRecurrence,
+} from "./recurrence.helpers";
 import type { CreateRecurrenceInput, ListRecurrencesQuery } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
@@ -121,7 +125,10 @@ export class RecurrenceCrudService {
       return [inserted];
     });
 
-    return serializeRecurrence(created);
+    return {
+      ...serializeRecurrence(created),
+      hasConsumedOccurrences: false,
+    };
   }
 
   async list(userId: string, query: ListRecurrencesQuery) {
@@ -173,27 +180,44 @@ export class RecurrenceCrudService {
       .groupBy(recurrenceOccurrences.recurrenceId)
       .as("pending_counts");
 
+    const consumedCounts = this.app.db
+      .select({
+        recurrenceId: recurrenceOccurrences.recurrenceId,
+        consumedOccurrenceCount: sql<number>`count(*)::int`.as("consumed_occurrence_count"),
+      })
+      .from(recurrenceOccurrences)
+      .where(inArray(recurrenceOccurrences.status, STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES))
+      .groupBy(recurrenceOccurrences.recurrenceId)
+      .as("consumed_counts");
+
     const [totalResult] = await this.app.db
       .select({ total: sql<number>`count(*)::int` })
       .from(recurrences)
       .where(whereClause);
 
-    const rows: Array<typeof recurrences.$inferSelect & { pendingReviewCount: number }> =
-      await this.app.db
-        .select({
-          ...getTableColumns(recurrences),
-          pendingReviewCount: sql<number>`coalesce(${pendingCounts.pendingReviewCount}, 0)::int`,
-        })
-        .from(recurrences)
-        .leftJoin(pendingCounts, eq(pendingCounts.recurrenceId, recurrences.id))
-        .where(whereClause)
-        .orderBy(desc(recurrences.createdAt))
-        .limit(query.limit)
-        .offset(offset);
+    const rows: Array<
+      typeof recurrences.$inferSelect & {
+        pendingReviewCount: number;
+        consumedOccurrenceCount: number;
+      }
+    > = await this.app.db
+      .select({
+        ...getTableColumns(recurrences),
+        pendingReviewCount: sql<number>`coalesce(${pendingCounts.pendingReviewCount}, 0)::int`,
+        consumedOccurrenceCount: sql<number>`coalesce(${consumedCounts.consumedOccurrenceCount}, 0)::int`,
+      })
+      .from(recurrences)
+      .leftJoin(pendingCounts, eq(pendingCounts.recurrenceId, recurrences.id))
+      .leftJoin(consumedCounts, eq(consumedCounts.recurrenceId, recurrences.id))
+      .where(whereClause)
+      .orderBy(desc(recurrences.createdAt))
+      .limit(query.limit)
+      .offset(offset);
 
     return {
       data: rows.map((row) => ({
         ...serializeRecurrence(row),
+        hasConsumedOccurrences: row.consumedOccurrenceCount > 0,
         pendingReviewCount: row.pendingReviewCount,
       })),
       page: query.page,
@@ -216,7 +240,12 @@ export class RecurrenceCrudService {
       throw new ForbiddenProblem("Acesso negado à recorrência.", `/recurrences/${recurrenceId}`);
     }
 
-    return serializeRecurrence(recurrence);
+    const hasConsumedOccurrences = await this.validators.hasConsumedOccurrences(recurrenceId);
+
+    return {
+      ...serializeRecurrence(recurrence),
+      hasConsumedOccurrences,
+    };
   }
 
   async finalize(userId: string, recurrenceId: string) {
@@ -276,7 +305,10 @@ export class RecurrenceCrudService {
       return [updatedRow];
     });
 
-    return serializeRecurrence(updated);
+    return {
+      ...serializeRecurrence(updated),
+      hasConsumedOccurrences: existing.hasConsumedOccurrences,
+    };
   }
 
   async remove(userId: string, recurrenceId: string) {

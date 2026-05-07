@@ -45,6 +45,7 @@ import {
   getRecurrenceEditErrorMessage,
   getRecurrenceFormValuesFromEntity,
   getTodayIsoDateInTimezone,
+  restrictGlobalRecurrenceUpdatePayloadAfterConsumption,
   toOccurrenceChangesPayload,
   toRecurrenceCreatePayload,
   toScopedRecurrenceUpdatePayload,
@@ -495,6 +496,27 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
       )
       updatePayload.expectedVersion = editingRecurrence.version
 
+      if (editingRecurrence.hasConsumedOccurrences && values.editScope === 'all') {
+        const restrictedPayload =
+          restrictGlobalRecurrenceUpdatePayloadAfterConsumption(updatePayload)
+
+        if (
+          Object.keys(restrictedPayload).every(
+            (key) => key === 'expectedVersion' || restrictedPayload[key as keyof typeof restrictedPayload] === undefined,
+          )
+        ) {
+          setFormError('Nenhuma alteração detectada para salvar.')
+          return
+        }
+
+        Object.assign(updatePayload, restrictedPayload)
+        for (const key of Object.keys(updatePayload)) {
+          if (!(key in restrictedPayload)) {
+            delete updatePayload[key as keyof typeof updatePayload]
+          }
+        }
+      }
+
       if (values.editScope === 'all') {
         const updatedRecurrence = await updateMutation.mutateAsync({
           id: editingRecurrence.id,
@@ -648,6 +670,9 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         conflictRecurrenceId={conflictRecurrenceId}
         isConflictRefetching={conflictRecurrenceQuery.isFetching}
         editingRecurrence={editingRecurrence}
+        isGlobalStructureLocked={
+          Boolean(editingRecurrence?.hasConsumedOccurrences) && !isOccurrenceEditMode
+        }
         accounts={accounts}
         categories={categories}
         subcategoriesByCategory={subcategoriesByCategory}

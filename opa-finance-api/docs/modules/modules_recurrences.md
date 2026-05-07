@@ -28,6 +28,10 @@
 - `failed` é estado terminal no MVP; não há retry automático nem reabertura por fluxo padrão
 - `review_required` gera `pending_review` no job e não materializa diretamente a transação/transferência
 - `pending_review` e `skipped` contam como ocorrência consumida em `by_occurrences`
+- Bloqueio estrutural da regra-mãe: após existir qualquer ocorrência `materialized`, `pending_review`, `skipped` ou `failed`, a edição global (`PUT /recurrences/:id` ou `edit-scope` com `scope = all`) passa a aceitar apenas `description` e `notes`
+- Decisão conservadora: `failed` também conta para o bloqueio estrutural, porque já houve tentativa de execução da regra
+- Após o bloqueio estrutural, alterações futuras de valor, agenda, conta, categoria e demais campos estruturais devem usar `this_and_next`, que encerra a regra atual na véspera e cria uma nova regra a partir da ocorrência-alvo
+- `amount` também fica bloqueado na edição global pós-consumo; mudanças futuras de valor devem seguir por override pontual (`projected`) ou `this_and_next`
 - Transferência recorrente é materializada de forma atômica (duas transações com rollback integral em falha)
 - Cálculo de calendário considera timezone do usuário/regra
 - Recorrências com término `never` têm horizonte operacional máximo de 1 ano a partir de `startDate` para timeline, antecipação e materialização
@@ -37,6 +41,7 @@
 - Para ocorrências `materialized` com `transactionId`, o `amount` exibido na timeline é sempre o valor atual da tabela `transactions` (não o `reviewPayload`), refletindo edições feitas após a materialização; para transferências (`transferId != null`), o comportamento é mantido via `reviewPayload`
 - Antecipação (`POST /recurrences/:id/anticipate`): permite materializar imediatamente uma ocorrência projetada (ainda não persistida); valida que a data é válida na série, que não existe duplicata e que o limite `by_occurrences` não foi atingido; insere a ocorrência e cria a transação/transferência na mesma transação de banco
 - A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
+- `GET /recurrences`, `GET /recurrences/:id` e `GET /recurrences/:id/timeline` expõem `hasConsumedOccurrences: boolean` para a UI distinguir regras ainda totalmente editáveis de regras estruturalmente bloqueadas
 - Overrides pontuais (`recurrence_occurrence_overrides`) permitem ajustar apenas `amount`, `description` e `notes` de uma ocorrência `projected`; campos `NULL` herdam o valor da regra-mãe
 - Overrides só podem ser criados para datas futuras válidas da série e sem ocorrência persistida (`materialized`, `pending_review`, `skipped` ou `failed`)
 - A timeline retorna `hasOverride` e mescla o `amount` em itens projetados; itens persistidos não são afetados por overrides

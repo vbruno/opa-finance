@@ -332,6 +332,24 @@ export function buildScopedRecurrenceUpdatePayload(
   return diff
 }
 
+export function restrictGlobalRecurrenceUpdatePayloadAfterConsumption(
+  payload: RecurrenceUpdatePayload,
+): RecurrenceUpdatePayload {
+  const restrictedPayload: RecurrenceUpdatePayload = {
+    expectedVersion: payload.expectedVersion,
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'description')) {
+    restrictedPayload.description = payload.description
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'notes')) {
+    restrictedPayload.notes = payload.notes
+  }
+
+  return restrictedPayload
+}
+
 export function toOccurrenceChangesPayload(values: RecurrenceFormData): {
   amount: number
   description: string | null

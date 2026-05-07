@@ -40,6 +40,15 @@ import { RecurrenceValidators } from "./recurrence.validators";
 
 type SerializedRecurrence = ReturnType<typeof serializeRecurrence>;
 
+const GLOBAL_EDIT_ALLOWED_FIELDS_AFTER_CONSUMPTION = [
+  "description",
+  "notes",
+  "expectedVersion",
+] as const;
+
+const GLOBAL_EDIT_LOCK_MESSAGE =
+  'Esta recorrência já possui ocorrências geradas. Edite apenas descrição/observações ou use "Esta e próximas" para mudanças futuras.';
+
 export class RecurrenceEditService {
   constructor(
     private app: FastifyInstance,
@@ -94,6 +103,20 @@ export class RecurrenceEditService {
         "Escopo 'single' não permite alterar agenda da recorrência.",
         "/recurrences",
       );
+    }
+  }
+
+  private ensureGlobalUpdateAllowedAfterConsumption(
+    data: UpdateRecurrenceInput,
+    recurrenceId: string,
+  ) {
+    const allowedFields = new Set<string>(GLOBAL_EDIT_ALLOWED_FIELDS_AFTER_CONSUMPTION);
+    const attemptedBlockedField = Object.entries(data).some(
+      ([key, value]) => value !== undefined && !allowedFields.has(key),
+    );
+
+    if (attemptedBlockedField) {
+      throw new UnprocessableProblem(GLOBAL_EDIT_LOCK_MESSAGE, `/recurrences/${recurrenceId}`);
     }
   }
 
@@ -517,6 +540,11 @@ export class RecurrenceEditService {
       );
     }
 
+    const hasConsumedOccurrences = await this.validators.hasConsumedOccurrences(recurrenceId);
+    if (hasConsumedOccurrences) {
+      this.ensureGlobalUpdateAllowedAfterConsumption(data, recurrenceId);
+    }
+
     if (data.postingMode === "automatic" && existing.postingMode === "review_required") {
       const pendingOccurrences = await this.getOpenPendingReviewOccurrences(userId, recurrenceId);
       if (pendingOccurrences.length > 0) {
@@ -681,7 +709,10 @@ export class RecurrenceEditService {
       );
     }
 
-    return serializeRecurrence(updated);
+    return {
+      ...serializeRecurrence(updated),
+      hasConsumedOccurrences,
+    };
   }
 
   async editByScope(userId: string, recurrenceId: string, input: EditRecurrenceByScopeInput) {

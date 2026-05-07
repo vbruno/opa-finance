@@ -74,6 +74,7 @@ export type Recurrence = {
   version: number
   createdAt: string
   updatedAt: string
+  hasConsumedOccurrences: boolean
   pendingReviewCount?: number
 }
 

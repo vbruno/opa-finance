@@ -55,6 +55,7 @@ type RecurrenceFormModalProps = {
   conflictRecurrenceId: string | null
   isConflictRefetching: boolean
   editingRecurrence: Recurrence | null
+  isGlobalStructureLocked: boolean
   accounts: Account[]
   categories: Category[]
   subcategoriesByCategory: Record<string, Subcategory[]>
@@ -84,6 +85,7 @@ export function RecurrenceFormModal({
   conflictRecurrenceId,
   isConflictRefetching,
   editingRecurrence,
+  isGlobalStructureLocked,
   accounts,
   categories,
   subcategoriesByCategory,
@@ -128,6 +130,7 @@ export function RecurrenceFormModal({
   )
 
   const isEditingActive = isEditing && editingRecurrence?.status === 'active'
+  const isStructuralFieldsDisabled = isSingleScopeEdit || isGlobalStructureLocked
   const hasFormErrors = Object.keys(form.formState.errors).length > 0
   const isSubmitDisabled =
     isAnyMutationPending || isFormSupportDataLoading || Boolean(isSubcategoriesError)
@@ -243,6 +246,12 @@ export function RecurrenceFormModal({
         <form className="flex flex-1 min-h-0 flex-col" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
             <div className="space-y-4">
+              {isGlobalStructureLocked ? (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  Esta recorrência já possui ocorrências geradas. Para alterar valor, agenda, conta ou categoria das próximas, edite uma ocorrência na timeline e escolha "Esta e próximas".
+                </div>
+              ) : null}
+
               {/* 1. Modo de lançamento | Origem | Frequência */}
               {!isOccurrenceEdit && (
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
@@ -256,7 +265,7 @@ export function RecurrenceFormModal({
                         value === '__none__' ? '' as RecurrenceFormData['postingMode'] : value as RecurrenceFormData['postingMode'],
                       )
                     }
-                    disabled={isSingleScopeEdit}
+                    disabled={isStructuralFieldsDisabled}
                   >
                     <SelectTrigger id="recurrence-posting-mode">
                       <SelectValue placeholder="Selecione" />
@@ -287,7 +296,7 @@ export function RecurrenceFormModal({
                       form.setValue('fromAccountId', '')
                       form.setValue('toAccountId', '')
                     }}
-                    disabled={isEditing}
+                    disabled={isEditing || isGlobalStructureLocked}
                   >
                     <SelectTrigger id="recurrence-origin-type">
                       <SelectValue placeholder="Origem" />
@@ -328,7 +337,7 @@ export function RecurrenceFormModal({
                         form.setValue('dayOfWeek', '')
                       }
                     }}
-                    disabled={isSingleScopeEdit}
+                    disabled={isStructuralFieldsDisabled}
                   >
                     <SelectTrigger id="recurrence-frequency">
                       <SelectValue placeholder="Frequência" />
@@ -361,7 +370,7 @@ export function RecurrenceFormModal({
                     register={form.register}
                     errors={form.formState.errors}
                     isMobile={false}
-                    disabled={isSingleScopeEdit}
+                    disabled={isStructuralFieldsDisabled}
                   />
                 </div>
 
@@ -389,7 +398,7 @@ export function RecurrenceFormModal({
                       max={31}
                       className="h-10 w-full"
                       {...form.register('dayOfMonth')}
-                      disabled={isSingleScopeEdit}
+                      disabled={isStructuralFieldsDisabled}
                     />
                   </div>
                 )}
@@ -405,7 +414,7 @@ export function RecurrenceFormModal({
                           value === '__none__' ? '' : value,
                         )
                       }
-                      disabled={isSingleScopeEdit}
+                      disabled={isStructuralFieldsDisabled}
                     >
                       <SelectTrigger id="recurrence-month-of-year">
                         <SelectValue placeholder="Selecione" />
@@ -465,7 +474,7 @@ export function RecurrenceFormModal({
                         })
                       }
                     }}
-                    disabled={isSingleScopeEdit}
+                    disabled={isStructuralFieldsDisabled}
                   >
                     <SelectTrigger id="recurrence-end-type">
                       <SelectValue placeholder="Término" />
@@ -487,7 +496,7 @@ export function RecurrenceFormModal({
                       min={1}
                       className="h-10"
                       {...form.register('endOccurrences')}
-                      disabled={isSingleScopeEdit}
+                      disabled={isStructuralFieldsDisabled}
                     />
                   </div>
                 )}
@@ -500,7 +509,7 @@ export function RecurrenceFormModal({
                       type="date"
                       className="h-10"
                       {...form.register('endDate')}
-                      disabled={isSingleScopeEdit}
+                      disabled={isStructuralFieldsDisabled}
                     />
                   </div>
                 )}
@@ -552,6 +561,7 @@ export function RecurrenceFormModal({
                       form.setError('amount', { type: 'manual', message })
                     }}
                     inputMode="numeric"
+                    disabled={isGlobalStructureLocked}
                   />
                 </div>
               ) : originType === 'transaction' ? (
@@ -565,6 +575,7 @@ export function RecurrenceFormModal({
                       accounts={accounts}
                       isOpen={isAccountSelectOpen}
                       onOpenChange={setIsAccountSelectOpen}
+                      disabled={isGlobalStructureLocked}
                     />
                   </div>
                   <div className="min-w-0">
@@ -578,6 +589,7 @@ export function RecurrenceFormModal({
                         form.setError('amount', { type: 'manual', message })
                       }}
                       inputMode="numeric"
+                      disabled={isGlobalStructureLocked}
                     />
                   </div>
                 </div>
@@ -593,6 +605,7 @@ export function RecurrenceFormModal({
                           value === '__none__' ? '' : value,
                         )
                       }
+                      disabled={isGlobalStructureLocked}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
@@ -617,6 +630,7 @@ export function RecurrenceFormModal({
                           value === '__none__' ? '' : value,
                         )
                       }
+                      disabled={isGlobalStructureLocked}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
@@ -652,7 +666,7 @@ export function RecurrenceFormModal({
                     }}
                     contentRef={categoryTreeContentRef}
                     searchInputRef={categoryTreeSearchInputRef}
-                    disabled={Boolean(isSubcategoriesError)}
+                    disabled={Boolean(isSubcategoriesError) || isGlobalStructureLocked}
                     disabledMessage={
                       isSubcategoriesError
                         ? 'Erro ao carregar subcategorias da categoria selecionada.'
