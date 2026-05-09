@@ -694,7 +694,10 @@ export function RecurrenceFormModal({
                 </div>
               )}
 
-              {isEditingActive && isOccurrenceEdit && occurrenceEditStatus === 'pending_review' ? (
+              {isEditingActive &&
+              isOccurrenceEdit &&
+              (occurrenceEditStatus === 'pending_review' ||
+                occurrenceEditStatus === 'projected') ? (
                 <div className="grid grid-cols-1 gap-3 rounded-xl border bg-muted/20 p-4 lg:grid-cols-12">
                   <div className="min-w-0 lg:col-span-6">
                     <Label htmlFor="recurrence-edit-scope">Aplicar edição em</Label>
@@ -720,15 +723,13 @@ export function RecurrenceFormModal({
                   </div>
                   <p className="text-xs text-muted-foreground lg:col-span-12">
                     {editScope === 'this_and_next'
-                      ? 'As alterações serão aplicadas nesta ocorrência e em todas as próximas a partir da linha selecionada.'
-                      : 'As alterações serão aplicadas somente nesta ocorrência selecionada.'}
+                      ? occurrenceEditStatus === 'projected'
+                        ? 'As alterações de valor, descrição e observações serão aplicadas nesta ocorrência projetada e nas próximas a partir da linha selecionada.'
+                        : 'As alterações de valor, descrição e observações serão aplicadas nesta ocorrência e nas próximas a partir da linha selecionada.'
+                      : occurrenceEditStatus === 'projected'
+                        ? 'As alterações de valor, descrição e observações serão aplicadas somente nesta ocorrência projetada.'
+                        : 'As alterações de valor, descrição e observações serão aplicadas somente nesta ocorrência.'}
                   </p>
-                </div>
-              ) : null}
-
-              {isOccurrenceEdit && occurrenceEditStatus === 'projected' ? (
-                <div className="rounded-xl border bg-muted/20 p-4 text-xs text-muted-foreground">
-                  Esta edição será aplicada somente nesta ocorrência projetada selecionada.
                 </div>
               ) : null}
 

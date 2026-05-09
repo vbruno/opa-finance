@@ -40,6 +40,7 @@ type ConfirmRecurrenceOccurrenceModalProps = {
   accounts: Account[]
   categories: Category[]
   onClose: () => void
+  onConfirmed?: (recurrenceId: string) => void
 }
 
 function normalizeOptionalText(value: string | undefined) {
@@ -86,6 +87,7 @@ export function ConfirmRecurrenceOccurrenceModal({
   accounts,
   categories,
   onClose,
+  onConfirmed,
 }: ConfirmRecurrenceOccurrenceModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -292,6 +294,7 @@ export function ConfirmRecurrenceOccurrenceModal({
           recurrenceId: recurrence.id,
           payload: anticipatePayload,
         })
+        onConfirmed?.(recurrence.id)
       } else {
         const confirmPayload =
           values.originType === 'transaction'
@@ -321,6 +324,7 @@ export function ConfirmRecurrenceOccurrenceModal({
           occurrenceId: occurrence.id!,
           payload: confirmPayload,
         })
+        onConfirmed?.(recurrence.id)
       }
       onClose()
     } catch (error) {

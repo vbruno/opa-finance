@@ -169,6 +169,15 @@ export function RecurrenceDetailsModal({
     return null
   }
 
+  const recurrenceForEdit: Recurrence = {
+    ...recurrence,
+    hasConsumedOccurrences:
+      recurrence.hasConsumedOccurrences ||
+      recurrence.lastMaterializedDate !== null ||
+      (recurrence.pendingReviewCount ?? 0) > 0 ||
+      (timelineQuery.data?.summary.consumedOccurrences ?? 0) > 0,
+  }
+
   const accountName = recurrence.accountId
     ? (accountsById.get(recurrence.accountId)?.name ?? recurrence.accountId)
     : '-'
@@ -212,7 +221,7 @@ export function RecurrenceDetailsModal({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => onEdit(recurrence)}
+                  onClick={() => onEdit(recurrenceForEdit)}
                   aria-label="Editar recorrência"
                 >
                   <Pencil className="h-4 w-4" />

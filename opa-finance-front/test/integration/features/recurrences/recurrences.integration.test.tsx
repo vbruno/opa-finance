@@ -733,6 +733,105 @@ describe('recurrences feature', () => {
     ).toBeInTheDocument()
   })
 
+  it('deve bloquear edição global logo após confirmar ocorrência mesmo com GET stale', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/recurrences/:id', () => ok(recurrencesMock.data[0])),
+      http.post('*/recurrences/occurrences/:id/confirm', () =>
+        ok({
+          ...recurrenceTimelineMock.items[1],
+          status: 'materialized',
+          transactionId: 'tx-confirmed',
+          canConfirm: false,
+          canSkip: false,
+        }),
+      ),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    const timelineTable = await within(detailsModal).findByRole('table', {
+      name: 'Tabela de ocorrências da recorrência',
+    })
+    const confirmOccurrenceButton = within(timelineTable)
+      .getAllByRole<HTMLButtonElement>('button', { name: 'Confirmar ocorrência' })
+      .find((button) => !button.disabled)
+
+    expect(confirmOccurrenceButton).toBeDefined()
+    fireEvent.click(confirmOccurrenceButton as HTMLButtonElement)
+
+    await screen.findByRole('heading', { name: 'Confirmar lançamento' })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar lançamento' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Confirmar lançamento' })).not.toBeInTheDocument(),
+    )
+
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const formModal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    expect(
+      within(formModal).getByText(/Esta recorrência já possui ocorrências geradas/i),
+    ).toBeInTheDocument()
+    expect(within(formModal).getByRole('combobox', { name: 'Frequência' })).toBeDisabled()
+    expect(within(formModal).getByLabelText('Valor')).toBeDisabled()
+  })
+
+  it('deve bloquear edição global a partir da timeline consumida mesmo com recorrência stale', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(consumedTimelineMock)),
+      http.get('*/recurrences/:id', () => ok(recurrencesMock.data[0])),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+
+    const detailsModal = await screen.findByRole('dialog', {
+      name: 'Detalhes da recorrência',
+    })
+    fireEvent.click(within(detailsModal).getByRole('button', { name: /Editar recorrência/i }))
+
+    const formModal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
+    expect(
+      within(formModal).getByText(/Esta recorrência já possui ocorrências geradas/i),
+    ).toBeInTheDocument()
+    expect(within(formModal).getByRole('combobox', { name: 'Frequência' })).toBeDisabled()
+    expect(within(formModal).getByLabelText('Valor')).toBeDisabled()
+  })
+
   it('deve ignorar pendência com ação direta', async () => {
     let skipBody: Record<string, unknown> | null = null
 
@@ -1401,6 +1500,28 @@ describe('recurrences feature', () => {
   })
 
   it('deve manter formulário completo para recorrência sem bloqueio estrutural', async () => {
+    const unconsumedRecurrenceMock = {
+      ...recurrencesMock.data[0],
+      pendingReviewCount: 0,
+      hasConsumedOccurrences: false,
+      lastMaterializedDate: null,
+    }
+
+    const unconsumedTimelineMock: RecurrenceTimelineResponse = {
+      ...recurrenceTimelineMock,
+      recurrence: unconsumedRecurrenceMock,
+      summary: {
+        ...recurrenceTimelineMock.summary,
+        consumedOccurrences: 0,
+        materializedOccurrences: 0,
+        pendingReviewOccurrences: 0,
+        projectedOccurrences: 2,
+        materializedAmount: 0,
+        pendingReviewAmount: 0,
+      },
+      items: recurrenceTimelineMock.items.filter((item) => item.status === 'projected'),
+    }
+
     server.use(
       http.get('*/version', () =>
         ok({ version: '1.2.0', commit: 'abc123', buildTime: '2026-04-17T00:00:00.000Z' }),
@@ -1408,9 +1529,9 @@ describe('recurrences feature', () => {
       http.get('*/accounts', () => ok(accountsMock)),
       http.get('*/categories', () => ok(categoriesMock)),
       http.get('*/categories/:categoryId/subcategories', () => ok([])),
-      http.get('*/recurrences', () => ok(recurrencesMock)),
-      http.get('*/recurrences/:id', () => ok(recurrencesMock.data[0])),
-      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/recurrences', () => ok({ ...recurrencesMock, data: [unconsumedRecurrenceMock] })),
+      http.get('*/recurrences/:id', () => ok(unconsumedRecurrenceMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(unconsumedTimelineMock)),
       http.get('*/transactions/descriptions', () => ok({ items: [] })),
     )
 
@@ -1464,7 +1585,9 @@ describe('recurrences feature', () => {
     const scopeCombobox = within(formModal).getByRole('combobox', { name: 'Aplicar edição em' })
     expect(scopeCombobox).toHaveTextContent('Somente esta')
     expect(
-      within(formModal).getByText('As alterações serão aplicadas somente nesta ocorrência selecionada.'),
+      within(formModal).getByText(
+        'As alterações de valor, descrição e observações serão aplicadas somente nesta ocorrência.',
+      ),
     ).toBeInTheDocument()
   })
 
@@ -1507,7 +1630,7 @@ describe('recurrences feature', () => {
     })
   })
 
-  it('deve abrir ocorrência projetada em modo override sem seletor de escopo', async () => {
+  it('deve abrir ocorrência projetada com seletor de escopo e default Somente esta', async () => {
     server.use(
       http.get('*/version', () =>
         ok({ version: '1.2.0', commit: 'abc123', buildTime: '2026-04-17T00:00:00.000Z' }),
@@ -1537,11 +1660,14 @@ describe('recurrences feature', () => {
     fireEvent.click(editButtons[1])
 
     const formModal = await screen.findByRole('dialog', { name: 'Editar ocorrência' })
-    expect(within(formModal).queryByRole('combobox', { name: 'Aplicar edição em' })).not.toBeInTheDocument()
+    const scopeCombobox = within(formModal).getByRole('combobox', { name: 'Aplicar edição em' })
+    expect(scopeCombobox).toHaveTextContent('Somente esta')
     expect(within(formModal).queryByRole('combobox', { name: 'Modo de lançamento' })).not.toBeInTheDocument()
     expect(within(formModal).queryByRole('combobox', { name: 'Frequência' })).not.toBeInTheDocument()
     expect(
-      within(formModal).getByText('Esta edição será aplicada somente nesta ocorrência projetada selecionada.'),
+      within(formModal).getByText(
+        'As alterações de valor, descrição e observações serão aplicadas somente nesta ocorrência projetada.',
+      ),
     ).toBeInTheDocument()
   })
 
@@ -1609,6 +1735,63 @@ describe('recurrences feature', () => {
     expect(capturedPayload).not.toHaveProperty('changes')
     expect(capturedPayload).not.toHaveProperty('frequency')
     expect(capturedPayload).not.toHaveProperty('accountId')
+  })
+
+  it('projetada com Esta e próximas deve enviar edit-scope para mudanças futuras', async () => {
+    let capturedPayload: Record<string, unknown> | null = null
+
+    server.use(
+      http.get('*/version', () =>
+        ok({ version: '1.2.0', commit: 'abc123', buildTime: '2026-04-17T00:00:00.000Z' }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+      http.get('*/recurrences/:id', () => ok(recurrencesMock.data[0])),
+      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/transactions/descriptions', () => ok({ items: [] })),
+      http.put('*/recurrences/:id/edit-scope', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>
+        return ok(recurrencesMock.data[0])
+      }),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    await screen.findByText('Academia')
+
+    fireEvent.click(screen.getByRole('button', { name: /Academia.*Em execução/i }))
+    const detailsModal = await screen.findByRole('dialog', { name: 'Detalhes da recorrência' })
+    const timelineTable = await within(detailsModal).findByRole('table', {
+      name: 'Tabela de ocorrências da recorrência',
+    })
+
+    const editButtons = within(timelineTable).getAllByRole('button', { name: 'Editar ocorrência' })
+    fireEvent.click(editButtons[1])
+
+    const formModal = await screen.findByRole('dialog', { name: 'Editar ocorrência' })
+    await selectRecurrenceFormOption(formModal, 'Aplicar edição em', 'Esta e próximas')
+    expect(
+      within(formModal).getByText(
+        'As alterações de valor, descrição e observações serão aplicadas nesta ocorrência projetada e nas próximas a partir da linha selecionada.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.change(within(formModal).getByLabelText('Valor'), { target: { value: '$ 210,00' } })
+
+    const saveButton = within(formModal).getByRole('button', { name: 'Salvar edição' })
+    await waitFor(() => expect(saveButton).not.toBeDisabled())
+    fireEvent.click(saveButton)
+
+    await waitFor(() => expect(capturedPayload).not.toBeNull())
+    expect(capturedPayload).toMatchObject({
+      scope: 'this_and_next',
+      occurrenceDate: '2026-06-01',
+      changes: { amount: 210 },
+    })
+    expect(capturedPayload?.changes as Record<string, unknown>).not.toHaveProperty('frequency')
+    expect(capturedPayload?.changes as Record<string, unknown>).not.toHaveProperty('accountId')
   })
 
   it('override deve exibir marcador visual na linha projetada ajustada', async () => {
@@ -1822,7 +2005,7 @@ describe('recurrences feature', () => {
     await selectRecurrenceFormOption(formModal, 'Aplicar edição em', 'Esta e próximas')
     expect(
       within(formModal).getByText(
-        'As alterações serão aplicadas nesta ocorrência e em todas as próximas a partir da linha selecionada.',
+        'As alterações de valor, descrição e observações serão aplicadas nesta ocorrência e nas próximas a partir da linha selecionada.',
       ),
     ).toBeInTheDocument()
 

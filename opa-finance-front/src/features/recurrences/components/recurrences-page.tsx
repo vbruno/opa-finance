@@ -103,6 +103,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
     | { type: 'skip-occurrence'; occurrence: RecurrenceTimelineItem }
     | null
   >(null)
+  const [locallyConsumedRecurrenceIds, setLocallyConsumedRecurrenceIds] = useState<string[]>([])
   const [skipReason, setSkipReason] = useState('')
   const [conflictRecurrenceId, setConflictRecurrenceId] = useState<string | null>(
     null,
@@ -231,7 +232,13 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
 
     try {
       const response = await api.get<Recurrence>(`/recurrences/${recurrence.id}`)
-      const latestRecurrence = response.data
+      const latestRecurrence = {
+        ...response.data,
+        hasConsumedOccurrences:
+          response.data.hasConsumedOccurrences ||
+          recurrence.hasConsumedOccurrences ||
+          locallyConsumedRecurrenceIds.includes(recurrence.id),
+      }
 
       setEditingRecurrence(latestRecurrence)
       form.reset(getRecurrenceFormValuesFromEntity(latestRecurrence))
@@ -275,8 +282,28 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
   }
 
   function openDetailsModal(recurrence: Recurrence) {
-    setDetailsRecurrence(recurrence)
+    setDetailsRecurrence({
+      ...recurrence,
+      hasConsumedOccurrences:
+        recurrence.hasConsumedOccurrences || locallyConsumedRecurrenceIds.includes(recurrence.id),
+    })
     setActionError(null)
+  }
+
+  function markRecurrenceAsConsumed(recurrenceId: string) {
+    setLocallyConsumedRecurrenceIds((current) =>
+      current.includes(recurrenceId) ? current : [...current, recurrenceId],
+    )
+    setDetailsRecurrence((current) =>
+      current?.id === recurrenceId
+        ? { ...current, hasConsumedOccurrences: true }
+        : current,
+    )
+    setEditingRecurrence((current) =>
+      current?.id === recurrenceId
+        ? { ...current, hasConsumedOccurrences: true }
+        : current,
+    )
   }
 
   function openConfirmOccurrenceModal(occurrence: RecurrenceTimelineItem) {
@@ -452,9 +479,15 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
           return
         }
 
+        const scope = values.editScope
+        if (scope !== 'single' && scope !== 'this_and_next') {
+          setFormError('Escopo inválido para edição de ocorrência.')
+          return
+        }
+
         const changes = toOccurrenceChangesPayload(values)
 
-        if (occurrenceEditStatus === 'projected') {
+        if (occurrenceEditStatus === 'projected' && scope === 'single') {
           await upsertOverrideMutation.mutateAsync({
             recurrenceId: editingRecurrence.id,
             payload: {
@@ -463,12 +496,6 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
             },
           })
           closeModal()
-          return
-        }
-
-        const scope = values.editScope
-        if (scope !== 'single' && scope !== 'this_and_next') {
-          setFormError('Escopo inválido para edição de ocorrência.')
           return
         }
 
@@ -654,6 +681,7 @@ export function RecurrencesPage({ search, navigate }: RecurrencesPageProps) {
         occurrence={confirmOccurrence}
         accounts={(accounts).filter(Boolean)}
         categories={categories}
+        onConfirmed={markRecurrenceAsConsumed}
         onClose={() => setConfirmOccurrence(null)}
       />
 
