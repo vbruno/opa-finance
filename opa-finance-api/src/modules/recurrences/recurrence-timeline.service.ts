@@ -324,7 +324,6 @@ export class RecurrenceTimelineService {
       if (paginationTotal !== null) {
         reverseOffset = Math.max(0, paginationTotal - page * limit);
       }
-      // 'never' endType: reverseOffset stays null → falls back to asc window
     }
 
     const effectiveOffset = reverseOffset !== null ? reverseOffset : (page - 1) * limit;

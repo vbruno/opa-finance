@@ -1616,6 +1616,36 @@ describe("Recurrences - critical rules", () => {
     ).toBe(true);
   });
 
+  it("timeline desc em recorrência never retorna últimas ocorrências do horizonte operacional", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "automatic",
+      startDate: "2099-01-01",
+      dayOfWeek: 1,
+      endType: "never",
+    });
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?dir=desc&page=1&limit=12`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const timeline = timelineRes.json();
+
+    expect(timeline.pagination.total).toBe(52);
+    expect(timeline.pagination.hasMore).toBe(true);
+    expect(timeline.items).toHaveLength(12);
+    expect(
+      timeline.items[0].occurrenceDate > timeline.items[timeline.items.length - 1].occurrenceDate,
+    ).toBe(true);
+    expect(timeline.items[timeline.items.length - 1].occurrenceDate <= "2100-01-01").toBe(true);
+  });
+
   it("mantem skipped ocupando posicao na sequence da timeline", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
