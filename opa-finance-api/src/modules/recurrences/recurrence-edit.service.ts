@@ -785,17 +785,6 @@ export class RecurrenceEditService {
 
     const targetOccurrenceDate = input.occurrenceDate;
     const oldRecurrenceEndDate = addIsoDaysToDate(targetOccurrenceDate, -1);
-    const createPayload = buildCreatePayloadFromRecurrence(
-      recurrence,
-      { ...changes, expectedVersion: undefined },
-      targetOccurrenceDate,
-    );
-    const validatedCreatePayload = createRecurrenceSchema.parse(createPayload);
-    await this.validators.validatePayloadOwnership(
-      userId,
-      validatedCreatePayload,
-      recurrence.categoryId,
-    );
 
     const [previousRecurrence, newRecurrence] = await this.app.db.transaction(async (tx: DB) => {
       const [current] = await tx
@@ -842,6 +831,55 @@ export class RecurrenceEditService {
           `/recurrences/${recurrenceId}`,
         );
       }
+
+      const currentEndOccurrences = current.endOccurrences;
+      const shouldAdjustByOccurrences =
+        current.endType === "by_occurrences" &&
+        currentEndOccurrences !== null &&
+        currentEndOccurrences !== undefined &&
+        (changes.endType === undefined || changes.endType === "by_occurrences") &&
+        changes.endOccurrences === undefined;
+
+      const changesForCreate: UpdateRecurrenceInput = {
+        ...changes,
+        expectedVersion: undefined,
+      };
+
+      if (shouldAdjustByOccurrences) {
+        const [consumedCountRow] = await tx
+          .select({ total: sql<number>`count(*)::int` })
+          .from(recurrenceOccurrences)
+          .where(
+            and(
+              eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+              inArray(recurrenceOccurrences.status, ["materialized", "pending_review", "skipped"]),
+            ),
+          );
+
+        const consumedCount = consumedCountRow?.total ?? 0;
+        const remaining = currentEndOccurrences - consumedCount;
+
+        if (remaining <= 0) {
+          throw new UnprocessableProblem(
+            "Não há ocorrências restantes para criar uma nova regra a partir desta data.",
+            `/recurrences/${recurrenceId}`,
+          );
+        }
+
+        changesForCreate.endOccurrences = remaining;
+      }
+
+      const createPayload = buildCreatePayloadFromRecurrence(
+        serializeRecurrence(current),
+        changesForCreate,
+        targetOccurrenceDate,
+      );
+      const validatedCreatePayload = createRecurrenceSchema.parse(createPayload);
+      await this.validators.validatePayloadOwnership(
+        userId,
+        validatedCreatePayload,
+        current.categoryId,
+      );
 
       const [closedRecurrence] = await tx
         .update(recurrences)

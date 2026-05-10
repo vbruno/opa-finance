@@ -1984,6 +1984,265 @@ describe("Recurrences - critical rules", () => {
     expect(body.newRecurrence.notes).toBe("Ajuste futuro");
   });
 
+  it("this_and_next subtrai ocorrencias consumidas em by_occurrences", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      amount: 100,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 10,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-05",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-12",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-19",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-26",
+      status: "pending_review",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-02-02",
+      status: "skipped",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2099-02-09",
+        changes: {
+          amount: 250,
+          notes: "Ajuste futuro",
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.scope).toBe("this_and_next");
+    expect(body.previousRecurrence.endType).toBe("until_date");
+    expect(body.previousRecurrence.endDate).toBe("2099-02-08");
+    expect(body.newRecurrence.startDate).toBe("2099-02-09");
+    expect(body.newRecurrence.endType).toBe("by_occurrences");
+    expect(body.newRecurrence.endOccurrences).toBe(5);
+  });
+
+  it("this_and_next preserva endOccurrences explicitamente fornecido pelo usuario", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      amount: 100,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 10,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-05",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-12",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-19",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-26",
+      status: "pending_review",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-02-02",
+      status: "skipped",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2099-02-09",
+        changes: {
+          amount: 250,
+          endOccurrences: 12,
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().newRecurrence.endType).toBe("by_occurrences");
+    expect(res.json().newRecurrence.endOccurrences).toBe(12);
+  });
+
+  it("this_and_next nao subtrai quando endType muda", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      amount: 100,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 10,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-05",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-12",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-19",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-26",
+      status: "pending_review",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-02-02",
+      status: "skipped",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2099-02-09",
+        changes: {
+          amount: 250,
+          endType: "until_date",
+          endDate: "2099-04-06",
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().newRecurrence.endType).toBe("until_date");
+    expect(res.json().newRecurrence.endDate).toBe("2099-04-06");
+    expect(res.json().newRecurrence.endOccurrences).toBeNull();
+  });
+
+  it("this_and_next bloqueia quando nao ha ocorrencias restantes em by_occurrences", async () => {
+    const { token, user, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      amount: 100,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 5,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-05",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-12",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-19",
+      status: "materialized",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-26",
+      status: "pending_review",
+    });
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-02-02",
+      status: "skipped",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2099-02-09",
+        changes: {
+          amount: 250,
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(422);
+    expect(res.json().detail).toContain("ocorrências restantes");
+
+    const savedRecurrences = await app.db
+      .select({
+        id: recurrences.id,
+        endType: recurrences.endType,
+        endDate: recurrences.endDate,
+        endOccurrences: recurrences.endOccurrences,
+      })
+      .from(recurrences)
+      .where(and(eq(recurrences.userId, user.id), sql`${recurrences.deletedAt} IS NULL`));
+
+    expect(savedRecurrences).toHaveLength(1);
+    expect(savedRecurrences[0]).toMatchObject({
+      id: recurrence.id,
+      endType: "by_occurrences",
+      endDate: null,
+      endOccurrences: 5,
+    });
+  });
+
   it("bloqueia this_and_next em data já materializada mesmo com lastMaterializedDate stale", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
