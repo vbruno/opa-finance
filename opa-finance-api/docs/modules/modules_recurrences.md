@@ -39,6 +39,7 @@
 - Recorrências com término `until_date` são finitas: timeline e paginação contam somente ocorrências até `endDate` e exibem sequência/total da série
 - Timeline expõe `version` e `reviewPayload` para itens persistidos, permitindo confirm/skip com lock otimista e pré-preenchimento do modal no frontend
 - Para ocorrências `materialized` com `transactionId`, o `amount` exibido na timeline é sempre o valor atual da tabela `transactions` (não o `reviewPayload`), refletindo edições feitas após a materialização; para transferências (`transferId != null`), o comportamento é mantido via `reviewPayload`
+- Na confirmação de pendência, `until_date` aceita `occurrenceDate` em `[startDate, endDate]`, `never` aceita `occurrenceDate` em `[startDate, startDate + 1 ano]` (horizonte operacional) e `by_occurrences` aceita `occurrenceDate >= startDate`, porque o limite superior é por contagem, não por data
 - Antecipação (`POST /recurrences/:id/anticipate`): permite materializar imediatamente uma ocorrência projetada (ainda não persistida); valida que a data é válida na série, que não existe duplicata e que o limite `by_occurrences` não foi atingido; insere a ocorrência e cria a transação/transferência na mesma transação de banco
 - A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
 - `GET /recurrences`, `GET /recurrences/:id` e `GET /recurrences/:id/timeline` expõem `hasConsumedOccurrences: boolean` para a UI distinguir regras ainda totalmente editáveis de regras estruturalmente bloqueadas

@@ -16,7 +16,7 @@ import {
   transactions,
 } from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
-import { addOneYearIsoDate, resolveOperationalEndDate } from "./recurrence.helpers";
+import { resolveOperationalEndDate } from "./recurrence.helpers";
 import type {
   ConfirmRecurrenceOccurrenceInput,
   RecurrenceAnticipateInput,
@@ -92,13 +92,27 @@ export class RecurrenceOccurrenceService {
   ) {
     const minDate = recurrence.startDate;
     const maxDate =
-      recurrence.endDate ??
-      addOneYearIsoDate(await this.validators.getNowIsoDateInTimezone(recurrence.timezone));
+      recurrence.endType === "until_date"
+        ? recurrence.endDate
+        : recurrence.endType === "never"
+          ? resolveOperationalEndDate(recurrence)
+          : null;
 
-    if (
-      compareIsoDate(occurrenceDate, minDate) < 0 ||
-      compareIsoDate(occurrenceDate, maxDate) > 0
-    ) {
+    if (compareIsoDate(occurrenceDate, minDate) < 0) {
+      if (maxDate) {
+        throw new UnprocessableProblem(
+          `A data ajustada deve estar entre ${minDate} e ${maxDate}.`,
+          "/recurrences/occurrences/confirm",
+        );
+      }
+
+      throw new UnprocessableProblem(
+        `A data ajustada não pode ser anterior a ${minDate}.`,
+        "/recurrences/occurrences/confirm",
+      );
+    }
+
+    if (maxDate && compareIsoDate(occurrenceDate, maxDate) > 0) {
       throw new UnprocessableProblem(
         `A data ajustada deve estar entre ${minDate} e ${maxDate}.`,
         "/recurrences/occurrences/confirm",
