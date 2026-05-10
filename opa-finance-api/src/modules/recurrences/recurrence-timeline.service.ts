@@ -107,10 +107,18 @@ export class RecurrenceTimelineService {
     recurrence: SerializedRecurrence,
     occurrence: TimelineOccurrenceRow | undefined,
     materializedAmounts: Map<string, number>,
+    materializedTransferAmounts: Map<string, number>,
   ) {
-    if (occurrence?.status === "materialized" && occurrence.transactionId) {
-      const live = materializedAmounts.get(occurrence.transactionId);
-      if (live !== undefined) return live;
+    if (occurrence?.status === "materialized") {
+      if (occurrence.transactionId) {
+        const live = materializedAmounts.get(occurrence.transactionId);
+        if (live !== undefined) return live;
+      }
+
+      if (occurrence.transferId) {
+        const live = materializedTransferAmounts.get(occurrence.transferId);
+        if (live !== undefined) return live;
+      }
     }
 
     if (!occurrence?.reviewPayload) {
@@ -225,6 +233,9 @@ export class RecurrenceTimelineService {
     const materializedTransactionIds = persistedRows
       .filter((r) => r.status === "materialized" && r.transactionId)
       .map((r) => r.transactionId as string);
+    const materializedTransferIds = persistedRows
+      .filter((r) => r.status === "materialized" && r.transferId)
+      .map((r) => r.transferId as string);
 
     const materializedAmounts = new Map<string, number>();
     if (materializedTransactionIds.length > 0) {
@@ -241,10 +252,33 @@ export class RecurrenceTimelineService {
         materializedAmounts.set(row.id, Number(row.amount));
       }
     }
+    const materializedTransferAmounts = new Map<string, number>();
+    if (materializedTransferIds.length > 0) {
+      const transferRows = await this.app.db
+        .select({ transferId: transactions.transferId, amount: transactions.amount })
+        .from(transactions)
+        .where(
+          and(
+            inArray(transactions.transferId, materializedTransferIds),
+            eq(transactions.userId, userId),
+            eq(transactions.type, "expense"),
+          ),
+        );
+      for (const row of transferRows) {
+        if (row.transferId) {
+          materializedTransferAmounts.set(row.transferId, Number(row.amount));
+        }
+      }
+    }
 
     const counts = persistedRows.reduce<TimelineCounts>(
       (acc, row) => {
-        const amount = this.resolveOccurrenceAmount(recurrence, row, materializedAmounts);
+        const amount = this.resolveOccurrenceAmount(
+          recurrence,
+          row,
+          materializedAmounts,
+          materializedTransferAmounts,
+        );
         if (row.status === "materialized") {
           acc.materializedOccurrences += 1;
           acc.materializedAmount += amount;
@@ -318,7 +352,12 @@ export class RecurrenceTimelineService {
       }
 
       const persisted = persistedByDate.get(cursorDate);
-      const amount = this.resolveOccurrenceAmount(recurrence, persisted, materializedAmounts);
+      const amount = this.resolveOccurrenceAmount(
+        recurrence,
+        persisted,
+        materializedAmounts,
+        materializedTransferAmounts,
+      );
       const canReview = persisted?.status === "pending_review" && recurrence.status === "active";
       const sequenceValue = shouldUseSequence ? sequence + 1 : null;
       const isProjected = !persisted && query.includeProjected && recurrence.status === "active";

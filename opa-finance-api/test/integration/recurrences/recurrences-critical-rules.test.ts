@@ -1812,6 +1812,197 @@ describe("Recurrences - critical rules", () => {
     });
 
     expect(timelineRes.statusCode).toBe(404);
+  }, 60_000);
+
+  it("timeline reflete amount editado da perna expense de transferência materializada", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    await app.db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        postingMode: "automatic",
+        frequency: "monthly",
+        startDate: "2099-01-15",
+        dayOfMonth: 15,
+        endType: "by_occurrences",
+        endOccurrences: 1,
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 100,
+        description: "Transferência recorrente",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2099-01-15" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [occurrence] = await app.db
+      .select({
+        transferId: recurrenceOccurrences.transferId,
+        occurrenceDate: recurrenceOccurrences.occurrenceDate,
+      })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    expect(occurrence?.transferId).toBeTruthy();
+
+    await app.db
+      .update(transactions)
+      .set({ amount: "175" })
+      .where(
+        and(
+          eq(transactions.transferId, occurrence.transferId as string),
+          eq(transactions.type, "expense"),
+        ),
+      );
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?untilDate=2099-01-31&limit=5`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const item = timelineRes
+      .json()
+      .items.find((entry: { occurrenceDate: string }) => entry.occurrenceDate === "2099-01-15");
+    expect(item?.amount).toBe(175);
+  });
+
+  it("timeline mantém amount original em transferência sem edição posterior", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    await app.db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        postingMode: "automatic",
+        frequency: "monthly",
+        startDate: "2099-01-15",
+        dayOfMonth: 15,
+        endType: "by_occurrences",
+        endOccurrences: 1,
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 100,
+        description: "Transferência recorrente",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2099-01-15" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?untilDate=2099-01-31&limit=5`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const item = timelineRes
+      .json()
+      .items.find((entry: { occurrenceDate: string }) => entry.occurrenceDate === "2099-01-15");
+    expect(item?.amount).toBe(100);
+  });
+
+  it("timeline preserva amount via fallback quando perna expense não existe", async () => {
+    const { token, account, account2 } = await createBaseContext();
+    await app.db.insert(categories).values({
+      userId: null,
+      name: "Transferência",
+      type: "expense",
+      system: true,
+    });
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        postingMode: "automatic",
+        frequency: "monthly",
+        startDate: "2099-01-15",
+        dayOfMonth: 15,
+        endType: "by_occurrences",
+        endOccurrences: 1,
+        fromAccountId: account.id,
+        toAccountId: account2.id,
+        amount: 100,
+        description: "Transferência recorrente",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2099-01-15" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [occurrence] = await app.db
+      .select({
+        transferId: recurrenceOccurrences.transferId,
+      })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    expect(occurrence?.transferId).toBeTruthy();
+
+    await app.db
+      .delete(transactions)
+      .where(
+        and(
+          eq(transactions.transferId, occurrence.transferId as string),
+          eq(transactions.type, "expense"),
+        ),
+      );
+
+    const timelineRes = await app.inject({
+      method: "GET",
+      url: `/recurrences/${recurrence.id}/timeline?untilDate=2099-01-31&limit=5`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(timelineRes.statusCode).toBe(200);
+    const item = timelineRes
+      .json()
+      .items.find((entry: { occurrenceDate: string }) => entry.occurrenceDate === "2099-01-15");
+    expect(item?.amount).toBe(100);
   });
 
   it("confirma pendência de transferência de forma atômica", async () => {
