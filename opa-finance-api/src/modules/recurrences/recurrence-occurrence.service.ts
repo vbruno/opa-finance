@@ -15,6 +15,7 @@ import {
   recurrences,
   transactions,
 } from "../../db/schema";
+import { RecurrenceOverrideService } from "./recurrence-override.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import { resolveOperationalEndDate } from "./recurrence.helpers";
 import type {
@@ -46,6 +47,7 @@ export class RecurrenceOccurrenceService {
     private app: FastifyInstance,
     private validators: RecurrenceValidators,
     private recurrenceAudit: RecurrenceAudit,
+    private overrideService: RecurrenceOverrideService,
   ) {}
 
   private mergeConfirmPayload(
@@ -513,13 +515,21 @@ export class RecurrenceOccurrenceService {
       }
     }
 
+    const override = await this.overrideService.findByDate(recurrenceId, input.occurrenceDate);
+    const effectiveAmount =
+      override?.amount !== null && override?.amount !== undefined
+        ? Number(override.amount)
+        : Number(loaded.amount);
+    const effectiveDescription = override?.description ?? loaded.description;
+    const effectiveNotes = override?.notes ?? loaded.notes;
+
     const reviewPayload: RecurrenceOccurrenceReviewPayload = {
       occurrenceDate: input.occurrenceDate,
       originalScheduledDate: input.occurrenceDate,
       originType: loaded.originType,
-      amount: input.amount ?? Number(loaded.amount),
-      description: input.description !== undefined ? input.description : loaded.description,
-      notes: input.notes !== undefined ? input.notes : loaded.notes,
+      amount: input.amount ?? effectiveAmount,
+      description: input.description !== undefined ? input.description : effectiveDescription,
+      notes: input.notes !== undefined ? input.notes : effectiveNotes,
       accountId: input.accountId ?? loaded.accountId,
       categoryId: input.categoryId ?? loaded.categoryId,
       subcategoryId: input.subcategoryId !== undefined ? input.subcategoryId : loaded.subcategoryId,
@@ -558,6 +568,10 @@ export class RecurrenceOccurrenceService {
         })
         .where(eq(recurrenceOccurrences.id, newOccurrence.id))
         .returning();
+
+      if (override) {
+        await this.overrideService.deleteByDate(recurrenceId, input.occurrenceDate, tx);
+      }
 
       return {
         ...savedOccurrence,
