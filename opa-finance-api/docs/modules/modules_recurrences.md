@@ -44,6 +44,7 @@
 - Antecipação (`POST /recurrences/:id/anticipate`) consome o override pontual da data quando existir, aplicando `amount`, `description` e `notes` com precedência sobre a regra e removendo o registro após criar a transação/transferência
 - A listagem `GET /recurrences` inclui `pendingReviewCount` por recorrência para suportar o badge de pendências na UI
 - `GET /recurrences`, `GET /recurrences/:id` e `GET /recurrences/:id/timeline` expõem `hasConsumedOccurrences: boolean` para a UI distinguir regras ainda totalmente editáveis de regras estruturalmente bloqueadas
+- `GET /recurrences/forecast` aplica overrides pontuais nas projeções futuras, mesclando `amount` por data quando houver override; `amount = NULL` no override mantém o valor da regra
 - Overrides pontuais (`recurrence_occurrence_overrides`) permitem ajustar apenas `amount`, `description` e `notes` de uma ocorrência `projected`; campos `NULL` herdam o valor da regra-mãe
 - Overrides só podem ser criados para datas futuras válidas da série e sem ocorrência persistida (`materialized`, `pending_review`, `skipped` ou `failed`)
 - `edit-scope` com `scope = single` em data sem ocorrência persistida retorna `422`; o cliente deve usar `PUT /recurrences/:id/occurrences/override` para ajuste pontual de ocorrência projetada

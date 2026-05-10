@@ -10,6 +10,7 @@ import {
 import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
 import {
   categories,
+  recurrenceOccurrenceOverrides,
   recurrenceOccurrences,
   recurrences,
   transactions,
@@ -174,6 +175,32 @@ export class RecurrenceForecastService {
         }
       }
 
+      const overrideRows: Array<{
+        recurrenceId: string;
+        occurrenceDate: string;
+        amount: string | null;
+      }> =
+        recurrenceIds.length > 0
+          ? await this.app.db
+              .select({
+                recurrenceId: recurrenceOccurrenceOverrides.recurrenceId,
+                occurrenceDate: recurrenceOccurrenceOverrides.occurrenceDate,
+                amount: recurrenceOccurrenceOverrides.amount,
+              })
+              .from(recurrenceOccurrenceOverrides)
+              .where(
+                and(
+                  inArray(recurrenceOccurrenceOverrides.recurrenceId, recurrenceIds),
+                  gte(recurrenceOccurrenceOverrides.occurrenceDate, projectionStartDate),
+                  lte(recurrenceOccurrenceOverrides.occurrenceDate, yearEndDate),
+                ),
+              )
+          : [];
+
+      const overrideAmountByKey = new Map<string, string | null>(
+        overrideRows.map((row) => [`${row.recurrenceId}:${row.occurrenceDate}`, row.amount]),
+      );
+
       const transactionCategoryIds: string[] = Array.from(
         new Set(
           activeRecurrences
@@ -286,7 +313,9 @@ export class RecurrenceForecastService {
           const occurrenceKey = `${recurrence.id}:${cursorDate}`;
           if (!consumedDateSet.has(occurrenceKey)) {
             const monthIndex = Math.max(0, Math.min(11, Number(cursorDate.slice(5, 7)) - 1));
-            const amount = Number(recurrence.amount);
+            const overrideAmount = overrideAmountByKey.get(occurrenceKey);
+            const baseAmount = overrideAmount ?? recurrence.amount;
+            const amount = Number(baseAmount);
             let counted = false;
 
             if (recurrence.originType === "transaction") {

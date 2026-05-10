@@ -299,4 +299,199 @@ describe("GET /recurrences/forecast", () => {
     expect(res.statusCode).toBe(403);
     expect(res.json().detail).toContain("não pertencem ao usuário");
   });
+
+  it("aplica override de amount em projecao mensal de transacao", async () => {
+    const { token, account1, category } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "never",
+        accountId: account1.id,
+        categoryId: category.id,
+        amount: 100,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-02-10",
+        amount: 250,
+      },
+    });
+    expect(overrideRes.statusCode).toBe(200);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/recurrences/forecast?year=2099",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.totals.projected.expense.months[0]).toBe(100);
+    expect(body.totals.projected.expense.months[1]).toBe(250);
+    expect(body.totals.projected.expense.yearTotal).toBe(1350);
+  });
+
+  it("ignora override quando amount e NULL no override", async () => {
+    const { token, account1, category } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        endType: "never",
+        accountId: account1.id,
+        categoryId: category.id,
+        amount: 100,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-02-10",
+        description: "Ajuste",
+      },
+    });
+    expect(overrideRes.statusCode).toBe(200);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/recurrences/forecast?year=2099",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.totals.projected.expense.months[1]).toBe(100);
+    expect(body.totals.projected.expense.yearTotal).toBe(1200);
+  });
+
+  it("aplica override em transferencia somando nas duas pernas", async () => {
+    const { token, account1, account2 } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transfer",
+        frequency: "monthly",
+        startDate: "2099-01-15",
+        dayOfMonth: 15,
+        endType: "never",
+        fromAccountId: account1.id,
+        toAccountId: account2.id,
+        amount: 100,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-02-15",
+        amount: 250,
+      },
+    });
+    expect(overrideRes.statusCode).toBe(200);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/recurrences/forecast?year=2099",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.totals.projected.expense.months[1]).toBe(250);
+    expect(body.totals.projected.income.months[1]).toBe(250);
+    expect(body.totals.projected.expense.yearTotal).toBe(1350);
+    expect(body.totals.projected.income.yearTotal).toBe(1350);
+  });
+
+  it("nao soma override em data com ocorrencia persistida", async () => {
+    const { token, account1, category } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        frequency: "monthly",
+        startDate: "2099-01-10",
+        dayOfMonth: 10,
+        postingMode: "review_required",
+        endType: "by_occurrences",
+        endOccurrences: 1,
+        accountId: account1.id,
+        categoryId: category.id,
+        amount: 100,
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2099-01-31" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+    expect(materializeRes.json().createdOccurrences).toBe(1);
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-01-10",
+        amount: 250,
+      },
+    });
+    expect(overrideRes.statusCode).toBe(422);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/recurrences/forecast?year=2099",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.metadata.projectedOccurrences).toBe(1);
+    expect(body.totals.projected.expense.months[0]).toBe(100);
+    expect(body.totals.projected.expense.yearTotal).toBe(100);
+  });
 });
