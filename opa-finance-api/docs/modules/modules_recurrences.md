@@ -28,6 +28,7 @@
 - Materialização usa chave idempotente para evitar duplicidade
 - `failed` é estado terminal no MVP; não há retry automático nem reabertura por fluxo padrão
 - `review_required` gera `pending_review` no job e não materializa diretamente a transação/transferência
+- Troca de `postingMode` (`automatic` ↔ `review_required`) afeta apenas materializações futuras. Ocorrências já persistidas mantêm o `status` original (sem retroação). A direção `review_required` → `automatic` exige resolver pendências `pending_review` em aberto; a direção `automatic` → `review_required` é livre enquanto a edição global estrutural for permitida
 - `materialized`, `pending_review`, `skipped` e `failed` contam como ocorrência consumida em `by_occurrences`, no mesmo conjunto usado para o bloqueio estrutural
 - Bloqueio estrutural da regra-mãe: após existir qualquer ocorrência `materialized`, `pending_review`, `skipped` ou `failed`, a edição global (`PUT /recurrences/:id` ou `edit-scope` com `scope = all`) passa a aceitar apenas `description` e `notes`
 - Decisão conservadora: `failed` também conta para o bloqueio estrutural e para o limite `by_occurrences`, porque já houve tentativa de execução da regra

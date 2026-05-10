@@ -3519,6 +3519,93 @@ describe("Recurrences - critical rules", () => {
     expect(reverted.version).toBe(reviewed.version + 1);
   });
 
+  it("troca de postingMode não retroage em ocorrências já persistidas", async () => {
+    const { token, account, category } = await createBaseContext();
+
+    const recurrenceRes = await app.inject({
+      method: "POST",
+      url: "/recurrences",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        originType: "transaction",
+        postingMode: "automatic",
+        frequency: "weekly",
+        startDate: "2099-01-05",
+        dayOfWeek: 1,
+        accountId: account.id,
+        categoryId: category.id,
+        amount: 75,
+        description: "Sem retroação",
+      },
+    });
+    expect(recurrenceRes.statusCode).toBe(201);
+    const recurrence = recurrenceRes.json();
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2099-01-20" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [beforeOccurrence] = await app.db
+      .select({
+        id: recurrenceOccurrences.id,
+        status: recurrenceOccurrences.status,
+        transactionId: recurrenceOccurrences.transactionId,
+      })
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrence.id),
+          eq(recurrenceOccurrences.status, "materialized"),
+        ),
+      )
+      .limit(1);
+    expect(beforeOccurrence).toBeDefined();
+    expect(beforeOccurrence?.transactionId).toBeTruthy();
+
+    const [currentRecurrence] = await app.db
+      .select({ version: recurrences.version, postingMode: recurrences.postingMode })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id))
+      .limit(1);
+    expect(currentRecurrence?.postingMode).toBe("automatic");
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        postingMode: "review_required",
+        expectedVersion: currentRecurrence.version,
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(422);
+    expect(updateRes.json().detail).toContain("ocorrências geradas");
+
+    const [afterOccurrence] = await app.db
+      .select({
+        id: recurrenceOccurrences.id,
+        status: recurrenceOccurrences.status,
+        transactionId: recurrenceOccurrences.transactionId,
+      })
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.id, beforeOccurrence.id))
+      .limit(1);
+
+    expect(afterOccurrence).toEqual(beforeOccurrence);
+
+    const [afterRecurrence] = await app.db
+      .select({ postingMode: recurrences.postingMode })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id))
+      .limit(1);
+    expect(afterRecurrence?.postingMode).toBe("automatic");
+  });
+
   it("bloqueia campos de transferência em create de recorrência de transação", async () => {
     const { token, account, account2, category } = await createBaseContext();
 
