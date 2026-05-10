@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { FastifyBaseLogger } from "fastify";
 import { ForbiddenProblem, NotFoundProblem, ValidationProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
 import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
@@ -14,7 +15,10 @@ import { CONSUMED_OCCURRENCE_STATUSES, toIsoDate } from "./recurrence.helpers";
 import type { CreateRecurrenceInput, UpdateRecurrenceInput } from "./recurrence.schemas";
 
 export class RecurrenceValidators {
-  constructor(private db: DB) {}
+  constructor(
+    private db: DB,
+    private logger: FastifyBaseLogger,
+  ) {}
 
   async getLatestMaterializedDate(
     recurrenceId: string,
@@ -50,17 +54,47 @@ export class RecurrenceValidators {
   }
 
   async getNowIsoDateInTimezone(timezone: string): Promise<string> {
-    const result = await this.db.execute(
-      sql`select to_char((now() at time zone ${timezone})::date, 'YYYY-MM-DD') as today`,
-    );
+    try {
+      const result = await this.db.execute(
+        sql`select to_char((now() at time zone ${timezone})::date, 'YYYY-MM-DD') as today`,
+      );
 
-    const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
-    const firstRow = rows[0] as { today?: string } | undefined;
-    const today = firstRow?.today;
-    if (!today || !/^\d{4}-\d{2}-\d{2}$/.test(today)) {
-      return toIsoDate(new Date());
+      const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+      const firstRow = rows[0] as { today?: string } | undefined;
+      const today = firstRow?.today;
+      if (today && /^\d{4}-\d{2}-\d{2}$/.test(today)) {
+        return today;
+      }
+
+      this.logger.warn({ timezone, today }, "getNowIsoDateInTimezone: SQL fallback to Intl");
+    } catch (err) {
+      this.logger.warn({ timezone, err }, "getNowIsoDateInTimezone: SQL fallback to Intl");
     }
-    return today;
+
+    try {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(new Date());
+      const year = parts.find((part) => part.type === "year")?.value;
+      const month = parts.find((part) => part.type === "month")?.value;
+      const day = parts.find((part) => part.type === "day")?.value;
+
+      if (year && month && day) {
+        return `${year}-${month}-${day}`;
+      }
+
+      this.logger.warn(
+        { timezone, year, month, day },
+        "getNowIsoDateInTimezone: Intl fallback to UTC",
+      );
+    } catch (err) {
+      this.logger.warn({ timezone, err }, "getNowIsoDateInTimezone: Intl fallback to UTC");
+    }
+
+    return toIsoDate(new Date());
   }
 
   async getUserTimezone(userId: string): Promise<string> {

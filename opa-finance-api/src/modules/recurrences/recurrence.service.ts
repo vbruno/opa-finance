@@ -38,7 +38,7 @@ export class RecurrenceService {
   constructor(private app: FastifyInstance) {
     this.audit = new AuditService(app);
     this.recurrenceAudit = new RecurrenceAudit(this.audit, app.log);
-    this.validators = new RecurrenceValidators(app.db);
+    this.validators = new RecurrenceValidators(app.db, app.log);
     this.crud = new RecurrenceCrudService(app, this.audit, this.recurrenceAudit, this.validators);
     this.edit = new RecurrenceEditService(
       app,
