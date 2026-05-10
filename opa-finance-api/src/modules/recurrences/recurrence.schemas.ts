@@ -400,6 +400,18 @@ export const upsertOccurrenceOverrideSchema = z
 
 export const recurrenceEditScopeSchema = z.enum(["single", "this_and_next", "all"]);
 
+/**
+ * Schema do query param `accountIds` em GET /recurrences/forecast.
+ *
+ * Aceita formatos heterogêneos para acomodar consumers do frontend:
+ * - `undefined` | `null` | `""` -> `[]`
+ * - CSV string: `"uuid1,uuid2"` -> `["uuid1", "uuid2"]`
+ * - Array de strings (com CSV aninhado): `["uuid1", "uuid2,uuid3"]` -> `["uuid1", "uuid2", "uuid3"]`
+ *
+ * Cada item final deve ser UUID válido; duplicados são removidos.
+ * Consumers atuais: weekly-cashflow envia ambos os formatos
+ * (array direto via axios e CSV via search params).
+ */
 const recurrenceForecastAccountIdsSchema = z
   .preprocess(
     (value) => {
