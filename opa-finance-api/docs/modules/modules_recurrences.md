@@ -22,6 +22,7 @@
 - Regra `active` não pode ser excluída; deve ser finalizada antes
 - Edição concorrente usa controle otimista e pode retornar `409`
 - Update parcial de recorrência não aplica defaults de criação; campos omitidos preservam o valor atual da regra
+- `originType` é imutável após a criação; `PUT /recurrences/:id` e `PUT /recurrences/:id/edit-scope` rejeitam esse campo no payload de update
 - Mudança de término normaliza campos incompatíveis: `never` limpa data/quantidade, `by_occurrences` limpa `endDate` e `until_date` limpa `endOccurrences`
 - Edição por escopo no frontend usa snapshot por escopo: `all` com regra completa, `this_and_next` com nova regra sem `startDate`, `single` apenas com campos de negócio da ocorrência
 - Materialização usa chave idempotente para evitar duplicidade

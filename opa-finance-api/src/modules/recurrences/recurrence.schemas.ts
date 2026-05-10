@@ -166,7 +166,9 @@ const optionalDateSchema = z
 
 export const updateRecurrenceSchema = z
   .object({
-    originType: recurrenceOriginTypeSchema.optional(),
+    originType: z
+      .never({ message: "Não é permitido alterar o tipo de origem da recorrência." })
+      .optional(),
     postingMode: recurrencePostingModeSchema.optional(),
     frequency: recurrenceFrequencySchema.optional(),
     startDate: optionalDateSchema,
@@ -187,14 +189,6 @@ export const updateRecurrenceSchema = z
     expectedVersion: z.number().int().positive().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.originType !== undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Não é permitido alterar o tipo de origem da recorrência.",
-        path: ["originType"],
-      });
-    }
-
     if (data.frequency === "weekly" || data.frequency === "biweekly") {
       if (data.dayOfWeek === undefined) {
         ctx.addIssue({

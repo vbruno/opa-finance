@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { editRecurrenceByScopeSchema } from "../../src/modules/recurrences/recurrence.schemas";
+import {
+  editRecurrenceByScopeSchema,
+  updateRecurrenceSchema,
+} from "../../src/modules/recurrences/recurrence.schemas";
 
 describe("recurrences edit scope schema", () => {
   it("aceita escopo all sem occurrenceDate", () => {
@@ -46,5 +49,72 @@ describe("recurrences edit scope schema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("updateRecurrenceSchema rejeita originType definido com mensagem em pt-BR", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      originType: "transaction",
+      description: "x",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["originType"],
+          message: "Não é permitido alterar o tipo de origem da recorrência.",
+        }),
+      ]),
+    );
+  });
+
+  it("updateRecurrenceSchema rejeita originType com qualquer valor (transfer)", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      originType: "transfer",
+      description: "x",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["originType"],
+          message: "Não é permitido alterar o tipo de origem da recorrência.",
+        }),
+      ]),
+    );
+  });
+
+  it("updateRecurrenceSchema aceita payload sem originType", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      description: "x",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("editRecurrenceByScopeSchema.changes propaga rejeição de originType", () => {
+    const result = editRecurrenceByScopeSchema.safeParse({
+      scope: "all",
+      changes: {
+        originType: "transaction",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["changes", "originType"],
+          message: "Não é permitido alterar o tipo de origem da recorrência.",
+        }),
+      ]),
+    );
   });
 });
