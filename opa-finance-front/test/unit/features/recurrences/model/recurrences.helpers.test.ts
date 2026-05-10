@@ -98,6 +98,28 @@ describe('recurrences.helpers', () => {
     expect(compareIsoDate('2026-04-18', '2026-04-17')).toBe(1)
   })
 
+  describe('addOneYearIsoDate', () => {
+    it('deve adicionar 1 ano preservando mês e dia', () => {
+      expect(addOneYearIsoDate('2026-05-06')).toBe('2027-05-06')
+    })
+
+    it('deve ajustar 29/02 para o último dia válido do ano seguinte', () => {
+      expect(addOneYearIsoDate('2024-02-29')).toBe('2025-02-28')
+    })
+
+    it('deve manter 28/02 ao avançar para ano bissexto', () => {
+      expect(addOneYearIsoDate('2023-02-28')).toBe('2024-02-28')
+    })
+
+    it('deve preservar 31/12 na virada de ano', () => {
+      expect(addOneYearIsoDate('2026-12-31')).toBe('2027-12-31')
+    })
+
+    it('deve preservar 31/01 no início de ano', () => {
+      expect(addOneYearIsoDate('2026-01-31')).toBe('2027-01-31')
+    })
+  })
+
   it('deve calcular horizonte operacional de 1 ano para recorrência sem fim', () => {
     expect(addOneYearIsoDate('2026-05-06')).toBe('2027-05-06')
     expect(addOneYearIsoDate('2024-02-29')).toBe('2025-02-28')

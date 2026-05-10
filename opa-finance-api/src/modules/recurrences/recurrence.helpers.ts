@@ -20,6 +20,14 @@ export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Adiciona 1 ano à data ISO, ajustando o dia para o último válido do mês destino
+ * (ex.: 2024-02-29 -> 2025-02-28).
+ *
+ * Mantenha sincronizado com o gêmeo no frontend:
+ * `opa-finance-front/src/features/recurrences/model/recurrences.helpers.ts`.
+ * Backend é fonte de verdade. Testes simétricos em ambos os lados (REC-REV-014).
+ */
 export function addOneYearIsoDate(dateString: string): string {
   const [year, month, day] = dateString.split("-").map(Number);
   const maxDay = new Date(Date.UTC(year + 1, month, 0)).getUTCDate();

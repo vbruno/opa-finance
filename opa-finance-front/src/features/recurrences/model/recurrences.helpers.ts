@@ -468,6 +468,15 @@ export function compareIsoDate(a: string, b: string) {
   return a < b ? -1 : 1
 }
 
+/**
+ * Adiciona 1 ano à data ISO, ajustando o dia para o último válido do mês destino
+ * (ex.: 2024-02-29 -> 2025-02-28).
+ *
+ * Espelha o helper backend (fonte de verdade):
+ * `opa-finance-api/src/modules/recurrences/recurrence.helpers.ts`.
+ * Usado aqui apenas como hint visual para `untilDate` da timeline.
+ * Testes simétricos em ambos os lados (REC-REV-014).
+ */
 export function addOneYearIsoDate(isoDate: string) {
   const [yearValue, monthValue, dayValue] = isoDate.split('-').map(Number)
   const maxDay = new Date(Date.UTC(yearValue + 1, monthValue, 0)).getUTCDate()

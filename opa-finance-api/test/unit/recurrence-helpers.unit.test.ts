@@ -32,6 +32,18 @@ describe("recurrence helpers (unit)", () => {
     it("ajusta 29/02 para o último dia válido do ano seguinte", () => {
       expect(addOneYearIsoDate("2024-02-29")).toBe("2025-02-28");
     });
+
+    it("mantém 28/02 ao avançar para ano bissexto", () => {
+      expect(addOneYearIsoDate("2023-02-28")).toBe("2024-02-28");
+    });
+
+    it("preserva 31/12 na virada de ano", () => {
+      expect(addOneYearIsoDate("2026-12-31")).toBe("2027-12-31");
+    });
+
+    it("preserva 31/01 no início de ano", () => {
+      expect(addOneYearIsoDate("2026-01-31")).toBe("2027-01-31");
+    });
   });
 
   describe("minIsoDate", () => {
