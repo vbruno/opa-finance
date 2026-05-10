@@ -993,7 +993,26 @@ describe("Recurrences - critical rules", () => {
   });
 
   it("retorna mensagens em pt-BR para erros críticos de confirm e update", async () => {
-    const { token, account, category } = await createBaseContext();
+    const email = `user_${crypto.randomUUID()}@test.com`;
+    const { token } = await registerAndLogin(app, app.db, email);
+
+    const accountRes = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Conta Base", type: "cash" },
+    });
+    expect(accountRes.statusCode).toBe(201);
+    const account = accountRes.json();
+
+    const categoryRes = await app.inject({
+      method: "POST",
+      url: "/categories",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "Moradia", type: "expense" },
+    });
+    expect(categoryRes.statusCode).toBe(201);
+    const category = categoryRes.json();
 
     const rangeRecurrence = await createTransactionRecurrence({
       token,
