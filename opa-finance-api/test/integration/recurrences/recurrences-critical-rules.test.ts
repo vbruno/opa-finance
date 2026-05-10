@@ -160,7 +160,7 @@ describe("Recurrences - critical rules", () => {
       token,
       accountId: account.id,
       categoryId: category.id,
-      startDate: "2025-01-06",
+      startDate: "2099-01-05",
       dayOfWeek: 1,
     });
 
@@ -168,7 +168,7 @@ describe("Recurrences - critical rules", () => {
       method: "POST",
       url: "/recurrences/materialize",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { untilDate: "2025-01-20" },
+      payload: { untilDate: "2099-01-19" },
     });
 
     expect(firstRun.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe("Recurrences - critical rules", () => {
       method: "POST",
       url: "/recurrences/materialize",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { untilDate: "2025-01-20" },
+      payload: { untilDate: "2099-01-19" },
     });
 
     expect(secondRun.statusCode).toBe(200);
@@ -2441,7 +2441,7 @@ describe("Recurrences - critical rules", () => {
       token,
       accountId: account.id,
       categoryId: category.id,
-      startDate: "2026-05-04",
+      startDate: "2099-01-05",
       dayOfWeek: 1,
     });
 
@@ -2460,7 +2460,7 @@ describe("Recurrences - critical rules", () => {
       headers: { Authorization: `Bearer ${token}` },
       payload: {
         scope: "single",
-        occurrenceDate: "2026-05-11",
+        occurrenceDate: "2099-01-12",
         changes: {
           amount: 175,
           notes: "Ajuste futuro",
@@ -3127,6 +3127,8 @@ describe("Recurrences - critical rules", () => {
       token,
       accountId: account.id,
       categoryId: category.id,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
     });
 
     const firstUpdate = await app.inject({
@@ -3359,7 +3361,7 @@ describe("Recurrences - critical rules", () => {
         originType: "transaction",
         postingMode: "automatic",
         frequency: "weekly",
-        startDate: "2025-01-06",
+        startDate: "2099-01-05",
         dayOfWeek: 1,
         accountId: account.id,
         categoryId: category.id,

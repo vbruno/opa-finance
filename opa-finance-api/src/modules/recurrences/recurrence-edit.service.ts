@@ -543,11 +543,6 @@ export class RecurrenceEditService {
       );
     }
 
-    const hasConsumedOccurrences = await this.validators.hasConsumedOccurrences(recurrenceId);
-    if (hasConsumedOccurrences) {
-      this.ensureGlobalUpdateAllowedAfterConsumption(data, recurrenceId);
-    }
-
     if (data.postingMode === "automatic" && existing.postingMode === "review_required") {
       const pendingOccurrences = await this.getOpenPendingReviewOccurrences(userId, recurrenceId);
       if (pendingOccurrences.length > 0) {
@@ -559,6 +554,11 @@ export class RecurrenceEditService {
           `/recurrences/${recurrenceId}`,
         );
       }
+    }
+
+    const hasConsumedOccurrences = await this.validators.hasConsumedOccurrences(recurrenceId);
+    if (hasConsumedOccurrences) {
+      this.ensureGlobalUpdateAllowedAfterConsumption(data, recurrenceId);
     }
 
     await this.validators.validatePayloadOwnership(userId, data, existing.categoryId);
