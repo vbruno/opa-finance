@@ -84,7 +84,9 @@ describe("Recurrences - critical rules", () => {
     categoryId,
     amount = 120,
     startDate = "2025-01-06",
+    frequency = "weekly",
     dayOfWeek = 1,
+    dayOfMonth,
     postingMode = "automatic",
     endType = "never",
     endOccurrences,
@@ -95,7 +97,9 @@ describe("Recurrences - critical rules", () => {
     categoryId: string;
     amount?: number;
     startDate?: string;
+    frequency?: "weekly" | "biweekly" | "monthly" | "yearly";
     dayOfWeek?: number;
+    dayOfMonth?: number;
     postingMode?: "automatic" | "review_required";
     endType?: "never" | "by_occurrences" | "until_date";
     endOccurrences?: number;
@@ -108,9 +112,10 @@ describe("Recurrences - critical rules", () => {
       payload: {
         originType: "transaction",
         postingMode,
-        frequency: "weekly",
+        frequency,
         startDate,
-        dayOfWeek,
+        dayOfWeek: frequency === "weekly" || frequency === "biweekly" ? dayOfWeek : undefined,
+        dayOfMonth: frequency === "monthly" || frequency === "yearly" ? dayOfMonth : undefined,
         endType,
         endOccurrences,
         endDate,
@@ -727,6 +732,199 @@ describe("Recurrences - critical rules", () => {
     expect(afterFailedConfirm?.status).toBe("pending_review");
     expect(afterFailedConfirm?.transactionId).toBeNull();
     expect(afterFailedConfirm?.version).toBe(pending.version);
+  });
+
+  it("confirm aceita occurrenceDate dentro do horizonte operacional em recorrencia never", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2026-03-10",
+      dayOfWeek: 2,
+      endType: "never",
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2026-03-10" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pending.version,
+        occurrenceDate: "2027-02-10",
+      },
+    });
+
+    expect(confirmRes.statusCode).toBe(200);
+    const confirmed = confirmRes.json();
+    expect(confirmed.status).toBe("materialized");
+    expect(confirmed.transactionId).toBeTruthy();
+
+    const [createdTransaction] = await app.db
+      .select({ date: transactions.date })
+      .from(transactions)
+      .where(eq(transactions.id, confirmed.transactionId));
+
+    expect(createdTransaction?.date).toBe("2027-02-10");
+  });
+
+  it("confirm rejeita occurrenceDate além do horizonte operacional em recorrencia never", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2026-03-10",
+      dayOfWeek: 2,
+      endType: "never",
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2026-03-10" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pending.version,
+        occurrenceDate: "2027-04-10",
+      },
+    });
+
+    expect(confirmRes.statusCode).toBe(422);
+    expect(confirmRes.json().detail).toContain("2026-03-10");
+    expect(confirmRes.json().detail).toContain("2027-03-10");
+  });
+
+  it("confirm aceita occurrenceDate distante em by_occurrences sem teto de 1 ano", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      frequency: "monthly",
+      startDate: "2025-03-10",
+      dayOfMonth: 10,
+      endType: "by_occurrences",
+      endOccurrences: 24,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2026-05-10" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrence.id),
+          eq(recurrenceOccurrences.occurrenceDate, "2026-05-10"),
+        ),
+      );
+
+    expect(pending?.status).toBe("pending_review");
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pending.version,
+        occurrenceDate: "2026-04-10",
+      },
+    });
+
+    expect(confirmRes.statusCode).toBe(200);
+    const confirmed = confirmRes.json();
+    expect(confirmed.status).toBe("materialized");
+    expect(confirmed.transactionId).toBeTruthy();
+
+    const [createdTransaction] = await app.db
+      .select({ date: transactions.date })
+      .from(transactions)
+      .where(eq(transactions.id, confirmed.transactionId));
+
+    expect(createdTransaction?.date).toBe("2026-04-10");
+  });
+
+  it("confirm rejeita occurrenceDate anterior ao startDate em by_occurrences", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      frequency: "monthly",
+      startDate: "2025-03-10",
+      dayOfMonth: 10,
+      endType: "by_occurrences",
+      endOccurrences: 24,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2026-05-10" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrence.id),
+          eq(recurrenceOccurrences.occurrenceDate, "2026-05-10"),
+        ),
+      );
+
+    expect(pending?.status).toBe("pending_review");
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pending.version,
+        occurrenceDate: "2025-03-09",
+      },
+    });
+
+    expect(confirmRes.statusCode).toBe(422);
+    expect(confirmRes.json().detail).toBe("A data ajustada não pode ser anterior a 2025-03-10.");
   });
 
   it("retorna mensagens em pt-BR para erros críticos de confirm e update", async () => {
