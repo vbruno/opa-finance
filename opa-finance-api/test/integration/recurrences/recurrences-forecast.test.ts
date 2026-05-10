@@ -210,6 +210,7 @@ describe("GET /recurrences/forecast", () => {
       headers: { Authorization: `Bearer ${token}` },
       payload: {
         originType: "transaction",
+        postingMode: "review_required",
         frequency: "monthly",
         startDate: "2025-01-10",
         dayOfMonth: 10,
