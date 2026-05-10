@@ -11,6 +11,7 @@ import {
   getRecurrenceOperationalEndDate,
   getRecurrenceConfirmErrorMessage,
   toRecurrenceCreatePayload,
+  toRecurrenceUpdatePayload,
   toScopedRecurrenceUpdatePayload,
 } from '@/features/recurrences/model/recurrences.helpers'
 import type { Recurrence } from '@/features/recurrences'
@@ -141,6 +142,78 @@ describe('recurrences.helpers', () => {
       endDate: '2026-12-31',
     })
     expect(payload.endOccurrences).toBeUndefined()
+  })
+
+  it('toRecurrenceCreatePayload lança erro quando accountId está vazio em transação', () => {
+    expect(() => toRecurrenceCreatePayload(makeForm({ accountId: '' }))).toThrow(
+      'Conta é obrigatória.',
+    )
+  })
+
+  it('toRecurrenceCreatePayload lança erro quando categoryId está vazio em transação', () => {
+    expect(() => toRecurrenceCreatePayload(makeForm({ categoryId: '' }))).toThrow(
+      'Categoria é obrigatória.',
+    )
+  })
+
+  it('toRecurrenceCreatePayload lança erro quando fromAccountId está vazio em transferência', () => {
+    expect(() =>
+      toRecurrenceCreatePayload(
+        makeForm({
+          originType: 'transfer',
+          fromAccountId: '',
+          toAccountId: 'acc-2',
+        }),
+      ),
+    ).toThrow('Conta de origem é obrigatória.')
+  })
+
+  it('toRecurrenceCreatePayload lança erro quando toAccountId está vazio em transferência', () => {
+    expect(() =>
+      toRecurrenceCreatePayload(
+        makeForm({
+          originType: 'transfer',
+          fromAccountId: 'acc-1',
+          toAccountId: '',
+        }),
+      ),
+    ).toThrow('Conta de destino é obrigatória.')
+  })
+
+  it('toRecurrenceUpdatePayload lança erro quando accountId está vazio em transação', () => {
+    expect(() => toRecurrenceUpdatePayload(makeForm({ accountId: '' }))).toThrow(
+      'Conta é obrigatória.',
+    )
+  })
+
+  it('toRecurrenceUpdatePayload lança erro quando categoryId está vazio em transação', () => {
+    expect(() => toRecurrenceUpdatePayload(makeForm({ categoryId: '' }))).toThrow(
+      'Categoria é obrigatória.',
+    )
+  })
+
+  it('toRecurrenceUpdatePayload lança erro quando fromAccountId está vazio em transferência', () => {
+    expect(() =>
+      toRecurrenceUpdatePayload(
+        makeForm({
+          originType: 'transfer',
+          fromAccountId: '',
+          toAccountId: 'acc-2',
+        }),
+      ),
+    ).toThrow('Conta de origem é obrigatória.')
+  })
+
+  it('toRecurrenceUpdatePayload lança erro quando toAccountId está vazio em transferência', () => {
+    expect(() =>
+      toRecurrenceUpdatePayload(
+        makeForm({
+          originType: 'transfer',
+          fromAccountId: 'acc-1',
+          toAccountId: '',
+        }),
+      ),
+    ).toThrow('Conta de destino é obrigatória.')
   })
 
   it('deve remover campos de agenda no escopo single no payload de update', () => {

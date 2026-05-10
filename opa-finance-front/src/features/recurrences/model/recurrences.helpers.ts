@@ -96,19 +96,35 @@ export function toRecurrenceCreatePayload(
   } as const
 
   if (values.originType === 'transaction') {
+    if (!values.accountId || values.accountId.trim() === '') {
+      throw new Error('Conta é obrigatória.')
+    }
+
+    if (!values.categoryId || values.categoryId.trim() === '') {
+      throw new Error('Categoria é obrigatória.')
+    }
+
     return {
       originType: 'transaction',
-      accountId: values.accountId || '',
-      categoryId: values.categoryId || '',
+      accountId: values.accountId,
+      categoryId: values.categoryId,
       subcategoryId: values.subcategoryId || undefined,
       ...common,
     }
   }
 
+  if (!values.fromAccountId || values.fromAccountId.trim() === '') {
+    throw new Error('Conta de origem é obrigatória.')
+  }
+
+  if (!values.toAccountId || values.toAccountId.trim() === '') {
+    throw new Error('Conta de destino é obrigatória.')
+  }
+
   return {
     originType: 'transfer',
-    fromAccountId: values.fromAccountId || '',
-    toAccountId: values.toAccountId || '',
+    fromAccountId: values.fromAccountId,
+    toAccountId: values.toAccountId,
     ...common,
   }
 }
@@ -152,18 +168,34 @@ export function toRecurrenceUpdatePayload(
   }
 
   if (values.originType === 'transaction') {
+    if (!values.accountId || values.accountId.trim() === '') {
+      throw new Error('Conta é obrigatória.')
+    }
+
+    if (!values.categoryId || values.categoryId.trim() === '') {
+      throw new Error('Categoria é obrigatória.')
+    }
+
     return {
       ...common,
-      accountId: values.accountId || '',
-      categoryId: values.categoryId || '',
+      accountId: values.accountId,
+      categoryId: values.categoryId,
       subcategoryId: values.subcategoryId || null,
     }
   }
 
+  if (!values.fromAccountId || values.fromAccountId.trim() === '') {
+    throw new Error('Conta de origem é obrigatória.')
+  }
+
+  if (!values.toAccountId || values.toAccountId.trim() === '') {
+    throw new Error('Conta de destino é obrigatória.')
+  }
+
   return {
     ...common,
-    fromAccountId: values.fromAccountId || '',
-    toAccountId: values.toAccountId || '',
+    fromAccountId: values.fromAccountId,
+    toAccountId: values.toAccountId,
   }
 }
 
