@@ -350,7 +350,7 @@ describe("Recurrences - critical rules", () => {
       accountId: account.id,
       categoryId: category.id,
       postingMode: "automatic",
-      startDate: "2025-01-06",
+      startDate: "2099-01-05",
       dayOfWeek: 1,
       endType: "by_occurrences",
       endOccurrences: 2,
@@ -360,7 +360,7 @@ describe("Recurrences - critical rules", () => {
       method: "POST",
       url: "/recurrences/materialize",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { untilDate: "2025-01-13" },
+      payload: { untilDate: "2099-01-12" },
     });
 
     expect(materializeRes.statusCode).toBe(200);
@@ -398,8 +398,8 @@ describe("Recurrences - critical rules", () => {
       .from(recurrences)
       .where(eq(recurrences.id, recurrence.id));
 
-    expect(updatedRecurrence?.nextOccurrenceDate).toBe("2025-01-20");
-    expect(updatedRecurrence?.lastMaterializedDate).toBe("2025-01-13");
+    expect(updatedRecurrence?.nextOccurrenceDate).toBe("2099-01-19");
+    expect(updatedRecurrence?.lastMaterializedDate).toBe("2099-01-12");
   });
 
   it("gera pendência sem criar transação quando postingMode exige revisão", async () => {
@@ -1223,7 +1223,7 @@ describe("Recurrences - critical rules", () => {
       materializedAmount: 120,
       pendingReviewAmount: 120,
       projectedAmount: 120,
-      appliedLimit: 24,
+      appliedLimit: 12,
       isPartial: false,
       hasMoreProjected: false,
       projectionWindowLabel: null,
@@ -1268,7 +1268,7 @@ describe("Recurrences - critical rules", () => {
       accountId: account.id,
       categoryId: category.id,
       postingMode: "automatic",
-      startDate: "2025-01-06",
+      startDate: "2099-01-05",
       dayOfWeek: 1,
       endType: "by_occurrences",
       endOccurrences: 4,
@@ -1278,7 +1278,7 @@ describe("Recurrences - critical rules", () => {
       method: "POST",
       url: "/recurrences/materialize",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { untilDate: "2025-01-13" },
+      payload: { untilDate: "2099-01-12" },
     });
     expect(materializeRes.statusCode).toBe(200);
     expect(materializeRes.json()).toMatchObject({
@@ -1308,7 +1308,7 @@ describe("Recurrences - critical rules", () => {
       materializedAmount: 240,
       pendingReviewAmount: 0,
       projectedAmount: 240,
-      appliedLimit: 24,
+      appliedLimit: 12,
       isPartial: false,
       hasMoreProjected: false,
       projectionWindowLabel: null,
@@ -1527,7 +1527,7 @@ describe("Recurrences - critical rules", () => {
       materializedAmount: 0,
       pendingReviewAmount: 360,
       projectedAmount: 0,
-      appliedLimit: 24,
+      appliedLimit: 12,
       isPartial: false,
       hasMoreProjected: false,
       projectionWindowLabel: null,
