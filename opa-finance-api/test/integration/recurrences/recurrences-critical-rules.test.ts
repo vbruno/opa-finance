@@ -374,6 +374,7 @@ describe("Recurrences - critical rules", () => {
       createdTransactions: 2,
       skippedOccurrences: 0,
       failedRecurrences: 0,
+      finalizedRecurrences: 1,
     });
 
     const occurrences = await app.db
@@ -397,13 +398,15 @@ describe("Recurrences - critical rules", () => {
 
     const [updatedRecurrence] = await app.db
       .select({
+        status: recurrences.status,
         nextOccurrenceDate: recurrences.nextOccurrenceDate,
         lastMaterializedDate: recurrences.lastMaterializedDate,
       })
       .from(recurrences)
       .where(eq(recurrences.id, recurrence.id));
 
-    expect(updatedRecurrence?.nextOccurrenceDate).toBe("2099-01-19");
+    expect(updatedRecurrence?.status).toBe("finalized");
+    expect(updatedRecurrence?.nextOccurrenceDate).toBeNull();
     expect(updatedRecurrence?.lastMaterializedDate).toBe("2099-01-12");
   });
 
