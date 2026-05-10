@@ -2910,6 +2910,103 @@ describe("Recurrences - critical rules", () => {
     expect(saved.endOccurrences).toBe(5);
   });
 
+  it("update rejeita endDate anterior ao startDate existente quando enviado sem startDate", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-10",
+      endType: "until_date",
+      endDate: "2099-12-31",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        endDate: "2099-01-09",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().detail).toBe("Data final não pode ser anterior à data de início.");
+
+    const [saved] = await app.db
+      .select({
+        endDate: recurrences.endDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(saved.endDate).toBe("2099-12-31");
+  });
+
+  it("update rejeita endDate anterior ao startDate quando ambos enviados no mesmo payload", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-10",
+      endType: "until_date",
+      endDate: "2099-12-31",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        startDate: "2099-06-01",
+        endDate: "2099-05-31",
+        expectedVersion: recurrence.version,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().detail).toBe("Data final não pode ser anterior à data de início.");
+  });
+
+  it("edit-scope all rejeita endDate anterior ao startDate em payload parcial", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-10",
+      endType: "until_date",
+      endDate: "2099-12-31",
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "all",
+        changes: {
+          endDate: "2099-01-09",
+          expectedVersion: recurrence.version,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().detail).toBe("Data final não pode ser anterior à data de início.");
+
+    const [saved] = await app.db
+      .select({
+        endDate: recurrences.endDate,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
+
+    expect(saved.endDate).toBe("2099-12-31");
+  });
+
   it("altera término por ocorrências para data final em update global", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({

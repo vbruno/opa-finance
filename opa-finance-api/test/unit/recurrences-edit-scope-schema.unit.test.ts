@@ -97,6 +97,25 @@ describe("recurrences edit scope schema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("updateRecurrenceSchema rejeita endDate anterior ao startDate com path endDate", () => {
+    const result = updateRecurrenceSchema.safeParse({
+      startDate: "2026-06-01",
+      endDate: "2026-05-31",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["endDate"],
+          message: "Data final não pode ser anterior à data de início.",
+        }),
+      ]),
+    );
+  });
+
   it("editRecurrenceByScopeSchema.changes propaga rejeição de originType", () => {
     const result = editRecurrenceByScopeSchema.safeParse({
       scope: "all",

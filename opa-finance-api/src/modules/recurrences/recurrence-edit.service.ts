@@ -572,6 +572,9 @@ export class RecurrenceEditService {
     const mergedStartDate = data.startDate ?? existing.startDate;
     const nextEndType = data.endType ?? existing.endType;
     const mergedEndDate = nextEndType === "until_date" ? (data.endDate ?? existing.endDate) : null;
+    // Complementa a validação do Zod (updateRecurrenceSchema). Necessário aqui
+    // porque update parcial pode enviar só endDate, sem startDate. Mensagem
+    // mantida idêntica para UX consistente — REC-REV-010.
     if (mergedEndDate && mergedEndDate < mergedStartDate) {
       throw new ValidationProblem(
         "Data final não pode ser anterior à data de início.",

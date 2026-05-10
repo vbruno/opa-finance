@@ -240,6 +240,9 @@ export const updateRecurrenceSchema = z
       });
     }
 
+    // Valida apenas quando ambos os campos vêm no payload. O caso parcial
+    // (endDate sem startDate, comparado contra existing.startDate) é coberto
+    // em RecurrenceEditService.update — REC-REV-010.
     if (data.startDate && data.endDate && data.endDate < data.startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
