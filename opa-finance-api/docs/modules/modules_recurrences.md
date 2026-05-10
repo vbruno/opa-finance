@@ -44,6 +44,7 @@
 - `GET /recurrences`, `GET /recurrences/:id` e `GET /recurrences/:id/timeline` expõem `hasConsumedOccurrences: boolean` para a UI distinguir regras ainda totalmente editáveis de regras estruturalmente bloqueadas
 - Overrides pontuais (`recurrence_occurrence_overrides`) permitem ajustar apenas `amount`, `description` e `notes` de uma ocorrência `projected`; campos `NULL` herdam o valor da regra-mãe
 - Overrides só podem ser criados para datas futuras válidas da série e sem ocorrência persistida (`materialized`, `pending_review`, `skipped` ou `failed`)
+- `edit-scope` com `scope = single` em data sem ocorrência persistida retorna `422`; o cliente deve usar `PUT /recurrences/:id/occurrences/override` para ajuste pontual de ocorrência projetada
 - A timeline retorna `hasOverride` e mescla o `amount` em itens projetados; itens persistidos não são afetados por overrides
 - A materialização consome o override dentro da mesma transação e remove o registro após criar a ocorrência
 - `this_and_next` migra overrides futuros para a nova regra criada; `skip` remove override da mesma data quando existir

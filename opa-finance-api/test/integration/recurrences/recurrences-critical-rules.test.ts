@@ -1896,7 +1896,7 @@ describe("Recurrences - critical rules", () => {
     expect(recurrenceAfter).toMatchObject(recurrenceBefore);
   });
 
-  it("atualiza a regra-mae em single futuro sem pendencia", async () => {
+  it("bloqueia single em ocorrência projetada e orienta uso de override", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
       token,
@@ -1905,6 +1905,15 @@ describe("Recurrences - critical rules", () => {
       startDate: "2026-05-04",
       dayOfWeek: 1,
     });
+
+    const [recurrenceBefore] = await app.db
+      .select({
+        amount: recurrences.amount,
+        notes: recurrences.notes,
+        version: recurrences.version,
+      })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id));
 
     const res = await app.inject({
       method: "PUT",
@@ -1921,9 +1930,10 @@ describe("Recurrences - critical rules", () => {
       },
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(422);
     const body = res.json();
-    expect(body.scope).toBe("single");
+    expect(body.detail).toContain("projetada");
+    expect(body.detail).toContain("occurrences/override");
 
     const [updatedRecurrence] = await app.db
       .select({
@@ -1934,9 +1944,7 @@ describe("Recurrences - critical rules", () => {
       .from(recurrences)
       .where(eq(recurrences.id, recurrence.id));
 
-    expect(Number(updatedRecurrence.amount)).toBe(175);
-    expect(updatedRecurrence.notes).toBe("Ajuste futuro");
-    expect(updatedRecurrence.version).toBe(recurrence.version + 1);
+    expect(updatedRecurrence).toMatchObject(recurrenceBefore);
   });
 
   it("aplica this_and_next criando nova regra e encerrando a anterior na vespera", async () => {

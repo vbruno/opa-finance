@@ -337,8 +337,10 @@ export class RecurrenceEditService {
       .limit(1);
 
     if (!occurrence) {
-      const updated = await this.update(userId, recurrenceId, changes);
-      return { scope: "single" as const, occurrenceDate, recurrence: updated };
+      throw new UnprocessableProblem(
+        "Não é possível editar uma ocorrência projetada por este fluxo. Use a sobrescrita pontual (PUT /recurrences/:id/occurrences/override) para alterar valor, descrição ou observações desta data.",
+        `/recurrences/${recurrenceId}`,
+      );
     }
 
     if (recurrence.originType === "transaction") {
