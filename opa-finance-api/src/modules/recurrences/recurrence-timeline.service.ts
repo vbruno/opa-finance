@@ -14,10 +14,10 @@ import {
   transactions,
 } from "../../db/schema";
 import {
+  CONSUMED_OCCURRENCE_STATUSES,
   minIsoDate,
   resolveOperationalEndDate,
   serializeRecurrence,
-  STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES,
 } from "./recurrence.helpers";
 import type { RecurrenceTimelineQuery } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
@@ -138,13 +138,12 @@ export class RecurrenceTimelineService {
       counts.materializedOccurrences,
       counts.pendingReviewOccurrences,
       counts.skippedOccurrences,
+      counts.failedOccurrences,
     ].reduce((acc, value) => acc + value, 0);
   }
 
   private hasConsumedOccurrences(persistedRows: TimelineOccurrenceRow[]) {
-    return persistedRows.some((row) =>
-      STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES.includes(row.status),
-    );
+    return persistedRows.some((row) => CONSUMED_OCCURRENCE_STATUSES.includes(row.status));
   }
 
   private resolveTimelineLabel(

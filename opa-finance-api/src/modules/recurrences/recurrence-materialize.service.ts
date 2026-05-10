@@ -17,7 +17,11 @@ import {
   transactions,
 } from "../../db/schema";
 import { RecurrenceAudit } from "./recurrence.audit";
-import { minIsoDate, resolveOperationalEndDate } from "./recurrence.helpers";
+import {
+  CONSUMED_OCCURRENCE_STATUSES,
+  minIsoDate,
+  resolveOperationalEndDate,
+} from "./recurrence.helpers";
 import type { MaterializeRecurrencesInput } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
 
@@ -283,11 +287,7 @@ export class RecurrenceMaterializeService {
             .where(
               and(
                 eq(recurrenceOccurrences.recurrenceId, recurrence.id),
-                inArray(recurrenceOccurrences.status, [
-                  "materialized",
-                  "pending_review",
-                  "skipped",
-                ]),
+                inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
               ),
             )
             .groupBy(recurrenceOccurrences.status);
@@ -475,6 +475,14 @@ export class RecurrenceMaterializeService {
             }
             if (occurrenceOutcome.status === "pending_review") {
               openPendingReviewCount += 1;
+            }
+            if (
+              recurrence.endType === "by_occurrences" &&
+              recurrence.endOccurrences &&
+              consumedCount >= recurrence.endOccurrences &&
+              openPendingReviewCount === 0
+            ) {
+              shouldFinalize = true;
             }
           } else {
             localSkipped += 1;

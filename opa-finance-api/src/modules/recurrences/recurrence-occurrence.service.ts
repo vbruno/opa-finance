@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { ConflictProblem, NotFoundProblem, UnprocessableProblem } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
@@ -17,7 +17,7 @@ import {
 } from "../../db/schema";
 import { RecurrenceOverrideService } from "./recurrence-override.service";
 import { RecurrenceAudit } from "./recurrence.audit";
-import { resolveOperationalEndDate } from "./recurrence.helpers";
+import { CONSUMED_OCCURRENCE_STATUSES, resolveOperationalEndDate } from "./recurrence.helpers";
 import type {
   ConfirmRecurrenceOccurrenceInput,
   RecurrenceAnticipateInput,
@@ -503,7 +503,7 @@ export class RecurrenceOccurrenceService {
         .where(
           and(
             eq(recurrenceOccurrences.recurrenceId, recurrenceId),
-            sql`${recurrenceOccurrences.status} IN ('materialized', 'pending_review', 'skipped')`,
+            inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
           ),
         );
 

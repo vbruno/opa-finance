@@ -25,6 +25,7 @@ import { AuditService } from "../audit/audit.service";
 import { RecurrenceCrudService } from "./recurrence-crud.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import {
+  CONSUMED_OCCURRENCE_STATUSES,
   buildCreatePayloadFromRecurrence,
   getFirstOccurrenceForRecurrence,
   mergeLastMaterializedDate,
@@ -852,7 +853,7 @@ export class RecurrenceEditService {
           .where(
             and(
               eq(recurrenceOccurrences.recurrenceId, recurrenceId),
-              inArray(recurrenceOccurrences.status, ["materialized", "pending_review", "skipped"]),
+              inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
             ),
           );
 

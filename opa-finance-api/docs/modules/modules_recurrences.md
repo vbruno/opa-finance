@@ -27,9 +27,9 @@
 - Materialização usa chave idempotente para evitar duplicidade
 - `failed` é estado terminal no MVP; não há retry automático nem reabertura por fluxo padrão
 - `review_required` gera `pending_review` no job e não materializa diretamente a transação/transferência
-- `pending_review` e `skipped` contam como ocorrência consumida em `by_occurrences`
+- `materialized`, `pending_review`, `skipped` e `failed` contam como ocorrência consumida em `by_occurrences`, no mesmo conjunto usado para o bloqueio estrutural
 - Bloqueio estrutural da regra-mãe: após existir qualquer ocorrência `materialized`, `pending_review`, `skipped` ou `failed`, a edição global (`PUT /recurrences/:id` ou `edit-scope` com `scope = all`) passa a aceitar apenas `description` e `notes`
-- Decisão conservadora: `failed` também conta para o bloqueio estrutural, porque já houve tentativa de execução da regra
+- Decisão conservadora: `failed` também conta para o bloqueio estrutural e para o limite `by_occurrences`, porque já houve tentativa de execução da regra
 - Após o bloqueio estrutural, alterações futuras de valor, agenda, conta, categoria e demais campos estruturais devem usar `this_and_next`, que encerra a regra atual na véspera e cria uma nova regra a partir da ocorrência-alvo
 - `amount` também fica bloqueado na edição global pós-consumo; mudanças futuras de valor devem seguir por override pontual (`projected`) ou `this_and_next`
 - Transferência recorrente é materializada de forma atômica (duas transações com rollback integral em falha)
@@ -48,7 +48,7 @@
 - Overrides pontuais (`recurrence_occurrence_overrides`) permitem ajustar apenas `amount`, `description` e `notes` de uma ocorrência `projected`; campos `NULL` herdam o valor da regra-mãe
 - Overrides só podem ser criados para datas futuras válidas da série e sem ocorrência persistida (`materialized`, `pending_review`, `skipped` ou `failed`)
 - `edit-scope` com `scope = single` em data sem ocorrência persistida retorna `422`; o cliente deve usar `PUT /recurrences/:id/occurrences/override` para ajuste pontual de ocorrência projetada
-- Em `this_and_next`, quando a regra original preserva `endType = by_occurrences` sem novo `endOccurrences` explícito, a nova regra recebe apenas as ocorrências restantes, descontando `materialized + pending_review + skipped` já consumidas na regra original
+- Em `this_and_next`, quando a regra original preserva `endType = by_occurrences` sem novo `endOccurrences` explícito, a nova regra recebe apenas as ocorrências restantes, descontando `materialized + pending_review + skipped + failed` já consumidas na regra original
 - A timeline retorna `hasOverride` e mescla o `amount` em itens projetados; itens persistidos não são afetados por overrides
 - A materialização consome o override dentro da mesma transação e remove o registro após criar a ocorrência
 - `this_and_next` migra overrides futuros para a nova regra criada; `skip` remove override da mesma data quando existir

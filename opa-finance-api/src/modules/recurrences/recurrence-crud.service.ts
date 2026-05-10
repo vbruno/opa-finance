@@ -13,7 +13,7 @@ import { recurrenceOccurrences, recurrences } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import {
-  STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES,
+  CONSUMED_OCCURRENCE_STATUSES,
   getFirstOccurrenceForRecurrence,
   serializeRecurrence,
 } from "./recurrence.helpers";
@@ -186,7 +186,7 @@ export class RecurrenceCrudService {
         consumedOccurrenceCount: sql<number>`count(*)::int`.as("consumed_occurrence_count"),
       })
       .from(recurrenceOccurrences)
-      .where(inArray(recurrenceOccurrences.status, STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES))
+      .where(inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES))
       .groupBy(recurrenceOccurrences.recurrenceId)
       .as("consumed_counts");
 

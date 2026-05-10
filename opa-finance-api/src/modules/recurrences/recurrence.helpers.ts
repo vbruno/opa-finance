@@ -9,7 +9,7 @@ import type { CreateRecurrenceInput, UpdateRecurrenceInput } from "./recurrence.
 
 type SerializedRecurrence = ReturnType<typeof serializeRecurrence>;
 
-export const STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES = [
+export const CONSUMED_OCCURRENCE_STATUSES = [
   "materialized",
   "pending_review",
   "skipped",

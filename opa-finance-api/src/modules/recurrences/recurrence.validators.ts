@@ -10,7 +10,7 @@ import {
   subcategories,
   users,
 } from "../../db/schema";
-import { STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES, toIsoDate } from "./recurrence.helpers";
+import { CONSUMED_OCCURRENCE_STATUSES, toIsoDate } from "./recurrence.helpers";
 import type { CreateRecurrenceInput, UpdateRecurrenceInput } from "./recurrence.schemas";
 
 export class RecurrenceValidators {
@@ -42,7 +42,7 @@ export class RecurrenceValidators {
       .where(
         and(
           eq(recurrenceOccurrences.recurrenceId, recurrenceId),
-          inArray(recurrenceOccurrences.status, STRUCTURAL_LOCK_CONSUMED_OCCURRENCE_STATUSES),
+          inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
         ),
       );
 

@@ -16,7 +16,7 @@ import {
   transactions,
   users,
 } from "../../db/schema";
-import { emptyMonths, sumYear } from "./recurrence.helpers";
+import { CONSUMED_OCCURRENCE_STATUSES, emptyMonths, sumYear } from "./recurrence.helpers";
 import type { RecurrencesForecastQuery } from "./recurrence.schemas";
 import { recurrenceOccurrenceReviewPayloadSchema } from "./recurrence.schemas";
 import { RecurrenceValidators } from "./recurrence.validators";
@@ -120,7 +120,6 @@ export class RecurrenceForecastService {
       const recurrenceIds: string[] = activeRecurrences.map((recurrence) => recurrence.id);
       const consumedCountByRecurrence = new Map<string, number>();
       const consumedDateSet = new Set<string>();
-      const consumedStatuses = ["materialized", "pending_review", "skipped"] as const;
       const pendingReviewRows: Array<{
         recurrenceId: string;
         occurrenceDate: string;
@@ -137,7 +136,7 @@ export class RecurrenceForecastService {
           .where(
             and(
               inArray(recurrenceOccurrences.recurrenceId, recurrenceIds),
-              inArray(recurrenceOccurrences.status, consumedStatuses),
+              inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
             ),
           )
           .groupBy(recurrenceOccurrences.recurrenceId);
@@ -157,7 +156,7 @@ export class RecurrenceForecastService {
           .where(
             and(
               inArray(recurrenceOccurrences.recurrenceId, recurrenceIds),
-              inArray(recurrenceOccurrences.status, consumedStatuses),
+              inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
               gte(recurrenceOccurrences.occurrenceDate, projectionStartDate),
               lte(recurrenceOccurrences.occurrenceDate, yearEndDate),
             ),
