@@ -146,17 +146,10 @@ export class RecurrenceTimelineService {
     return persistedRows.some((row) => CONSUMED_OCCURRENCE_STATUSES.includes(row.status));
   }
 
-  private resolveTimelineLabel(
-    query: RecurrenceTimelineQuery,
-    hasMoreProjected: boolean,
-    recurrence: SerializedRecurrence,
-  ) {
+  private resolveTimelineLabel(query: RecurrenceTimelineQuery, hasMoreProjected: boolean) {
     if (!hasMoreProjected) return null;
     if (query.untilDate) {
       return `Até ${this.formatIsoDate(query.untilDate)} (parcial)`;
-    }
-    if (recurrence.endType === "by_occurrences") {
-      return `Próximas ${query.limit} ocorrências`;
     }
     return `Próximas ${query.limit} ocorrências`;
   }
@@ -500,7 +493,7 @@ export class RecurrenceTimelineService {
       appliedLimit: query.limit,
       isPartial: hasMoreProjected,
       hasMoreProjected,
-      projectionWindowLabel: this.resolveTimelineLabel(query, hasMoreProjected, recurrence),
+      projectionWindowLabel: this.resolveTimelineLabel(query, hasMoreProjected),
     };
 
     const pagination: TimelinePagination = {
