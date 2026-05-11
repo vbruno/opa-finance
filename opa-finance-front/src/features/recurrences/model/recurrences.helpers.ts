@@ -38,6 +38,14 @@ function getValidatedPostingMode(
   throw new Error('Selecione o modo de lançamento.')
 }
 
+function getValidatedDescription(value: string | undefined) {
+  const description = value?.trim() ?? ''
+  if (description.length === 0) {
+    throw new Error('Informe a descrição.')
+  }
+  return description
+}
+
 export function getDefaultRecurrenceFormValues(
   userTimezone?: string | null,
 ): RecurrenceFormData {
@@ -102,6 +110,7 @@ export function toRecurrenceCreatePayload(
     throw new Error('Valor inválido.')
   }
   const postingMode = getValidatedPostingMode(values.postingMode)
+  const description = getValidatedDescription(values.description)
 
   const common = {
     postingMode,
@@ -116,7 +125,7 @@ export function toRecurrenceCreatePayload(
       : undefined,
     endDate: values.endType === 'until_date' ? values.endDate || undefined : undefined,
     amount: parsedAmount,
-    description: values.description || undefined,
+    description,
     notes: values.notes || undefined,
   } as const
 
@@ -162,13 +171,14 @@ export function toRecurrenceUpdatePayload(
     throw new Error('Valor inválido.')
   }
   const postingMode = getValidatedPostingMode(values.postingMode)
+  const description = getValidatedDescription(values.description)
 
   const common: RecurrenceUpdatePayload = {
     postingMode,
     frequency: values.frequency,
     startDate: values.startDate,
     amount: parsedAmount,
-    description: values.description?.trim() ? values.description.trim() : null,
+    description,
     notes: values.notes?.trim() ? values.notes.trim() : null,
     endType: values.endType,
   }
@@ -310,7 +320,7 @@ export function buildScopedRecurrenceUpdatePayload(
       values.originType === 'transfer' ? values.fromAccountId || null : null,
     toAccountId: values.originType === 'transfer' ? values.toAccountId || null : null,
     amount: parsedAmount,
-    description: normalizeOptionalText(values.description),
+    description: getValidatedDescription(values.description),
     notes: normalizeOptionalText(values.notes),
   }
 
@@ -410,16 +420,17 @@ export function restrictGlobalRecurrenceUpdatePayloadAfterConsumption(
 
 export function toOccurrenceChangesPayload(values: RecurrenceFormData): {
   amount: number
-  description: string | null
+  description: string
   notes: string | null
 } {
   const parsedAmount = parseCurrencyInput(values.amount)
   if (parsedAmount === null || parsedAmount <= 0) {
     throw new Error('Valor inválido.')
   }
+  const description = getValidatedDescription(values.description)
   return {
     amount: parsedAmount,
-    description: values.description?.trim() || null,
+    description,
     notes: values.notes?.trim() || null,
   }
 }

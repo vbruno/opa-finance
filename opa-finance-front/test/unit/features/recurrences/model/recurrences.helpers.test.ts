@@ -15,6 +15,7 @@ import {
   toRecurrenceCreatePayload,
   toRecurrenceUpdatePayload,
   toScopedRecurrenceUpdatePayload,
+  toOccurrenceChangesPayload,
 } from '@/features/recurrences/model/recurrences.helpers'
 import type { Recurrence } from '@/features/recurrences'
 import type { RecurrenceFormData } from '@/schemas/recurrence.schema'
@@ -193,6 +194,12 @@ describe('recurrences.helpers', () => {
     )
   })
 
+  it('toRecurrenceCreatePayload lança erro quando description está vazio', () => {
+    expect(() => toRecurrenceCreatePayload(makeForm({ description: '   ' }))).toThrow(
+      'Informe a descrição.',
+    )
+  })
+
   it('toRecurrenceCreatePayload lança erro quando fromAccountId está vazio em transferência', () => {
     expect(() =>
       toRecurrenceCreatePayload(
@@ -226,6 +233,12 @@ describe('recurrences.helpers', () => {
   it('toRecurrenceUpdatePayload lança erro quando categoryId está vazio em transação', () => {
     expect(() => toRecurrenceUpdatePayload(makeForm({ categoryId: '' }))).toThrow(
       'Categoria é obrigatória.',
+    )
+  })
+
+  it('toRecurrenceUpdatePayload lança erro quando description está vazio', () => {
+    expect(() => toRecurrenceUpdatePayload(makeForm({ description: '   ' }))).toThrow(
+      'Informe a descrição.',
     )
   })
 
@@ -367,6 +380,12 @@ describe('recurrences.helpers', () => {
     )
 
     expect(payload.notes).toBeNull()
+  })
+
+  it('toOccurrenceChangesPayload lança erro quando description está vazia', () => {
+    expect(() => toOccurrenceChangesPayload(makeForm({ description: '   ' }))).toThrow(
+      'Informe a descrição.',
+    )
   })
 
   it('deve montar snapshot de nova regra sem startDate para this_and_next', () => {

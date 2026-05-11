@@ -426,6 +426,7 @@ describe('recurrences feature', () => {
     fireEvent.click(within(modal).getByRole('button', { name: 'Criar recorrência' }))
 
     expect(await within(modal).findByText('Selecione o modo de lançamento.')).toBeInTheDocument()
+    expect(await within(modal).findByText('Informe a descrição.')).toBeInTheDocument()
     expect(await within(modal).findByText('Selecione a categoria.')).toBeInTheDocument()
     expect(await within(modal).findByText('Verifique os campos obrigatórios e tente novamente.')).toBeInTheDocument()
   })

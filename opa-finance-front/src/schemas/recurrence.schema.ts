@@ -50,7 +50,7 @@ export const recurrenceFormSchema = z
         },
         { message: 'Informe um valor valido.' },
       ),
-    description: optionalTrimmedString,
+    description: z.string().trim().min(1, 'Informe a descrição.'),
     notes: optionalTrimmedString,
     editScope: z.enum(['all', 'this_and_next', 'single']).default('all'),
     occurrenceDate: optionalTrimmedString,
