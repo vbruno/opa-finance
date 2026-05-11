@@ -500,6 +500,15 @@ export function formatIsoDateToPtBr(isoDate: string | null | undefined) {
   return `${day}/${month}/${year}`
 }
 
+/**
+ * Compara duas datas ISO (YYYY-MM-DD) lexicograficamente.
+ * Retorna -1 se `a < b`, 1 se `a > b`, 0 se iguais.
+ *
+ * Espelha o helper backend (fonte de verdade):
+ * `opa-finance-api/src/core/utils/recurrence-schedule.utils.ts`.
+ * Usado aqui em verificações de timeline/projeção do feature de recorrências.
+ * Equivalência funcional ancorada em testes simétricos (REC-REV-026).
+ */
 export function compareIsoDate(a: string, b: string) {
   if (a === b) return 0
   return a < b ? -1 : 1

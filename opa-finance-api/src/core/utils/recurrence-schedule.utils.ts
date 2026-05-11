@@ -20,6 +20,15 @@ export function formatIsoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Compara duas datas ISO (YYYY-MM-DD) lexicograficamente.
+ * Retorna -1 se `a < b`, 1 se `a > b`, 0 se iguais.
+ *
+ * Mantenha sincronizado com o gêmeo no frontend:
+ * `opa-finance-front/src/features/recurrences/model/recurrences.helpers.ts`.
+ * Backend é fonte de verdade. Equivalência funcional ancorada em testes
+ * simétricos (REC-REV-026).
+ */
 export function compareIsoDate(a: string, b: string) {
   return a.localeCompare(b);
 }
