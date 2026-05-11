@@ -19,6 +19,7 @@ import {
 import { RecurrenceAudit } from "./recurrence.audit";
 import {
   CONSUMED_OCCURRENCE_STATUSES,
+  mergeLastMaterializedDate,
   minIsoDate,
   resolveOperationalEndDate,
 } from "./recurrence.helpers";
@@ -577,12 +578,10 @@ export class RecurrenceMaterializeService {
 
         currentVersion = current.version;
 
-        const mergedLastMaterializedDate =
-          localLastMaterializedDate &&
-          (!current.lastMaterializedDate ||
-            compareIsoDate(localLastMaterializedDate, current.lastMaterializedDate) > 0)
-            ? localLastMaterializedDate
-            : current.lastMaterializedDate;
+        const mergedLastMaterializedDate = mergeLastMaterializedDate(
+          current.lastMaterializedDate,
+          localLastMaterializedDate,
+        );
 
         const mergedNextOccurrenceDate = shouldFinalize
           ? null
