@@ -32,6 +32,7 @@ import {
   serializeRecurrence,
 } from "./recurrence.helpers";
 import {
+  type CreateRecurrenceInput,
   createRecurrenceSchema,
   recurrenceOccurrenceReviewPayloadSchema,
   type EditRecurrenceByScopeInput,
@@ -95,6 +96,231 @@ export class RecurrenceEditService {
       data.endType !== undefined ||
       data.endOccurrences !== undefined ||
       data.endDate !== undefined
+    );
+  }
+
+  private async fetchAndValidateForThisAndNext(
+    tx: DB,
+    recurrenceId: string,
+    userId: string,
+    changes: UpdateRecurrenceInput,
+    targetOccurrenceDate: string,
+  ): Promise<typeof recurrences.$inferSelect> {
+    const [current] = await tx
+      .select()
+      .from(recurrences)
+      .where(
+        and(
+          eq(recurrences.id, recurrenceId),
+          eq(recurrences.userId, userId),
+          sql`${recurrences.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    if (!current) {
+      throw new NotFoundProblem("Recorrência não encontrada.", `/recurrences/${recurrenceId}`);
+    }
+    if (current.status !== "active") {
+      throw new ValidationProblem(
+        "Apenas recorrências ativas podem ser editadas por escopo.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+    if (changes.expectedVersion !== undefined && current.version !== changes.expectedVersion) {
+      throw new ConflictProblem(
+        "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    const txLatestMaterializedDate = await this.validators.getLatestMaterializedDate(
+      recurrenceId,
+      tx,
+    );
+    const txEffectiveLastMaterializedDate = mergeLastMaterializedDate(
+      current.lastMaterializedDate,
+      txLatestMaterializedDate,
+    );
+
+    if (
+      txEffectiveLastMaterializedDate &&
+      compareIsoDate(targetOccurrenceDate, txEffectiveLastMaterializedDate) <= 0
+    ) {
+      throw new ValidationProblem(
+        "Não é permitido aplicar 'esta e próximas' para ocorrência já materializada.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    return current;
+  }
+
+  private async resolveEndOccurrencesForNewRule(
+    tx: DB,
+    recurrenceId: string,
+    current: typeof recurrences.$inferSelect,
+    changes: UpdateRecurrenceInput,
+  ): Promise<UpdateRecurrenceInput> {
+    const currentEndOccurrences = current.endOccurrences;
+    const shouldAdjustByOccurrences =
+      current.endType === "by_occurrences" &&
+      currentEndOccurrences !== null &&
+      currentEndOccurrences !== undefined &&
+      (changes.endType === undefined || changes.endType === "by_occurrences") &&
+      changes.endOccurrences === undefined;
+
+    const changesForCreate: UpdateRecurrenceInput = {
+      ...changes,
+      expectedVersion: undefined,
+    };
+
+    if (!shouldAdjustByOccurrences) {
+      return changesForCreate;
+    }
+
+    const [consumedCountRow] = await tx
+      .select({ total: sql<number>`count(*)::int` })
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrenceId),
+          inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
+        ),
+      );
+
+    const consumedCount = consumedCountRow?.total ?? 0;
+    const remaining = currentEndOccurrences - consumedCount;
+
+    if (remaining <= 0) {
+      throw new UnprocessableProblem(
+        "Não há ocorrências restantes para criar uma nova regra a partir desta data.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    changesForCreate.endOccurrences = remaining;
+    return changesForCreate;
+  }
+
+  private async closeRecurrenceForThisAndNext(
+    tx: DB,
+    recurrenceId: string,
+    current: typeof recurrences.$inferSelect,
+    oldRecurrenceEndDate: string,
+  ): Promise<typeof recurrences.$inferSelect> {
+    const [closedRecurrence] = await tx
+      .update(recurrences)
+      .set({
+        endType: "until_date",
+        endDate: oldRecurrenceEndDate,
+        updatedAt: new Date(),
+        version: current.version + 1,
+      })
+      .where(and(eq(recurrences.id, recurrenceId), eq(recurrences.version, current.version)))
+      .returning();
+
+    if (!closedRecurrence) {
+      throw new ConflictProblem(
+        "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    return closedRecurrence;
+  }
+
+  private async createSuccessorRecurrence(
+    tx: DB,
+    recurrenceId: string,
+    userId: string,
+    current: typeof recurrences.$inferSelect,
+    validatedCreatePayload: CreateRecurrenceInput,
+  ): Promise<typeof recurrences.$inferSelect> {
+    let nextOccurrenceDate: string;
+    try {
+      nextOccurrenceDate = getFirstOccurrenceForRecurrence({
+        startDate: validatedCreatePayload.startDate,
+        frequency: validatedCreatePayload.frequency,
+        dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
+        dayOfMonth: validatedCreatePayload.dayOfMonth ?? null,
+        monthOfYear: validatedCreatePayload.monthOfYear ?? null,
+      });
+    } catch {
+      throw new ValidationProblem(
+        "Regra de recorrência inválida para cálculo de agenda.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
+    const [createdRecurrence] = await tx
+      .insert(recurrences)
+      .values({
+        userId,
+        originType: validatedCreatePayload.originType,
+        status: "active",
+        timezone: current.timezone,
+        frequency: validatedCreatePayload.frequency,
+        startDate: validatedCreatePayload.startDate,
+        dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
+        dayOfMonth: validatedCreatePayload.dayOfMonth ?? null,
+        monthOfYear: validatedCreatePayload.monthOfYear ?? null,
+        endType: validatedCreatePayload.endType,
+        endOccurrences: validatedCreatePayload.endOccurrences ?? null,
+        endDate: validatedCreatePayload.endDate ?? null,
+        accountId: validatedCreatePayload.accountId ?? null,
+        categoryId: validatedCreatePayload.categoryId ?? null,
+        subcategoryId: validatedCreatePayload.subcategoryId ?? null,
+        fromAccountId: validatedCreatePayload.fromAccountId ?? null,
+        toAccountId: validatedCreatePayload.toAccountId ?? null,
+        amount: validatedCreatePayload.amount.toString(),
+        description: validatedCreatePayload.description ?? null,
+        notes: validatedCreatePayload.notes ?? null,
+        nextOccurrenceDate,
+      })
+      .returning();
+
+    return createdRecurrence;
+  }
+
+  private async migrateOverridesToNewRecurrence(
+    tx: DB,
+    oldRecurrenceId: string,
+    newRecurrenceId: string,
+    fromOccurrenceDate: string,
+  ): Promise<void> {
+    const overridesToMigrate = await tx
+      .select()
+      .from(recurrenceOccurrenceOverrides)
+      .where(
+        and(
+          eq(recurrenceOccurrenceOverrides.recurrenceId, oldRecurrenceId),
+          sql`${recurrenceOccurrenceOverrides.occurrenceDate} >= ${fromOccurrenceDate}`,
+        ),
+      );
+
+    if (overridesToMigrate.length === 0) {
+      return;
+    }
+
+    await tx.insert(recurrenceOccurrenceOverrides).values(
+      overridesToMigrate.map((override) => ({
+        id: randomUUID(),
+        recurrenceId: newRecurrenceId,
+        userId: override.userId,
+        occurrenceDate: override.occurrenceDate,
+        amount: override.amount,
+        description: override.description,
+        notes: override.notes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })),
+    );
+    await tx.delete(recurrenceOccurrenceOverrides).where(
+      inArray(
+        recurrenceOccurrenceOverrides.id,
+        overridesToMigrate.map((override) => override.id),
+      ),
     );
   }
 
@@ -791,87 +1017,19 @@ export class RecurrenceEditService {
     const oldRecurrenceEndDate = addIsoDaysToDate(targetOccurrenceDate, -1);
 
     const [previousRecurrence, newRecurrence] = await this.app.db.transaction(async (tx: DB) => {
-      const [current] = await tx
-        .select()
-        .from(recurrences)
-        .where(
-          and(
-            eq(recurrences.id, recurrenceId),
-            eq(recurrences.userId, userId),
-            sql`${recurrences.deletedAt} IS NULL`,
-          ),
-        )
-        .limit(1);
-
-      if (!current) {
-        throw new NotFoundProblem("Recorrência não encontrada.", `/recurrences/${recurrenceId}`);
-      }
-      if (current.status !== "active") {
-        throw new ValidationProblem(
-          "Apenas recorrências ativas podem ser editadas por escopo.",
-          `/recurrences/${recurrenceId}`,
-        );
-      }
-      if (changes.expectedVersion !== undefined && current.version !== changes.expectedVersion) {
-        throw new ConflictProblem(
-          "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
-          `/recurrences/${recurrenceId}`,
-        );
-      }
-      const txLatestMaterializedDate = await this.validators.getLatestMaterializedDate(
-        recurrenceId,
+      const current = await this.fetchAndValidateForThisAndNext(
         tx,
+        recurrenceId,
+        userId,
+        changes,
+        targetOccurrenceDate,
       );
-      const txEffectiveLastMaterializedDate = mergeLastMaterializedDate(
-        current.lastMaterializedDate,
-        txLatestMaterializedDate,
+      const changesForCreate = await this.resolveEndOccurrencesForNewRule(
+        tx,
+        recurrenceId,
+        current,
+        changes,
       );
-      if (
-        txEffectiveLastMaterializedDate &&
-        compareIsoDate(targetOccurrenceDate, txEffectiveLastMaterializedDate) <= 0
-      ) {
-        throw new ValidationProblem(
-          "Não é permitido aplicar 'esta e próximas' para ocorrência já materializada.",
-          `/recurrences/${recurrenceId}`,
-        );
-      }
-
-      const currentEndOccurrences = current.endOccurrences;
-      const shouldAdjustByOccurrences =
-        current.endType === "by_occurrences" &&
-        currentEndOccurrences !== null &&
-        currentEndOccurrences !== undefined &&
-        (changes.endType === undefined || changes.endType === "by_occurrences") &&
-        changes.endOccurrences === undefined;
-
-      const changesForCreate: UpdateRecurrenceInput = {
-        ...changes,
-        expectedVersion: undefined,
-      };
-
-      if (shouldAdjustByOccurrences) {
-        const [consumedCountRow] = await tx
-          .select({ total: sql<number>`count(*)::int` })
-          .from(recurrenceOccurrences)
-          .where(
-            and(
-              eq(recurrenceOccurrences.recurrenceId, recurrenceId),
-              inArray(recurrenceOccurrences.status, CONSUMED_OCCURRENCE_STATUSES),
-            ),
-          );
-
-        const consumedCount = consumedCountRow?.total ?? 0;
-        const remaining = currentEndOccurrences - consumedCount;
-
-        if (remaining <= 0) {
-          throw new UnprocessableProblem(
-            "Não há ocorrências restantes para criar uma nova regra a partir desta data.",
-            `/recurrences/${recurrenceId}`,
-          );
-        }
-
-        changesForCreate.endOccurrences = remaining;
-      }
 
       const createPayload = buildCreatePayloadFromRecurrence(
         serializeRecurrence(current),
@@ -885,98 +1043,25 @@ export class RecurrenceEditService {
         current.categoryId,
       );
 
-      const [closedRecurrence] = await tx
-        .update(recurrences)
-        .set({
-          endType: "until_date",
-          endDate: oldRecurrenceEndDate,
-          updatedAt: new Date(),
-          version: current.version + 1,
-        })
-        .where(and(eq(recurrences.id, recurrenceId), eq(recurrences.version, current.version)))
-        .returning();
-
-      if (!closedRecurrence) {
-        throw new ConflictProblem(
-          "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
-          `/recurrences/${recurrenceId}`,
-        );
-      }
-
-      let nextOccurrenceDate: string;
-      try {
-        nextOccurrenceDate = getFirstOccurrenceForRecurrence({
-          startDate: validatedCreatePayload.startDate,
-          frequency: validatedCreatePayload.frequency,
-          dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
-          dayOfMonth: validatedCreatePayload.dayOfMonth ?? null,
-          monthOfYear: validatedCreatePayload.monthOfYear ?? null,
-        });
-      } catch {
-        throw new ValidationProblem(
-          "Regra de recorrência inválida para cálculo de agenda.",
-          `/recurrences/${recurrenceId}`,
-        );
-      }
-
-      const [createdRecurrence] = await tx
-        .insert(recurrences)
-        .values({
-          userId,
-          originType: validatedCreatePayload.originType,
-          status: "active",
-          timezone: current.timezone,
-          frequency: validatedCreatePayload.frequency,
-          startDate: validatedCreatePayload.startDate,
-          dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
-          dayOfMonth: validatedCreatePayload.dayOfMonth ?? null,
-          monthOfYear: validatedCreatePayload.monthOfYear ?? null,
-          endType: validatedCreatePayload.endType,
-          endOccurrences: validatedCreatePayload.endOccurrences ?? null,
-          endDate: validatedCreatePayload.endDate ?? null,
-          accountId: validatedCreatePayload.accountId ?? null,
-          categoryId: validatedCreatePayload.categoryId ?? null,
-          subcategoryId: validatedCreatePayload.subcategoryId ?? null,
-          fromAccountId: validatedCreatePayload.fromAccountId ?? null,
-          toAccountId: validatedCreatePayload.toAccountId ?? null,
-          amount: validatedCreatePayload.amount.toString(),
-          description: validatedCreatePayload.description ?? null,
-          notes: validatedCreatePayload.notes ?? null,
-          nextOccurrenceDate,
-        })
-        .returning();
-
-      const overridesToMigrate = await tx
-        .select()
-        .from(recurrenceOccurrenceOverrides)
-        .where(
-          and(
-            eq(recurrenceOccurrenceOverrides.recurrenceId, recurrenceId),
-            sql`${recurrenceOccurrenceOverrides.occurrenceDate} >= ${targetOccurrenceDate}`,
-          ),
-        );
-
-      if (overridesToMigrate.length > 0) {
-        await tx.insert(recurrenceOccurrenceOverrides).values(
-          overridesToMigrate.map((override) => ({
-            id: randomUUID(),
-            recurrenceId: createdRecurrence.id,
-            userId: override.userId,
-            occurrenceDate: override.occurrenceDate,
-            amount: override.amount,
-            description: override.description,
-            notes: override.notes,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })),
-        );
-        await tx.delete(recurrenceOccurrenceOverrides).where(
-          inArray(
-            recurrenceOccurrenceOverrides.id,
-            overridesToMigrate.map((override) => override.id),
-          ),
-        );
-      }
+      const closedRecurrence = await this.closeRecurrenceForThisAndNext(
+        tx,
+        recurrenceId,
+        current,
+        oldRecurrenceEndDate,
+      );
+      const createdRecurrence = await this.createSuccessorRecurrence(
+        tx,
+        recurrenceId,
+        userId,
+        current,
+        validatedCreatePayload,
+      );
+      await this.migrateOverridesToNewRecurrence(
+        tx,
+        recurrenceId,
+        createdRecurrence.id,
+        targetOccurrenceDate,
+      );
 
       await this.auditService.log(
         {
