@@ -20,6 +20,7 @@ import {
   RECURRENCE_POSTING_MODE_LABELS,
   RECURRENCE_POSTING_MODES,
 } from '@/features/recurrences/model/recurrences.constants'
+import { getDayOfWeekFromIsoDate } from '@/features/recurrences/model/recurrences.helpers'
 import { useCategoryTreeInteraction } from '@/features/transactions/hooks/use-category-tree-interaction'
 import { buildCategoryTreeOptions } from '@/features/transactions/model/transactions-page.helpers'
 import { type RecurrenceFormData } from '@/schemas/recurrence.schema'
@@ -30,17 +31,6 @@ import { TransactionCategoryField } from '../../transactions/components/transact
 import { TransactionDateField } from '../../transactions/components/transaction-date-field'
 import { TransactionDescriptionField } from '../../transactions/components/transaction-description-field'
 import { TransactionNotesField } from '../../transactions/components/transaction-notes-field'
-
-function getIsoDateDayOfWeekValue(value: string | undefined) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return ''
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return ''
-
-  const date = new Date(Date.UTC(year, month - 1, day))
-  if (Number.isNaN(date.getTime())) return ''
-
-  return String(date.getUTCDay())
-}
 
 type RecurrenceFormModalProps = {
   open: boolean
@@ -106,6 +96,7 @@ export function RecurrenceFormModal({
   const postingMode = form.watch('postingMode')
   const endType = form.watch('endType')
   const frequency = form.watch('frequency')
+  const errors = form.formState.errors
   const [isAccountSelectOpen, setIsAccountSelectOpen] = useState(false)
   const [isCategoryTreeOpen, setIsCategoryTreeOpen] = useState(false)
   const [categoryTreeSearch, setCategoryTreeSearch] = useState('')
@@ -195,7 +186,7 @@ export function RecurrenceFormModal({
       return
     }
 
-    const nextDayOfWeek = getIsoDateDayOfWeekValue(startDate)
+    const nextDayOfWeek = getDayOfWeekFromIsoDate(startDate)
     if (nextDayOfWeek && nextDayOfWeek !== form.getValues('dayOfWeek')) {
       form.setValue('dayOfWeek', nextDayOfWeek, {
         shouldDirty: true,
@@ -279,6 +270,11 @@ export function RecurrenceFormModal({
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.postingMode ? (
+                    <p className="text-sm text-destructive">
+                      {String(errors.postingMode.message)}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="min-w-0">
@@ -321,7 +317,7 @@ export function RecurrenceFormModal({
                       if (nextFrequency === 'weekly' || nextFrequency === 'biweekly') {
                         form.setValue('dayOfMonth', '')
                         form.setValue('monthOfYear', '')
-                        const nextDayOfWeek = getIsoDateDayOfWeekValue(
+                        const nextDayOfWeek = getDayOfWeekFromIsoDate(
                           form.getValues('startDate'),
                         )
                         if (nextDayOfWeek) {
@@ -398,8 +394,14 @@ export function RecurrenceFormModal({
                       max={31}
                       className="h-10 w-full"
                       {...form.register('dayOfMonth')}
+                      aria-invalid={!!errors.dayOfMonth}
                       disabled={isStructuralFieldsDisabled}
                     />
+                    {errors.dayOfMonth ? (
+                      <p className="text-sm text-destructive">
+                        {String(errors.dayOfMonth.message)}
+                      </p>
+                    ) : null}
                   </div>
                 )}
 
@@ -416,7 +418,10 @@ export function RecurrenceFormModal({
                       }
                       disabled={isStructuralFieldsDisabled}
                     >
-                      <SelectTrigger id="recurrence-month-of-year">
+                      <SelectTrigger
+                        id="recurrence-month-of-year"
+                        aria-invalid={!!errors.monthOfYear}
+                      >
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
@@ -428,6 +433,11 @@ export function RecurrenceFormModal({
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.monthOfYear ? (
+                      <p className="text-sm text-destructive">
+                        {String(errors.monthOfYear.message)}
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -496,8 +506,14 @@ export function RecurrenceFormModal({
                       min={1}
                       className="h-10"
                       {...form.register('endOccurrences')}
+                      aria-invalid={!!errors.endOccurrences}
                       disabled={isStructuralFieldsDisabled}
                     />
+                    {errors.endOccurrences ? (
+                      <p className="text-sm text-destructive">
+                        {String(errors.endOccurrences.message)}
+                      </p>
+                    ) : null}
                   </div>
                 )}
 
@@ -509,8 +525,14 @@ export function RecurrenceFormModal({
                       type="date"
                       className="h-10"
                       {...form.register('endDate')}
+                      aria-invalid={!!errors.endDate}
                       disabled={isStructuralFieldsDisabled}
                     />
+                    {errors.endDate ? (
+                      <p className="text-sm text-destructive">
+                        {String(errors.endDate.message)}
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -607,7 +629,7 @@ export function RecurrenceFormModal({
                       }
                       disabled={isGlobalStructureLocked}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-invalid={!!errors.fromAccountId}>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
@@ -619,6 +641,11 @@ export function RecurrenceFormModal({
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.fromAccountId ? (
+                      <p className="text-sm text-destructive">
+                        {String(errors.fromAccountId.message)}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="min-w-0">
                     <Label>Conta destino</Label>
@@ -632,7 +659,7 @@ export function RecurrenceFormModal({
                       }
                       disabled={isGlobalStructureLocked}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-invalid={!!errors.toAccountId}>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
@@ -644,6 +671,11 @@ export function RecurrenceFormModal({
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.toAccountId ? (
+                      <p className="text-sm text-destructive">
+                        {String(errors.toAccountId.message)}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               )}

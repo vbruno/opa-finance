@@ -2,6 +2,7 @@ import type { Category } from '@/features/categories'
 import type {
   Recurrence,
   RecurrenceCreatePayload,
+  RecurrencePostingMode,
   RecurrenceTimelineItem,
   RecurrenceUpdatePayload,
 } from '@/features/recurrences'
@@ -16,15 +17,38 @@ import { getApiErrorMessage, getApiErrorStatus } from '@/lib/apiError'
 import { formatCurrencyValue, parseCurrencyInput } from '@/lib/utils'
 import type { RecurrenceFormData } from '@/schemas/recurrence.schema'
 
+export function getDayOfWeekFromIsoDate(value: string | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return ''
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return ''
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (Number.isNaN(date.getTime())) return ''
+
+  return String(date.getUTCDay())
+}
+
+function getValidatedPostingMode(
+  value: RecurrenceFormData['postingMode'],
+): RecurrencePostingMode {
+  if (value === 'automatic' || value === 'review_required') {
+    return value
+  }
+
+  throw new Error('Selecione o modo de lançamento.')
+}
+
 export function getDefaultRecurrenceFormValues(
   userTimezone?: string | null,
 ): RecurrenceFormData {
+  const startDate = getTodayIsoDateInTimezone(userTimezone)
+
   return {
     originType: 'transaction',
     postingMode: '' as RecurrenceFormData['postingMode'],
     frequency: 'weekly',
-    startDate: getTodayIsoDateInTimezone(userTimezone),
-    dayOfWeek: '',
+    startDate,
+    dayOfWeek: getDayOfWeekFromIsoDate(startDate),
     dayOfMonth: '',
     monthOfYear: '',
     endType: 'never',
@@ -77,9 +101,10 @@ export function toRecurrenceCreatePayload(
   if (parsedAmount === null || parsedAmount <= 0) {
     throw new Error('Valor inválido.')
   }
+  const postingMode = getValidatedPostingMode(values.postingMode)
 
   const common = {
-    postingMode: values.postingMode,
+    postingMode,
     frequency: values.frequency,
     startDate: values.startDate,
     dayOfWeek: values.dayOfWeek ? Number(values.dayOfWeek) : undefined,
@@ -136,9 +161,10 @@ export function toRecurrenceUpdatePayload(
   if (parsedAmount === null || parsedAmount <= 0) {
     throw new Error('Valor inválido.')
   }
+  const postingMode = getValidatedPostingMode(values.postingMode)
 
   const common: RecurrenceUpdatePayload = {
-    postingMode: values.postingMode,
+    postingMode,
     frequency: values.frequency,
     startDate: values.startDate,
     amount: parsedAmount,
@@ -322,7 +348,7 @@ export function buildScopedRecurrenceUpdatePayload(
   addChange('amount', businessCandidate.amount, recurrence.amount)
   addChange('description', businessCandidate.description, recurrence.description)
   addChange('notes', businessCandidate.notes, recurrence.notes)
-  addChange('postingMode', values.postingMode, recurrence.postingMode)
+  addChange('postingMode', getValidatedPostingMode(values.postingMode), recurrence.postingMode)
 
   if (values.originType === 'transaction') {
     addChange('accountId', businessCandidate.accountId ?? undefined, recurrence.accountId)

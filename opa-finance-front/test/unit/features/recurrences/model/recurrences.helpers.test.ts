@@ -4,12 +4,14 @@ import {
   addOneYearIsoDate,
   buildScopedRecurrenceUpdatePayload,
   compareIsoDate,
+  getDayOfWeekFromIsoDate,
   formatIsoDateToPtBr,
   formatRecurrenceFrequency,
   formatRecurrenceOriginType,
   formatRecurrenceStatus,
   getRecurrenceOperationalEndDate,
   getRecurrenceConfirmErrorMessage,
+  getDefaultRecurrenceFormValues,
   toRecurrenceCreatePayload,
   toRecurrenceUpdatePayload,
   toScopedRecurrenceUpdatePayload,
@@ -96,6 +98,19 @@ describe('recurrences.helpers', () => {
     expect(compareIsoDate('2026-04-17', '2026-04-17')).toBe(0)
     expect(compareIsoDate('2026-04-16', '2026-04-17')).toBe(-1)
     expect(compareIsoDate('2026-04-18', '2026-04-17')).toBe(1)
+  })
+
+  it('deve derivar o dia da semana a partir de uma data ISO', () => {
+    expect(getDayOfWeekFromIsoDate('2026-05-12')).toBe('2')
+    expect(getDayOfWeekFromIsoDate('2026-05-18')).toBe('1')
+    expect(getDayOfWeekFromIsoDate('')).toBe('')
+  })
+
+  it('deve preencher o dia da semana inicial com base na data de hoje', () => {
+    const defaults = getDefaultRecurrenceFormValues('Australia/Adelaide')
+
+    expect(defaults.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(defaults.dayOfWeek).toBe(getDayOfWeekFromIsoDate(defaults.startDate))
   })
 
   describe('addOneYearIsoDate', () => {

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { RECURRENCE_POSTING_MODES } from '@/features/recurrences/model/recurrences.constants'
 import { parseCurrencyInput } from '@/lib/utils'
 
 const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -15,7 +16,12 @@ const optionalTrimmedString = z
 export const recurrenceFormSchema = z
   .object({
     originType: z.enum(['transaction', 'transfer']),
-    postingMode: z.enum(['automatic', 'review_required'], { message: 'Selecione o modo de lançamento.' }),
+    postingMode: z.union([
+      z.enum(RECURRENCE_POSTING_MODES, {
+        message: 'Selecione o modo de lançamento.',
+      }),
+      z.literal(''),
+    ]),
     frequency: z.enum(['weekly', 'biweekly', 'monthly', 'yearly']),
     startDate: z
       .string()
@@ -54,6 +60,14 @@ export const recurrenceFormSchema = z
     const numericDayOfMonth = Number(data.dayOfMonth)
     const numericMonthOfYear = Number(data.monthOfYear)
     const numericEndOccurrences = Number(data.endOccurrences)
+
+    if (!RECURRENCE_POSTING_MODES.includes(data.postingMode as (typeof RECURRENCE_POSTING_MODES)[number])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['postingMode'],
+        message: 'Selecione o modo de lançamento.',
+      })
+    }
 
     if (
       (data.frequency === 'weekly' || data.frequency === 'biweekly') &&

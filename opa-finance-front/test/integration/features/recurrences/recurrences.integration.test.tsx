@@ -398,6 +398,72 @@ describe('recurrences feature', () => {
     expect(capturedPayload).not.toHaveProperty('endOccurrences')
   })
 
+  it('deve exibir erros de validação nos campos obrigatórios ao submeter vazio', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    fireEvent.click(screen.getByRole('button', { name: 'Nova recorrência' }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Nova recorrência' })
+    fireEvent.change(within(modal).getByLabelText('Valor'), {
+      target: { value: '10000' },
+    })
+
+    fireEvent.click(within(modal).getByRole('button', { name: 'Criar recorrência' }))
+
+    expect(await within(modal).findByText('Selecione o modo de lançamento.')).toBeInTheDocument()
+    expect(await within(modal).findByText('Selecione a categoria.')).toBeInTheDocument()
+    expect(await within(modal).findByText('Verifique os campos obrigatórios e tente novamente.')).toBeInTheDocument()
+  })
+
+  it('deve exibir erro no dia do mês quando a frequência mensal não receber valor', async () => {
+    server.use(
+      http.get('*/version', () =>
+        ok({
+          version: '1.2.0',
+          commit: 'abc123',
+          buildTime: '2026-04-17T00:00:00.000Z',
+        }),
+      ),
+      http.get('*/accounts', () => ok(accountsMock)),
+      http.get('*/categories', () => ok(categoriesMock)),
+      http.get('*/categories/:categoryId/subcategories', () => ok([])),
+      http.get('*/recurrences', () => ok(recurrencesMock)),
+    )
+
+    renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
+
+    await screen.findByRole('heading', { name: 'Recorrências' })
+    fireEvent.click(screen.getByRole('button', { name: 'Nova recorrência' }))
+
+    const modal = await screen.findByRole('dialog', { name: 'Nova recorrência' })
+    await selectRecurrenceFormOption(modal, 'Modo de lançamento', 'Automático')
+    await selectRecurrenceFormOption(modal, 'Frequência', 'Mensal')
+    await selectRecurrenceFormOption(modal, 'Categoria/Subcategoria', 'Pessoal')
+    fireEvent.change(within(modal).getByLabelText('Valor'), {
+      target: { value: '10000' },
+    })
+
+    fireEvent.click(within(modal).getByRole('button', { name: 'Criar recorrência' }))
+
+    expect(await within(modal).findByText('Informe o dia do mes (1 a 31).')).toBeInTheDocument()
+    expect(await within(modal).findByText('Verifique os campos obrigatórios e tente novamente.')).toBeInTheDocument()
+  })
+
   it('deve mostrar estado vazio sem paginação', async () => {
     server.use(
       http.get('*/version', () =>
