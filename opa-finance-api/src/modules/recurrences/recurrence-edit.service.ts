@@ -515,6 +515,13 @@ export class RecurrenceEditService {
     this.ensureSingleScopeAllowedFields(changes);
     this.ensureOriginSpecificSingleScopePayload(recurrence, changes);
 
+    if (changes.expectedVersion !== undefined && changes.expectedVersion !== recurrence.version) {
+      throw new ConflictProblem(
+        "A recorrência foi alterada por outra sessão. Recarregue e tente novamente.",
+        `/recurrences/${recurrenceId}`,
+      );
+    }
+
     await this.validators.validatePayloadOwnership(userId, changes, recurrence.categoryId);
 
     const [pendingOccurrence] = await this.app.db

@@ -2574,6 +2574,75 @@ describe("Recurrences - critical rules", () => {
     expect(updatedRecurrence).toMatchObject(recurrenceBefore);
   });
 
+  it("edit-scope single retorna 409 quando expectedVersion está desatualizado (REC-REV-022)", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "automatic",
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+    });
+
+    const updateRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        description: "Despesa recorrente atualizada",
+        expectedVersion: recurrence.version,
+      },
+    });
+    expect(updateRes.statusCode).toBe(200);
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "single",
+        occurrenceDate: "2099-01-12",
+        changes: {
+          amount: 175,
+          expectedVersion: updateRes.json().version - 1,
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().detail).toContain("alterada por outra sessão");
+  });
+
+  it("edit-scope single sem expectedVersion não dispara conflito de versão (REC-REV-022)", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "automatic",
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+    });
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "single",
+        occurrenceDate: "2099-01-12",
+        changes: {
+          amount: 175,
+          notes: "Ajuste futuro sem versão",
+        },
+      },
+    });
+
+    expect(res.statusCode).not.toBe(409);
+    expect(res.json().detail ?? "").not.toContain("alterada por outra sessão");
+  });
+
   it("aplica this_and_next criando nova regra e encerrando a anterior na vespera", async () => {
     const { token, account, category } = await createBaseContext();
     const recurrence = await createTransactionRecurrence({
