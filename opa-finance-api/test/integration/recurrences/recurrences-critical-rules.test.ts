@@ -4916,4 +4916,77 @@ describe("Recurrences - critical rules", () => {
       amount: 180,
     });
   });
+
+  it("this_and_next preserva postingMode review_required ao criar a recorrência sucessora (REC-REV-021)", async () => {
+    const { token, account, category } = await createBaseContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2025-01-06",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 3,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { untilDate: "2025-01-06" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pendingOccurrence] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(
+        and(
+          eq(recurrenceOccurrences.recurrenceId, recurrence.id),
+          eq(recurrenceOccurrences.status, "pending_review"),
+        ),
+      )
+      .limit(1);
+    expect(pendingOccurrence).toBeDefined();
+
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pendingOccurrence.id}/confirm`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        expectedVersion: pendingOccurrence.version,
+      },
+    });
+    expect(confirmRes.statusCode).toBe(200);
+
+    const [currentRecurrence] = await app.db
+      .select({ version: recurrences.version })
+      .from(recurrences)
+      .where(eq(recurrences.id, recurrence.id))
+      .limit(1);
+
+    const editRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/edit-scope`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        scope: "this_and_next",
+        occurrenceDate: "2025-01-13",
+        changes: {
+          amount: 180,
+          expectedVersion: currentRecurrence.version,
+        },
+      },
+    });
+    expect(editRes.statusCode).toBe(200);
+
+    const [successor] = await app.db
+      .select({ postingMode: recurrences.postingMode })
+      .from(recurrences)
+      .where(eq(recurrences.id, editRes.json().newRecurrence.id))
+      .limit(1);
+
+    expect(successor?.postingMode).toBe("review_required");
+  });
 });

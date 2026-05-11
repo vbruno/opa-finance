@@ -260,6 +260,7 @@ export class RecurrenceEditService {
         originType: validatedCreatePayload.originType,
         status: "active",
         timezone: current.timezone,
+        postingMode: validatedCreatePayload.postingMode,
         frequency: validatedCreatePayload.frequency,
         startDate: validatedCreatePayload.startDate,
         dayOfWeek: validatedCreatePayload.dayOfWeek ?? null,
