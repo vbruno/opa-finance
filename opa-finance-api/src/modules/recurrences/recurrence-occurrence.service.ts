@@ -41,6 +41,7 @@ type RecurrenceOccurrenceMetadata = {
 };
 
 type ConfirmPayload = RecurrenceOccurrenceReviewPayload;
+type PersistedOccurrenceStatus = typeof recurrenceOccurrences.$inferSelect.status;
 
 export class RecurrenceOccurrenceService {
   constructor(
@@ -482,7 +483,10 @@ export class RecurrenceOccurrenceService {
     }
 
     const [existing] = await this.app.db
-      .select({ id: recurrenceOccurrences.id })
+      .select({
+        id: recurrenceOccurrences.id,
+        status: recurrenceOccurrences.status,
+      })
       .from(recurrenceOccurrences)
       .where(
         and(
@@ -493,7 +497,30 @@ export class RecurrenceOccurrenceService {
       .limit(1);
 
     if (existing) {
-      throw new ConflictProblem("Já existe uma ocorrência registrada para esta data.", actionPath);
+      const conflictsByStatus: Record<PersistedOccurrenceStatus, () => Error> = {
+        materialized: () =>
+          new ConflictProblem(
+            "Já existe uma transação materializada para esta data. Atualize a timeline e verifique.",
+            actionPath,
+          ),
+        pending_review: () =>
+          new ConflictProblem(
+            "Já existe uma pendência de revisão para esta data. Use Confirmar ou Ignorar na timeline.",
+            actionPath,
+          ),
+        skipped: () =>
+          new UnprocessableProblem(
+            "Esta data foi ignorada e não pode ser antecipada. Para registrar uma ocorrência aqui, use 'Esta e próximas' a partir de uma data futura.",
+            actionPath,
+          ),
+        failed: () =>
+          new UnprocessableProblem(
+            "Esta data registrou falha de materialização e não pode ser antecipada. Para registrar uma ocorrência aqui, use 'Esta e próximas' a partir de uma data futura.",
+            actionPath,
+          ),
+      };
+
+      throw conflictsByStatus[existing.status as PersistedOccurrenceStatus]();
     }
 
     if (loaded.endType === "by_occurrences" && loaded.endOccurrences) {
