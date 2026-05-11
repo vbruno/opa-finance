@@ -15,6 +15,7 @@ import { RecurrenceValidators } from "./recurrence.validators";
 
 type OverrideRow = typeof recurrenceOccurrenceOverrides.$inferSelect;
 type RecurrenceRow = typeof recurrences.$inferSelect;
+type PersistedOccurrenceStatus = typeof recurrenceOccurrences.$inferSelect.status;
 
 export class RecurrenceOverrideService {
   constructor(
@@ -120,7 +121,10 @@ export class RecurrenceOverrideService {
     }
 
     const [persistedOccurrence] = await this.app.db
-      .select({ id: recurrenceOccurrences.id })
+      .select({
+        id: recurrenceOccurrences.id,
+        status: recurrenceOccurrences.status,
+      })
       .from(recurrenceOccurrences)
       .where(
         and(
@@ -131,8 +135,19 @@ export class RecurrenceOverrideService {
       .limit(1);
 
     if (persistedOccurrence) {
+      const messagesByStatus: Record<PersistedOccurrenceStatus, string> = {
+        materialized:
+          "Esta data já possui uma transação materializada. Edite a transação diretamente em Transações.",
+        pending_review:
+          "Esta data possui uma pendência de revisão. Use Confirmar ou Ignorar na timeline da recorrência.",
+        skipped:
+          "Esta data foi ignorada e não pode receber sobrescrita. Para ajustar valores futuros, use 'Esta e próximas' a partir de uma data futura.",
+        failed:
+          "Esta data registrou falha de materialização e não pode receber sobrescrita. Para ajustar valores futuros, use 'Esta e próximas' a partir de uma data futura.",
+      };
+
       throw new UnprocessableProblem(
-        "Use a edição da ocorrência persistida para alterar esta data.",
+        messagesByStatus[persistedOccurrence.status as PersistedOccurrenceStatus],
         actionPath,
       );
     }

@@ -78,6 +78,45 @@ describe("Recurrences - critical rules", () => {
     return { token, user, account, account2, category, category2, subcategory };
   }
 
+  async function createOverrideContext() {
+    const email = `override_${crypto.randomUUID()}@test.com`;
+    const registerRes = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      headers: { "Content-Type": "application/json" },
+      payload: {
+        name: "Override User",
+        email,
+        password: "Aa123456!",
+        confirmPassword: "Aa123456!",
+      },
+    });
+    expect(registerRes.statusCode).toBe(201);
+
+    const { accessToken } = registerRes.json();
+    expect(typeof accessToken).toBe("string");
+
+    const accountRes = await app.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      payload: { name: "Conta Override", type: "cash" },
+    });
+    expect(accountRes.statusCode).toBe(201);
+    const account = accountRes.json();
+
+    const categoryRes = await app.inject({
+      method: "POST",
+      url: "/categories",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      payload: { name: "Categoria Override", type: "expense" },
+    });
+    expect(categoryRes.statusCode).toBe(201);
+    const category = categoryRes.json();
+
+    return { token: accessToken, account, category };
+  }
+
   async function createTransactionRecurrence({
     token,
     accountId,
@@ -4038,6 +4077,161 @@ describe("Recurrences - critical rules", () => {
       .from(recurrenceOccurrenceOverrides)
       .where(eq(recurrenceOccurrenceOverrides.recurrenceId, recurrence.id));
     expect(remainingOverrides).toHaveLength(0);
+  });
+
+  it("override rejeita data com ocorrência materializada com mensagem específica", async () => {
+    const { token, account, category } = await createOverrideContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2099-01-05" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-01-05",
+        amount: 250,
+      },
+    });
+
+    expect(overrideRes.statusCode).toBe(422);
+    expect(overrideRes.json().detail).toContain("materializada");
+    expect(overrideRes.json().detail).toContain("Transações");
+  });
+
+  it("override rejeita data com pendência de revisão com mensagem específica", async () => {
+    const { token, account, category } = await createOverrideContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2099-01-05" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-01-05",
+        amount: 250,
+      },
+    });
+
+    expect(overrideRes.statusCode).toBe(422);
+    expect(overrideRes.json().detail).toContain("pendência de revisão");
+    expect(overrideRes.json().detail).toContain("Confirmar");
+    expect(overrideRes.json().detail).toContain("Ignorar");
+  });
+
+  it("override rejeita data com ocorrência skipped orientando this_and_next", async () => {
+    const { token, account, category } = await createOverrideContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      postingMode: "review_required",
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    const materializeRes = await app.inject({
+      method: "POST",
+      url: "/recurrences/materialize",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { recurrenceId: recurrence.id, untilDate: "2099-01-05" },
+    });
+    expect(materializeRes.statusCode).toBe(200);
+
+    const [pending] = await app.db
+      .select()
+      .from(recurrenceOccurrences)
+      .where(eq(recurrenceOccurrences.recurrenceId, recurrence.id));
+    expect(pending?.status).toBe("pending_review");
+
+    const skipRes = await app.inject({
+      method: "POST",
+      url: `/recurrences/occurrences/${pending.id}/skip`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { expectedVersion: pending.version },
+    });
+    expect(skipRes.statusCode).toBe(200);
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-01-05",
+        amount: 250,
+      },
+    });
+
+    expect(overrideRes.statusCode).toBe(422);
+    expect(overrideRes.json().detail).toContain("ignorada");
+    expect(overrideRes.json().detail).toContain("Esta e próximas");
+  });
+
+  it("override rejeita data com ocorrência failed orientando this_and_next", async () => {
+    const { token, account, category } = await createOverrideContext();
+    const recurrence = await createTransactionRecurrence({
+      token,
+      accountId: account.id,
+      categoryId: category.id,
+      startDate: "2099-01-05",
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 2,
+    });
+
+    await insertOccurrenceForRecurrence({
+      recurrenceId: recurrence.id,
+      occurrenceDate: "2099-01-05",
+      status: "failed",
+    });
+
+    const overrideRes = await app.inject({
+      method: "PUT",
+      url: `/recurrences/${recurrence.id}/occurrences/override`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        occurrenceDate: "2099-01-05",
+        amount: 250,
+      },
+    });
+
+    expect(overrideRes.statusCode).toBe(422);
+    expect(overrideRes.json().detail).toContain("falha de materialização");
+    expect(overrideRes.json().detail).toContain("Esta e próximas");
   });
 
   it("anticipate aplica override de amount quando input nao fornece amount", async () => {
