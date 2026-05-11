@@ -26,6 +26,19 @@ type RecurrenceDailyJobOptions = {
   targetTime: string;
   pollIntervalMs: number;
   lockTtlMs: number;
+  /**
+   * Threshold de alerta operacional, **não** é hard timeout.
+   *
+   * Quando a materialização excede este tempo, `tick()` registra um log
+   * `recurrences.job.timeout_waiting_background` e **continua aguardando**
+   * a execução em background terminar antes de liberar o lock. A execução
+   * não é cancelada; o `timeoutMs` apenas marca quando a operação está
+   * demorando mais que o esperado.
+   *
+   * Hard timeout real exigiria propagar `AbortSignal` por todo o pipeline
+   * de materialize (`RecurrenceMaterializeService.materialize`) — fora do
+   * escopo atual.
+   */
   timeoutMs: number;
   retryDelaysMs: number[];
   batchSize: number;
@@ -193,6 +206,7 @@ export class RecurrenceDailyJob {
           },
           "Recurrence daily job failed.",
         );
+        // timeoutMs é threshold de alerta, não cancelamento — vide JSDoc em RecurrenceDailyJobOptions.timeoutMs (REC-REV-025).
       } else {
         this.app.log.warn(
           {
