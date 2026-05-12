@@ -45,7 +45,7 @@ import { TransactionCategoryField } from './transaction-category-field'
 import { TransactionDateField } from './transaction-date-field'
 import { TransactionDescriptionField } from './transaction-description-field'
 import { TransactionNotesField } from './transaction-notes-field'
-import { TransactionRecurrenceScheduleFields } from './transaction-recurrence-schedule-fields'
+import { TransactionRecurrenceConfigModal } from './transaction-recurrence-config-modal'
 import { TransactionTypeField } from './transaction-type-field'
 import { TransactionsInlineCategoryFlow } from './transactions-inline-category-flow'
 
@@ -90,6 +90,8 @@ export function TransactionsCreateModal(
   const [createCategoryTreeSearch, setCreateCategoryTreeSearch] = useState('')
   const [lastCreatedSubcategory, setLastCreatedSubcategory] =
     useState<Subcategory | null>(null)
+  const [isRecurrenceConfigOpen, setIsRecurrenceConfigOpen] = useState(false)
+  const [isRecurrenceConfigured, setIsRecurrenceConfigured] = useState(false)
 
   const pendingCategorySelection = useRef<string | null>(null)
   const pendingSubcategorySelection = useRef<{
@@ -431,6 +433,10 @@ export function TransactionsCreateModal(
 
     const handleShortcut = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (isRecurrenceConfigOpen) {
+          setIsRecurrenceConfigOpen(false)
+          return
+        }
         if (isCreateSubcategoryOpen) {
           setIsCreateSubcategoryOpen(false)
           return
@@ -503,6 +509,7 @@ export function TransactionsCreateModal(
     isCreateSubcategoryOpen,
     isDescriptionSuggestionsOpen,
     isOpen,
+    isRecurrenceConfigOpen,
     onClose,
     resetCreateForm,
     transactionForm.onSubmit,
@@ -647,6 +654,8 @@ export function TransactionsCreateModal(
                     setIsCreateRecurrenceEnabled(checked)
                     if (checked) {
                       resetCreateRecurrenceDraft(createDate)
+                    } else {
+                      setIsRecurrenceConfigured(false)
                     }
                   }}
                 />
@@ -658,33 +667,13 @@ export function TransactionsCreateModal(
             </div>
 
             {isCreateRecurrenceEnabled && (
-              <TransactionRecurrenceScheduleFields
-                startDate={createRecurrenceStartDate}
-                onStartDateChange={(value) => {
-                  setCreateRecurrenceStartDate(value)
-                  setIsCreateRecurrenceStartDateTouched(true)
-                }}
-                frequency={createRecurrenceFrequency}
-                onFrequencyChange={setCreateRecurrenceFrequency}
-                dayOfWeek={createRecurrenceDayOfWeek}
-                onDayOfWeekChange={setCreateRecurrenceDayOfWeek}
-                dayOfMonth={createRecurrenceDayOfMonth}
-                onDayOfMonthChange={setCreateRecurrenceDayOfMonth}
-                monthOfYear={createRecurrenceMonthOfYear}
-                onMonthOfYearChange={setCreateRecurrenceMonthOfYear}
-                endType={createRecurrenceEndType}
-                onEndTypeChange={setCreateRecurrenceEndType}
-                endOccurrences={createRecurrenceEndOccurrences}
-                onEndOccurrencesChange={setCreateRecurrenceEndOccurrences}
-                endDate={createRecurrenceEndDate}
-                onEndDateChange={setCreateRecurrenceEndDate}
-                accountName={createAccountName}
-                categoryName={createCategory?.name}
-                subcategoryName={createSubcategoryName}
-                amount={createAmount}
-                description={createDescription}
-                notes={createNotes}
-              />
+              <Button
+                type="button"
+                variant={isRecurrenceConfigured ? 'secondary' : 'outline'}
+                onClick={() => setIsRecurrenceConfigOpen(true)}
+              >
+                {isRecurrenceConfigured ? '✓ Recorrência configurada' : 'Configurar recorrência'}
+              </Button>
             )}
 
             {errors.root && (
@@ -725,6 +714,41 @@ export function TransactionsCreateModal(
           </form>
         </div>
       </div>
+
+      {isOpen && isRecurrenceConfigOpen && (
+        <TransactionRecurrenceConfigModal
+          startDate={createRecurrenceStartDate}
+          onStartDateChange={(value) => {
+            setCreateRecurrenceStartDate(value)
+            setIsCreateRecurrenceStartDateTouched(true)
+          }}
+          frequency={createRecurrenceFrequency}
+          onFrequencyChange={setCreateRecurrenceFrequency}
+          dayOfWeek={createRecurrenceDayOfWeek}
+          onDayOfWeekChange={setCreateRecurrenceDayOfWeek}
+          dayOfMonth={createRecurrenceDayOfMonth}
+          onDayOfMonthChange={setCreateRecurrenceDayOfMonth}
+          monthOfYear={createRecurrenceMonthOfYear}
+          onMonthOfYearChange={setCreateRecurrenceMonthOfYear}
+          endType={createRecurrenceEndType}
+          onEndTypeChange={setCreateRecurrenceEndType}
+          endOccurrences={createRecurrenceEndOccurrences}
+          onEndOccurrencesChange={setCreateRecurrenceEndOccurrences}
+          endDate={createRecurrenceEndDate}
+          onEndDateChange={setCreateRecurrenceEndDate}
+          accountName={createAccountName}
+          categoryName={createCategory?.name}
+          subcategoryName={createSubcategoryName}
+          amount={createAmount}
+          description={createDescription}
+          notes={createNotes}
+          onClose={() => setIsRecurrenceConfigOpen(false)}
+          onConfirm={() => {
+            setIsRecurrenceConfigOpen(false)
+            setIsRecurrenceConfigured(true)
+          }}
+        />
+      )}
 
       <TransactionsInlineCategoryFlow
         isCreateCategoryOpen={isCreateCategoryOpen}
