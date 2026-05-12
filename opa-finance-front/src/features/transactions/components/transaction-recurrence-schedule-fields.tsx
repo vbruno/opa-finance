@@ -1,0 +1,236 @@
+import {
+  Input,
+} from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+type TransactionRecurrenceScheduleFieldsProps = {
+  // Seção: Agenda
+  startDate: string
+  onStartDateChange: (value: string) => void
+  frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
+  dayOfWeek: string
+  onDayOfWeekChange: (value: string) => void
+  dayOfMonth: string
+  onDayOfMonthChange: (value: string) => void
+  monthOfYear: string
+  onMonthOfYearChange: (value: string) => void
+
+  // Seção: Término
+  endType: 'never' | 'by_occurrences' | 'until_date'
+  onEndTypeChange: (value: 'never' | 'by_occurrences' | 'until_date') => void
+  endOccurrences: string
+  onEndOccurrencesChange: (value: string) => void
+  endDate: string
+  onEndDateChange: (value: string) => void
+
+  // Seção: Base da transação (resumo)
+  accountName: string | undefined
+  categoryName: string | undefined
+  subcategoryName: string | undefined
+  amount: string
+  description: string
+  notes: string
+}
+
+export function TransactionRecurrenceScheduleFields(
+  props: TransactionRecurrenceScheduleFieldsProps,
+) {
+  const {
+    startDate,
+    onStartDateChange,
+    frequency,
+    onFrequencyChange,
+    dayOfWeek,
+    onDayOfWeekChange,
+    dayOfMonth,
+    onDayOfMonthChange,
+    monthOfYear,
+    onMonthOfYearChange,
+    endType,
+    onEndTypeChange,
+    endOccurrences,
+    onEndOccurrencesChange,
+    endDate,
+    onEndDateChange,
+    accountName,
+    categoryName,
+    subcategoryName,
+    amount,
+    description,
+    notes,
+  } = props
+
+  return (
+    <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
+        <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
+          Prévia ativa
+        </span>
+      </div>
+
+      {/* Seção: Agenda */}
+      <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
+        <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Data de início</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(event) => {
+                onStartDateChange(event.target.value)
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Frequência</Label>
+            <Select
+              value={frequency}
+              onValueChange={(value) =>
+                onFrequencyChange(
+                  value as 'weekly' | 'biweekly' | 'monthly' | 'yearly',
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="biweekly">Quinzenal</SelectItem>
+                <SelectItem value="monthly">Mensal</SelectItem>
+                <SelectItem value="yearly">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {/* Exibir dia da semana para frequência semanal ou quinzenal */}
+          {(frequency === 'weekly' || frequency === 'biweekly') ? (
+            <div className="space-y-2">
+              <Label>Dia da semana</Label>
+              <Select
+                value={dayOfWeek}
+                onValueChange={onDayOfWeekChange}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Domingo</SelectItem>
+                  <SelectItem value="1">Segunda</SelectItem>
+                  <SelectItem value="2">Terça</SelectItem>
+                  <SelectItem value="3">Quarta</SelectItem>
+                  <SelectItem value="4">Quinta</SelectItem>
+                  <SelectItem value="5">Sexta</SelectItem>
+                  <SelectItem value="6">Sábado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {/* Exibir dia do mês para frequência mensal ou anual */}
+          {(frequency === 'monthly' || frequency === 'yearly') ? (
+            <div className="space-y-2">
+              <Label>Dia do mês</Label>
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                value={dayOfMonth}
+                onChange={(event) => onDayOfMonthChange(event.target.value)}
+              />
+            </div>
+          ) : null}
+
+          {/* Exibir mês do ano apenas para frequência anual */}
+          {frequency === 'yearly' ? (
+            <div className="space-y-2">
+              <Label>Mês</Label>
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                value={monthOfYear}
+                onChange={(event) => onMonthOfYearChange(event.target.value)}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Seção: Término */}
+      <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
+        <p className="mb-2 text-xs font-medium text-muted-foreground">Término</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Término</Label>
+            <Select
+              value={endType}
+              onValueChange={(value) =>
+                onEndTypeChange(
+                  value as 'never' | 'by_occurrences' | 'until_date',
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="never">Sem fim</SelectItem>
+                <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
+                <SelectItem value="until_date">Por data final</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Exibir campo de qtd. ocorrências quando tipo é "por ocorrências" */}
+          {endType === 'by_occurrences' ? (
+            <div className="space-y-2">
+              <Label>Qtd. ocorrências</Label>
+              <Input
+                type="number"
+                min={1}
+                value={endOccurrences}
+                onChange={(event) => onEndOccurrencesChange(event.target.value)}
+              />
+            </div>
+          ) : null}
+          {/* Exibir campo de data final quando tipo é "até data" */}
+          {endType === 'until_date' ? (
+            <div className="space-y-2">
+              <Label>Data final</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(event) => onEndDateChange(event.target.value)}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Seção: Base da transação (resumo) */}
+      <div className="rounded-md border border-sky-500/20 bg-background/60 p-2.5 text-[11px] text-muted-foreground sm:p-3 sm:text-xs">
+        <p className="mb-2 text-xs font-medium text-muted-foreground">Base da transação</p>
+        <div className="grid gap-1.5 sm:gap-2 md:grid-cols-2">
+          <p><strong className="text-foreground">Conta:</strong> {accountName || 'Selecione'}</p>
+          <p><strong className="text-foreground">Categoria:</strong> {categoryName || 'Selecione'}</p>
+          <p><strong className="text-foreground">Subcategoria:</strong> {subcategoryName || 'Nenhuma'}</p>
+          <p><strong className="text-foreground">Valor:</strong> {amount || '-'}</p>
+          <p><strong className="text-foreground">Descrição:</strong> {description || '-'}</p>
+          <p><strong className="text-foreground">Notas:</strong> {notes.trim() || '-'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -8,15 +8,6 @@ import {
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Account } from '@/features/accounts'
 import type { Category, Subcategory } from '@/features/categories'
@@ -54,6 +45,7 @@ import { TransactionCategoryField } from './transaction-category-field'
 import { TransactionDateField } from './transaction-date-field'
 import { TransactionDescriptionField } from './transaction-description-field'
 import { TransactionNotesField } from './transaction-notes-field'
+import { TransactionRecurrenceScheduleFields } from './transaction-recurrence-schedule-fields'
 import { TransactionTypeField } from './transaction-type-field'
 import { TransactionsInlineCategoryFlow } from './transactions-inline-category-flow'
 
@@ -665,163 +657,35 @@ export function TransactionsCreateModal(
               </p>
             </div>
 
-            {isCreateRecurrenceEnabled ? (
-              <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
-                  <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
-                    Prévia ativa
-                  </span>
-                </div>
-
-                <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Data de início</Label>
-                      <Input
-                        type="date"
-                        value={createRecurrenceStartDate}
-                        onChange={(event) => {
-                          setCreateRecurrenceStartDate(event.target.value)
-                          setIsCreateRecurrenceStartDateTouched(true)
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Frequência</Label>
-                      <Select
-                        value={createRecurrenceFrequency}
-                        onValueChange={(value) =>
-                          setCreateRecurrenceFrequency(
-                            value as 'weekly' | 'biweekly' | 'monthly' | 'yearly',
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="weekly">Semanal</SelectItem>
-                          <SelectItem value="biweekly">Quinzenal</SelectItem>
-                          <SelectItem value="monthly">Mensal</SelectItem>
-                          <SelectItem value="yearly">Anual</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid gap-3 md:grid-cols-3">
-                    {(createRecurrenceFrequency === 'weekly' ||
-                      createRecurrenceFrequency === 'biweekly') ? (
-                      <div className="space-y-2">
-                        <Label>Dia da semana</Label>
-                        <Select value={createRecurrenceDayOfWeek} onValueChange={setCreateRecurrenceDayOfWeek}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">Domingo</SelectItem>
-                            <SelectItem value="1">Segunda</SelectItem>
-                            <SelectItem value="2">Terça</SelectItem>
-                            <SelectItem value="3">Quarta</SelectItem>
-                            <SelectItem value="4">Quinta</SelectItem>
-                            <SelectItem value="5">Sexta</SelectItem>
-                            <SelectItem value="6">Sábado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
-
-                    {(createRecurrenceFrequency === 'monthly' ||
-                      createRecurrenceFrequency === 'yearly') ? (
-                      <div className="space-y-2">
-                        <Label>Dia do mês</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={31}
-                          value={createRecurrenceDayOfMonth}
-                          onChange={(event) => setCreateRecurrenceDayOfMonth(event.target.value)}
-                        />
-                      </div>
-                    ) : null}
-
-                    {createRecurrenceFrequency === 'yearly' ? (
-                      <div className="space-y-2">
-                        <Label>Mês</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={12}
-                          value={createRecurrenceMonthOfYear}
-                          onChange={(event) => setCreateRecurrenceMonthOfYear(event.target.value)}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Término</p>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Término</Label>
-                      <Select
-                        value={createRecurrenceEndType}
-                        onValueChange={(value) =>
-                          setCreateRecurrenceEndType(
-                            value as 'never' | 'by_occurrences' | 'until_date',
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="never">Sem fim</SelectItem>
-                          <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
-                          <SelectItem value="until_date">Por data final</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {createRecurrenceEndType === 'by_occurrences' ? (
-                      <div className="space-y-2">
-                        <Label>Qtd. ocorrências</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={createRecurrenceEndOccurrences}
-                          onChange={(event) => setCreateRecurrenceEndOccurrences(event.target.value)}
-                        />
-                      </div>
-                    ) : null}
-                    {createRecurrenceEndType === 'until_date' ? (
-                      <div className="space-y-2">
-                        <Label>Data final</Label>
-                        <Input
-                          type="date"
-                          value={createRecurrenceEndDate}
-                          onChange={(event) => setCreateRecurrenceEndDate(event.target.value)}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-sky-500/20 bg-background/60 p-2.5 text-[11px] text-muted-foreground sm:p-3 sm:text-xs">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Base da transação</p>
-                  <div className="grid gap-1.5 sm:gap-2 md:grid-cols-2">
-                    <p><strong className="text-foreground">Conta:</strong> {createAccountName || 'Selecione'}</p>
-                    <p><strong className="text-foreground">Categoria:</strong> {createCategory?.name || 'Selecione'}</p>
-                    <p><strong className="text-foreground">Subcategoria:</strong> {createSubcategoryName || 'Nenhuma'}</p>
-                    <p><strong className="text-foreground">Valor:</strong> {createAmount || '-'}</p>
-                    <p><strong className="text-foreground">Descrição:</strong> {createDescription || '-'}</p>
-                    <p><strong className="text-foreground">Notas:</strong> {createNotes.trim() || '-'}</p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            {isCreateRecurrenceEnabled && (
+              <TransactionRecurrenceScheduleFields
+                startDate={createRecurrenceStartDate}
+                onStartDateChange={(value) => {
+                  setCreateRecurrenceStartDate(value)
+                  setIsCreateRecurrenceStartDateTouched(true)
+                }}
+                frequency={createRecurrenceFrequency}
+                onFrequencyChange={setCreateRecurrenceFrequency}
+                dayOfWeek={createRecurrenceDayOfWeek}
+                onDayOfWeekChange={setCreateRecurrenceDayOfWeek}
+                dayOfMonth={createRecurrenceDayOfMonth}
+                onDayOfMonthChange={setCreateRecurrenceDayOfMonth}
+                monthOfYear={createRecurrenceMonthOfYear}
+                onMonthOfYearChange={setCreateRecurrenceMonthOfYear}
+                endType={createRecurrenceEndType}
+                onEndTypeChange={setCreateRecurrenceEndType}
+                endOccurrences={createRecurrenceEndOccurrences}
+                onEndOccurrencesChange={setCreateRecurrenceEndOccurrences}
+                endDate={createRecurrenceEndDate}
+                onEndDateChange={setCreateRecurrenceEndDate}
+                accountName={createAccountName}
+                categoryName={createCategory?.name}
+                subcategoryName={createSubcategoryName}
+                amount={createAmount}
+                description={createDescription}
+                notes={createNotes}
+              />
+            )}
 
             {errors.root && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
