@@ -151,8 +151,6 @@ export function TransactionsCreateModal(
   const createCategoryId = watch('categoryId')
   const createSubcategoryId = watch('subcategoryId')
   const createDescription = watch('description') ?? ''
-  const createAmount = watch('amount') ?? ''
-  const createNotes = watch('notes') ?? ''
   const createAccountId = watch('accountId')
   const createDate = watch('date')
   const createTypeRaw = watch('type')
@@ -193,8 +191,6 @@ export function TransactionsCreateModal(
   const debouncedCreateDescription = useDebouncedValue(createDescription, 1000)
   const {
     createSubcategories,
-    createSubcategoryName,
-    createAccountName,
     createCategoryTreeOptions,
     descriptionSuggestions,
     areDescriptionSuggestionsLoading,
@@ -726,12 +722,6 @@ export function TransactionsCreateModal(
           onEndOccurrencesChange={setCreateRecurrenceEndOccurrences}
           endDate={createRecurrenceEndDate}
           onEndDateChange={setCreateRecurrenceEndDate}
-          accountName={createAccountName}
-          categoryName={createCategory?.name}
-          subcategoryName={createSubcategoryName}
-          amount={createAmount}
-          description={createDescription}
-          notes={createNotes}
           onClose={() => setIsRecurrenceConfigOpen(false)}
           onConfirm={() => {
             setIsRecurrenceConfigOpen(false)

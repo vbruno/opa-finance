@@ -23,14 +23,6 @@ type TransactionRecurrenceConfigModalProps = {
   endDate: string
   onEndDateChange: (value: string) => void
 
-  // Resumo da transação base
-  accountName: string | undefined
-  categoryName: string | undefined
-  subcategoryName: string | undefined
-  amount: string
-  description: string
-  notes: string
-
   // Controle
   onClose: () => void
   onConfirm: () => void
@@ -56,12 +48,6 @@ export function TransactionRecurrenceConfigModal(
     onEndOccurrencesChange,
     endDate,
     onEndDateChange,
-    accountName,
-    categoryName,
-    subcategoryName,
-    amount,
-    description,
-    notes,
     onClose,
     onConfirm,
   } = props
@@ -120,12 +106,6 @@ export function TransactionRecurrenceConfigModal(
           onEndOccurrencesChange={onEndOccurrencesChange}
           endDate={endDate}
           onEndDateChange={onEndDateChange}
-          accountName={accountName}
-          categoryName={categoryName}
-          subcategoryName={subcategoryName}
-          amount={amount}
-          description={description}
-          notes={notes}
         />
 
         <div className="flex justify-end gap-2 mt-6">

@@ -30,14 +30,6 @@ type TransactionRecurrenceScheduleFieldsProps = {
   onEndOccurrencesChange: (value: string) => void
   endDate: string
   onEndDateChange: (value: string) => void
-
-  // Seção: Base da transação (resumo)
-  accountName: string | undefined
-  categoryName: string | undefined
-  subcategoryName: string | undefined
-  amount: string
-  description: string
-  notes: string
 }
 
 export function TransactionRecurrenceScheduleFields(
@@ -60,23 +52,10 @@ export function TransactionRecurrenceScheduleFields(
     onEndOccurrencesChange,
     endDate,
     onEndDateChange,
-    accountName,
-    categoryName,
-    subcategoryName,
-    amount,
-    description,
-    notes,
   } = props
 
   return (
-    <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
-        <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
-          Prévia ativa
-        </span>
-      </div>
-
+    <div className="space-y-2.5">
       {/* Seção: Agenda */}
       <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
         <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
@@ -216,19 +195,6 @@ export function TransactionRecurrenceScheduleFields(
               />
             </div>
           ) : null}
-        </div>
-      </div>
-
-      {/* Seção: Base da transação (resumo) */}
-      <div className="rounded-md border border-sky-500/20 bg-background/60 p-2.5 text-[11px] text-muted-foreground sm:p-3 sm:text-xs">
-        <p className="mb-2 text-xs font-medium text-muted-foreground">Base da transação</p>
-        <div className="grid gap-1.5 sm:gap-2 md:grid-cols-2">
-          <p><strong className="text-foreground">Conta:</strong> {accountName || 'Selecione'}</p>
-          <p><strong className="text-foreground">Categoria:</strong> {categoryName || 'Selecione'}</p>
-          <p><strong className="text-foreground">Subcategoria:</strong> {subcategoryName || 'Nenhuma'}</p>
-          <p><strong className="text-foreground">Valor:</strong> {amount || '-'}</p>
-          <p><strong className="text-foreground">Descrição:</strong> {description || '-'}</p>
-          <p><strong className="text-foreground">Notas:</strong> {notes.trim() || '-'}</p>
         </div>
       </div>
     </div>
