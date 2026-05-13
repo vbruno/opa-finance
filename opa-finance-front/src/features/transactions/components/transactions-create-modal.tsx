@@ -173,8 +173,6 @@ export function TransactionsCreateModal(
     setCreateRecurrenceEndOccurrences,
     createRecurrenceEndDate,
     setCreateRecurrenceEndDate,
-    createRecurrenceDayOfWeek,
-    setCreateRecurrenceDayOfWeek,
     createRecurrenceDayOfMonth,
     setCreateRecurrenceDayOfMonth,
     createRecurrenceMonthOfYear,
@@ -710,8 +708,6 @@ export function TransactionsCreateModal(
           }}
           frequency={createRecurrenceFrequency}
           onFrequencyChange={setCreateRecurrenceFrequency}
-          dayOfWeek={createRecurrenceDayOfWeek}
-          onDayOfWeekChange={setCreateRecurrenceDayOfWeek}
           dayOfMonth={createRecurrenceDayOfMonth}
           onDayOfMonthChange={setCreateRecurrenceDayOfMonth}
           monthOfYear={createRecurrenceMonthOfYear}

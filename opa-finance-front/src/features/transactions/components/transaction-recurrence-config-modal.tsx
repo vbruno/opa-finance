@@ -10,8 +10,6 @@ type TransactionRecurrenceConfigModalProps = {
   onStartDateChange: (value: string) => void
   frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
   onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
-  dayOfWeek: string
-  onDayOfWeekChange: (value: string) => void
   dayOfMonth: string
   onDayOfMonthChange: (value: string) => void
   monthOfYear: string
@@ -36,8 +34,6 @@ export function TransactionRecurrenceConfigModal(
     onStartDateChange,
     frequency,
     onFrequencyChange,
-    dayOfWeek,
-    onDayOfWeekChange,
     dayOfMonth,
     onDayOfMonthChange,
     monthOfYear,
@@ -94,8 +90,6 @@ export function TransactionRecurrenceConfigModal(
           onStartDateChange={onStartDateChange}
           frequency={frequency}
           onFrequencyChange={onFrequencyChange}
-          dayOfWeek={dayOfWeek}
-          onDayOfWeekChange={onDayOfWeekChange}
           dayOfMonth={dayOfMonth}
           onDayOfMonthChange={onDayOfMonthChange}
           monthOfYear={monthOfYear}

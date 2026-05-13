@@ -1,6 +1,4 @@
-import {
-  Input,
-} from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -16,8 +14,6 @@ type TransactionRecurrenceScheduleFieldsProps = {
   onStartDateChange: (value: string) => void
   frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
   onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
-  dayOfWeek: string
-  onDayOfWeekChange: (value: string) => void
   dayOfMonth: string
   onDayOfMonthChange: (value: string) => void
   monthOfYear: string
@@ -40,8 +36,6 @@ export function TransactionRecurrenceScheduleFields(
     onStartDateChange,
     frequency,
     onFrequencyChange,
-    dayOfWeek,
-    onDayOfWeekChange,
     dayOfMonth,
     onDayOfMonthChange,
     monthOfYear,
@@ -53,6 +47,13 @@ export function TransactionRecurrenceScheduleFields(
     endDate,
     onEndDateChange,
   } = props
+
+  const getDayOfWeekLabel = (dateString: string): string => {
+    if (!dateString) return '-'
+    const date = new Date(dateString + 'T00:00:00')
+    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+    return days[date.getDay()] || '-'
+  }
 
   return (
     <div className="space-y-2.5">
@@ -94,27 +95,17 @@ export function TransactionRecurrenceScheduleFields(
         </div>
 
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          {/* Exibir dia da semana para frequência semanal ou quinzenal */}
+          {/* Exibir dia da semana para frequência semanal ou quinzenal (read-only, derivado de startDate) */}
           {(frequency === 'weekly' || frequency === 'biweekly') ? (
             <div className="space-y-2">
               <Label>Dia da semana</Label>
-              <Select
-                value={dayOfWeek}
-                onValueChange={onDayOfWeekChange}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[9999]">
-                  <SelectItem value="0">Domingo</SelectItem>
-                  <SelectItem value="1">Segunda</SelectItem>
-                  <SelectItem value="2">Terça</SelectItem>
-                  <SelectItem value="3">Quarta</SelectItem>
-                  <SelectItem value="4">Quinta</SelectItem>
-                  <SelectItem value="5">Sexta</SelectItem>
-                  <SelectItem value="6">Sábado</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                type="text"
+                value={getDayOfWeekLabel(startDate)}
+                readOnly
+                disabled
+                className="bg-muted cursor-not-allowed"
+              />
             </div>
           ) : null}
 
