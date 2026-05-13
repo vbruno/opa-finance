@@ -91,7 +91,6 @@ export function TransactionsCreateModal(
   const [lastCreatedSubcategory, setLastCreatedSubcategory] =
     useState<Subcategory | null>(null)
   const [isRecurrenceConfigOpen, setIsRecurrenceConfigOpen] = useState(false)
-  const [isRecurrenceConfigured, setIsRecurrenceConfigured] = useState(false)
 
   const pendingCategorySelection = useRef<string | null>(null)
   const pendingSubcategorySelection = useRef<{
@@ -654,8 +653,9 @@ export function TransactionsCreateModal(
                     setIsCreateRecurrenceEnabled(checked)
                     if (checked) {
                       resetCreateRecurrenceDraft(createDate)
+                      setIsRecurrenceConfigOpen(true)
                     } else {
-                      setIsRecurrenceConfigured(false)
+                      setIsRecurrenceConfigOpen(false)
                     }
                   }}
                 />
@@ -665,16 +665,6 @@ export function TransactionsCreateModal(
                 Ative para configurar a regra recorrente com base nesta transação.
               </p>
             </div>
-
-            {isCreateRecurrenceEnabled && (
-              <Button
-                type="button"
-                variant={isRecurrenceConfigured ? 'secondary' : 'outline'}
-                onClick={() => setIsRecurrenceConfigOpen(true)}
-              >
-                {isRecurrenceConfigured ? '✓ Recorrência configurada' : 'Configurar recorrência'}
-              </Button>
-            )}
 
             {errors.root && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -745,7 +735,6 @@ export function TransactionsCreateModal(
           onClose={() => setIsRecurrenceConfigOpen(false)}
           onConfirm={() => {
             setIsRecurrenceConfigOpen(false)
-            setIsRecurrenceConfigured(true)
           }}
         />
       )}
