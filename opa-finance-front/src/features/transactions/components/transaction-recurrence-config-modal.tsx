@@ -7,7 +7,6 @@ import { TransactionRecurrenceScheduleFields } from './transaction-recurrence-sc
 type TransactionRecurrenceConfigModalProps = {
   // Campos de configuração
   startDate: string
-  onStartDateChange: (value: string) => void
   frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
   onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
   endType: 'never' | 'by_occurrences' | 'until_date'
@@ -27,7 +26,6 @@ export function TransactionRecurrenceConfigModal(
 ) {
   const {
     startDate,
-    onStartDateChange,
     frequency,
     onFrequencyChange,
     endType,
@@ -79,7 +77,7 @@ export function TransactionRecurrenceConfigModal(
 
         <TransactionRecurrenceScheduleFields
           startDate={startDate}
-          onStartDateChange={onStartDateChange}
+          isStartDateReadOnly={true}
           frequency={frequency}
           onFrequencyChange={onFrequencyChange}
           endType={endType}

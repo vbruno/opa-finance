@@ -11,7 +11,8 @@ import {
 type TransactionRecurrenceScheduleFieldsProps = {
   // Seção: Agenda
   startDate: string
-  onStartDateChange: (value: string) => void
+  onStartDateChange?: (value: string) => void
+  isStartDateReadOnly?: boolean
   frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
   onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
 
@@ -30,6 +31,7 @@ export function TransactionRecurrenceScheduleFields(
   const {
     startDate,
     onStartDateChange,
+    isStartDateReadOnly = false,
     frequency,
     onFrequencyChange,
     endType,
@@ -71,9 +73,14 @@ export function TransactionRecurrenceScheduleFields(
               type="date"
               value={startDate}
               onChange={(event) => {
-                onStartDateChange(event.target.value)
+                if (!isStartDateReadOnly && onStartDateChange) {
+                  onStartDateChange(event.target.value)
+                }
               }}
-              className="h-10"
+              readOnly={isStartDateReadOnly}
+              tabIndex={isStartDateReadOnly ? -1 : undefined}
+              aria-readonly={isStartDateReadOnly}
+              className={`h-10 ${isStartDateReadOnly ? 'pointer-events-none cursor-default bg-muted' : ''}`}
             />
           </div>
           <div className="space-y-2">

@@ -163,8 +163,6 @@ export function TransactionsCreateModal(
     isCreateRecurrenceEnabled,
     setIsCreateRecurrenceEnabled,
     createRecurrenceStartDate,
-    setCreateRecurrenceStartDate,
-    setIsCreateRecurrenceStartDateTouched,
     createRecurrenceFrequency,
     setCreateRecurrenceFrequency,
     createRecurrenceEndType,
@@ -531,7 +529,7 @@ export function TransactionsCreateModal(
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="fixed inset-0" onClick={onClose} />
-        <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-lg border bg-background p-4 shadow-lg sm:p-6">
+        <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border bg-background p-4 shadow-lg sm:p-6">
           <div>
             <h3 className="text-lg font-semibold">Nova transação</h3>
             <p className="text-sm text-muted-foreground">
@@ -698,10 +696,6 @@ export function TransactionsCreateModal(
       {isOpen && isRecurrenceConfigOpen && (
         <TransactionRecurrenceConfigModal
           startDate={createRecurrenceStartDate}
-          onStartDateChange={(value) => {
-            setCreateRecurrenceStartDate(value)
-            setIsCreateRecurrenceStartDateTouched(true)
-          }}
           frequency={createRecurrenceFrequency}
           onFrequencyChange={setCreateRecurrenceFrequency}
           endType={createRecurrenceEndType}
