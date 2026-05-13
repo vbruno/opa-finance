@@ -722,7 +722,10 @@ export function TransactionsCreateModal(
           onEndOccurrencesChange={setCreateRecurrenceEndOccurrences}
           endDate={createRecurrenceEndDate}
           onEndDateChange={setCreateRecurrenceEndDate}
-          onClose={() => setIsRecurrenceConfigOpen(false)}
+          onClose={() => {
+            setIsRecurrenceConfigOpen(false)
+            setIsCreateRecurrenceEnabled(false)
+          }}
           onConfirm={() => {
             setIsRecurrenceConfigOpen(false)
           }}

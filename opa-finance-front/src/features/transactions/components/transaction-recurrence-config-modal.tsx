@@ -70,17 +70,17 @@ export function TransactionRecurrenceConfigModal(
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-      <div className="fixed inset-0" onClick={onClose} />
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+      <div className="fixed inset-0 z-[70]" onClick={onClose} />
       <div
         ref={modalRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="recurrence-config-title"
-        className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:p-6"
+        className="relative z-[70] w-full max-w-2xl rounded-lg border bg-background shadow-lg p-4 sm:p-6"
       >
-        <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center justify-between gap-2 mb-6">
           <h3 id="recurrence-config-title" className="text-lg font-semibold">
             Configurar recorrência
           </h3>
