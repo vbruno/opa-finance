@@ -10,10 +10,6 @@ type TransactionRecurrenceConfigModalProps = {
   onStartDateChange: (value: string) => void
   frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
   onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
-  dayOfMonth: string
-  onDayOfMonthChange: (value: string) => void
-  monthOfYear: string
-  onMonthOfYearChange: (value: string) => void
   endType: 'never' | 'by_occurrences' | 'until_date'
   onEndTypeChange: (value: 'never' | 'by_occurrences' | 'until_date') => void
   endOccurrences: string
@@ -34,10 +30,6 @@ export function TransactionRecurrenceConfigModal(
     onStartDateChange,
     frequency,
     onFrequencyChange,
-    dayOfMonth,
-    onDayOfMonthChange,
-    monthOfYear,
-    onMonthOfYearChange,
     endType,
     onEndTypeChange,
     endOccurrences,
@@ -90,10 +82,6 @@ export function TransactionRecurrenceConfigModal(
           onStartDateChange={onStartDateChange}
           frequency={frequency}
           onFrequencyChange={onFrequencyChange}
-          dayOfMonth={dayOfMonth}
-          onDayOfMonthChange={onDayOfMonthChange}
-          monthOfYear={monthOfYear}
-          onMonthOfYearChange={onMonthOfYearChange}
           endType={endType}
           onEndTypeChange={onEndTypeChange}
           endOccurrences={endOccurrences}
