@@ -83,7 +83,7 @@ export function TransactionRecurrenceScheduleFields(
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 <SelectItem value="weekly">Semanal</SelectItem>
                 <SelectItem value="biweekly">Quinzenal</SelectItem>
                 <SelectItem value="monthly">Mensal</SelectItem>
@@ -105,7 +105,7 @@ export function TransactionRecurrenceScheduleFields(
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[9999]">
                   <SelectItem value="0">Domingo</SelectItem>
                   <SelectItem value="1">Segunda</SelectItem>
                   <SelectItem value="2">Terça</SelectItem>
@@ -165,7 +165,7 @@ export function TransactionRecurrenceScheduleFields(
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 <SelectItem value="never">Sem fim</SelectItem>
                 <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
                 <SelectItem value="until_date">Por data final</SelectItem>
