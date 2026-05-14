@@ -33,7 +33,7 @@ export function RecurrencesFilters({
           onChange={(event) =>
             onSetSearch({ page: 1, q: event.target.value || undefined })
           }
-          className="md:col-span-2"
+          className="h-10 md:col-span-2"
         />
 
         <Select
@@ -121,6 +121,7 @@ export function RecurrencesFilters({
         <Button
           type="button"
           variant="outline"
+          className="h-10"
           onClick={() =>
             onSetSearch({
               page: 1,

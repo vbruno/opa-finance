@@ -46,6 +46,7 @@ import { TransactionDateField } from './transaction-date-field'
 import { TransactionDescriptionField } from './transaction-description-field'
 import { TransactionNotesField } from './transaction-notes-field'
 import { TransactionRecurrenceConfigModal } from './transaction-recurrence-config-modal'
+import { getRecurrenceSummary } from '../model/recurrence-summary'
 import { TransactionTypeField } from './transaction-type-field'
 import { TransactionsInlineCategoryFlow } from './transactions-inline-category-flow'
 
@@ -650,7 +651,9 @@ export function TransactionsCreateModal(
                 <span>Tornar recorrente</span>
               </label>
               <p className="mt-1 text-xs text-muted-foreground">
-                Ative para configurar a regra recorrente com base nesta transação.
+                {isCreateRecurrenceEnabled
+                  ? `Configurado: ${getRecurrenceSummary(createRecurrenceFrequency, createRecurrenceEndType, createRecurrenceEndOccurrences, createRecurrenceEndDate)}`
+                  : 'Ative para configurar a regra recorrente com base nesta transação.'}
               </p>
             </div>
 

@@ -239,7 +239,7 @@ export function RecurrenceFormModal({
             <div className="space-y-4">
               {isGlobalStructureLocked ? (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-                  Esta recorrência já possui ocorrências geradas. Para alterar valor, agenda, conta ou categoria das próximas, edite uma ocorrência na timeline e escolha "Esta e próximas".
+                  Recorrência ativada. Apenas descrição, observações e valor são editáveis.
                 </div>
               ) : null}
 
@@ -379,7 +379,7 @@ export function RecurrenceFormModal({
                       readOnly
                       tabIndex={-1}
                       aria-readonly="true"
-                      className="h-10 pointer-events-none cursor-default bg-background text-foreground"
+                      className="h-10 pointer-events-none cursor-default text-muted-foreground"
                     />
                   </div>
                 )}

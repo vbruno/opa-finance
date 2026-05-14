@@ -8,13 +8,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import type { Account } from '@/features/accounts'
 import {
@@ -27,6 +20,8 @@ import { useCreateTransfer } from '@/features/transfers'
 import { TransactionAccountField } from './transaction-account-field'
 import { TransactionAmountField } from './transaction-amount-field'
 import { TransactionDateField } from './transaction-date-field'
+import { TransactionRecurrenceConfigModal } from './transaction-recurrence-config-modal'
+import { getRecurrenceSummary } from '../model/recurrence-summary'
 
 export type TransactionsTransferModalRequest =
   | { mode: 'create' }
@@ -59,6 +54,8 @@ export function TransactionsTransferModal({
     useState(false)
   const [isTransferToAccountSelectOpen, setIsTransferToAccountSelectOpen] =
     useState(false)
+  const [isTransferRecurrenceConfigOpen, setIsTransferRecurrenceConfigOpen] =
+    useState(false)
   const transferAmountRef = useRef<HTMLInputElement | null>(null)
   const handledRequestRef = useRef<TransactionsTransferModalRequest | null>(null)
 
@@ -73,8 +70,6 @@ export function TransactionsTransferModal({
     isTransferRecurrenceEnabled,
     setIsTransferRecurrenceEnabled,
     transferRecurrenceStartDate,
-    setTransferRecurrenceStartDate,
-    setIsTransferRecurrenceStartDateTouched,
     transferRecurrenceFrequency,
     setTransferRecurrenceFrequency,
     transferRecurrenceEndType,
@@ -83,12 +78,6 @@ export function TransactionsTransferModal({
     setTransferRecurrenceEndOccurrences,
     transferRecurrenceEndDate,
     setTransferRecurrenceEndDate,
-    transferRecurrenceDayOfWeek,
-    setTransferRecurrenceDayOfWeek,
-    transferRecurrenceDayOfMonth,
-    setTransferRecurrenceDayOfMonth,
-    transferRecurrenceMonthOfYear,
-    setTransferRecurrenceMonthOfYear,
     resetTransferRecurrenceDraft,
     handleCloseTransferModal,
     submitTransferForm,
@@ -297,172 +286,20 @@ export function TransactionsTransferModal({
                       setIsTransferRecurrenceEnabled(checked)
                       if (checked) {
                         resetTransferRecurrenceDraft(transferDate)
+                        setIsTransferRecurrenceConfigOpen(true)
+                      } else {
+                        setIsTransferRecurrenceConfigOpen(false)
                       }
                     }}
                   />
                   <span>Tornar recorrente</span>
                 </label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Ative para configurar a regra recorrente desta transferência.
+                  {isTransferRecurrenceEnabled
+                    ? `Configurado: ${getRecurrenceSummary(transferRecurrenceFrequency, transferRecurrenceEndType, transferRecurrenceEndOccurrences, transferRecurrenceEndDate)}`
+                    : 'Ative para configurar a regra recorrente desta transferência.'}
                 </p>
               </div>
-
-              {isTransferRecurrenceEnabled ? (
-                <div className="space-y-2.5 rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 sm:space-y-3 sm:p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold">Configuração da recorrência</h4>
-                    <span className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-600">
-                      Prévia ativa
-                    </span>
-                  </div>
-
-                  <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Agenda</p>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Data de início</Label>
-                        <Input
-                          type="date"
-                          value={transferRecurrenceStartDate}
-                          onChange={(event) => {
-                            setTransferRecurrenceStartDate(event.target.value)
-                            setIsTransferRecurrenceStartDateTouched(true)
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Frequência</Label>
-                        <Select
-                          value={transferRecurrenceFrequency}
-                          onValueChange={(value) =>
-                            setTransferRecurrenceFrequency(
-                              value as 'weekly' | 'biweekly' | 'monthly' | 'yearly',
-                            )
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="weekly">Semanal</SelectItem>
-                            <SelectItem value="biweekly">Quinzenal</SelectItem>
-                            <SelectItem value="monthly">Mensal</SelectItem>
-                            <SelectItem value="yearly">Anual</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
-                      {(transferRecurrenceFrequency === 'weekly' ||
-                        transferRecurrenceFrequency === 'biweekly') ? (
-                        <div className="space-y-2">
-                          <Label>Dia da semana</Label>
-                          <Select
-                            value={transferRecurrenceDayOfWeek}
-                            onValueChange={setTransferRecurrenceDayOfWeek}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">Domingo</SelectItem>
-                              <SelectItem value="1">Segunda</SelectItem>
-                              <SelectItem value="2">Terça</SelectItem>
-                              <SelectItem value="3">Quarta</SelectItem>
-                              <SelectItem value="4">Quinta</SelectItem>
-                              <SelectItem value="5">Sexta</SelectItem>
-                              <SelectItem value="6">Sábado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : null}
-
-                      {(transferRecurrenceFrequency === 'monthly' ||
-                        transferRecurrenceFrequency === 'yearly') ? (
-                        <div className="space-y-2">
-                          <Label>Dia do mês</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={transferRecurrenceDayOfMonth}
-                            onChange={(event) =>
-                              setTransferRecurrenceDayOfMonth(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-
-                      {transferRecurrenceFrequency === 'yearly' ? (
-                        <div className="space-y-2">
-                          <Label>Mês</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={12}
-                            value={transferRecurrenceMonthOfYear}
-                            onChange={(event) =>
-                              setTransferRecurrenceMonthOfYear(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-border/70 bg-background/70 p-2.5 sm:p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Término</p>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label>Término</Label>
-                        <Select
-                          value={transferRecurrenceEndType}
-                          onValueChange={(value) =>
-                            setTransferRecurrenceEndType(
-                              value as 'never' | 'by_occurrences' | 'until_date',
-                            )
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="never">Sem fim</SelectItem>
-                            <SelectItem value="by_occurrences">Por ocorrências</SelectItem>
-                            <SelectItem value="until_date">Por data final</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {transferRecurrenceEndType === 'by_occurrences' ? (
-                        <div className="space-y-2">
-                          <Label>Qtd. ocorrências</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={transferRecurrenceEndOccurrences}
-                            onChange={(event) =>
-                              setTransferRecurrenceEndOccurrences(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                      {transferRecurrenceEndType === 'until_date' ? (
-                        <div className="space-y-2">
-                          <Label>Data final</Label>
-                          <Input
-                            type="date"
-                            value={transferRecurrenceEndDate}
-                            onChange={(event) =>
-                              setTransferRecurrenceEndDate(event.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </>
           )}
 
@@ -496,6 +333,28 @@ export function TransactionsTransferModal({
             </ShortcutTooltip>
           </div>
         </form>
+
+        {isOpen && isTransferRecurrenceConfigOpen && (
+          <TransactionRecurrenceConfigModal
+            startDate={transferRecurrenceStartDate}
+            isStartDateReadOnly={true}
+            frequency={transferRecurrenceFrequency}
+            onFrequencyChange={setTransferRecurrenceFrequency}
+            endType={transferRecurrenceEndType}
+            onEndTypeChange={setTransferRecurrenceEndType}
+            endOccurrences={transferRecurrenceEndOccurrences}
+            onEndOccurrencesChange={setTransferRecurrenceEndOccurrences}
+            endDate={transferRecurrenceEndDate}
+            onEndDateChange={setTransferRecurrenceEndDate}
+            onClose={() => {
+              setIsTransferRecurrenceConfigOpen(false)
+              setIsTransferRecurrenceEnabled(false)
+            }}
+            onConfirm={() => {
+              setIsTransferRecurrenceConfigOpen(false)
+            }}
+          />
+        )}
       </div>
     </div>
   )

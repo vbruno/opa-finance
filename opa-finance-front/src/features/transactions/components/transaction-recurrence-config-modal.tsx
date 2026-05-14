@@ -7,6 +7,7 @@ import { TransactionRecurrenceScheduleFields } from './transaction-recurrence-sc
 type TransactionRecurrenceConfigModalProps = {
   // Campos de configuração
   startDate: string
+  isStartDateReadOnly?: boolean
   frequency: 'weekly' | 'biweekly' | 'monthly' | 'yearly'
   onFrequencyChange: (value: 'weekly' | 'biweekly' | 'monthly' | 'yearly') => void
   endType: 'never' | 'by_occurrences' | 'until_date'

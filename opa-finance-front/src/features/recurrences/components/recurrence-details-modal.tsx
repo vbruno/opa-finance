@@ -243,8 +243,9 @@ export function RecurrenceDetailsModal({
               size="sm"
               variant="destructive"
               onClick={() => onDelete(recurrence)}
-              disabled={deletePending}
+              disabled={deletePending || recurrence.status === 'active'}
               aria-label="Excluir recorrência"
+              title={recurrence.status === 'active' ? 'Finalize a recorrência antes de excluir' : ''}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
