@@ -31,11 +31,12 @@ describe('transactions.helpers', () => {
 
     it('deve avaliar expressao aritmetica com precedencia', () => {
       expect(parseAmountFilter('=10+2*3')).toEqual({ amount: 16 })
+      expect(parseAmountFilter('=(10+2)')).toEqual({ amount: 12 })
     })
 
     it('deve retornar null para expressao invalida', () => {
       expect(parseAmountFilter('=10/0')).toBeNull()
-      expect(parseAmountFilter('=(10+2)')).toBeNull()
+      expect(parseAmountFilter('=(10+2')).toBeNull()
       expect(parseAmountFilter('abc')).toBeNull()
     })
   })
