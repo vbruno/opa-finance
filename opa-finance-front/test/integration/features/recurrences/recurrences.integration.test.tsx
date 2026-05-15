@@ -980,11 +980,14 @@ describe('recurrences feature', () => {
     const detailsModal = await screen.findByRole('dialog', {
       name: 'Detalhes da recorrência',
     })
-    fireEvent.click(within(detailsModal).getByRole('button', { name: 'Excluir recorrência' }))
-
-    expect(
-      await within(detailsModal).findByText('Finalize a recorrência antes de excluir.'),
-    ).toBeInTheDocument()
+    const deleteButton = within(detailsModal).getByRole('button', {
+      name: 'Excluir recorrência',
+    })
+    fireEvent.click(deleteButton)
+    expect(deleteButton).toHaveAttribute(
+      'title',
+      'Finalize a recorrência antes de excluir',
+    )
   })
 
   it('deve finalizar recorrência ativa', async () => {
@@ -1301,6 +1304,20 @@ describe('recurrences feature', () => {
     }
 
     let capturedPayload: Record<string, unknown> | null = null
+    const unconsumedTimelineMock: RecurrenceTimelineResponse = {
+      ...recurrenceTimelineMock,
+      summary: {
+        ...recurrenceTimelineMock.summary,
+        consumedOccurrences: 0,
+        materializedOccurrences: 0,
+        pendingReviewOccurrences: 0,
+        projectedOccurrences: 2,
+        materializedAmount: 0,
+        pendingReviewAmount: 0,
+        projectedAmount: 240,
+      },
+      items: recurrenceTimelineMock.items.filter((item) => item.status === 'projected'),
+    }
 
     server.use(
       http.get('*/version', () =>
@@ -1320,7 +1337,7 @@ describe('recurrences feature', () => {
         }),
       ),
       http.get('*/recurrences/:id', () => ok(recurrenceWithOccurrences)),
-      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/recurrences/:id/timeline', () => ok(unconsumedTimelineMock)),
       http.get('*/transactions/descriptions', () => ok({ items: [] })),
       http.put('*/recurrences/:id', async ({ request }) => {
         capturedPayload = (await request.json()) as Record<string, unknown>
@@ -1352,11 +1369,11 @@ describe('recurrences feature', () => {
 
     await waitFor(() => expect(capturedPayload).not.toBeNull())
     expect(capturedPayload).toMatchObject({
-      endType: 'by_occurrences',
-      endOccurrences: 5,
       description: 'Academia atualizada',
       expectedVersion: 1,
     })
+    expect(capturedPayload).not.toHaveProperty('endType')
+    expect(capturedPayload).not.toHaveProperty('endOccurrences')
     expect(capturedPayload).not.toHaveProperty('notes')
     expect(capturedPayload).not.toMatchObject({
       endType: 'never',
@@ -1366,15 +1383,25 @@ describe('recurrences feature', () => {
     )
   })
 
-  it('deve salvar troca de término por ocorrências para data final', async () => {
-    const recurrenceWithOccurrences = {
+  it('deve manter término bloqueado em edição global de recorrência com geração prévia', async () => {
+    const recurrenceWithoutConsumedOccurrences = {
       ...recurrencesMock.data[0],
       endType: 'by_occurrences' as const,
       endOccurrences: 5,
       endDate: null,
+      hasConsumedOccurrences: false,
     }
 
-    let capturedPayload: Record<string, unknown> | null = null
+    const unconsumedTimelineMock: RecurrenceTimelineResponse = {
+      ...recurrenceTimelineMock,
+      summary: {
+        ...recurrenceTimelineMock.summary,
+        consumedOccurrences: 0,
+        materializedOccurrences: 0,
+        materializedAmount: 0,
+      },
+      items: recurrenceTimelineMock.items.filter((item) => item.status !== 'materialized'),
+    }
 
     server.use(
       http.get('*/version', () =>
@@ -1390,21 +1417,12 @@ describe('recurrences feature', () => {
       http.get('*/recurrences', () =>
         ok({
           ...recurrencesMock,
-          data: [recurrenceWithOccurrences],
+          data: [recurrenceWithoutConsumedOccurrences],
         }),
       ),
-      http.get('*/recurrences/:id', () => ok(recurrenceWithOccurrences)),
-      http.get('*/recurrences/:id/timeline', () => ok(recurrenceTimelineMock)),
+      http.get('*/recurrences/:id', () => ok(recurrenceWithoutConsumedOccurrences)),
+      http.get('*/recurrences/:id/timeline', () => ok(unconsumedTimelineMock)),
       http.get('*/transactions/descriptions', () => ok({ items: [] })),
-      http.put('*/recurrences/:id', async ({ request }) => {
-        capturedPayload = (await request.json()) as Record<string, unknown>
-        return ok({
-          ...recurrenceWithOccurrences,
-          endType: 'until_date',
-          endOccurrences: null,
-          endDate: '2026-12-31',
-        })
-      }),
     )
 
     renderRouteWithProviders({ initialEntries: ['/app/recurrences'] })
@@ -1420,26 +1438,7 @@ describe('recurrences feature', () => {
 
     const modal = await screen.findByRole('dialog', { name: 'Editar recorrência' })
     expect(within(modal).getByRole('combobox', { name: 'Término' })).toHaveTextContent('Por ocorrências')
-
-    await selectRecurrenceFormOption(modal, 'Término', 'Por data final')
-    fireEvent.change(await within(modal).findByLabelText('Data final'), {
-      target: { value: '2026-12-31' },
-    })
-
-    const saveButton = screen.getByRole('button', { name: 'Salvar edição' })
-    await waitFor(() => expect(saveButton).not.toBeDisabled())
-    fireEvent.click(saveButton)
-
-    await waitFor(() => expect(capturedPayload).not.toBeNull())
-    expect(capturedPayload).toMatchObject({
-      endType: 'until_date',
-      endDate: '2026-12-31',
-      expectedVersion: 1,
-    })
-    expect(capturedPayload).not.toHaveProperty('endOccurrences')
-    expect(capturedPayload).not.toMatchObject({
-      endType: 'never',
-    })
+    expect(within(modal).getByRole('combobox', { name: 'Término' })).toBeDisabled()
   })
 
   it('deve abrir edição global pelo topo sem mostrar seletor de escopo', async () => {

@@ -122,6 +122,7 @@ export function RecurrenceFormModal({
 
   const isEditingActive = isEditing && editingRecurrence?.status === 'active'
   const isStructuralFieldsDisabled = isSingleScopeEdit || isGlobalStructureLocked
+  const isAmountFieldDisabled = isGlobalStructureLocked && !isOccurrenceEdit
   const hasFormErrors = Object.keys(form.formState.errors).length > 0
   const isSubmitDisabled =
     isAnyMutationPending || isFormSupportDataLoading || Boolean(isSubcategoriesError)
@@ -239,7 +240,7 @@ export function RecurrenceFormModal({
             <div className="space-y-4">
               {isGlobalStructureLocked ? (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-                  Recorrência ativada. Apenas descrição, observações e valor são editáveis.
+                  Esta recorrência já possui ocorrências geradas. Para alterar valor, agenda, conta ou categoria das próximas, edite uma ocorrência futura pela timeline. Na edição global, apenas descrição e observações podem ser alteradas.
                 </div>
               ) : null}
 
@@ -583,7 +584,7 @@ export function RecurrenceFormModal({
                       form.setError('amount', { type: 'manual', message })
                     }}
                     inputMode="numeric"
-                    disabled={isGlobalStructureLocked}
+                    disabled={isAmountFieldDisabled}
                   />
                 </div>
               ) : originType === 'transaction' ? (
@@ -611,7 +612,7 @@ export function RecurrenceFormModal({
                         form.setError('amount', { type: 'manual', message })
                       }}
                       inputMode="numeric"
-                      disabled={isGlobalStructureLocked}
+                      disabled={isAmountFieldDisabled}
                     />
                   </div>
                 </div>
