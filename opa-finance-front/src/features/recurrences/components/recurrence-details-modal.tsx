@@ -87,6 +87,7 @@ export function RecurrenceDetailsModal({
 }: RecurrenceDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null)
   const [isBulkSkipping, setIsBulkSkipping] = useState(false)
+  const [isOpeningConfirmModal, setIsOpeningConfirmModal] = useState(false)
   const [bulkSkipOpen, setBulkSkipOpen] = useState(false)
   const [bulkSkipReason, setBulkSkipReason] = useState('')
   const [page, setPage] = useState(1)
@@ -138,6 +139,41 @@ export function RecurrenceDetailsModal({
       ) ?? [],
     [timelineQuery.data?.items],
   )
+
+  function findMatchingTimelineItem(
+    items: RecurrenceTimelineItem[],
+    target: RecurrenceTimelineItem,
+  ) {
+    const byId = target.id
+      ? items.find((item) => item.id === target.id)
+      : null
+
+    if (byId) return byId
+
+    return items.find(
+      (item) =>
+        item.source === target.source &&
+        item.occurrenceDate === target.occurrenceDate &&
+        item.sequence === target.sequence,
+    )
+  }
+
+  async function handleOpenConfirmOccurrence(item: RecurrenceTimelineItem) {
+    setIsOpeningConfirmModal(true)
+
+    try {
+      const refreshed = await timelineQuery.refetch()
+      const latestItem =
+        refreshed.data?.items &&
+        findMatchingTimelineItem(refreshed.data.items, item)
+
+      onOpenConfirmOccurrence(latestItem ?? item)
+    } catch {
+      onOpenConfirmOccurrence(item)
+    } finally {
+      setIsOpeningConfirmModal(false)
+    }
+  }
 
   function handleSkipPendingReviewItems() {
     if (!recurrence || pendingReviewItems.length === 0) return
@@ -438,8 +474,8 @@ export function RecurrenceDetailsModal({
                                 size="icon-sm"
                                 variant="outline"
                                 className="disabled:opacity-40"
-                                onClick={() => onOpenConfirmOccurrence(item)}
-                                disabled={!item.canConfirm}
+                                onClick={() => void handleOpenConfirmOccurrence(item)}
+                                disabled={!item.canConfirm || isOpeningConfirmModal}
                                 aria-label="Confirmar ocorrência"
                               >
                                 <CheckCircle2 className="h-4 w-4" />
