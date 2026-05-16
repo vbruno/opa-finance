@@ -13,12 +13,6 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 echo "📂 Carregando variáveis do .env..."
-set -a
-. "$ENV_FILE"
-set +a
-
-SSH_KEY_PATH="${SSH_KEY/#\~/$HOME}"
-
 REQUIRED_VARS=(
   "SSH_HOST"
   "SSH_KEY"
@@ -27,6 +21,36 @@ REQUIRED_VARS=(
   "SSH_POSTGRES_DB"
   "SSH_POSTGRES_DEV_DB"
 )
+
+load_env_var() {
+  local key="$1"
+  local line value
+
+  line="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}=" "$ENV_FILE" | tail -n 1 || true)"
+  if [ -z "$line" ]; then
+    return
+  fi
+
+  value="${line#*=}"
+  value="${value%$'\r'}"
+
+  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+    value="${value:1:${#value}-2}"
+  elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+    value="${value:1:${#value}-2}"
+  fi
+
+  printf -v "$key" "%s" "$value"
+  export "$key"
+}
+
+for var in "${REQUIRED_VARS[@]}"; do
+  if [ -z "${!var}" ]; then
+    load_env_var "$var"
+  fi
+done
+
+SSH_KEY_PATH="${SSH_KEY/#\~/$HOME}"
 
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!var}" ]; then
