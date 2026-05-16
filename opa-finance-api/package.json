@@ -25,6 +25,8 @@
     "db:test:migrate": "bash ./scripts/db-test-migrate.sh",
     "db:test:studio": "bash ./scripts/db-test-studio.sh",
     "db:seed": "bash ./scripts/db-seed-run.sh",
+    "user:reset-password": "tsx ./scripts/reset-user-password.ts",
+    "user:update-email": "tsx ./scripts/update-user-email.ts",
     "lint": "eslint . --ext .ts --config eslint.config.ts",
     "lint:fix": "eslint . --ext .ts --fix --config eslint.config.ts",
     "format": "prettier --write .",
