@@ -1,9 +1,11 @@
 // test/setup.ts
 import cookie from "@fastify/cookie";
+import rateLimit from "@fastify/rate-limit";
 import type Ajv from "ajv";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
+import { TooManyRequestsProblem } from "@/core/errors/problems";
 import { registerErrorHandler } from "@/core/middlewares/handle-route-error";
 import { DB } from "@/core/plugins/drizzle";
 import { createTestDB } from "@/core/plugins/drizzle-test";
@@ -46,6 +48,17 @@ export async function buildTestApp(): Promise<{ app: FastifyInstance; db: DB }> 
   // 🔥 Cookie PRECISA vir antes do JWT plugin
   app.register(cookie, {
     secret: "test-secret", // pode ser qualquer valor nos testes
+  });
+
+  // Rate limit — mesmo registro do server real para preservar parity nos testes
+  await app.register(rateLimit, {
+    global: false,
+    hook: "preHandler",
+    errorResponseBuilder: (req, context) =>
+      new TooManyRequestsProblem(
+        `Muitas tentativas. Tente novamente em ${Math.ceil(context.ttl / 1000)}s.`,
+        req.url,
+      ),
   });
 
   // JWT plugin (depende do cookie para ler o refreshToken)

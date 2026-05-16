@@ -94,6 +94,12 @@ export const resetPasswordSchema = z
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+export const validateResetTokenSchema = z.object({
+  token: z.string().min(1, "Token é obrigatório."),
+});
+
+export type ValidateResetTokenInput = z.infer<typeof validateResetTokenSchema>;
+
 /* -------------------------------------------------------------------------- */
 /*                  CHECK PASSWORD STRENGTH INPUT                              */
 /* -------------------------------------------------------------------------- */

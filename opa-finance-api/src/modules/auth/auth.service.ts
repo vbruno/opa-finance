@@ -1,5 +1,7 @@
 // src/modules/auth/auth.service.ts
-import { eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
+
+import { and, eq, gt, isNull, ne } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { env } from "../../core/config/env";
 import {
@@ -9,31 +11,29 @@ import {
   ValidationProblem,
 } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
+import {
+  sendPasswordChangedEmail,
+  sendPasswordResetEmail,
+} from "../../core/services/email.service";
 import { hashPassword, comparePassword } from "../../core/utils/hash.utils";
 import { ensureValidTimezone } from "../../core/utils/timezone-db.utils";
 import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
-import { users } from "../../db/schema";
+import { passwordResetTokens, users } from "../../db/schema";
 
 import type { RegisterInput, LoginInput } from "./auth.schemas";
+import { RESET_TOKEN_TTL_MINUTES, buildResetLink, hashResetToken } from "./password-reset.utils";
 import type { ChangePasswordInput, ResetPasswordInput } from "./password.schemas";
-
-type ResetTokenPayload = {
-  sub: string;
-  type: "reset";
-};
 
 type ForgotPasswordResult = {
   email: string;
-  resetToken?: string;
 };
 
-function isResetTokenPayload(payload: unknown): payload is ResetTokenPayload {
-  if (!payload || typeof payload !== "object") {
-    return false;
-  }
-
-  const value = payload as Partial<ResetTokenPayload>;
-  return value.type === "reset" && typeof value.sub === "string" && value.sub.length > 0;
+function formatChangedAt(timezone: string, when: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: timezone,
+  }).format(when);
 }
 
 export class AuthService {
@@ -132,41 +132,82 @@ export class AuthService {
   /* -------------------------------------------------------------------------- */
   /*                             FORGOT PASSWORD                                */
   /* -------------------------------------------------------------------------- */
-  async forgotPassword(email: string): Promise<ForgotPasswordResult> {
+  async forgotPassword(email: string, requesterIp?: string): Promise<ForgotPasswordResult> {
     const [user] = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
 
-    // ❗ Se o usuário não existir, retorna como se existisse
+    // Resposta sempre genérica — não revelamos se o email existe.
     if (!user) {
-      return {
-        resetToken: undefined,
-        email,
-      };
+      return { email };
     }
 
-    const token = this.app.jwt.sign({ sub: user.id, type: "reset" }, { expiresIn: "15m" });
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = hashResetToken(rawToken);
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60_000);
 
-    return { resetToken: token, email: user.email };
+    await this.db.insert(passwordResetTokens).values({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+      requesterIp: requesterIp ?? null,
+    });
+
+    const resetLink = buildResetLink(env.APP_BASE_URL, rawToken);
+
+    await sendPasswordResetEmail({
+      to: user.email,
+      userName: user.name,
+      resetLink,
+      expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
+      logger: this.app.log,
+    });
+
+    return { email: user.email };
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                       VALIDATE RESET TOKEN (read-only)                     */
+  /* -------------------------------------------------------------------------- */
+  async validateResetToken(token: string): Promise<{ valid: boolean }> {
+    const tokenHash = hashResetToken(token);
+    const [row] = await this.db
+      .select({ id: passwordResetTokens.id })
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.tokenHash, tokenHash),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    return { valid: Boolean(row) };
   }
 
   /* -------------------------------------------------------------------------- */
   /*                              RESET PASSWORD                                */
   /* -------------------------------------------------------------------------- */
-  async resetPassword(data: ResetPasswordInput) {
-    let payload: unknown;
+  async resetPassword(data: ResetPasswordInput, requesterIp?: string) {
+    const tokenHash = hashResetToken(data.token);
+    const now = new Date();
 
-    try {
-      payload = this.app.jwt.verify(data.token);
-    } catch {
+    const [tokenRow] = await this.db
+      .select()
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.tokenHash, tokenHash),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, now),
+        ),
+      )
+      .limit(1);
+
+    if (!tokenRow) {
       throw new ValidationProblem("Token inválido ou expirado.", "/auth/reset-password");
     }
 
-    if (!isResetTokenPayload(payload)) {
-      throw new ValidationProblem("Token inválido.", "/auth/reset-password");
-    }
-
-    const userId = payload.sub;
-
-    const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+    const [user] = await this.db.select().from(users).where(eq(users.id, tokenRow.userId));
 
     if (!user) {
       throw new NotFoundProblem("Usuário não encontrado.", "/auth/reset-password");
@@ -174,7 +215,38 @@ export class AuthService {
 
     const newHash = await hashPassword(data.newPassword);
 
-    await this.db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
+    await this.db.update(users).set({ passwordHash: newHash }).where(eq(users.id, user.id));
+
+    // Marca o token como usado de forma atômica — defesa contra race condition.
+    const consumed = await this.db
+      .update(passwordResetTokens)
+      .set({ usedAt: now })
+      .where(and(eq(passwordResetTokens.id, tokenRow.id), isNull(passwordResetTokens.usedAt)))
+      .returning({ id: passwordResetTokens.id });
+
+    if (consumed.length === 0) {
+      throw new ValidationProblem("Token já utilizado.", "/auth/reset-password");
+    }
+
+    // Invalida quaisquer outros tokens ativos do mesmo usuário.
+    await this.db
+      .update(passwordResetTokens)
+      .set({ usedAt: now })
+      .where(
+        and(
+          eq(passwordResetTokens.userId, user.id),
+          isNull(passwordResetTokens.usedAt),
+          ne(passwordResetTokens.id, tokenRow.id),
+        ),
+      );
+
+    await sendPasswordChangedEmail({
+      to: user.email,
+      userName: user.name,
+      changedAtFormatted: formatChangedAt(user.timezone, now),
+      ip: requesterIp ?? null,
+      logger: this.app.log,
+    });
 
     return { message: "Senha redefinida com sucesso." };
   }

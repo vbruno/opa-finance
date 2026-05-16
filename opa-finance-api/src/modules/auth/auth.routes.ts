@@ -1,6 +1,8 @@
 // src/modules/auth/auth.routes.ts
+import "@fastify/rate-limit";
+
 import { eq } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import { env } from "../../core/config/env";
 import { NotFoundProblem, UnauthorizedProblem } from "../../core/errors/problems";
@@ -15,6 +17,7 @@ import {
   forgotPasswordSchema,
   passwordStrengthSchema,
   resetPasswordSchema,
+  validateResetTokenSchema,
 } from "./password.schemas";
 
 export async function authRoutes(app: FastifyInstance) {
@@ -361,7 +364,8 @@ export async function authRoutes(app: FastifyInstance) {
       schema: {
         tags: authTag,
         summary: "Recuperar senha",
-        description: "Gera token de redefinição. Em produção, não retorna token.",
+        description:
+          "Envia um email com link de redefinição quando a conta existe. Resposta sempre genérica.",
         body: {
           type: "object",
           required: ["email"],
@@ -374,12 +378,27 @@ export async function authRoutes(app: FastifyInstance) {
             type: "object",
             properties: {
               message: { type: "string" },
-              resetToken: { type: "string", nullable: true },
             },
             example: {
               message: "Se o email existir, enviaremos um link de redefinição.",
-              resetToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXCJ9...",
             },
+          },
+        },
+      },
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 hour",
+          keyGenerator: (req: FastifyRequest) => {
+            const body: unknown = req.body;
+            let email = "";
+            if (body && typeof body === "object" && "email" in body) {
+              const candidate = (body as { email: unknown }).email;
+              if (typeof candidate === "string") {
+                email = candidate.toLowerCase();
+              }
+            }
+            return `${req.ip}|${email}`;
           },
         },
       },
@@ -387,13 +406,10 @@ export async function authRoutes(app: FastifyInstance) {
     async (req) => {
       const { email } = forgotPasswordSchema.parse(req.body);
 
-      const result = await service.forgotPassword(email);
-      // TODO: enviar o token por e-mail em produção.
-      const includeToken = env.NODE_ENV !== "production";
+      await service.forgotPassword(email, req.ip);
 
       return {
         message: "Se o email existir, enviaremos um link de redefinição.",
-        ...(includeToken ? { resetToken: result.resetToken } : {}),
       };
     },
   );
@@ -432,7 +448,48 @@ export async function authRoutes(app: FastifyInstance) {
     },
     async (req) => {
       const data = resetPasswordSchema.parse(req.body);
-      return await service.resetPassword(data);
+      return await service.resetPassword(data, req.ip);
+    },
+  );
+
+  /* -------------------------------------------------------------------------- */
+  /*                          VALIDATE RESET TOKEN                              */
+  /* -------------------------------------------------------------------------- */
+  app.post(
+    "/auth/validate-reset-token",
+    {
+      schema: {
+        tags: authTag,
+        summary: "Validar token de reset",
+        description:
+          "Verifica se um token de reset ainda é válido (não usado e não expirado). Não consome o token.",
+        body: {
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: { type: "string" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              valid: { type: "boolean" },
+            },
+            example: { valid: true },
+          },
+        },
+      },
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+        },
+      },
+    },
+    async (req) => {
+      const data = validateResetTokenSchema.parse(req.body);
+      return await service.validateResetToken(data.token);
     },
   );
 }

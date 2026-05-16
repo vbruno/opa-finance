@@ -45,6 +45,9 @@ const envSchema = z.object({
   RECURRENCES_JOB_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(500),
   RECURRENCES_JOB_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
   RECURRENCES_JOB_MAX_BATCHES_PER_USER_RUN: z.coerce.number().int().min(1).max(100).default(20),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().min(1).default("OPA Finance <no-reply@opadev.com>"),
+  APP_BASE_URL: z.url().default("http://localhost:5173"),
 });
 
 const rawEnv = envSchema.parse(process.env);

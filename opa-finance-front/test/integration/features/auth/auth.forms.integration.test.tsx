@@ -38,12 +38,11 @@ describe('auth forms', () => {
     await screen.findByText('Email ou senha inválidos')
   })
 
-  it('envia recuperação de senha e não exibe token por padrão', async () => {
+  it('envia recuperação de senha e exibe mensagem de sucesso', async () => {
     server.use(
       http.post('*/auth/forgot-password', () =>
         ok({
-          message: 'Instruções enviadas para o email informado.',
-          resetToken: 'token-teste-123',
+          message: 'Se o email existir, enviaremos um link de redefinição.',
         }),
       ),
     )
@@ -57,22 +56,23 @@ describe('auth forms', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enviar recuperação' }))
 
-    await screen.findByText('Instruções enviadas para o email informado.')
-    expect(screen.queryByText('token-teste-123')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: 'Abrir redefinição com token' }),
-    ).not.toBeInTheDocument()
+    await screen.findByText(
+      'Se o email existir, enviaremos um link de redefinição.',
+    )
   })
 
-  it('exibe token de teste quando VITE_SHOW_RESET_TOKEN está habilitado', async () => {
-    vi.stubEnv('VITE_SHOW_RESET_TOKEN', 'true')
-
+  it('exibe mensagem amigável quando o forgot-password é bloqueado por rate limit (429)', async () => {
     server.use(
       http.post('*/auth/forgot-password', () =>
-        ok({
-          message: 'Instruções enviadas para o email informado.',
-          resetToken: 'token-teste-123',
-        }),
+        HttpResponse.json(
+          {
+            type: 'https://opa.dev/errors/too-many-requests',
+            title: 'Too Many Requests',
+            status: 429,
+            detail: 'Muitas tentativas. Tente novamente em 3540s.',
+          },
+          { status: 429 },
+        ),
       ),
     )
 
@@ -85,11 +85,7 @@ describe('auth forms', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enviar recuperação' }))
 
-    await screen.findByText('Instruções enviadas para o email informado.')
-    await screen.findByText('token-teste-123')
-    expect(
-      screen.getByRole('link', { name: 'Abrir redefinição com token' }),
-    ).toBeInTheDocument()
+    await screen.findByText('Muitas tentativas. Tente novamente em 3540s.')
   })
 
   it('mantém token da URL e exibe erro de reset quando API retorna 400', async () => {

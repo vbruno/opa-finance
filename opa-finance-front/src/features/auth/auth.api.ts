@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
@@ -22,7 +22,6 @@ export type ForgotPasswordPayload = {
 
 export type ForgotPasswordResponse = {
   message: string
-  resetToken?: string
 }
 
 export type ResetPasswordPayload = {
@@ -63,6 +62,27 @@ export function useResetPassword() {
   return useMutation({
     mutationFn: async (payload: ResetPasswordPayload) => {
       await api.post('/auth/reset-password', payload)
+    },
+  })
+}
+
+export type ValidateResetTokenResponse = {
+  valid: boolean
+}
+
+export function useValidateResetToken(token: string | undefined) {
+  return useQuery({
+    queryKey: ['auth', 'validate-reset-token', token],
+    enabled: Boolean(token),
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async () => {
+      const response = await api.post<ValidateResetTokenResponse>(
+        '/auth/validate-reset-token',
+        { token },
+      )
+      return response.data
     },
   })
 }

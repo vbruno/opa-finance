@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { useEffect } from 'react'
-import { useState } from 'react'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -14,6 +13,7 @@ import {
   isAuthFormPending,
   submitWithApiRootError,
   useResetPassword,
+  useValidateResetToken,
 } from '@/features/auth'
 import {
   resetPasswordSchema,
@@ -36,6 +36,163 @@ export const Route = createFileRoute('/reset-password')({
 
 function ResetPasswordPage() {
   const search = Route.useSearch()
+  const tokenFromUrl = search.token
+  const validateQuery = useValidateResetToken(tokenFromUrl)
+  const [resetSucceeded, setResetSucceeded] = useState(false)
+
+  const tokenIsInvalid =
+    Boolean(tokenFromUrl) &&
+    validateQuery.isSuccess &&
+    !validateQuery.data.valid
+
+  const validationFailed = Boolean(tokenFromUrl) && validateQuery.isError
+
+  if (resetSucceeded) {
+    return <ResetPasswordSuccessCard />
+  }
+
+  if (tokenFromUrl && validateQuery.isLoading) {
+    return (
+      <AuthPageShell
+        title="Redefinir senha"
+        subtitle="Verificando link..."
+        footer={
+          <Link to="/login" className="text-primary hover:underline">
+            Voltar para login
+          </Link>
+        }
+      >
+        <div className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+          Validando seu link de redefinição...
+        </div>
+      </AuthPageShell>
+    )
+  }
+
+  if (validationFailed) {
+    return (
+      <AuthPageShell
+        title="Não foi possível verificar"
+        subtitle="Houve um problema ao validar seu link."
+        footer={
+          <Link to="/login" className="text-primary hover:underline">
+            Voltar para login
+          </Link>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            Não conseguimos verificar seu link agora. Pode ser uma instabilidade
+            temporária — tente novamente em instantes.
+          </div>
+          <Button
+            type="button"
+            className="h-11 w-full sm:h-10"
+            disabled={validateQuery.isFetching}
+            onClick={() => {
+              void validateQuery.refetch()
+            }}
+          >
+            {validateQuery.isFetching ? 'Verificando...' : 'Tentar novamente'}
+          </Button>
+        </div>
+      </AuthPageShell>
+    )
+  }
+
+  if (tokenIsInvalid) {
+    return (
+      <AuthPageShell
+        title="Link inválido"
+        subtitle="Este link de redefinição não pode mais ser usado."
+        footer={
+          <Link to="/login" className="text-primary hover:underline">
+            Voltar para login
+          </Link>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            O link expirou ou já foi utilizado. Solicite um novo email de
+            redefinição para continuar.
+          </div>
+          <Link to="/forgot-password" className="block">
+            <Button type="button" className="h-11 w-full sm:h-10">
+              Solicitar novo link
+            </Button>
+          </Link>
+        </div>
+      </AuthPageShell>
+    )
+  }
+
+  return (
+    <ResetPasswordForm
+      initialToken={tokenFromUrl ?? ''}
+      onSuccess={() => setResetSucceeded(true)}
+    />
+  )
+}
+
+const SUCCESS_REDIRECT_SECONDS = 10
+
+function ResetPasswordSuccessCard() {
+  const navigate = useNavigate()
+  const [remaining, setRemaining] = useState(SUCCESS_REDIRECT_SECONDS)
+
+  useEffect(() => {
+    if (remaining <= 0) {
+      navigate({ to: '/login' })
+      return
+    }
+    const timeout = setTimeout(() => {
+      setRemaining((value) => value - 1)
+    }, 1000)
+    return () => clearTimeout(timeout)
+  }, [remaining, navigate])
+
+  return (
+    <AuthPageShell
+      title="Senha redefinida"
+      subtitle="Tudo certo com a sua nova senha."
+      footer={
+        <Link to="/login" className="text-primary hover:underline">
+          Voltar para login
+        </Link>
+      }
+    >
+      <div className="space-y-4">
+        <div className="rounded-md bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+          <p className="font-medium">Sua senha foi atualizada com sucesso.</p>
+          <p className="mt-1">
+            Enviamos um email de confirmação para a sua caixa de entrada. Agora
+            é só entrar com a nova senha.
+          </p>
+        </div>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Redirecionando para o login em <span className="font-medium">{remaining}s</span>...
+        </p>
+
+        <Button
+          type="button"
+          className="h-11 w-full sm:h-10"
+          onClick={() => navigate({ to: '/login' })}
+        >
+          Ir para o login agora
+        </Button>
+      </div>
+    </AuthPageShell>
+  )
+}
+
+function ResetPasswordForm({
+  initialToken,
+  onSuccess,
+}: {
+  initialToken: string
+  onSuccess: () => void
+}) {
   const [showPassword, setShowPassword] = useState(false)
   const resetPasswordMutation = useResetPassword()
   const {
@@ -48,7 +205,7 @@ function ResetPasswordPage() {
   } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      token: search.token ?? '',
+      token: initialToken,
       newPassword: '',
       confirmNewPassword: '',
     },
@@ -56,10 +213,10 @@ function ResetPasswordPage() {
   const isPending = isAuthFormPending(isSubmitting, resetPasswordMutation.isPending)
 
   useEffect(() => {
-    if (search.token) {
-      setValue('token', search.token)
+    if (initialToken) {
+      setValue('token', initialToken)
     }
-  }, [search.token, setValue])
+  }, [initialToken, setValue])
 
   async function onSubmit(formData: ResetPasswordFormData) {
     await submitWithApiRootError({
@@ -68,6 +225,7 @@ function ResetPasswordPage() {
       setError,
       clearRootError: () => clearErrors('root'),
       defaultMessage: 'Erro ao redefinir senha.',
+      onSuccess,
     })
   }
 
@@ -85,12 +243,6 @@ function ResetPasswordPage() {
         {errors.root?.message && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {errors.root.message}
-          </div>
-        )}
-
-        {resetPasswordMutation.isSuccess && (
-          <div className="rounded-md bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
-            Senha redefinida com sucesso.
           </div>
         )}
 

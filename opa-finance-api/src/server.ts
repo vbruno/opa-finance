@@ -1,5 +1,6 @@
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import type Ajv from "ajv";
@@ -7,6 +8,7 @@ import { config } from "dotenv";
 import { sql } from "drizzle-orm";
 import Fastify from "fastify";
 import { env } from "./core/config/env";
+import { TooManyRequestsProblem } from "./core/errors/problems";
 import { registerErrorHandler } from "./core/middlewares/handle-route-error";
 import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
@@ -114,6 +116,17 @@ async function start() {
   // Cookies
   app.register(cookie, {
     secret: env.JWT_SECRET,
+  });
+
+  // Rate limit (aplicado por rota via config.rateLimit)
+  await app.register(rateLimit, {
+    global: false,
+    hook: "preHandler",
+    errorResponseBuilder: (req, context) =>
+      new TooManyRequestsProblem(
+        `Muitas tentativas. Tente novamente em ${Math.ceil(context.ttl / 1000)}s.`,
+        req.url,
+      ),
   });
 
   if (env.NODE_ENV !== "production") {

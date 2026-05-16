@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { env } from "../../core/config/env";
 import { DEFAULT_TIMEZONE } from "../../core/utils/timezone.utils";
+import { cleanupExpiredPasswordResetTokens } from "../auth/password-reset.cleanup";
 import { RecurrenceService } from "./recurrence.service";
 
 type DueUser = {
@@ -268,6 +269,15 @@ export class RecurrenceDailyJob {
   }
 
   private async runOnce(): Promise<JobRunStats> {
+    try {
+      await cleanupExpiredPasswordResetTokens(this.app.db, this.app.log);
+    } catch (error) {
+      this.app.log.error(
+        { event: "auth.password_reset_tokens.cleanup_failed", error },
+        "Falha ao limpar tokens expirados de reset de senha (job continua).",
+      );
+    }
+
     const dueUsers = await this.findDueUsers();
     if (dueUsers.length === 0) {
       return {

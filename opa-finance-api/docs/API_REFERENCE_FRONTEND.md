@@ -317,7 +317,9 @@ Altera senha do usuário autenticado.
 
 ### POST `/auth/forgot-password`
 
-Solicita redefinição de senha.
+Solicita redefinição de senha. Quando o email corresponde a uma conta existente, envia um email com link de redefinição (`${APP_BASE_URL}/reset-password?token=<token>`). Resposta sempre genérica — não revela se o email existe.
+
+**Rate limit:** 5 requisições por hora por chave `IP|email`. Excedido, responde `429 Too Many Requests` em formato Problem Details.
 
 **Request Body:**
 
@@ -331,8 +333,18 @@ Solicita redefinição de senha.
 
 ```json
 {
-  "message": "Se o email existir, enviaremos um link de redefinição.",
-  "resetToken": "token-para-reset" // apenas em desenvolvimento
+  "message": "Se o email existir, enviaremos um link de redefinição."
+}
+```
+
+**Response 429 (rate limit):**
+
+```json
+{
+  "type": "https://opa.dev/errors/too-many-requests",
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Muitas tentativas. Tente novamente em 3540s."
 }
 ```
 
@@ -340,16 +352,15 @@ Solicita redefinição de senha.
 
 ### POST `/auth/reset-password`
 
-Redefine senha usando token de reset.
+Redefine senha usando token recebido por email. Token é de uso único e expira em 15 minutos. Após sucesso, envia um email de confirmação ("sua senha foi alterada") para o usuário.
 
 **Request Body:**
 
 ```json
 {
-  "email": "joao@example.com",
-  "resetToken": "token-recebido-por-email",
+  "token": "<token-recebido-por-email>",
   "newPassword": "NovaSenha456!",
-  "confirmPassword": "NovaSenha456!"
+  "confirmNewPassword": "NovaSenha456!"
 }
 ```
 
@@ -358,6 +369,18 @@ Redefine senha usando token de reset.
 ```json
 {
   "message": "Senha redefinida com sucesso."
+}
+```
+
+**Response 400 (token inválido, expirado ou já utilizado):**
+
+```json
+{
+  "type": "https://opa.dev/errors/validation-error",
+  "title": "Validation Error",
+  "status": 400,
+  "detail": "Token inválido ou expirado.",
+  "instance": "/auth/reset-password"
 }
 ```
 

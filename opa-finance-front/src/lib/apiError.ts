@@ -44,6 +44,10 @@ export function getApiErrorMessage(
     return invalidCredentialsMessage
   }
 
+  if (status === 429) {
+    return detail || 'Muitas tentativas. Tente novamente em alguns minutos.'
+  }
+
   if (status === 400) {
     return detail || defaultMessage
   }

@@ -110,6 +110,21 @@ export class ValidationProblem extends HttpProblem {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                          429 - Too Many Requests                            */
+/* -------------------------------------------------------------------------- */
+export class TooManyRequestsProblem extends HttpProblem {
+  constructor(detail = "Muitas tentativas. Tente novamente mais tarde.", instance?: string) {
+    super({
+      type: `${BASE}/too-many-requests`,
+      title: "Too Many Requests",
+      status: 429,
+      detail,
+      instance,
+    });
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /*                        500 - Internal Server Error                          */
 /* -------------------------------------------------------------------------- */
 export class InternalProblem extends HttpProblem {
