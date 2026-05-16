@@ -1,8 +1,8 @@
 {
   "name": "opa-finance-api",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "versioning": {
-    "cycleStartCommitCount": 497
+    "cycleStartCommitCount": 502
   },
   "description": "",
   "scripts": {
