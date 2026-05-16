@@ -3,9 +3,19 @@ import { useEffect, useState } from 'react'
 
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
-import { isAuthenticated, setAuth, type User } from '@/features/auth'
+import { isAuthenticated, logout, setAuth, type User } from '@/features/auth'
 import { api } from '@/lib/api'
 
+// Gate único de autenticação do app. Qualquer rota protegida deve ficar como
+// descendente de `/app` para herdar este `beforeLoad` — não há loader global.
+// Se uma nova área protegida precisar viver fora de `/app`, ela tem que
+// replicar este fluxo (refresh → me → setAuth) ou ser movida para cá.
+//
+// Como o `beforeLoad` é `async`, o TanStack Router segura o render do
+// `<Outlet>` até a promise resolver. Toda query autenticada disparada por
+// sub-rotas ou componentes filhos (Header, Sidebar, páginas) só monta
+// depois — não há race entre F5 e o refresh. O interceptor de 401 funciona
+// como segunda camada caso uma query escape.
 export const Route = createFileRoute('/app')({
   beforeLoad: async () => {
     if (isAuthenticated()) {
@@ -30,6 +40,9 @@ export const Route = createFileRoute('/app')({
 
       setAuth(accessToken, userResponse.data)
     } catch {
+      // Falha em /auth/refresh ou /auth/me ⇒ sessão inconsistente.
+      // Limpa cache local antes do redirect para evitar estado fantasma.
+      logout()
       throw redirect({ to: '/login' })
     }
   },

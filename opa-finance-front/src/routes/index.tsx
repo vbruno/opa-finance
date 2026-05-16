@@ -1,13 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { isAuthenticated } from '@/features/auth'
-
+// Raiz delega a decisão de sessão para o gate único em `/app` (ATH-DEF-01).
+// Quem está logado segue direto; quem não está cai no beforeLoad de `/app`,
+// que tenta /auth/refresh e redireciona para /login se falhar. Evita duplicar
+// a lógica de refresh aqui e garante comportamento correto em F5 após
+// remoção do access token de localStorage (ATH-DEF-06).
 export const Route = createFileRoute('/')({
   beforeLoad: () => {
-    if (isAuthenticated()) {
-      throw redirect({ to: '/app' })
-    }
-
-    throw redirect({ to: '/login' })
+    throw redirect({ to: '/app' })
   },
 })

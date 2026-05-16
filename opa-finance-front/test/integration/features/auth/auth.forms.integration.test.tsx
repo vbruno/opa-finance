@@ -90,6 +90,8 @@ describe('auth forms', () => {
 
   it('mantém token da URL e exibe erro de reset quando API retorna 400', async () => {
     server.use(
+      // Validação prévia do token responde válido — formulário deve montar.
+      http.post('*/auth/validate-reset-token', () => ok({ valid: true })),
       http.post('*/auth/reset-password', () =>
         HttpResponse.json({ detail: 'Token inválido ou expirado.' }, { status: 400 }),
       ),
@@ -99,9 +101,9 @@ describe('auth forms', () => {
       initialEntries: ['/reset-password?token=token-url-abc'],
     })
 
-    await screen.findByRole('heading', { name: 'Redefinir senha' })
-
-    expect(screen.getByLabelText('Token')).toHaveValue('token-url-abc')
+    // Aguarda o formulário aparecer (depois da validação prévia retornar válido).
+    const tokenInput = await screen.findByLabelText('Token')
+    expect(tokenInput).toHaveValue('token-url-abc')
 
     fireEvent.change(screen.getByLabelText('Nova senha'), {
       target: { value: 'NovaSenha@123' },
@@ -112,5 +114,21 @@ describe('auth forms', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Redefinir senha' }))
 
     await screen.findByText('Token inválido ou expirado.')
+  })
+
+  it('exibe tela de link inválido quando validate-reset-token retorna valid:false', async () => {
+    server.use(
+      http.post('*/auth/validate-reset-token', () => ok({ valid: false })),
+    )
+
+    renderRouteWithProviders({
+      initialEntries: ['/reset-password?token=expired-token'],
+    })
+
+    await screen.findByRole('heading', { name: 'Link inválido' })
+    await screen.findByText(/link expirou ou já foi utilizado/i)
+    expect(
+      screen.getByRole('link', { name: 'Solicitar novo link' }),
+    ).toBeInTheDocument()
   })
 })

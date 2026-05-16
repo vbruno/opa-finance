@@ -59,9 +59,12 @@ api.interceptors.response.use(
       originalUrl.includes('/auth/refresh')
 
     if (!error.response) {
+      // Backend inacessível (rede caída, container desligado, etc.).
+      // NÃO fazer logout: o cookie httpOnly de refresh continua válido e a
+      // sessão deve ser reanimada automaticamente quando o backend voltar.
+      // Apenas redireciona uma vez para a tela de indisponibilidade.
       if (!isBackendUnavailable) {
         isBackendUnavailable = true
-        logout()
         if (router.state.location.pathname !== '/unavailable') {
           router.navigate({ to: '/unavailable' })
         }
