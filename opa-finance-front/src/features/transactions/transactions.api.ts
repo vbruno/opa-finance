@@ -99,6 +99,38 @@ export type TopCategoriesQueryParams = {
   excludeHiddenAccounts?: boolean
 }
 
+export type CashflowGranularity = 'day' | 'week' | 'month'
+
+export type CashflowPoint = {
+  bucket: string
+  income: number
+  expense: number
+}
+
+export type CashflowQueryParams = {
+  startDate: string
+  endDate: string
+  granularity: CashflowGranularity
+  accountId?: string
+  excludeHiddenAccounts?: boolean
+}
+
+export type CategoryBreakdownItem = {
+  categoryId: string
+  categoryName: string
+  color: string | null
+  totalAmount: number
+  percentage: number
+}
+
+export type CategoryBreakdownQueryParams = {
+  startDate: string
+  endDate: string
+  type?: TransactionType
+  accountId?: string
+  excludeHiddenAccounts?: boolean
+}
+
 export type TransactionDescriptionsQueryParams = {
   accountId: string
   q?: string
@@ -136,6 +168,8 @@ const transactionsKey = ['transactions']
 const transactionKey = (id: string) => ['transaction', id]
 const transactionsSummaryKey = ['transactions-summary']
 const transactionsTopCategoriesKey = ['transactions-top-categories']
+const transactionsCashflowKey = ['transactions-cashflow']
+const transactionsCategoryBreakdownKey = ['transactions-category-breakdown']
 const transactionsDescriptionsKey = ['transactions-descriptions']
 
 export function invalidateTransactionDependents(queryClient: QueryClient) {
@@ -143,6 +177,8 @@ export function invalidateTransactionDependents(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['accounts'] })
   queryClient.invalidateQueries({ queryKey: transactionsSummaryKey })
   queryClient.invalidateQueries({ queryKey: transactionsTopCategoriesKey })
+  queryClient.invalidateQueries({ queryKey: transactionsCashflowKey })
+  queryClient.invalidateQueries({ queryKey: transactionsCategoryBreakdownKey })
   queryClient.invalidateQueries({ queryKey: ['recurrence-timeline'] })
 }
 
@@ -192,6 +228,40 @@ export function useTransactionsTopCategories(
     queryFn: async () => {
       const response = await api.get<TopCategory[]>(
         '/transactions/top-categories',
+        { params },
+      )
+      return response.data
+    },
+    enabled: options?.enabled,
+  })
+}
+
+export function useTransactionsCashflow(
+  params: CashflowQueryParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [...transactionsCashflowKey, params],
+    queryFn: async () => {
+      const response = await api.get<CashflowPoint[]>(
+        '/transactions/cashflow',
+        { params },
+      )
+      return response.data
+    },
+    enabled: options?.enabled,
+  })
+}
+
+export function useTransactionsCategoryBreakdown(
+  params: CategoryBreakdownQueryParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [...transactionsCategoryBreakdownKey, params],
+    queryFn: async () => {
+      const response = await api.get<CategoryBreakdownItem[]>(
+        '/transactions/category-breakdown',
         { params },
       )
       return response.data

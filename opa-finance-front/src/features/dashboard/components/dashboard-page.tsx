@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { useAccounts } from '@/features/accounts'
 import { DashboardAccountsCard } from '@/features/dashboard/components/dashboard-accounts-card'
+import { DashboardCashflowCard } from '@/features/dashboard/components/dashboard-cashflow-card'
+import { DashboardCategoryBreakdownCard } from '@/features/dashboard/components/dashboard-category-breakdown-card'
 import { DashboardFilters } from '@/features/dashboard/components/dashboard-filters'
 import { DashboardRecentTransactionsCard } from '@/features/dashboard/components/dashboard-recent-transactions-card'
 import { DashboardSummaryCards } from '@/features/dashboard/components/dashboard-summary-cards'
@@ -21,10 +23,13 @@ import { useDashboardPanels } from '@/features/dashboard/hooks/use-dashboard-pan
 import { useDashboardSearchParams } from '@/features/dashboard/hooks/use-dashboard-search-params'
 import {
   buildDashboardBaseQueryParams,
+  buildDashboardCashflowQueryParams,
+  buildDashboardCategoryBreakdownQueryParams,
   buildDashboardRecentTransactionsQueryParams,
   buildDashboardSummaryQueryParams,
   buildDashboardTopCategoriesQueryParams,
   buildDashboardTopCategoryTransactionsQueryParams,
+  resolveCashflowGranularity,
 } from '@/features/dashboard/mappers/dashboard-query.mapper'
 import {
   formatDashboardDateDisplay,
@@ -35,6 +40,8 @@ import type {
 } from '@/features/dashboard/model/dashboard.types'
 import {
   useTransactions,
+  useTransactionsCashflow,
+  useTransactionsCategoryBreakdown,
   useTransactionsTopCategories,
   useTransactionsSummary,
 } from '@/features/transactions'
@@ -130,6 +137,17 @@ export function DashboardPage({ search, navigate }: DashboardPageProps) {
     }),
     { enabled: canQueryAccount },
   )
+  const cashflowGranularity = resolveCashflowGranularity(startDate, endDate)
+  const cashflowQuery = useTransactionsCashflow(
+    buildDashboardCashflowQueryParams(baseQueryParams),
+    { enabled: canQueryAccount },
+  )
+  const categoryBreakdownQuery = useTransactionsCategoryBreakdown(
+    buildDashboardCategoryBreakdownQueryParams(baseQueryParams, {
+      type: 'expense',
+    }),
+    { enabled: canQueryAccount },
+  )
 
   const visibleAccounts = [...dashboardAccounts].sort((a, b) => {
     const aPrimary = a.isPrimary ? 1 : 0
@@ -155,6 +173,14 @@ export function DashboardPage({ search, navigate }: DashboardPageProps) {
   const topIncomeError = topIncomeQuery.isError
     ? getApiErrorMessage(topIncomeQuery.error)
     : null
+  const cashflowError = cashflowQuery.isError
+    ? getApiErrorMessage(cashflowQuery.error)
+    : null
+  const cashflowData = cashflowQuery.data ?? []
+  const categoryBreakdownError = categoryBreakdownQuery.isError
+    ? getApiErrorMessage(categoryBreakdownQuery.error)
+    : null
+  const categoryBreakdownItems = categoryBreakdownQuery.data ?? []
   const dateFormatter = new Intl.DateTimeFormat('pt-BR')
   const accountTypeLabels: Record<string, string> = {
     cash: 'Dinheiro',
@@ -186,6 +212,10 @@ export function DashboardPage({ search, navigate }: DashboardPageProps) {
     accountsQuery.isLoading || (canQueryAccount && topExpensesQuery.isLoading)
   const showTopIncomeSkeleton =
     accountsQuery.isLoading || (canQueryAccount && topIncomeQuery.isLoading)
+  const showCashflowSkeleton =
+    accountsQuery.isLoading || (canQueryAccount && cashflowQuery.isLoading)
+  const showCategoryBreakdownSkeleton =
+    accountsQuery.isLoading || (canQueryAccount && categoryBreakdownQuery.isLoading)
   const showAccountsSkeleton = accountsQuery.isLoading
   const handleMobileDateKeyDown: KeyboardEventHandler<HTMLInputElement> = (
     event,
@@ -249,6 +279,21 @@ export function DashboardPage({ search, navigate }: DashboardPageProps) {
           {summaryError}
         </div>
       )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DashboardCashflowCard
+          className="lg:col-span-2"
+          showSkeleton={showCashflowSkeleton}
+          errorMessage={cashflowError}
+          data={cashflowData}
+          granularity={cashflowGranularity}
+        />
+        <DashboardCategoryBreakdownCard
+          showSkeleton={showCategoryBreakdownSkeleton}
+          errorMessage={categoryBreakdownError}
+          items={categoryBreakdownItems}
+        />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

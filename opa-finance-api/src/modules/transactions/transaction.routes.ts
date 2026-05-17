@@ -2,6 +2,8 @@
 import { FastifyInstance } from "fastify";
 
 import {
+  cashflowQuerySchema,
+  categoryBreakdownQuerySchema,
   createTransactionSchema,
   updateTransactionSchema,
   transactionParamsSchema,
@@ -369,6 +371,94 @@ export async function transactionRoutes(app: FastifyInstance) {
     async (req) => {
       const query = topCategoriesQuerySchema.parse(req.query);
       return await service.topCategories(req.user.sub, query);
+    },
+  );
+
+  /* CASHFLOW */
+  app.get(
+    "/transactions/cashflow",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: transactionTag,
+        summary: "Fluxo de caixa",
+        description:
+          "Série temporal de receitas e despesas agregadas por dia/semana/mês no período.",
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: "object",
+          required: ["startDate", "endDate", "granularity"],
+          properties: {
+            startDate: { type: "string", example: "2026-04-01" },
+            endDate: { type: "string", example: "2026-04-30" },
+            accountId: { type: "string" },
+            excludeHiddenAccounts: { type: "boolean", example: true },
+            granularity: { type: "string", enum: ["day", "week", "month"] },
+          },
+        },
+        response: {
+          200: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                bucket: { type: "string", example: "2026-04-01" },
+                income: { type: "number" },
+                expense: { type: "number" },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const query = cashflowQuerySchema.parse(req.query);
+      return await service.cashflow(req.user.sub, query);
+    },
+  );
+
+  /* CATEGORY BREAKDOWN */
+  app.get(
+    "/transactions/category-breakdown",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        tags: transactionTag,
+        summary: "Distribuição por categoria",
+        description:
+          "Todas as categorias com gasto/receita no período, com valor absoluto, percentual e cor.",
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: "object",
+          required: ["startDate", "endDate"],
+          properties: {
+            startDate: { type: "string", example: "2026-04-01" },
+            endDate: { type: "string", example: "2026-04-30" },
+            accountId: { type: "string" },
+            excludeHiddenAccounts: { type: "boolean", example: true },
+            type: { type: "string", enum: ["income", "expense"], default: "expense" },
+          },
+        },
+        response: {
+          200: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                categoryId: { type: "string" },
+                categoryName: { type: "string" },
+                color: { type: "string", nullable: true },
+                totalAmount: { type: "number" },
+                percentage: { type: "number" },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const query = categoryBreakdownQuerySchema.parse(req.query);
+      return await service.categoryBreakdown(req.user.sub, query);
     },
   );
 

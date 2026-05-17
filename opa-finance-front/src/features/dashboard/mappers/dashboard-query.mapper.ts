@@ -1,4 +1,7 @@
 import type {
+  CashflowGranularity,
+  CashflowQueryParams,
+  CategoryBreakdownQueryParams,
   TopCategoriesGroupBy,
   TopCategoriesQueryParams,
   TransactionsQueryParams,
@@ -63,6 +66,46 @@ export function buildDashboardTopCategoriesQueryParams(
     ...base,
     type: options.type,
     groupBy: options.groupBy,
+  }
+}
+
+export function resolveCashflowGranularity(
+  startDate: string,
+  endDate: string,
+): CashflowGranularity {
+  const start = new Date(`${startDate}T00:00:00Z`).getTime()
+  const end = new Date(`${endDate}T00:00:00Z`).getTime()
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) {
+    return 'day'
+  }
+  const days = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1
+  if (days <= 31) return 'day'
+  if (days <= 90) return 'week'
+  return 'month'
+}
+
+export function buildDashboardCashflowQueryParams(
+  base: ReturnType<typeof buildDashboardBaseQueryParams>,
+): CashflowQueryParams {
+  return {
+    startDate: base.startDate,
+    endDate: base.endDate,
+    accountId: base.accountId,
+    excludeHiddenAccounts: base.excludeHiddenAccounts,
+    granularity: resolveCashflowGranularity(base.startDate, base.endDate),
+  }
+}
+
+export function buildDashboardCategoryBreakdownQueryParams(
+  base: ReturnType<typeof buildDashboardBaseQueryParams>,
+  options: { type: 'income' | 'expense' },
+): CategoryBreakdownQueryParams {
+  return {
+    startDate: base.startDate,
+    endDate: base.endDate,
+    accountId: base.accountId,
+    excludeHiddenAccounts: base.excludeHiddenAccounts,
+    type: options.type,
   }
 }
 

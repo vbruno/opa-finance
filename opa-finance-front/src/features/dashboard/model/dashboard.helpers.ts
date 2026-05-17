@@ -1,3 +1,5 @@
+import type { CashflowGranularity } from '@/features/transactions/transactions.api'
+
 import type { DashboardPeriod } from './dashboard.constants'
 
 export function getDashboardDateRange(
@@ -83,4 +85,27 @@ export function formatDashboardDateInput(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+const ptShortDayFormatter = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: 'short',
+})
+
+const ptShortMonthFormatter = new Intl.DateTimeFormat('pt-BR', {
+  month: 'short',
+  year: '2-digit',
+})
+
+export function formatCashflowBucketLabel(
+  bucket: string,
+  granularity: CashflowGranularity,
+) {
+  const date = new Date(`${bucket}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return bucket
+
+  if (granularity === 'month') {
+    return ptShortMonthFormatter.format(date).replace('.', '')
+  }
+  return ptShortDayFormatter.format(date).replace('.', '')
 }

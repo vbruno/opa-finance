@@ -31,6 +31,9 @@ import {
 } from "./transaction-list.helpers";
 import { TransactionType } from "./transaction.enums";
 import type {
+  CashflowGranularity,
+  CashflowQuery,
+  CategoryBreakdownQuery,
   CreateTransactionInput,
   UpdateTransactionInput,
   ListTransactionsQuery,
@@ -38,6 +41,39 @@ import type {
   TopCategoriesQuery,
   TransactionDescriptionsQuery,
 } from "./transaction.schemas";
+
+function formatDateUTC(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function parseIsoDateUTC(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function truncDate(value: string, granularity: CashflowGranularity): string {
+  const date = parseIsoDateUTC(value);
+  if (granularity === "month") {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  }
+  if (granularity === "week") {
+    const day = date.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    date.setUTCDate(date.getUTCDate() + diffToMonday);
+  }
+  return formatDateUTC(date);
+}
+
+function advanceBucket(value: string, granularity: CashflowGranularity): string {
+  const date = parseIsoDateUTC(value);
+  if (granularity === "day") date.setUTCDate(date.getUTCDate() + 1);
+  else if (granularity === "week") date.setUTCDate(date.getUTCDate() + 7);
+  else date.setUTCMonth(date.getUTCMonth() + 1);
+  return formatDateUTC(date);
+}
 
 type AuditTransactionRecord = Pick<
   typeof transactions.$inferSelect,
@@ -892,6 +928,99 @@ export class TransactionService {
         name: row.categoryName,
         totalAmount: amount,
         percentage,
+      };
+    });
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                                CASHFLOW                                    */
+  /* -------------------------------------------------------------------------- */
+
+  async cashflow(userId: string, query: CashflowQuery) {
+    const filters = await this.buildBaseFilters(userId, query);
+
+    // granularity está validada pelo Zod (enum), seguro usar em sql.raw
+    const bucketExpr = sql<string>`date_trunc('${sql.raw(query.granularity)}', "transactions"."date"::timestamp)::date`;
+
+    const rows = await this.app.db
+      .select({
+        bucket: bucketExpr,
+        type: transactions.type,
+        total: sum(transactions.amount),
+      })
+      .from(transactions)
+      .where(and(...filters))
+      .groupBy(bucketExpr, transactions.type)
+      .orderBy(bucketExpr);
+
+    const byBucket = new Map<string, { income: number; expense: number }>();
+    for (const row of rows as Array<{
+      bucket: string | Date;
+      type: TransactionType;
+      total: string | null;
+    }>) {
+      const bucketKey =
+        row.bucket instanceof Date ? formatDateUTC(row.bucket) : String(row.bucket).slice(0, 10);
+      const current = byBucket.get(bucketKey) ?? { income: 0, expense: 0 };
+      const amount = Number(row.total ?? 0);
+      if (row.type === "income") current.income += amount;
+      else if (row.type === "expense") current.expense += amount;
+      byBucket.set(bucketKey, current);
+    }
+
+    const series: Array<{ bucket: string; income: number; expense: number }> = [];
+    const start = truncDate(query.startDate, query.granularity);
+    const end = truncDate(query.endDate, query.granularity);
+    let cur = start;
+    while (cur <= end) {
+      const data = byBucket.get(cur) ?? { income: 0, expense: 0 };
+      series.push({ bucket: cur, income: data.income, expense: data.expense });
+      cur = advanceBucket(cur, query.granularity);
+    }
+
+    return series;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                          CATEGORY BREAKDOWN                                */
+  /* -------------------------------------------------------------------------- */
+
+  async categoryBreakdown(userId: string, query: CategoryBreakdownQuery) {
+    const filters = await this.buildBaseFilters(userId, query);
+    filters.push(eq(transactions.type, query.type as TransactionType));
+
+    const totalAmount = sql<string>`sum(${transactions.amount})`;
+
+    const rows = await this.app.db
+      .select({
+        categoryId: transactions.categoryId,
+        categoryName: categories.name,
+        color: categories.color,
+        totalAmount,
+      })
+      .from(transactions)
+      .innerJoin(categories, eq(categories.id, transactions.categoryId))
+      .where(and(...filters))
+      .groupBy(transactions.categoryId, categories.name, categories.color)
+      .orderBy(desc(totalAmount), asc(categories.name));
+
+    const typed = rows as Array<{
+      categoryId: string;
+      categoryName: string;
+      color: string | null;
+      totalAmount: string | null;
+    }>;
+
+    const total = typed.reduce((acc, row) => acc + Number(row.totalAmount ?? 0), 0);
+
+    return typed.map((row) => {
+      const amount = Number(row.totalAmount ?? 0);
+      return {
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        color: row.color ?? null,
+        totalAmount: amount,
+        percentage: total > 0 ? (amount / total) * 100 : 0,
       };
     });
   }

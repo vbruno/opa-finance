@@ -8,6 +8,8 @@
 - Listar transações por filtros
 - Resumo de transações (summary)
 - Top 5 categorias de gasto
+- Fluxo de caixa agregado por dia/semana/mês (cashflow)
+- Distribuição completa por categoria com cores (category-breakdown)
 
 ## Regras
 
@@ -34,6 +36,20 @@
 - Sempre considera apenas despesas (type = expense)
 - Retorno: id, name, totalAmount, percentage (opcional)
 - Se `groupBy=subcategory`, retorna também categoryId/categoryName
+
+## Fluxo de caixa (cashflow)
+
+- Série temporal com `income` e `expense` agregados por bucket
+- `granularity`: `day`, `week` (segunda-feira como início) ou `month` (dia 1)
+- Filtros: startDate (obrig.), endDate (obrig.), accountId, excludeHiddenAccounts
+- Buckets sem transações são preenchidos com 0 — série sempre contínua
+
+## Distribuição por categoria (category-breakdown)
+
+- Todas as categorias com transações no período (sem limite de 5)
+- Inclui `color` da categoria (pode ser `null`)
+- `percentage` calculado sobre o total do período
+- Filtros: startDate (obrig.), endDate (obrig.), accountId, type (default: expense), excludeHiddenAccounts
 
 ## Autocomplete de descrições
 

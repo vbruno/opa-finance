@@ -296,3 +296,44 @@ export const transactionDescriptionsQuerySchema = z.object({
 });
 
 export type TransactionDescriptionsQuery = z.infer<typeof transactionDescriptionsQuerySchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                              CASHFLOW (QUERY)                              */
+/* -------------------------------------------------------------------------- */
+
+export const cashflowGranularitySchema = z.enum(["day", "week", "month"]);
+export type CashflowGranularity = z.infer<typeof cashflowGranularitySchema>;
+
+export const cashflowQuerySchema = z
+  .object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inicial inválida"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data final inválida"),
+    accountId: z.uuid().optional(),
+    excludeHiddenAccounts: z.coerce.boolean().optional(),
+    granularity: cashflowGranularitySchema,
+  })
+  .refine((data) => data.startDate <= data.endDate, {
+    message: "Data inicial não pode ser maior que a data final",
+    path: ["startDate"],
+  });
+
+export type CashflowQuery = z.infer<typeof cashflowQuerySchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                         CATEGORY BREAKDOWN (QUERY)                         */
+/* -------------------------------------------------------------------------- */
+
+export const categoryBreakdownQuerySchema = z
+  .object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inicial inválida"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data final inválida"),
+    accountId: z.uuid().optional(),
+    excludeHiddenAccounts: z.coerce.boolean().optional(),
+    type: z.enum(transactionTypes).default("expense"),
+  })
+  .refine((data) => data.startDate <= data.endDate, {
+    message: "Data inicial não pode ser maior que a data final",
+    path: ["startDate"],
+  });
+
+export type CategoryBreakdownQuery = z.infer<typeof categoryBreakdownQuerySchema>;

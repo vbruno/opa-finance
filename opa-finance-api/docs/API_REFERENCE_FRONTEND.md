@@ -1433,6 +1433,105 @@ GET /transactions/top-categories?startDate=2025-01-01&endDate=2025-01-31
 
 ---
 
+### GET `/transactions/cashflow`
+
+Série temporal de receitas e despesas agregadas por dia, semana ou mês no período informado. Buckets sem transações são retornados com `income: 0` e `expense: 0` (série contínua).
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Parameters:**
+
+- `startDate` (string, YYYY-MM-DD) — obrigatório
+- `endDate` (string, YYYY-MM-DD) — obrigatório (≥ `startDate`)
+- `granularity` (`"day" | "week" | "month"`) — obrigatório
+- `accountId` (uuid) — opcional
+- `excludeHiddenAccounts` (boolean) — opcional
+
+**Exemplo:**
+
+```
+GET /transactions/cashflow?startDate=2026-04-01&endDate=2026-04-30&granularity=day
+```
+
+**Response 200:**
+
+```json
+[
+  { "bucket": "2026-04-01", "income": 1000, "expense": 200 },
+  { "bucket": "2026-04-02", "income": 0, "expense": 0 },
+  { "bucket": "2026-04-03", "income": 0, "expense": 50 }
+]
+```
+
+**Notas:**
+
+- O campo `bucket` é a data ISO (YYYY-MM-DD) do **início** do intervalo:
+  - `granularity=day` → o próprio dia
+  - `granularity=week` → segunda-feira (alinhamento ISO)
+  - `granularity=month` → dia 1 do mês
+- Buckets são sempre contínuos do início ao fim do período.
+
+**Erros:**
+
+- `400` — `startDate`/`endDate` ausentes, `granularity` fora do enum ou `startDate > endDate`
+- `403` — `accountId` não pertence ao usuário
+- `404` — conta não encontrada
+
+---
+
+### GET `/transactions/category-breakdown`
+
+Distribuição de receitas ou despesas por categoria no período. Diferente de `/transactions/top-categories`, **não limita a 5** itens e **inclui a cor** definida na categoria (útil para gráficos do tipo donut/pizza).
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Query Parameters:**
+
+- `startDate` (string, YYYY-MM-DD) — obrigatório
+- `endDate` (string, YYYY-MM-DD) — obrigatório
+- `type` (`"income" | "expense"`) — opcional, default: `expense`
+- `accountId` (uuid) — opcional
+- `excludeHiddenAccounts` (boolean) — opcional
+
+**Exemplo:**
+
+```
+GET /transactions/category-breakdown?startDate=2026-04-01&endDate=2026-04-30&type=expense
+```
+
+**Response 200:**
+
+```json
+[
+  {
+    "categoryId": "uuid",
+    "categoryName": "Mercado",
+    "color": "#ff0000",
+    "totalAmount": 300,
+    "percentage": 75
+  },
+  {
+    "categoryId": "uuid",
+    "categoryName": "Transporte",
+    "color": null,
+    "totalAmount": 100,
+    "percentage": 25
+  }
+]
+```
+
+**Notas:**
+
+- `color` pode ser `null` quando a categoria não tem cor definida (o frontend deve aplicar fallback).
+- `percentage` é calculado em relação ao total do período (soma de todas as categorias). Em períodos vazios, a resposta é `[]`.
+
+**Erros:**
+
+- `400` — `startDate`/`endDate` ausentes ou `startDate > endDate`
+- `403` — `accountId` não pertence ao usuário
+
+---
+
 ### GET `/transactions/descriptions`
 
 Retorna descrições únicas usadas pelo usuário para autocomplete.
