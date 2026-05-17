@@ -536,6 +536,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
 
   const handleCloseCreateModal = useCallback(() => {
     setIsCreateOpen(false)
+    setCreateDraftTransaction(null)
     setIsCreateRecurrenceEnabled(false)
     resetCreateRecurrenceDraft()
     setIsCreateAccountSelectOpen(false)
@@ -544,6 +545,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
   }, [
     resetCreateRecurrenceDraft,
     setCreateCategoryTreeSearch,
+    setCreateDraftTransaction,
     setIsCreateAccountSelectOpen,
     setIsCreateCategoryTreeOpen,
     setIsCreateOpen,
@@ -2392,6 +2394,7 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
       </div>
 
       <TransactionsCreateModal
+        key={isCreateOpen ? `open-${createDraftTransaction?.id ?? 'new'}` : 'closed'}
         isOpen={isCreateOpen}
         onClose={handleCloseCreateModal}
         onSuccess={() => {

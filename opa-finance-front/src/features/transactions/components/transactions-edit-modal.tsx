@@ -88,7 +88,7 @@ export function TransactionsEditModal(
   const categoryTypeRef = useRef<HTMLSelectElement | null>(null)
   const categoryNameRef = useRef<HTMLInputElement | null>(null)
   const subcategoryNameRef = useRef<HTMLInputElement | null>(null)
-  const lastEditCategoryId = useRef<string | null>(null)
+  const lastEditCategoryId = useRef<string | null>(transaction?.categoryId ?? null)
 
   const updateTransactionMutation = useUpdateTransaction()
   const createCategoryMutation = useCreateCategory()

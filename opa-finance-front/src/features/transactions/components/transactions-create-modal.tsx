@@ -98,7 +98,7 @@ export function TransactionsCreateModal(
     categoryId: string
     subcategoryId: string
   } | null>(null)
-  const lastCreateCategoryId = useRef<string | null>(null)
+  const lastCreateCategoryId = useRef<string | null>(draftTransaction?.categoryId ?? null)
   const isCreateFromDuplicate = useRef(false)
   const initializedOpenRef = useRef(false)
   const createAmountRef = useRef<HTMLInputElement | null>(null)
@@ -128,14 +128,16 @@ export function TransactionsCreateModal(
   } = useForm<TransactionCreateFormData>({
     resolver: zodResolver(transactionCreateSchema),
     defaultValues: {
-      accountId: '',
-      categoryId: '',
-      subcategoryId: '',
-      type: '',
-      amount: '',
+      accountId: draftTransaction?.accountId ?? '',
+      categoryId: draftTransaction?.categoryId ?? '',
+      subcategoryId: draftTransaction?.subcategoryId ?? '',
+      type: draftTransaction?.type ?? '',
+      amount: draftTransaction
+        ? `$ ${formatCurrencyValue(draftTransaction.amount)}`
+        : '',
       date: '',
-      description: '',
-      notes: '',
+      description: draftTransaction?.description ?? '',
+      notes: draftTransaction?.notes ?? '',
     },
   })
 
@@ -364,7 +366,6 @@ export function TransactionsCreateModal(
       })
       setIsCreateRecurrenceEnabled(false)
       resetCreateRecurrenceDraft(formatDateInput(new Date()))
-      onDraftHandled?.()
       window.setTimeout(() => dateInputRef.current?.focus(), 0)
       return
     }

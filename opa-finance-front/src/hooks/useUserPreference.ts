@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuth } from '@/features/auth/useAuth'
 
@@ -41,6 +41,15 @@ export function useUserPreference<T>(
   const serialize = options.serialize ?? defaultSerialize
   const deserialize = options.deserialize ?? defaultDeserialize
 
+  // Mantém refs estáveis para serialize/deserialize. Chamadores podem passar
+  // funções inline (referência nova a cada render); usar diretamente como
+  // dependência de useEffect faria o effect rodar a cada render e oscilar o
+  // valor armazenado.
+  const serializeRef = useRef(serialize)
+  const deserializeRef = useRef(deserialize)
+  serializeRef.current = serialize
+  deserializeRef.current = deserialize
+
   const storageKey = useMemo(() => {
     if (!user?.id) {
       return null
@@ -49,23 +58,23 @@ export function useUserPreference<T>(
   }, [key, user?.id])
 
   const [value, setValue] = useState<T>(() =>
-    readPreference(storageKey, defaultValue, deserialize),
+    readPreference(storageKey, defaultValue, deserializeRef.current),
   )
 
   useEffect(() => {
-    setValue(readPreference(storageKey, defaultValue, deserialize))
-  }, [defaultValue, deserialize, storageKey])
+    setValue(readPreference(storageKey, defaultValue, deserializeRef.current))
+  }, [defaultValue, storageKey])
 
   useEffect(() => {
     if (!storageKey) {
       return
     }
     try {
-      localStorage.setItem(storageKey, serialize(value))
+      localStorage.setItem(storageKey, serializeRef.current(value))
     } catch {
       // ignore localStorage errors
     }
-  }, [serialize, storageKey, value])
+  }, [storageKey, value])
 
   return [value, setValue] as const
 }
