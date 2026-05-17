@@ -44,6 +44,92 @@ garantir_branch_local_sincronizada_com_origin() {
   exit 1
 }
 
+escolher_tipo_release() {
+  echo ""
+  echo "Tipo de release:"
+  echo "  1) Correcao / pequena melhoria (PATCH)"
+  echo "  2) Atualizacao de modulo / grande entrega (MINOR)"
+  echo "  0) Cancelar"
+  echo ""
+
+  read -r -p "Escolha uma opcao (0/1/2): " RELEASE_OPTION
+
+  case "$RELEASE_OPTION" in
+    1)
+      RELEASE_KIND="patch"
+      ;;
+    2)
+      RELEASE_KIND="minor"
+      ;;
+    0)
+      echo "Operacao cancelada."
+      exit 0
+      ;;
+    *)
+      echo "Erro: opcao invalida."
+      exit 1
+      ;;
+  esac
+}
+
+preparar_release_minor() {
+  local TARGET_VERSION="$1"
+
+  git checkout "$DEV_BRANCH"
+
+  node - "$ROOT_DIR" "$TARGET_VERSION" <<'EOF'
+const { execSync } = require('node:child_process')
+const { readFileSync, writeFileSync } = require('node:fs')
+const { resolve } = require('node:path')
+
+const rootDir = process.argv[2]
+const targetVersion = process.argv[3]
+const packageJsonPaths = [
+  resolve(rootDir, 'opa-finance-front/package.json'),
+  resolve(rootDir, 'opa-finance-api/package.json'),
+]
+
+function readJson(path) {
+  return JSON.parse(readFileSync(path, 'utf-8'))
+}
+
+function writeJson(path, value) {
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
+}
+
+function getCommitCount() {
+  return Number(
+    execSync('git rev-list --count HEAD', {
+      cwd: rootDir,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim(),
+  )
+}
+
+const nextCommitCount = getCommitCount() + 1
+
+for (const packageJsonPath of packageJsonPaths) {
+  const packageJson = readJson(packageJsonPath)
+  packageJson.version = targetVersion
+  packageJson.versioning = {
+    ...(packageJson.versioning ?? {}),
+    cycleStartCommitCount: nextCommitCount,
+  }
+  writeJson(packageJsonPath, packageJson)
+}
+EOF
+
+  git add "$ROOT_DIR/opa-finance-front/package.json" "$ROOT_DIR/opa-finance-api/package.json"
+
+  if git diff --cached --quiet -- "$ROOT_DIR/opa-finance-front/package.json" "$ROOT_DIR/opa-finance-api/package.json"; then
+    echo "Erro: release MINOR nao gerou alteracao de versao para commit."
+    exit 1
+  fi
+
+  git commit -m "chore: prepara release v${TARGET_VERSION}"
+}
+
 if ! git diff --quiet --ignore-submodules HEAD --; then
   echo "Erro: existe mudanca nao commitada. Limpe a arvore antes de promover a release."
   exit 1
@@ -71,7 +157,7 @@ if ! git merge-base --is-ancestor main "$DEV_BRANCH"; then
   exit 1
 fi
 
-RELEASE_VERSION="$(node - "$ROOT_DIR" "$DEV_BRANCH" <<'EOF'
+read -r PATCH_RELEASE_VERSION MINOR_RELEASE_VERSION < <(node - "$ROOT_DIR" "$DEV_BRANCH" <<'EOF'
 const { execSync } = require('node:child_process')
 const { readFileSync } = require('node:fs')
 const { resolve } = require('node:path')
@@ -100,6 +186,11 @@ function getReleaseVersion(packageJson) {
   return `${major}.${minor}.${Math.max(totalCommits - cycleStart, 0)}`
 }
 
+function getNextMinorVersion(packageJson) {
+  const [major = '0', minor = '0'] = String(packageJson.version || '0.0.0').split('.')
+  return `${major}.${Number(minor) + 1}.0`
+}
+
 const frontPkg = readJson(resolve(rootDir, 'opa-finance-front/package.json'))
 const apiPkg = readJson(resolve(rootDir, 'opa-finance-api/package.json'))
 
@@ -116,9 +207,19 @@ if (
   process.exit(11)
 }
 
-process.stdout.write(getReleaseVersion(apiPkg))
+process.stdout.write(`${getReleaseVersion(apiPkg)} ${getNextMinorVersion(apiPkg)}`)
 EOF
-)"
+)
+
+escolher_tipo_release
+
+if [ "$RELEASE_KIND" = "minor" ]; then
+  RELEASE_VERSION="$MINOR_RELEASE_VERSION"
+  RELEASE_KIND_LABEL="MINOR"
+else
+  RELEASE_VERSION="$PATCH_RELEASE_VERSION"
+  RELEASE_KIND_LABEL="PATCH"
+fi
 
 TAG_NAME="v${RELEASE_VERSION}"
 
@@ -136,15 +237,23 @@ MAIN_SHA="$(git rev-parse --short main)"
 DEV_SHA="$(git rev-parse --short "$DEV_BRANCH")"
 
 echo "Release calculada: ${RELEASE_VERSION}"
+echo "Tipo de release: ${RELEASE_KIND_LABEL}"
 echo "Branch origem: ${DEV_BRANCH} (${DEV_SHA})"
 echo "Branch destino: main (${MAIN_SHA})"
 echo "Tag a ser criada: ${TAG_NAME}"
+if [ "$RELEASE_KIND" = "minor" ]; then
+  echo "Sera criado um commit de versao em '${DEV_BRANCH}' antes do merge."
+fi
 printf "Confirmar merge de '%s' para 'main' e criar tag '%s'? [y/N] " "$DEV_BRANCH" "$TAG_NAME"
 read -r CONFIRM
 
 if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
   echo "Operacao cancelada."
   exit 0
+fi
+
+if [ "$RELEASE_KIND" = "minor" ]; then
+  preparar_release_minor "$RELEASE_VERSION"
 fi
 
 git checkout main
@@ -163,6 +272,7 @@ echo "  - branches '$DEV_BRANCH' e 'main' existentes"
 echo "  - merge fast-forward valido"
 echo "  - bases de versao e ciclo alinhados entre frontend e backend"
 echo "  - tag local inexistente antes da criacao"
+echo "  - tipo de release escolhido explicitamente (${RELEASE_KIND_LABEL})"
 echo "  - arquivos de versao regenerados localmente antes da tag"
 
 if ! tem_remote_origin; then

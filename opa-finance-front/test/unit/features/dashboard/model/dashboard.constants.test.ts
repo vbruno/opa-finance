@@ -12,6 +12,8 @@ describe('dashboard.constants', () => {
   it('deve manter lista canonica de periodos e opcoes em sincronia', () => {
     expect(DASHBOARD_PERIOD_VALUES).toEqual([
       'month',
+      'currentYear',
+      'fiscalYear',
       'previousMonth',
       'last7',
       'last15',
@@ -20,7 +22,7 @@ describe('dashboard.constants', () => {
     ])
 
     expect(DASHBOARD_PERIOD_OPTIONS.map((option) => option.value)).toEqual(
-      DASHBOARD_PERIOD_VALUES,
+      ['month', 'previousMonth', 'currentYear', 'fiscalYear', 'custom'],
     )
   })
 

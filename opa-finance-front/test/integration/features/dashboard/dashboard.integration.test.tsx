@@ -146,13 +146,13 @@ function getCurrentMonthRange(reference = new Date()) {
   }
 }
 
-function getLast7DaysRange(reference = new Date()) {
-  const start = new Date(reference)
-  start.setDate(reference.getDate() - 6)
+function getCurrentYearRange(reference = new Date()) {
+  const start = new Date(reference.getFullYear(), 0, 1)
+  const end = new Date(reference.getFullYear(), 11, 31)
 
   return {
     startDate: toDateInput(start),
-    endDate: toDateInput(reference),
+    endDate: toDateInput(end),
   }
 }
 
@@ -343,7 +343,7 @@ describe('dashboard integration', () => {
 
   it('deve atualizar filtros na URL e nos contratos do dashboard', async () => {
     const requestLogs = createDashboardServerMocks()
-    const last7DaysRange = getLast7DaysRange()
+    const currentYearRange = getCurrentYearRange(new Date('2026-05-17T10:00:00Z'))
 
     const { router } = renderRouteWithProviders({ initialEntries: ['/app'] })
 
@@ -353,22 +353,22 @@ describe('dashboard integration', () => {
     })
 
     fireEvent.change(screen.getByLabelText('Período'), {
-      target: { value: 'last7' },
+      target: { value: 'currentYear' },
     })
 
     await waitFor(() => {
-      expect(router.state.location.search.period).toBe('last7')
+      expect(router.state.location.search.period).toBe('currentYear')
     })
     await waitFor(() => {
       expect(latest(requestLogs.summary)).toMatchObject({
         accountId: 'acc-1',
         excludeHiddenAccounts: 'true',
-        startDate: last7DaysRange.startDate,
-        endDate: last7DaysRange.endDate,
+        startDate: currentYearRange.startDate,
+        endDate: currentYearRange.endDate,
       })
     })
 
-    expect(screen.getByLabelText('Período')).toHaveValue('last7')
+    expect(screen.getByLabelText('Período')).toHaveValue('currentYear')
 
     fireEvent.change(screen.getByLabelText('Conta'), {
       target: { value: 'all' },
@@ -380,18 +380,18 @@ describe('dashboard integration', () => {
     await waitFor(() => {
       expect(latest(requestLogs.summary)).toMatchObject({
         excludeHiddenAccounts: 'true',
-        startDate: last7DaysRange.startDate,
-        endDate: last7DaysRange.endDate,
+        startDate: currentYearRange.startDate,
+        endDate: currentYearRange.endDate,
       })
       expect(latest(requestLogs.transactions)).toMatchObject({
         excludeHiddenAccounts: 'true',
-        startDate: last7DaysRange.startDate,
-        endDate: last7DaysRange.endDate,
+        startDate: currentYearRange.startDate,
+        endDate: currentYearRange.endDate,
       })
       expect(latest(requestLogs.topCategories)).toMatchObject({
         excludeHiddenAccounts: 'true',
-        startDate: last7DaysRange.startDate,
-        endDate: last7DaysRange.endDate,
+        startDate: currentYearRange.startDate,
+        endDate: currentYearRange.endDate,
       })
     })
 

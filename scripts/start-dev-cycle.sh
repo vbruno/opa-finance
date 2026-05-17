@@ -69,7 +69,5 @@ NODE_ENV=development node "$ROOT_DIR/opa-finance-front/scripts/generate-version.
 NODE_ENV=development node "$ROOT_DIR/opa-finance-api/scripts/generate-version.mjs"
 
 echo
-echo "Ciclo de desenvolvimento pronto na branch '$BRANCH_NAME'."
-echo "Proximo passo sugerido:"
-echo "  git add ."
-echo "  git commit -m \"chore: inicia ciclo ${BRANCH_NAME}\""
+echo "Ciclo neutro de desenvolvimento pronto na branch '$BRANCH_NAME'."
+echo "A decisao entre PATCH e MINOR sera feita ao promover '$BRANCH_NAME' para 'main'."

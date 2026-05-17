@@ -42,7 +42,7 @@ describe('useDashboardSearchParams', () => {
     )
 
     act(() => {
-      result.current.handlePeriodChange('last7')
+      result.current.handlePeriodChange('currentYear')
     })
 
     const searchFn = navigate.mock.calls.at(-1)?.[0].search
@@ -54,7 +54,7 @@ describe('useDashboardSearchParams', () => {
         accountId: 'a-1',
       }),
     ).toMatchObject({
-      period: 'last7',
+      period: 'currentYear',
       startDate: undefined,
       endDate: undefined,
     })

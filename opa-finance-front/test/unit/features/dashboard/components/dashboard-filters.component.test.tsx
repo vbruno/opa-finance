@@ -38,13 +38,23 @@ describe('DashboardFilters', () => {
     )
 
     fireEvent.change(screen.getByLabelText('Período'), {
-      target: { value: 'last7' },
+      target: { value: 'currentYear' },
     })
     fireEvent.change(screen.getByLabelText('Conta'), {
       target: { value: 'a-1' },
     })
 
-    expect(onPeriodChange).toHaveBeenCalledWith('last7')
+    expect(
+      screen.getByRole('option', { name: 'Mês Corrente' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Mês Anterior' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Ano Corrente' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Ano Fiscal' })).toBeInTheDocument()
+    expect(onPeriodChange).toHaveBeenCalledWith('currentYear')
     expect(onAccountChange).toHaveBeenCalledWith('a-1')
   })
 

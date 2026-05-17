@@ -46,7 +46,8 @@ function getVersionInfo(packageJson) {
   return {
     base: `${major}.${minor}.0`,
     dev: `${major}.${minor}.${patch}-dev`,
-    prod: `${major}.${minor}.${patch}`,
+    patchRelease: `${major}.${minor}.${patch}`,
+    minorRelease: `${major}.${Number(minor) + 1}.0`,
     cycleStart,
     totalCommits,
   }
@@ -68,13 +69,15 @@ console.log('')
 console.log('Frontend:')
 console.log(`  Base do ciclo: ${frontInfo.base}`)
 console.log(`  Desenvolvimento: ${frontInfo.dev}`)
-console.log(`  Produção: ${frontInfo.prod}`)
+console.log(`  Release PATCH: ${frontInfo.patchRelease}`)
+console.log(`  Release MINOR: ${frontInfo.minorRelease}`)
 console.log(`  Início do ciclo (commit): ${frontInfo.cycleStart}`)
 console.log('')
 console.log('Backend:')
 console.log(`  Base do ciclo: ${apiInfo.base}`)
 console.log(`  Desenvolvimento: ${apiInfo.dev}`)
-console.log(`  Produção: ${apiInfo.prod}`)
+console.log(`  Release PATCH: ${apiInfo.patchRelease}`)
+console.log(`  Release MINOR: ${apiInfo.minorRelease}`)
 console.log(`  Início do ciclo (commit): ${apiInfo.cycleStart}`)
 console.log('')
 EOF
@@ -83,7 +86,8 @@ EOF
 executar_inicio_ciclo_dev() {
   echo ""
   echo "⚠️  Esta operacao vai criar ou atualizar a branch '$DEV_BRANCH',"
-  echo "    subir o MINOR, zerar o PATCH e regenerar as versoes em modo dev."
+  echo "    sem decidir ainda se a proxima release sera PATCH ou MINOR."
+  echo "    A decisao do tipo de release acontece na promocao para 'main'."
   echo ""
 
   read -r -p "Digite SIM para continuar (qualquer valor começando com S): " CONFIRM
@@ -98,7 +102,8 @@ executar_inicio_ciclo_dev() {
 executar_promocao_main() {
   echo ""
   echo "⚠️  Esta operacao vai promover '$DEV_BRANCH' para 'main',"
-  echo "    criar a tag da release, regenerar versoes e oferecer push para o remoto."
+  echo "    perguntar o tipo da release (PATCH ou MINOR), criar a tag,"
+  echo "    regenerar versoes e oferecer push para o remoto."
   echo ""
 
   read -r -p "Digite SIM para continuar (qualquer valor começando com S): " CONFIRM
@@ -117,8 +122,8 @@ echo "============================================"
 echo ""
 echo "O que deseja fazer?"
 echo ""
-echo "  1️⃣  Iniciar novo ciclo em '$DEV_BRANCH' (sobe MINOR e zera PATCH)"
-echo "  2️⃣  Promover '$DEV_BRANCH' para 'main' (merge/tag local + push opcional)"
+echo "  1️⃣  Preparar '$DEV_BRANCH' para novo ciclo neutro"
+echo "  2️⃣  Promover '$DEV_BRANCH' para 'main' (escolhe PATCH/MINOR)"
 echo "  3️⃣  Mostrar versão calculada atual"
 echo "  4️⃣  Cancelar"
 echo ""

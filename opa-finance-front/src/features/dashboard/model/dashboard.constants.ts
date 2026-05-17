@@ -1,5 +1,7 @@
 export const DASHBOARD_PERIOD_VALUES = [
   'month',
+  'currentYear',
+  'fiscalYear',
   'previousMonth',
   'last7',
   'last15',
@@ -9,6 +11,8 @@ export const DASHBOARD_PERIOD_VALUES = [
 
 export const DASHBOARD_PRESET_PERIOD_VALUES = [
   'month',
+  'currentYear',
+  'fiscalYear',
   'previousMonth',
   'last7',
   'last15',
@@ -16,11 +20,10 @@ export const DASHBOARD_PRESET_PERIOD_VALUES = [
 ] as const
 
 export const DASHBOARD_PERIOD_OPTIONS = [
-  { value: 'month', label: 'Mês atual' },
-  { value: 'previousMonth', label: 'Mês anterior' },
-  { value: 'last7', label: 'Últimos 7 dias' },
-  { value: 'last15', label: 'Últimos 15 dias' },
-  { value: 'last30', label: 'Últimos 30 dias' },
+  { value: 'month', label: 'Mês Corrente' },
+  { value: 'previousMonth', label: 'Mês Anterior' },
+  { value: 'currentYear', label: 'Ano Corrente' },
+  { value: 'fiscalYear', label: 'Ano Fiscal' },
   { value: 'custom', label: 'Customizado' },
 ] as const
 

@@ -39,6 +39,32 @@ describe('dashboard.helpers', () => {
       })
     })
 
+    it('deve usar ano corrente quando periodo currentYear', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-05-17T10:00:00Z'))
+      try {
+        expect(getDashboardDateRange('currentYear', '', '')).toEqual({
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
+        })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('deve usar ano fiscal australiano atual quando periodo fiscalYear', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-05-17T10:00:00Z'))
+      try {
+        expect(getDashboardDateRange('fiscalYear', '', '')).toEqual({
+          startDate: '2025-07-01',
+          endDate: '2026-06-30',
+        })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('deve usar fallback para custom vazio com mes atual', () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-04-14T10:00:00Z'))

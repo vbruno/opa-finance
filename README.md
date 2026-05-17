@@ -82,7 +82,7 @@ Materiais históricos e operacionais da raiz foram movidos para `docs-hidden/`.
 
 ### Monorepo
 
-- `./scripts/version-cycle.sh` — menu interativo para iniciar novo ciclo em `dev`, promover `dev` para `main` ou consultar a versao calculada atual
+- `./scripts/version-cycle.sh` — menu interativo para preparar `dev`, promover para `main` escolhendo `PATCH`/`MINOR` ou consultar a versao calculada atual
 
 ### Frontend
 

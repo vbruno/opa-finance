@@ -1,15 +1,16 @@
 # Contrato de Versionamento
 
-Este projeto adota um versionamento operacional simples, automatico no `PATCH` e manual no `MAJOR.MINOR`.
+Este projeto adota um versionamento operacional simples, automatico no `PATCH` e com decisao manual de `MINOR` somente na promocao para producao.
 
 ## Regras
 
 - `main` e sempre a branch de producao.
 - `dev` representa o ciclo atual de desenvolvimento.
 - A versao segue o formato `MAJOR.MINOR.PATCH`.
-- `MAJOR` sobe manualmente quando houver mudanca grande.
-- `MINOR` sobe manualmente quando comecar um novo ciclo de desenvolvimento.
+- `MAJOR` sobe manualmente quando houver mudanca grande fora do fluxo normal.
+- `MINOR` sobe quando a promocao para producao for classificada como atualizacao de modulo/grande entrega.
 - `PATCH` e incrementado automaticamente conforme os commits do ciclo atual.
+- `dev` e neutra: ao recriar a branch, ainda nao se decide se a proxima release sera `PATCH` ou `MINOR`.
 
 ## Formato por ambiente
 
@@ -23,17 +24,18 @@ Exemplo:
 
 ## Ciclo de release
 
-1. A producao atual esta em `main`, por exemplo `1.0.12`.
-2. Ao iniciar um novo ciclo, cria-se ou atualiza-se a branch `dev`.
-3. Nesse momento, `MINOR` sobe manualmente e `PATCH` volta para `0`.
-4. O primeiro estado do novo ciclo fica `1.1.0-dev`.
-5. A cada commit no ciclo atual, o `PATCH` aumenta automaticamente:
-   - `1.1.1-dev`
-   - `1.1.2-dev`
-   - `1.1.3-dev`
-6. Quando o ciclo estiver estavel, o codigo vai para `main`.
-7. Em `main`, a mesma versao perde apenas o sufixo `-dev`:
-   - `1.1.3`
+1. A producao atual esta em `main`, por exemplo `1.4.4`.
+2. Ao iniciar um novo ciclo, cria-se ou atualiza-se a branch `dev` sem bump de versao.
+3. O primeiro estado do novo ciclo fica `1.4.4-dev`.
+4. A cada commit no ciclo atual, o `PATCH` aumenta automaticamente:
+   - `1.4.5-dev`
+   - `1.4.6-dev`
+   - `1.4.7-dev`
+5. Quando o ciclo estiver estavel, o operador escolhe o tipo de release na promocao para `main`.
+6. Se for correcao ou pequena melhoria, publica como `PATCH`:
+   - `1.4.7`
+7. Se for atualizacao de modulo ou grande entrega, publica como `MINOR`:
+   - `1.5.0`
 
 ## Responsabilidades
 
@@ -41,14 +43,15 @@ Manual:
 
 - Definir o `MAJOR`
 - Decidir quando um novo ciclo deve comecar
+- Classificar a release como `PATCH` ou `MINOR` na promocao para `main`
 - Criar a tag Git de release em `main`
 
 Observacao importante:
 
-- O inicio de um novo ciclo nao e inferido automaticamente.
-- Ao abrir um novo ciclo em `dev`, e necessario decidir que a base da versao vai mudar.
-- Quando isso acontecer pelo fluxo oficial, o script `./scripts/version-cycle.sh` aplica automaticamente o bump de `MINOR` e o reset do `PATCH` para `0`.
-- Exemplo: depois de publicar `1.1.3`, o proximo ciclo deve ser ajustado manualmente para `1.2.0-dev`.
+- O inicio de um novo ciclo nao muda `MAJOR.MINOR`.
+- A decisao entre `PATCH` e `MINOR` acontece somente ao promover `dev` para `main`.
+- Quando a release for `MINOR`, o script `./scripts/version-cycle.sh` cria um commit de versao em `dev` antes do merge para `main`.
+- Exemplo: depois de desenvolver em `1.4.7-dev`, a promocao pode publicar `1.4.7` como `PATCH` ou `1.5.0` como `MINOR`.
 
 Automatico:
 
@@ -78,9 +81,11 @@ Essa tag marca exatamente qual commit virou release de producao.
 
 ## Resumo operacional
 
-- Novo ciclo de desenvolvimento: sobe `MINOR` e zera `PATCH`
+- Novo ciclo de desenvolvimento: recria/atualiza `dev` sem bump de versao
 - Durante desenvolvimento: `PATCH` sobe sozinho por commit
-- Publicacao em `main`: remove `-dev`
+- Publicacao em `main`: operador escolhe `PATCH` ou `MINOR`
+- Release `PATCH`: remove `-dev`
+- Release `MINOR`: sobe `MINOR`, zera `PATCH` e cria commit de versao antes do merge
 - Release publicada: cria tag Git na `main`
 
 ## Script interativo
@@ -93,8 +98,8 @@ Use o menu interativo:
 
 Opcoes disponiveis:
 
-- iniciar novo ciclo em `dev`
-- promover `dev` para `main`
+- preparar `dev` para novo ciclo neutro
+- promover `dev` para `main` escolhendo `PATCH` ou `MINOR`
 - mostrar a versao calculada atual
 
 Internamente, esse fluxo reaproveita os scripts operacionais abaixo:
@@ -102,15 +107,14 @@ Internamente, esse fluxo reaproveita os scripts operacionais abaixo:
 - `scripts/start-dev-cycle.sh`
 - `scripts/promote-dev-to-main.sh`
 
-### Iniciar novo ciclo em `dev`
+### Preparar novo ciclo neutro em `dev`
 
 Esse fluxo:
 
 - troca para `main`
 - cria ou atualiza a branch `dev`
-- sobe o `MINOR` automaticamente no script
-- zera o `PATCH` automaticamente no script
-- registra o inicio do novo ciclo nos `package.json`
+- nao altera `MAJOR.MINOR`
+- nao altera `cycleStartCommitCount`
 - regenera `app-version.ts` em modo de desenvolvimento
 
 ### Promocao de `dev` para `main`
@@ -118,6 +122,9 @@ Esse fluxo:
 Esse fluxo:
 
 - calcula a versao de release atual
+- pergunta se a release sera `PATCH` ou `MINOR`
+- em `PATCH`, mantem `MAJOR.MINOR` e publica o `PATCH` calculado pelos commits
+- em `MINOR`, atualiza os `package.json`, zera `PATCH` e cria um commit de versao em `dev`
 - faz merge `--ff-only` de `dev` para `main`
 - regenera `app-version.ts` em modo de producao
 - cria a tag da release no estado final preparado para producao
@@ -130,6 +137,7 @@ Validacoes aplicadas:
 - frontend e backend precisam estar com a mesma base de versao
 - frontend e backend precisam estar com o mesmo inicio de ciclo
 - a tag de release nao pode existir localmente
+- o tipo de release precisa ser escolhido explicitamente
 
 Observacao:
 

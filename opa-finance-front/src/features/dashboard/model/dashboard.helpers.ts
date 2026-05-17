@@ -10,6 +10,13 @@ export function getDashboardDateRange(
   const today = new Date()
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
   const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  const currentYearStart = new Date(today.getFullYear(), 0, 1)
+  const currentYearEnd = new Date(today.getFullYear(), 11, 31)
+  const fiscalYearStartYear = today.getMonth() >= 6
+    ? today.getFullYear()
+    : today.getFullYear() - 1
+  const fiscalYearStart = new Date(fiscalYearStartYear, 6, 1)
+  const fiscalYearEnd = new Date(fiscalYearStartYear + 1, 5, 30)
   const previousMonthStart = new Date(
     today.getFullYear(),
     today.getMonth() - 1,
@@ -27,6 +34,20 @@ export function getDashboardDateRange(
     return {
       startDate: formatDashboardDateInput(previousMonthStart),
       endDate: formatDashboardDateInput(previousMonthEnd),
+    }
+  }
+
+  if (period === 'currentYear') {
+    return {
+      startDate: formatDashboardDateInput(currentYearStart),
+      endDate: formatDashboardDateInput(currentYearEnd),
+    }
+  }
+
+  if (period === 'fiscalYear') {
+    return {
+      startDate: formatDashboardDateInput(fiscalYearStart),
+      endDate: formatDashboardDateInput(fiscalYearEnd),
     }
   }
 
