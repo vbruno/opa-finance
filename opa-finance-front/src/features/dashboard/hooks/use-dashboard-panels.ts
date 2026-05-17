@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import type { TopCategory, TopCategoriesGroupBy } from '@/features/transactions/transactions.api'
+import { useUserPreference } from '@/hooks/useUserPreference'
 
 type TopCategorySelection = {
   id: string
@@ -10,9 +11,18 @@ type TopCategorySelection = {
 }
 
 export function useDashboardPanels() {
-  const [isTransactionsOpen, setIsTransactionsOpen] = useState(true)
-  const [isTopExpensesOpen, setIsTopExpensesOpen] = useState(false)
-  const [isTopIncomeOpen, setIsTopIncomeOpen] = useState(false)
+  const [isTransactionsOpen, setIsTransactionsOpen] = useUserPreference<boolean>(
+    'dashboardPanelTransactionsOpen',
+    true,
+  )
+  const [isTopExpensesOpen, setIsTopExpensesOpen] = useUserPreference<boolean>(
+    'dashboardPanelTopExpensesOpen',
+    false,
+  )
+  const [isTopIncomeOpen, setIsTopIncomeOpen] = useUserPreference<boolean>(
+    'dashboardPanelTopIncomeOpen',
+    false,
+  )
   const [expenseGroupBy, setExpenseGroupBy] =
     useState<TopCategoriesGroupBy>('category')
   const [incomeGroupBy, setIncomeGroupBy] =
@@ -22,15 +32,15 @@ export function useDashboardPanels() {
 
   const toggleTransactionsOpen = useCallback(() => {
     setIsTransactionsOpen((prev) => !prev)
-  }, [])
+  }, [setIsTransactionsOpen])
 
   const toggleTopExpensesOpen = useCallback(() => {
     setIsTopExpensesOpen((prev) => !prev)
-  }, [])
+  }, [setIsTopExpensesOpen])
 
   const toggleTopIncomeOpen = useCallback(() => {
     setIsTopIncomeOpen((prev) => !prev)
-  }, [])
+  }, [setIsTopIncomeOpen])
 
   const updateExpenseGroupBy = useCallback((checked: boolean) => {
     setExpenseGroupBy(checked ? 'subcategory' : 'category')

@@ -33,6 +33,7 @@ import {
 } from '@/features/dashboard/mappers/dashboard-query.mapper'
 import {
   formatDashboardDateDisplay,
+  formatDashboardDateInput,
 } from '@/features/dashboard/model/dashboard.helpers'
 import type {
   DashboardNavigateFn,
@@ -176,7 +177,10 @@ export function DashboardPage({ search, navigate }: DashboardPageProps) {
   const cashflowError = cashflowQuery.isError
     ? getApiErrorMessage(cashflowQuery.error)
     : null
-  const cashflowData = cashflowQuery.data ?? []
+  const cashflowData = useMemo(() => {
+    const today = formatDashboardDateInput(new Date())
+    return (cashflowQuery.data ?? []).filter((point) => point.bucket <= today)
+  }, [cashflowQuery.data])
   const categoryBreakdownError = categoryBreakdownQuery.isError
     ? getApiErrorMessage(categoryBreakdownQuery.error)
     : null

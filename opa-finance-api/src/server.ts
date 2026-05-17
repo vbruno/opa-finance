@@ -13,6 +13,7 @@ import { registerErrorHandler } from "./core/middlewares/handle-route-error";
 import { db } from "./core/plugins/drizzle";
 import jwtPlugin from "./core/plugins/jwt";
 import { unaccentPlugin } from "./core/plugins/unaccent";
+import { APP_VERSION } from "./generated/app-version";
 
 import { accountRoutes } from "./modules/accounts/account.routes";
 import { auditRoutes } from "./modules/audit/audit.routes";
@@ -134,7 +135,7 @@ async function start() {
       openapi: {
         info: {
           title: "OPA Finance API",
-          version: "1.0.0",
+          version: APP_VERSION,
           description: "API para controle financeiro com autenticação JWT e cookies.",
         },
         servers: [

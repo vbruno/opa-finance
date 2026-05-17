@@ -52,7 +52,7 @@ export function DashboardCategoryBreakdownCard({
   const chartConfig = useMemo<ChartConfig>(() => {
     const config: ChartConfig = {}
     for (const item of enriched) {
-      config[item.categoryId] = {
+      config[item.categoryName] = {
         label: item.categoryName,
         color: item.fill,
       }
@@ -61,7 +61,7 @@ export function DashboardCategoryBreakdownCard({
   }, [enriched])
 
   return (
-    <div className={`rounded-lg border bg-background p-4 ${className ?? ''}`}>
+    <div className={`@container rounded-lg border bg-background p-4 ${className ?? ''}`}>
       <div className="flex items-start gap-3">
         <PieChartIcon className="h-6 w-6 text-muted-foreground" />
         <div>
@@ -83,18 +83,39 @@ export function DashboardCategoryBreakdownCard({
           </p>
         )}
         {!showSkeleton && !errorMessage && enriched.length > 0 && (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-4">
             <ChartContainer
               config={chartConfig}
-              className="aspect-square h-56 w-full max-w-xs"
+              className="mx-auto aspect-square h-56 w-full max-w-[16rem]"
             >
               <ResponsiveContainer>
                 <PieChart>
                   <ChartTooltip
+                    cursor={false}
                     content={
                       <ChartTooltipContent
+                        hideLabel
                         nameKey="categoryName"
-                        formatter={(value) => formatCurrencyValue(Number(value))}
+                        formatter={(value, name, item) => (
+                          <>
+                            <span
+                              className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                              style={{
+                                background:
+                                  (item.payload as { fill?: string } | undefined)
+                                    ?.fill ?? 'var(--color-chart-1)',
+                              }}
+                            />
+                            <div className="flex flex-1 items-center justify-between gap-3 leading-none">
+                              <span className="text-muted-foreground">
+                                {String(name)}
+                              </span>
+                              <span className="font-mono font-medium text-foreground tabular-nums">
+                                {formatCurrencyValue(Number(value))}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       />
                     }
                   />
@@ -114,7 +135,7 @@ export function DashboardCategoryBreakdownCard({
               </ResponsiveContainer>
             </ChartContainer>
 
-            <ul className="flex-1 space-y-2">
+            <ul className="hidden grid-cols-1 gap-x-4 gap-y-2 @md:grid @md:grid-cols-2">
               {enriched.map((item) => (
                 <li
                   key={item.categoryId}
@@ -127,7 +148,7 @@ export function DashboardCategoryBreakdownCard({
                     />
                     <span className="truncate">{item.categoryName}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-right">
+                  <div className="flex shrink-0 items-center gap-3 text-right">
                     <span className="text-muted-foreground">
                       {percentFormatter.format(item.percentage)}%
                     </span>

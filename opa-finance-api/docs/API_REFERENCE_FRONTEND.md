@@ -120,6 +120,22 @@ Health check simples da API.
 
 ---
 
+### GET `/version`
+
+Retorna a versão publicada da API, commit e data de build.
+
+**Response 200:**
+
+```json
+{
+  "version": "1.4.4",
+  "commit": "abc1234",
+  "buildTime": "2026-05-17T10:30:00.000Z"
+}
+```
+
+---
+
 ### GET `/`
 
 Retorna mensagem básica de status.
@@ -386,6 +402,35 @@ Redefine senha usando token recebido por email. Token é de uso único e expira 
 
 ---
 
+### POST `/auth/validate-reset-token`
+
+Valida se um token de redefinição de senha ainda pode ser usado. A validação não consome o token.
+
+**Request Body:**
+
+```json
+{
+  "token": "<token-recebido-por-email>"
+}
+```
+
+**Response 200:**
+
+```json
+{
+  "valid": true
+}
+```
+
+**Erros:**
+
+- `400` - Body inválido
+- `429` - Muitas tentativas
+
+Tokens inexistentes, expirados ou já utilizados retornam `200` com `valid: false`.
+
+---
+
 ## 👤 Users
 
 ### GET `/users`
@@ -473,6 +518,7 @@ Atualiza um usuário.
 ```json
 {
   "name": "João Silva Santos", // opcional
+  "email": "joao.santos@example.com", // opcional
   "timezone": "Australia/Adelaide" // opcional
 }
 ```
@@ -1830,6 +1876,64 @@ Aplica edição por escopo em recorrência ativa:
 
 ---
 
+### PUT `/recurrences/:id/occurrences/override`
+
+Cria ou atualiza uma sobrescrita pontual para uma ocorrência projetada, sem alterar a regra-mãe da recorrência.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Request Body:**
+
+```json
+{
+  "occurrenceDate": "2026-06-10",
+  "amount": 480,
+  "description": "Plano ajustado",
+  "notes": "Ajuste pontual"
+}
+```
+
+**Regras importantes:**
+
+- `occurrenceDate` é obrigatório e deve estar no formato `YYYY-MM-DD`
+- pelo menos um dos campos `amount`, `description` ou `notes` deve ser enviado
+- `amount`, quando enviado, deve ser maior que zero
+- `description` e `notes` aceitam `null` para limpar a sobrescrita do campo
+- a sobrescrita vale apenas para a data informada e não altera agenda, conta, categoria ou demais regras da recorrência
+- quando a ocorrência for materializada, a sobrescrita é aplicada no payload efetivo da ocorrência
+
+**Response 200:** objeto da sobrescrita criada ou atualizada.
+
+**Erros:**
+
+- `400` - payload inválido
+- `401` - não autenticado
+- `404` - recorrência não encontrada
+- `422` - data inválida para a série ou ocorrência não elegível para sobrescrita
+
+---
+
+### DELETE `/recurrences/:id/occurrences/override/:date`
+
+Remove a sobrescrita pontual de uma ocorrência projetada.
+
+**Headers:** `Authorization: Bearer {token}`
+
+**Path Params:**
+
+- `id` - UUID da recorrência
+- `date` - data da ocorrência no formato `YYYY-MM-DD`
+
+**Response 204:** sem body.
+
+**Erros:**
+
+- `400` - data inválida
+- `401` - não autenticado
+- `404` - recorrência ou sobrescrita não encontrada
+
+---
+
 ### PUT `/recurrences/:id/finalize`
 
 Finaliza uma recorrência ativa.
@@ -2696,5 +2800,5 @@ async function apiCall(url: string, options: RequestInit) {
 
 ---
 
-**Última atualização:** Janeiro 2025  
-**Versão da API:** 1.0.0
+**Última atualização:** Maio 2026
+**Versão da API:** 1.4.4
