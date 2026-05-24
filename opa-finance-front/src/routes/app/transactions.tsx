@@ -128,6 +128,8 @@ export const Route = createFileRoute('/app/transactions')({
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    editId: z.string().min(1).optional(),
+    editTransferId: z.string().min(1).optional(),
   }),
   component: TransactionsRoute,
 })

@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CheckCircle2, Pencil, SkipForward, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import {
@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ShortcutTooltip } from '@/components/ui/shortcut-hint'
 import { TablePagination } from '@/components/ui/table-pagination'
 import type { Category } from '@/features/categories'
 import type { Recurrence } from '@/features/recurrences'
@@ -28,12 +27,13 @@ import {
   formatRecurrenceFrequency,
   formatRecurrenceOriginType,
   formatRecurrenceStatus,
-  formatRecurrenceTimelineSource,
-  formatRecurrenceTimelineStatus,
   getRecurrenceOperationalEndDate,
 } from '@/features/recurrences/model/recurrences.helpers'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatCurrencyValue } from '@/lib/utils'
+
+import { RecurrenceTimelineDetailsModal } from './recurrence-timeline-details-modal'
+import { RecurrenceTimelineRow } from './recurrence-timeline-row'
 
 type RecurrenceDetailsModalProps = {
   recurrence: Recurrence | null
@@ -52,17 +52,13 @@ type RecurrenceDetailsModalProps = {
   onEditOccurrence?: (item: RecurrenceTimelineItem) => void
 }
 
-function formatMaybeIsoDate(value: string | null) {
-  return value ? formatIsoDateToPtBr(value) : '-'
-}
-
 function formatMaybeText(value: string | null | undefined) {
   return value?.trim() ? value : 'Sem informação'
 }
 
 function MetaCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-3 py-2 min-w-0">
+    <div className="flex items-center justify-between gap-4 px-3 py-1.5 min-w-0">
       <dt className="text-[11px] text-muted-foreground/70 shrink-0">{label}</dt>
       <dd className="text-xs font-medium text-right truncate" title={value}>{value}</dd>
     </div>
@@ -93,6 +89,8 @@ export function RecurrenceDetailsModal({
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(12)
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
+  const [selectedTimelineItem, setSelectedTimelineItem] =
+    useState<RecurrenceTimelineItem | null>(null)
   const skipMutation = useSkipRecurrenceOccurrence()
   const timelineParams = useMemo(() => {
     const operationalEndDate = recurrence
@@ -124,13 +122,17 @@ export function RecurrenceDetailsModal({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        if (selectedTimelineItem) {
+          setSelectedTimelineItem(null)
+        } else {
+          onClose()
+        }
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, recurrence])
+  }, [onClose, recurrence, selectedTimelineItem])
 
   const pendingReviewItems = useMemo(
     () =>
@@ -241,7 +243,7 @@ export function RecurrenceDetailsModal({
         aria-modal="true"
         aria-labelledby="recurrence-details-title"
         aria-describedby="recurrence-details-description"
-        className="relative flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+        className="relative flex w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
           <h2 id="recurrence-details-title" className="text-base font-semibold sm:text-lg">
@@ -299,7 +301,7 @@ export function RecurrenceDetailsModal({
         <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto px-4 py-3 sm:px-5">
           <dl className="shrink-0 overflow-hidden rounded-2xl border bg-muted/20 divide-y">
             <div className="grid grid-cols-3 divide-x">
-              <div className="col-span-2 flex items-center gap-3 px-3 py-2 min-w-0">
+              <div className="col-span-2 flex items-center gap-3 px-3 py-1.5 min-w-0">
                 <dt className="text-[11px] text-muted-foreground/70 shrink-0">Descrição</dt>
                 <dd className="text-xs font-medium truncate" title={formatMaybeText(recurrence.description)}>
                   {formatMaybeText(recurrence.description)}
@@ -315,7 +317,7 @@ export function RecurrenceDetailsModal({
             {recurrence.originType === 'transaction' ? (
               <div className="grid grid-cols-3 divide-x">
                 <MetaCell label="Conta" value={accountName} />
-                <div className="flex items-center justify-between gap-4 px-3 py-2 min-w-0">
+                <div className="flex items-center justify-between gap-4 px-3 py-1.5 min-w-0">
                   <dt className="text-[11px] text-muted-foreground/70 shrink-0">Categoria</dt>
                   <dd className="text-xs font-medium text-right min-w-0">
                     <span className="block truncate" title={categoryName}>{categoryName}</span>
@@ -338,17 +340,29 @@ export function RecurrenceDetailsModal({
               <MetaCell label="Próxima ocorrência" value={formatIsoDateToPtBr(recurrence.nextOccurrenceDate)} />
               <MetaCell label="Início" value={formatIsoDateToPtBr(recurrence.startDate)} />
             </div>
-            <div className="grid grid-cols-3 divide-x">
-              <MetaCell label="Última materialização" value={formatMaybeIsoDate(recurrence.lastMaterializedDate)} />
-              <MetaCell label="Atualizada em" value={formatMaybeIsoDate(recurrence.updatedAt.slice(0, 10))} />
-              <MetaCell label="Finalizada em" value={formatMaybeIsoDate(recurrence.finalizedAt?.slice(0, 10) ?? null)} />
-            </div>
-            <div className="flex items-center gap-3 px-3 py-2 min-w-0">
-              <dt className="text-[11px] text-muted-foreground/70 shrink-0">Observações</dt>
-              <dd className="text-xs font-medium truncate" title={recurrence.notes ?? ''}>
-                {recurrence.notes ?? ''}
-              </dd>
-            </div>
+            {recurrence.lastMaterializedDate || recurrence.finalizedAt ? (
+              <div className="grid grid-cols-3 divide-x">
+                {recurrence.lastMaterializedDate ? (
+                  <MetaCell label="Última materialização" value={formatIsoDateToPtBr(recurrence.lastMaterializedDate)} />
+                ) : (
+                  <div aria-hidden="true" />
+                )}
+                {recurrence.finalizedAt ? (
+                  <MetaCell label="Finalizada em" value={formatIsoDateToPtBr(recurrence.finalizedAt.slice(0, 10))} />
+                ) : (
+                  <div aria-hidden="true" />
+                )}
+                <div aria-hidden="true" />
+              </div>
+            ) : null}
+            {recurrence.notes?.trim() ? (
+              <div className="flex items-center gap-3 px-3 py-1.5 min-w-0">
+                <dt className="text-[11px] text-muted-foreground/70 shrink-0">Observações</dt>
+                <dd className="text-xs font-medium truncate" title={recurrence.notes}>
+                  {recurrence.notes}
+                </dd>
+              </div>
+            ) : null}
           </dl>
 
           <div className="flex flex-col flex-1 min-h-0 gap-2">
@@ -397,7 +411,7 @@ export function RecurrenceDetailsModal({
                   <thead className="sticky top-0 z-10 bg-muted text-left text-xs uppercase text-muted-foreground">
                     <tr>
                       <th
-                        className="px-3 py-2 cursor-pointer select-none hover:text-foreground"
+                        className="px-3 py-2 w-28 cursor-pointer select-none hover:text-foreground"
                         onClick={() => { setDir(d => d === 'asc' ? 'desc' : 'asc'); setPage(1) }}
                       >
                         <span className="flex items-center gap-1">
@@ -405,101 +419,26 @@ export function RecurrenceDetailsModal({
                           {dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                         </span>
                       </th>
-                      <th className="px-3 py-1.5">Recorrência</th>
+                      <th className="px-3 py-1.5 w-32">Recorrência</th>
+                      <th className="px-3 py-1.5 w-32 text-right">Valor</th>
                       <th className="px-3 py-1.5">Status</th>
-                      <th className="px-3 py-1.5">Origem</th>
-                      <th className="px-3 py-1.5 text-right">Valor</th>
-                      <th className="px-3 py-1.5">Vínculo</th>
-                      <th className="px-3 py-1.5 text-right">Ações</th>
+                      <th className="px-3 py-1.5 w-32 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {timelineQuery.data?.items.map((item) => (
-                      <tr key={`${item.source}-${item.id ?? item.occurrenceDate}`} className="border-t">
-                        <td className="px-3 py-1.5 font-medium whitespace-nowrap">
-                          {formatIsoDateToPtBr(item.occurrenceDate)}
-                        </td>
-                        <td className="px-3 py-1.5 whitespace-nowrap tabular-nums">
-                          {item.sequence
-                            ? timelineQuery.data?.summary.totalOccurrences
-                              ? `${item.sequence} / ${timelineQuery.data.summary.totalOccurrences}`
-                              : `${item.sequence}`
-                            : '-'}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          {formatRecurrenceTimelineStatus(item.status)}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          {formatRecurrenceTimelineSource(item.source)}
-                        </td>
-                        <td className="px-3 py-1.5 text-right font-medium whitespace-nowrap">
-                          <span className="inline-flex items-center justify-end gap-1.5">
-                            {item.hasOverride ? (
-                              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                                Ajustada
-                              </span>
-                            ) : null}
-                            {formatCurrencyValue(item.amount)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-1.5">
-                          {item.transactionId
-                            ? `Transação ${item.transactionId}`
-                            : item.transferId
-                              ? `Transferência ${item.transferId}`
-                              : 'Projetada'}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <div className="flex justify-end gap-1">
-                            {onEditOccurrence && recurrence.status === 'active' && (item.status === 'projected' || item.status === 'pending_review') ? (
-                              <ShortcutTooltip label="Editar ocorrência" className="w-auto">
-                                <Button
-                                  type="button"
-                                  size="icon-sm"
-                                  variant="outline"
-                                  onClick={() => onEditOccurrence(item)}
-                                  disabled={isBulkSkipping}
-                                  aria-label="Editar ocorrência"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </ShortcutTooltip>
-                            ) : null}
-                            <ShortcutTooltip
-                              label={item.canConfirm ? 'Confirmar' : 'Sem ação de confirmação'}
-                              className="w-auto"
-                            >
-                              <Button
-                                type="button"
-                                size="icon-sm"
-                                variant="outline"
-                                className="disabled:opacity-40"
-                                onClick={() => void handleOpenConfirmOccurrence(item)}
-                                disabled={!item.canConfirm || isOpeningConfirmModal}
-                                aria-label="Confirmar ocorrência"
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                              </Button>
-                            </ShortcutTooltip>
-                            <ShortcutTooltip
-                              label={item.canSkip ? 'Ignorar' : 'Sem ação de ignorar'}
-                              className="w-auto"
-                            >
-                              <Button
-                                type="button"
-                                size="icon-sm"
-                                variant="outline"
-                                className="disabled:opacity-40"
-                                onClick={() => onSkipOccurrence(item)}
-                                disabled={!item.canSkip}
-                                aria-label="Ignorar ocorrência"
-                              >
-                                <SkipForward className="h-4 w-4" />
-                              </Button>
-                            </ShortcutTooltip>
-                          </div>
-                        </td>
-                      </tr>
+                      <RecurrenceTimelineRow
+                        key={`${item.source}-${item.id ?? item.occurrenceDate}`}
+                        item={item}
+                        recurrence={recurrence}
+                        totalOccurrences={timelineQuery.data?.summary.totalOccurrences ?? null}
+                        isBulkSkipping={isBulkSkipping}
+                        isOpeningConfirmModal={isOpeningConfirmModal}
+                        onRowClick={setSelectedTimelineItem}
+                        onEditOccurrence={onEditOccurrence}
+                        onConfirmOccurrence={(target) => void handleOpenConfirmOccurrence(target)}
+                        onSkipOccurrence={onSkipOccurrence}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -533,6 +472,29 @@ export function RecurrenceDetailsModal({
         </div>
       </div>
     </div>
+
+    <RecurrenceTimelineDetailsModal
+      item={selectedTimelineItem}
+      recurrence={recurrence}
+      totalOccurrences={timelineQuery.data?.summary.totalOccurrences ?? null}
+      accountsById={accountsById}
+      categoriesById={categoriesById}
+      isBulkSkipping={isBulkSkipping}
+      isOpeningConfirmModal={isOpeningConfirmModal}
+      onClose={() => setSelectedTimelineItem(null)}
+      onEditOccurrence={onEditOccurrence ? (target) => {
+        setSelectedTimelineItem(null)
+        onEditOccurrence(target)
+      } : undefined}
+      onConfirmOccurrence={(target) => {
+        setSelectedTimelineItem(null)
+        void handleOpenConfirmOccurrence(target)
+      }}
+      onSkipOccurrence={(target) => {
+        setSelectedTimelineItem(null)
+        onSkipOccurrence(target)
+      }}
+    />
 
     <AlertDialog open={bulkSkipOpen} onOpenChange={(open) => { if (!open) setBulkSkipOpen(false) }}>
       <AlertDialogContent>

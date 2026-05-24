@@ -49,6 +49,7 @@ import {
   useTransactionForm,
   useTransferForm,
   useCreateTransaction,
+  useTransaction,
   useTransactions,
   useUpdateTransaction,
   TransactionsCreateModal,
@@ -1677,6 +1678,39 @@ export function TransactionsPage({ search, navigate }: TransactionsPageProps) {
     },
     [lastEditCategoryId, resetEdit, setIsEditOpen, setSelectedTransaction],
   )
+
+  const deepLinkTransactionQuery = useTransaction(search.editId)
+  const deepLinkTransferQuery = useTransaction(search.editTransferId)
+
+  useEffect(() => {
+    if (search.editId && deepLinkTransactionQuery.data) {
+      handleOpenEdit(deepLinkTransactionQuery.data)
+      navigate({
+        to: '/app/transactions',
+        search: (prev) => ({ ...prev, editId: undefined }),
+        replace: true,
+      })
+    }
+  }, [search.editId, deepLinkTransactionQuery.data, handleOpenEdit, navigate])
+
+  useEffect(() => {
+    if (search.editTransferId && deepLinkTransferQuery.data) {
+      setTransferRequest({ mode: 'edit', transaction: deepLinkTransferQuery.data })
+      setSelectedTransaction(null)
+      setIsTransferOpen(true)
+      navigate({
+        to: '/app/transactions',
+        search: (prev) => ({ ...prev, editTransferId: undefined }),
+        replace: true,
+      })
+    }
+  }, [
+    search.editTransferId,
+    deepLinkTransferQuery.data,
+    navigate,
+    setIsTransferOpen,
+    setSelectedTransaction,
+  ])
 
   const handleOpenDuplicate = useCallback(
     (transaction: Transaction) => {

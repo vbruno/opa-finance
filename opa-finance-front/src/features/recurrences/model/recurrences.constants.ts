@@ -1,7 +1,4 @@
-import type {
-  Recurrence,
-  RecurrenceTimelineItem,
-} from '@/features/recurrences'
+import type { Recurrence } from '@/features/recurrences'
 
 export const RECURRENCE_ORIGIN_TYPES = ['transaction', 'transfer'] as const
 export const RECURRENCE_POSTING_MODES = ['automatic', 'review_required'] as const
@@ -88,14 +85,6 @@ export const RECURRENCE_TIMELINE_STATUS_LABELS: Record<
   pending_review: 'Pendente de revisão',
   skipped: 'Ignorada',
   failed: 'Falhou',
-  projected: 'Projetada',
-}
-
-export const RECURRENCE_TIMELINE_SOURCE_LABELS: Record<
-  RecurrenceTimelineItem['source'],
-  string
-> = {
-  persisted: 'Persistida',
   projected: 'Projetada',
 }
 

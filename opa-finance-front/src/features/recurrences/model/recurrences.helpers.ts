@@ -10,7 +10,6 @@ import {
   RECURRENCE_FREQUENCY_LABELS,
   RECURRENCE_ORIGIN_LABELS,
   RECURRENCE_STATUS_LABELS,
-  RECURRENCE_TIMELINE_SOURCE_LABELS,
   RECURRENCE_TIMELINE_STATUS_LABELS,
 } from '@/features/recurrences/model/recurrences.constants'
 import { getApiErrorMessage, getApiErrorStatus } from '@/lib/apiError'
@@ -451,12 +450,6 @@ export function formatRecurrenceTimelineStatus(
   status: RecurrenceTimelineItem['status'],
 ) {
   return RECURRENCE_TIMELINE_STATUS_LABELS[status]
-}
-
-export function formatRecurrenceTimelineSource(
-  source: RecurrenceTimelineItem['source'],
-) {
-  return RECURRENCE_TIMELINE_SOURCE_LABELS[source]
 }
 
 export function formatRecurrenceCategoryTypeLabel(type: Category['type']) {
