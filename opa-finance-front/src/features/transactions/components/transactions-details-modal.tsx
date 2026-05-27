@@ -194,6 +194,15 @@ export function TransactionsDetailsModal({
               {selectedTransaction.notes || 'Sem notas'}
             </span>
           </div>
+          {selectedTransaction.recurrenceId ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-muted-foreground">Recorrência</span>
+              <span className="font-medium text-right">
+                {selectedTransaction.recurrenceDescription?.trim() ||
+                  'Sem descrição'}
+              </span>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-muted-foreground">Criada em</span>
             <span className="font-medium">

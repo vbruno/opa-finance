@@ -1,7 +1,15 @@
 import { randomUUID } from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../core/plugins/drizzle";
-import { accounts, categories, subcategories, transactions } from "./schema";
+import {
+  accounts,
+  categories,
+  recurrenceOccurrenceOverrides,
+  recurrenceOccurrences,
+  recurrences,
+  subcategories,
+  transactions,
+} from "./schema";
 
 type TransactionCallback = Parameters<typeof db.transaction>[0];
 type SeedTx = TransactionCallback extends (tx: infer T) => Promise<unknown> ? T : never;
@@ -383,8 +391,113 @@ export async function seedDemoFinanceData(conn: SeedConnection, userId: string) 
 
   await conn.insert(transactions).values(txData);
 
+  const today = dateFor(endYear, endMonth, now.getDate(), now);
+  const firstMaterializedDate = dateFor(START_YEAR, 1, 5, now);
+  const pendingReviewDate = dateFor(endYear, endMonth, Math.max(1, now.getDate() - 1), now);
+  const projectedOverrideDate = dateFor(endYear, endMonth, Math.min(28, now.getDate() + 2), now);
+
+  const [autoTxRecurrence] = await conn
+    .insert(recurrences)
+    .values({
+      userId,
+      originType: "transaction",
+      status: "active",
+      postingMode: "automatic",
+      timezone: "Australia/Adelaide",
+      frequency: "monthly",
+      startDate: dateFor(START_YEAR, 1, 5, now),
+      dayOfMonth: 5,
+      endType: "never",
+      accountId: checkingAcc.id,
+      categoryId: salary.id,
+      subcategoryId: null,
+      fromAccountId: null,
+      toAccountId: null,
+      amount: "4800.00",
+      description: "Salario recorrente (Demo)",
+      notes: "Regra automatica para demonstracao",
+      nextOccurrenceDate: today,
+      lastMaterializedDate: firstMaterializedDate,
+      lastMaterializedAt: now,
+    })
+    .returning({ id: recurrences.id });
+
+  const [reviewTransferRecurrence] = await conn
+    .insert(recurrences)
+    .values({
+      userId,
+      originType: "transfer",
+      status: "active",
+      postingMode: "review_required",
+      timezone: "Australia/Adelaide",
+      frequency: "weekly",
+      startDate: dateFor(START_YEAR, 1, 6, now),
+      dayOfWeek: 1,
+      endType: "by_occurrences",
+      endOccurrences: 24,
+      accountId: null,
+      categoryId: null,
+      subcategoryId: null,
+      fromAccountId: checkingAcc.id,
+      toAccountId: savingsAcc.id,
+      amount: "350.00",
+      description: "Aporte recorrente para poupanca (Demo)",
+      notes: "Regra com revisao manual para demonstracao",
+      nextOccurrenceDate: projectedOverrideDate,
+      lastMaterializedDate: pendingReviewDate,
+      lastMaterializedAt: now,
+    })
+    .returning({ id: recurrences.id });
+
+  await conn.insert(recurrenceOccurrences).values([
+    {
+      recurrenceId: autoTxRecurrence.id,
+      originType: "transaction",
+      occurrenceDate: firstMaterializedDate,
+      status: "materialized",
+      transactionId: null,
+      transferId: null,
+      metadata: { source: "seed.demo" },
+      reviewPayload: null,
+      version: 1,
+    },
+    {
+      recurrenceId: reviewTransferRecurrence.id,
+      originType: "transfer",
+      occurrenceDate: pendingReviewDate,
+      status: "pending_review",
+      transactionId: null,
+      transferId: null,
+      metadata: { source: "seed.demo" },
+      reviewPayload: {
+        occurrenceDate: pendingReviewDate,
+        originalScheduledDate: pendingReviewDate,
+        originType: "transfer",
+        amount: 350,
+        description: "Aporte recorrente para poupanca (Demo)",
+        notes: "Regra com revisao manual para demonstracao",
+        accountId: null,
+        categoryId: null,
+        subcategoryId: null,
+        fromAccountId: checkingAcc.id,
+        toAccountId: savingsAcc.id,
+      },
+      version: 1,
+    },
+  ]);
+
+  await conn.insert(recurrenceOccurrenceOverrides).values({
+    recurrenceId: autoTxRecurrence.id,
+    userId,
+    occurrenceDate: projectedOverrideDate,
+    amount: "4950.00",
+    description: "Salario com ajuste pontual (Demo)",
+    notes: "Override de ocorrencia projetada",
+  });
+
   return {
     transactionsCount: txData.length,
+    recurrencesCount: 2,
     startYear: START_YEAR,
     endYear,
     endMonth,

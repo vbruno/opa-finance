@@ -212,6 +212,7 @@ export class RecurrenceOccurrenceService {
         date: payload.occurrenceDate,
         description: payload.description,
         notes: payload.notes,
+        recurrenceId: recurrence.id,
       })
       .returning({ id: transactions.id });
 
@@ -246,6 +247,7 @@ export class RecurrenceOccurrenceService {
           description: payload.description,
           notes: payload.notes,
           transferId,
+          recurrenceId: recurrence.id,
         },
         {
           userId: recurrence.userId,
@@ -257,6 +259,7 @@ export class RecurrenceOccurrenceService {
           description: payload.description,
           notes: payload.notes,
           transferId,
+          recurrenceId: recurrence.id,
         },
       ])
       .returning({ id: transactions.id });

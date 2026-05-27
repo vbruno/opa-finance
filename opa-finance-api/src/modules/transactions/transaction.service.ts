@@ -490,11 +490,13 @@ export class TransactionService {
         accountName: accounts.name,
         categoryName: categories.name,
         subcategoryName: subcategories.name,
+        recurrenceDescription: recurrences.description,
       })
       .from(transactions)
       .leftJoin(accounts, eq(accounts.id, transactions.accountId))
       .leftJoin(categories, eq(categories.id, transactions.categoryId))
       .leftJoin(subcategories, eq(subcategories.id, transactions.subcategoryId))
+      .leftJoin(recurrences, eq(recurrences.id, transactions.recurrenceId))
       .where(and(...filters))
       .orderBy(...orderBy)
       .limit(limit)
@@ -506,6 +508,7 @@ export class TransactionService {
       accountName: row.accountName ?? null,
       categoryName: row.categoryName ?? null,
       subcategoryName: row.subcategoryName ?? null,
+      recurrenceDescription: row.recurrenceDescription ?? null,
     }));
 
     return {
@@ -521,9 +524,18 @@ export class TransactionService {
   /* -------------------------------------------------------------------------- */
 
   async getOne(id: string, userId: string) {
-    const [tx] = await this.app.db.select().from(transactions).where(eq(transactions.id, id));
+    const [row] = await this.app.db
+      .select({
+        transaction: transactions,
+        recurrenceDescription: recurrences.description,
+      })
+      .from(transactions)
+      .leftJoin(recurrences, eq(recurrences.id, transactions.recurrenceId))
+      .where(eq(transactions.id, id));
 
-    if (!tx) throw new NotFoundProblem("Transação não encontrada.", `/transactions/${id}`);
+    if (!row) throw new NotFoundProblem("Transação não encontrada.", `/transactions/${id}`);
+
+    const tx = row.transaction;
 
     if (tx.userId !== userId)
       throw new ForbiddenProblem("Acesso negado à transação.", `/transactions/${id}`);
@@ -531,6 +543,7 @@ export class TransactionService {
     return {
       ...tx,
       amount: Number(tx.amount),
+      recurrenceDescription: row.recurrenceDescription ?? null,
     };
   }
 

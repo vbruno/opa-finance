@@ -1251,6 +1251,8 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
       "description": "Compra no supermercado",
       "notes": null,
       "transferId": null,
+      "recurrenceId": null,
+      "recurrenceDescription": null,
       "createdAt": "2025-01-15T10:30:00.000Z"
     }
   ],
@@ -1262,8 +1264,9 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
 
 **Notas:**
 
-- `accountName`, `categoryName` e `subcategoryName` sao retornados via join.
+- `accountName`, `categoryName`, `subcategoryName` e `recurrenceDescription` sao retornados via join.
 - `subcategoryName` pode ser `null` quando a transacao nao tiver subcategoria.
+- `recurrenceId` e `recurrenceDescription` sao `null` para transacoes nao vinculadas a recorrencia (criadas manualmente). Quando vinculadas, `recurrenceDescription` traz o `description` da recorrencia-mae.
 - `amountMin` e `amountMax` devem ser enviados juntos e são inclusivos.
 
 ---
@@ -1289,9 +1292,15 @@ Obtém uma transação específica.
   "description": "Compra no supermercado",
   "notes": null,
   "transferId": null,
+  "recurrenceId": null,
+  "recurrenceDescription": null,
   "createdAt": "2025-01-15T10:30:00.000Z"
 }
 ```
+
+**Notas:**
+
+- `recurrenceId` aponta para `recurrences.id` quando a transacao foi lancada por uma recorrencia (materialize automatico ou confirm de pending review). `recurrenceDescription` e o `description` da recorrencia-mae, hidratado via left join — pode ser `null` mesmo quando `recurrenceId` esta setado se a recorrencia nao tem descricao preenchida.
 
 **Erros:**
 

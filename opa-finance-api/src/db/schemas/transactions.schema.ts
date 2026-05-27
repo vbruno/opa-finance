@@ -2,6 +2,7 @@ import { date, numeric, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-o
 
 import { accounts } from "./accounts.schema";
 import { categories } from "./categories.schema";
+import { recurrences } from "./recurrences.schema";
 import { subcategories } from "./subcategories.schema";
 import { users } from "./users.schema";
 
@@ -32,6 +33,9 @@ export const transactions = pgTable("transactions", {
   description: text("description"),
   notes: text("notes"),
   transferId: uuid("transfer_id"),
+  recurrenceId: uuid("recurrence_id").references(() => recurrences.id, {
+    onDelete: "set null",
+  }),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

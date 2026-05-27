@@ -26,6 +26,8 @@ export type Transaction = {
   description: string | null
   notes: string | null
   transferId: string | null
+  recurrenceId: string | null
+  recurrenceDescription?: string | null
   createdAt: string
 }
 

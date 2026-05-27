@@ -107,6 +107,7 @@ export class RecurrenceMaterializeService {
         date: occurrenceDate,
         description: recurrence.description,
         notes: recurrence.notes,
+        recurrenceId: recurrence.id,
       })
       .returning({ id: transactions.id });
 
@@ -148,6 +149,7 @@ export class RecurrenceMaterializeService {
           description: recurrence.description,
           notes: recurrence.notes,
           transferId,
+          recurrenceId: recurrence.id,
         },
         {
           userId: recurrence.userId,
@@ -159,6 +161,7 @@ export class RecurrenceMaterializeService {
           description: recurrence.description,
           notes: recurrence.notes,
           transferId,
+          recurrenceId: recurrence.id,
         },
       ])
       .returning({ id: transactions.id });

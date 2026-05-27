@@ -397,6 +397,15 @@ export function TransactionsEditModal(
             </p>
           </div>
 
+          {transaction.recurrenceId ? (
+            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+              Vinculada à recorrência:{' '}
+              <span className="font-medium text-foreground">
+                {transaction.recurrenceDescription?.trim() || 'Sem descrição'}
+              </span>
+            </div>
+          ) : null}
+
           <form className="mt-6 space-y-4" onSubmit={handleSubmit(transactionForm.onSubmit)}>
             <div className="grid gap-4 sm:grid-cols-2">
               <TransactionAccountField
