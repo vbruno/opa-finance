@@ -7,6 +7,8 @@ export type AuditEntityType =
   | 'account'
   | 'category'
   | 'subcategory'
+  | 'recurrence'
+  | 'recurrence_occurrence'
 
 export type AuditAction = 'create' | 'update' | 'delete'
 

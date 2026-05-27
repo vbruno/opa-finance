@@ -5,6 +5,8 @@ export const AUDIT_ENTITY_TYPES: AuditEntityType[] = [
   'account',
   'category',
   'subcategory',
+  'recurrence',
+  'recurrence_occurrence',
 ]
 
 export const AUDIT_ACTIONS: AuditAction[] = ['create', 'update', 'delete']
@@ -14,6 +16,8 @@ export const AUDIT_ENTITY_LABELS: Record<AuditEntityType, string> = {
   account: 'Contas',
   category: 'Categorias',
   subcategory: 'Subcategorias',
+  recurrence: 'Recorrências',
+  recurrence_occurrence: 'Ocorrências',
 }
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
