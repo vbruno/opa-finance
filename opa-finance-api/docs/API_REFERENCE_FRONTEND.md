@@ -1253,6 +1253,8 @@ GET /transactions?page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31&type=e
       "transferId": null,
       "recurrenceId": null,
       "recurrenceDescription": null,
+      "recurrenceSequence": null,
+      "recurrenceTotal": null,
       "createdAt": "2025-01-15T10:30:00.000Z"
     }
   ],
@@ -1294,6 +1296,8 @@ Obtém uma transação específica.
   "transferId": null,
   "recurrenceId": null,
   "recurrenceDescription": null,
+  "recurrenceSequence": null,
+  "recurrenceTotal": null,
   "createdAt": "2025-01-15T10:30:00.000Z"
 }
 ```
@@ -1301,6 +1305,7 @@ Obtém uma transação específica.
 **Notas:**
 
 - `recurrenceId` aponta para `recurrences.id` quando a transacao foi lancada por uma recorrencia (materialize automatico ou confirm de pending review). `recurrenceDescription` e o `description` da recorrencia-mae, hidratado via left join — pode ser `null` mesmo quando `recurrenceId` esta setado se a recorrencia nao tem descricao preenchida.
+- `recurrenceSequence` e a posicao desta transacao entre as ocorrencias persistidas da mesma recorrencia, ordenadas por `occurrence_date` crescente (calculado via `ROW_NUMBER() OVER (PARTITION BY recurrence_id ORDER BY occurrence_date)` na subquery de `recurrence_occurrences`). `recurrenceTotal` so e populado quando `recurrence.endType === 'by_occurrences'` (vem do `endOccurrences` da regra-mae); para `until_date` e `never` retorna `null`. Use ambos pra exibir formato `X/Y` no UI; `null` significa transacao avulsa ou recorrencia sem total fixo.
 
 **Erros:**
 

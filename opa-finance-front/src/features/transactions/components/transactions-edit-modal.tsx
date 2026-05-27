@@ -402,6 +402,15 @@ export function TransactionsEditModal(
               Vinculada à recorrência:{' '}
               <span className="font-medium text-foreground">
                 {transaction.recurrenceDescription?.trim() || 'Sem descrição'}
+                {transaction.recurrenceSequence != null ? (
+                  <span className="ml-2 tabular-nums text-muted-foreground">
+                    ({transaction.recurrenceSequence}
+                    {transaction.recurrenceTotal != null
+                      ? `/${transaction.recurrenceTotal}`
+                      : ''}
+                    )
+                  </span>
+                ) : null}
               </span>
             </div>
           ) : null}

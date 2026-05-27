@@ -258,7 +258,7 @@ export function RecurrenceTimelineDetailsModal({
             <>
               <DetailRow
                 label="Conta"
-                value={resolveAccountName(recurrence.fromAccountId, accountsById)}
+                value={resolveAccountName(recurrence.accountId, accountsById)}
               />
               <DetailRow
                 label="Categoria"
@@ -267,10 +267,7 @@ export function RecurrenceTimelineDetailsModal({
               {recurrence.subcategoryId ? (
                 <DetailRow
                   label="Subcategoria"
-                  value={resolveCategoryLabel(
-                    recurrence.subcategoryId,
-                    categoriesById,
-                  )}
+                  value={recurrence.subcategoryName?.trim() || '-'}
                 />
               ) : null}
               <DetailRow

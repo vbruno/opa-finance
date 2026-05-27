@@ -61,6 +61,7 @@ export type Recurrence = {
   accountId: string | null
   categoryId: string | null
   subcategoryId: string | null
+  subcategoryName?: string | null
   fromAccountId: string | null
   toAccountId: string | null
   amount: number

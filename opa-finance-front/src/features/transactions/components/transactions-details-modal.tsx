@@ -200,6 +200,15 @@ export function TransactionsDetailsModal({
               <span className="font-medium text-right">
                 {selectedTransaction.recurrenceDescription?.trim() ||
                   'Sem descrição'}
+                {selectedTransaction.recurrenceSequence != null ? (
+                  <span className="ml-2 tabular-nums text-muted-foreground">
+                    ({selectedTransaction.recurrenceSequence}
+                    {selectedTransaction.recurrenceTotal != null
+                      ? `/${selectedTransaction.recurrenceTotal}`
+                      : ''}
+                    )
+                  </span>
+                ) : null}
               </span>
             </div>
           ) : null}

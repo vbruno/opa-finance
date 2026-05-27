@@ -28,6 +28,8 @@ export type Transaction = {
   transferId: string | null
   recurrenceId: string | null
   recurrenceDescription?: string | null
+  recurrenceSequence?: number | null
+  recurrenceTotal?: number | null
   createdAt: string
 }
 

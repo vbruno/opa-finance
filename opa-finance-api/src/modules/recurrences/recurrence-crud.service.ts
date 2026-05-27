@@ -9,7 +9,7 @@ import {
 } from "../../core/errors/problems";
 import { ValidationProblem as VP } from "../../core/errors/problems";
 import type { DB } from "../../core/plugins/drizzle";
-import { recurrenceOccurrences, recurrences } from "../../db/schema";
+import { recurrenceOccurrences, recurrences, subcategories } from "../../db/schema";
 import { AuditService } from "../audit/audit.service";
 import { RecurrenceAudit } from "./recurrence.audit";
 import {
@@ -199,16 +199,19 @@ export class RecurrenceCrudService {
       typeof recurrences.$inferSelect & {
         pendingReviewCount: number;
         consumedOccurrenceCount: number;
+        subcategoryName: string | null;
       }
     > = await this.app.db
       .select({
         ...getTableColumns(recurrences),
         pendingReviewCount: sql<number>`coalesce(${pendingCounts.pendingReviewCount}, 0)::int`,
         consumedOccurrenceCount: sql<number>`coalesce(${consumedCounts.consumedOccurrenceCount}, 0)::int`,
+        subcategoryName: subcategories.name,
       })
       .from(recurrences)
       .leftJoin(pendingCounts, eq(pendingCounts.recurrenceId, recurrences.id))
       .leftJoin(consumedCounts, eq(consumedCounts.recurrenceId, recurrences.id))
+      .leftJoin(subcategories, eq(subcategories.id, recurrences.subcategoryId))
       .where(whereClause)
       .orderBy(desc(recurrences.createdAt))
       .limit(query.limit)
@@ -219,6 +222,7 @@ export class RecurrenceCrudService {
         ...serializeRecurrence(row),
         hasConsumedOccurrences: row.consumedOccurrenceCount > 0,
         pendingReviewCount: row.pendingReviewCount,
+        subcategoryName: row.subcategoryName ?? null,
       })),
       page: query.page,
       limit: query.limit,
@@ -227,24 +231,29 @@ export class RecurrenceCrudService {
   }
 
   async getOne(userId: string, recurrenceId: string) {
-    const [recurrence] = await this.app.db
-      .select()
+    const [row] = await this.app.db
+      .select({
+        ...getTableColumns(recurrences),
+        subcategoryName: subcategories.name,
+      })
       .from(recurrences)
+      .leftJoin(subcategories, eq(subcategories.id, recurrences.subcategoryId))
       .where(and(eq(recurrences.id, recurrenceId), sql`${recurrences.deletedAt} IS NULL`))
       .limit(1);
 
-    if (!recurrence) {
+    if (!row) {
       throw new NotFoundProblem("Recorrência não encontrada.", `/recurrences/${recurrenceId}`);
     }
-    if (recurrence.userId !== userId) {
+    if (row.userId !== userId) {
       throw new ForbiddenProblem("Acesso negado à recorrência.", `/recurrences/${recurrenceId}`);
     }
 
     const hasConsumedOccurrences = await this.validators.hasConsumedOccurrences(recurrenceId);
 
     return {
-      ...serializeRecurrence(recurrence),
+      ...serializeRecurrence(row),
       hasConsumedOccurrences,
+      subcategoryName: row.subcategoryName ?? null,
     };
   }
 

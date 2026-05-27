@@ -1,5 +1,5 @@
 // src/modules/transactions/transaction.service.ts
-import { and, asc, desc, eq, gte, ilike, isNotNull, lte, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, isNotNull, lte, or, sql, sum } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 
@@ -484,6 +484,15 @@ export class TransactionService {
       .from(transactions)
       .where(and(...filters));
 
+    const occurrenceSequence = this.app.db
+      .select({
+        transactionId: recurrenceOccurrences.transactionId,
+        transferId: recurrenceOccurrences.transferId,
+        sequence: sql<number>`row_number() over (partition by ${recurrenceOccurrences.recurrenceId} order by ${recurrenceOccurrences.occurrenceDate})::int`.as("seq"),
+      })
+      .from(recurrenceOccurrences)
+      .as("occurrence_sequence");
+
     const rows = await this.app.db
       .select({
         transaction: transactions,
@@ -491,12 +500,22 @@ export class TransactionService {
         categoryName: categories.name,
         subcategoryName: subcategories.name,
         recurrenceDescription: recurrences.description,
+        recurrenceEndType: recurrences.endType,
+        recurrenceEndOccurrences: recurrences.endOccurrences,
+        recurrenceSequence: occurrenceSequence.sequence,
       })
       .from(transactions)
       .leftJoin(accounts, eq(accounts.id, transactions.accountId))
       .leftJoin(categories, eq(categories.id, transactions.categoryId))
       .leftJoin(subcategories, eq(subcategories.id, transactions.subcategoryId))
       .leftJoin(recurrences, eq(recurrences.id, transactions.recurrenceId))
+      .leftJoin(
+        occurrenceSequence,
+        or(
+          eq(occurrenceSequence.transactionId, transactions.id),
+          eq(occurrenceSequence.transferId, transactions.transferId),
+        ),
+      )
       .where(and(...filters))
       .orderBy(...orderBy)
       .limit(limit)
@@ -509,6 +528,11 @@ export class TransactionService {
       categoryName: row.categoryName ?? null,
       subcategoryName: row.subcategoryName ?? null,
       recurrenceDescription: row.recurrenceDescription ?? null,
+      recurrenceSequence: row.recurrenceSequence ?? null,
+      recurrenceTotal:
+        row.recurrenceEndType === "by_occurrences"
+          ? (row.recurrenceEndOccurrences ?? null)
+          : null,
     }));
 
     return {
@@ -524,13 +548,32 @@ export class TransactionService {
   /* -------------------------------------------------------------------------- */
 
   async getOne(id: string, userId: string) {
+    const occurrenceSequence = this.app.db
+      .select({
+        transactionId: recurrenceOccurrences.transactionId,
+        transferId: recurrenceOccurrences.transferId,
+        sequence: sql<number>`row_number() over (partition by ${recurrenceOccurrences.recurrenceId} order by ${recurrenceOccurrences.occurrenceDate})::int`.as("seq"),
+      })
+      .from(recurrenceOccurrences)
+      .as("occurrence_sequence");
+
     const [row] = await this.app.db
       .select({
         transaction: transactions,
         recurrenceDescription: recurrences.description,
+        recurrenceEndType: recurrences.endType,
+        recurrenceEndOccurrences: recurrences.endOccurrences,
+        recurrenceSequence: occurrenceSequence.sequence,
       })
       .from(transactions)
       .leftJoin(recurrences, eq(recurrences.id, transactions.recurrenceId))
+      .leftJoin(
+        occurrenceSequence,
+        or(
+          eq(occurrenceSequence.transactionId, transactions.id),
+          eq(occurrenceSequence.transferId, transactions.transferId),
+        ),
+      )
       .where(eq(transactions.id, id));
 
     if (!row) throw new NotFoundProblem("Transação não encontrada.", `/transactions/${id}`);
@@ -544,6 +587,11 @@ export class TransactionService {
       ...tx,
       amount: Number(tx.amount),
       recurrenceDescription: row.recurrenceDescription ?? null,
+      recurrenceSequence: row.recurrenceSequence ?? null,
+      recurrenceTotal:
+        row.recurrenceEndType === "by_occurrences"
+          ? (row.recurrenceEndOccurrences ?? null)
+          : null,
     };
   }
 
